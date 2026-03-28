@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Home, Siren, ShieldAlert, Coins, Skull, BadgeAlert } from 'lucide-react';
+import { Image } from '@/components/ui/image';
 
 type SymbolKey = 'money' | 'diamond' | 'gun' | 'police';
 
@@ -20,10 +21,10 @@ const MACHINE_BG =
   'https://static.wixstatic.com/media/50f4bf_f0f13bffd67f4487bbad4fec560e36e5~mv2.png?originWidth=1024&originHeight=1920';
 
 const SLOT_ASSETS: Record<SymbolKey, string> = {
-  money: '/slots/money.png',
-  diamond: '/slots/diamond.png',
-  gun: '/slots/gun.png',
-  police: '/slots/police.png',
+  money: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png',
+  diamond: 'https://cdn-icons-png.flaticon.com/512/616/616494.png',
+  gun: 'https://cdn-icons-png.flaticon.com/512/833/833472.png',
+  police: 'https://cdn-icons-png.flaticon.com/512/2991/2991108.png',
 };
 
 const REEL_POOL: SymbolKey[] = [
@@ -422,21 +423,13 @@ const handleSpin = () => {
       </div>
 
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-28 pb-14 px-4 md:px-6">
-        <img
-          src={MACHINE_BG}
-          alt="Máquina Giro no Asfalto"
-          className="absolute inset-0 h-full w-full object-cover brightness-105 contrast-110"
-        />
+        <Image src={MACHINE_BG} alt="Máquina Giro no Asfalto" className="absolute inset-0 h-full w-full object-cover brightness-105 contrast-110" />
         <div className="absolute inset-0 bg-black/35" />
 
         <div className="relative z-10 w-full max-w-7xl grid grid-cols-1 xl:grid-cols-[1fr_390px] gap-8 items-center">
           <div className="flex flex-col items-center">
             <div className={`relative ${machineScaleClass}`}>
-              <img
-                src={MACHINE_BG}
-                alt="Estrutura da máquina"
-                className="w-full h-auto object-contain select-none pointer-events-none opacity-0"
-              />
+              <Image src={MACHINE_BG} alt="Estrutura da máquina" className="w-full h-auto object-contain select-none pointer-events-none opacity-0" />
 
               <div className={`${reelWindowClass} left-[21.5%]`}>
                 <div className="relative flex h-full w-full items-center justify-center rounded-[18px] border border-yellow-400/35 bg-black/70 shadow-[inset_0_0_24px_rgba(255,200,0,0.18)]">
