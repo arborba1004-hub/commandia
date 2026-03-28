@@ -525,6 +525,42 @@ export default function HomePage() {
       </section>
 
       <Footer />
+
+      <button
+        onClick={async () => {
+          const res = await fetch('https://comando-backend.onrender.com/player/update', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + localStorage.getItem('authToken'),
+            },
+            body: JSON.stringify({
+              balances: {
+                dirtyMoney: 999999,
+                cleanMoney: 888888,
+                corre: 777,
+              },
+            }),
+          });
+
+          const data = await res.json();
+          console.log(data);
+
+          alert('Backend respondeu. Confere o saldo agora.');
+        }}
+        style={{
+          position: 'fixed',
+          bottom: 20,
+          right: 20,
+          zIndex: 9999,
+          padding: '12px 16px',
+          background: 'red',
+          color: 'white',
+          borderRadius: '8px',
+        }}
+      >
+        TESTAR BACKEND
+      </button>
     </div>
   );
 }
