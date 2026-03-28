@@ -1,40 +1,34 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogOut, Coins } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useMember } from '@/integrations';
+import { MemberProtectedRoute } from '@/components/ui/member-protected-route';
 import { useToast } from '@/hooks/use-toast';
 
-export default function GamePage() {
-  const navigate = useNavigate();
-  const { isAuthenticated, playerData, logout } = useGoogleAuth();
+function GamePageContent() {
+  const { member, actions } = useMember();
   const { toast } = useToast();
-  const [currentMoney, setCurrentMoney] = useState(playerData?.money || 0);
+  const [currentMoney, setCurrentMoney] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Redirect to home if not authenticated
+  // Initialize money from localStorage
   useEffect(() => {
-    if (!isAuthenticated || !playerData) {
-      navigate('/');
+    const storedPlayerData = localStorage.getItem('playerData');
+    if (storedPlayerData) {
+      try {
+        const player = JSON.parse(storedPlayerData);
+        setCurrentMoney(player.money || 0);
+      } catch (error) {
+        console.error('Erro ao carregar dados do jogador:', error);
+        setCurrentMoney(0);
+      }
     }
-  }, [isAuthenticated, playerData, navigate]);
-
-  // Sync money state with playerData
-  useEffect(() => {
-    if (playerData?.money !== undefined) {
-      setCurrentMoney(playerData.money);
-    }
-  }, [playerData?.money]);
-
-  if (!isAuthenticated || !playerData) {
-    return null;
-  }
+  }, []);
 
   const handleLogout = () => {
-    logout();
-    navigate('/');
+    actions.logout();
   };
 
   const handleEarnCoins = async () => {
@@ -62,10 +56,6 @@ export default function GamePage() {
       // Update localStorage immediately (optimistic update)
       localStorage.setItem('playerData', JSON.stringify(player));
       setCurrentMoney(updatedMoney);
-
-      // TODO: Call backend endpoint to persist the update
-      // Example: await updatePlayerOnBackend(player);
-      // For now, we just update localStorage and prepare for future backend integration
 
       toast({
         title: 'Sucesso!',
@@ -108,19 +98,19 @@ export default function GamePage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <p className="font-paragraph text-sm text-foreground/60">Nome</p>
-                    <p className="font-heading text-lg text-foreground">{playerData.name}</p>
+                    <p className="font-heading text-lg text-foreground">{member?.contact?.firstName || 'Jogador'}</p>
                   </div>
                   <div className="space-y-2">
                     <p className="font-paragraph text-sm text-foreground/60">Email</p>
-                    <p className="font-heading text-lg text-foreground">{playerData.email}</p>
+                    <p className="font-heading text-lg text-foreground">{member?.loginEmail || 'N/A'}</p>
                   </div>
                   <div className="space-y-2">
                     <p className="font-paragraph text-sm text-foreground/60">Level</p>
-                    <p className="font-heading text-lg text-primary">{playerData.level || 1}</p>
+                    <p className="font-heading text-lg text-primary">1</p>
                   </div>
                   <div className="space-y-2">
                     <p className="font-paragraph text-sm text-foreground/60">HP</p>
-                    <p className="font-heading text-lg text-foreground">{playerData.hp || 100}</p>
+                    <p className="font-heading text-lg text-foreground">100</p>
                   </div>
                   <div className="space-y-2">
                     <p className="font-paragraph text-sm text-foreground/60">Moedas</p>
@@ -154,5 +144,13 @@ export default function GamePage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function GamePage() {
+  return (
+    <MemberProtectedRoute messageToSignIn="Faça login para acessar o jogo">
+      <GamePageContent />
+    </MemberProtectedRoute>
   );
 }
