@@ -59,7 +59,7 @@ export default function HomePage() {
     try {
       const credential = response.credential;
 
-      const backendResponse = await fetch('https://comando-server.onrender.com/auth/google', {
+      const backendResponse = await fetch('https://comando-backend.onrender.com/auth/google', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
