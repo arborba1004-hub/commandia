@@ -4,13 +4,59 @@ import Footer from '@/components/Footer';
 import { motion } from 'framer-motion';
 import { LogOut, Mail, User } from 'lucide-react';
 import { Image } from '@/components/ui/image';
+import { useEffect, useState } from 'react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function ProfilePage() {
-  const { member, actions } = useMember();
+  const { member, actions, isLoading } = useMember();
+  const [isPageReady, setIsPageReady] = useState(false);
+
+  useEffect(() => {
+    // Give the member context time to load
+    const timer = setTimeout(() => {
+      setIsPageReady(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleLogout = async () => {
     await actions.logout();
   };
+
+  // Show loading state while checking authentication
+  if (isLoading || !isPageReady) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingSpinner message="Carregando perfil..." />
+      </div>
+    );
+  }
+
+  // If no member data, show sign in prompt
+  if (!member) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <section className="pt-32 pb-24 flex items-center justify-center">
+          <div className="max-w-[120rem] mx-auto px-6 lg:px-12 text-center">
+            <h1 className="font-heading text-6xl lg:text-8xl uppercase tracking-wider text-foreground mb-6">
+              Acesso <span className="text-primary">Negado</span>
+            </h1>
+            <p className="font-paragraph text-xl text-foreground/80 mb-8">
+              Você precisa estar autenticado para acessar seu perfil.
+            </p>
+            <button
+              onClick={actions.login}
+              className="px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+            >
+              Entrar na Conta
+            </button>
+          </div>
+        </section>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

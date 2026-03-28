@@ -5,7 +5,6 @@ import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import HomePage from '@/components/pages/HomePage';
 import GaleriaPage from '@/components/pages/GaleriaPage';
 import ProfilePage from '@/components/pages/ProfilePage';
-import { MemberProtectedRoute } from '@/components/ui/member-protected-route';
 
 // Layout component that includes ScrollToTop
 function Layout() {
@@ -39,11 +38,7 @@ const router = createBrowserRouter([
       },
       {
         path: "profile",
-        element: (
-          <MemberProtectedRoute>
-            <ProfilePage />
-          </MemberProtectedRoute>
-        ),
+        element: <ProfilePage />,
         routeMetadata: {
           pageIdentifier: 'profile',
         },
