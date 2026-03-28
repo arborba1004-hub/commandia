@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 export default function HomePage() {
   const [mechanics, setMechanics] = useState<GameMechanics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadMechanics();
@@ -18,10 +19,13 @@ export default function HomePage() {
 
   const loadMechanics = async () => {
     try {
+      setError(null);
       const result = await BaseCrudService.getAll<GameMechanics>('gamemechanics');
-      setMechanics(result.items);
+      setMechanics(result.items || []);
     } catch (error) {
       console.error('Error loading mechanics:', error);
+      setError('Erro ao carregar mecânicas do jogo');
+      setMechanics([]);
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +84,19 @@ export default function HomePage() {
           </motion.div>
 
           <div className="min-h-[600px]">
-            {isLoading ? null : mechanics.length > 0 ? (
+            {isLoading ? null : error ? (
+              <div className="text-center py-24">
+                <p className="font-paragraph text-xl text-destructive mb-4">
+                  {error}
+                </p>
+                <button
+                  onClick={loadMechanics}
+                  className="px-6 py-2 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+                >
+                  Tentar Novamente
+                </button>
+              </div>
+            ) : mechanics.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {mechanics.map((mechanic, index) => (
                   <motion.div

@@ -10,6 +10,7 @@ import { Calendar, User } from 'lucide-react';
 export default function GaleriaPage() {
   const [artworks, setArtworks] = useState<ConceptArtGallery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadArtworks();
@@ -17,10 +18,13 @@ export default function GaleriaPage() {
 
   const loadArtworks = async () => {
     try {
+      setError(null);
       const result = await BaseCrudService.getAll<ConceptArtGallery>('conceptart');
-      setArtworks(result.items);
+      setArtworks(result.items || []);
     } catch (error) {
       console.error('Error loading artworks:', error);
+      setError('Erro ao carregar galeria de arte');
+      setArtworks([]);
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +63,19 @@ export default function GaleriaPage() {
       <section className="py-16">
         <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
           <div className="min-h-[800px]">
-            {isLoading ? null : artworks.length > 0 ? (
+            {isLoading ? null : error ? (
+              <div className="text-center py-24">
+                <p className="font-paragraph text-xl text-destructive mb-4">
+                  {error}
+                </p>
+                <button
+                  onClick={loadArtworks}
+                  className="px-6 py-2 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+                >
+                  Tentar Novamente
+                </button>
+              </div>
+            ) : artworks.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {artworks.map((artwork, index) => (
                   <motion.div
