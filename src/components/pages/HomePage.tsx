@@ -121,8 +121,8 @@ export default function HomePage() {
 
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('playerData', JSON.stringify(data.player));
+window.location.href = '/giro';
 
-        window.location.reload();
       } catch (error) {
         const message =
           error instanceof Error
