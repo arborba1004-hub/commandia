@@ -1,174 +1,530 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { BaseCrudService } from '@/integrations';
+import { GameMechanics } from '@/entities';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { Image } from '@/components/ui/image';
+import { Zap, Target, Trophy, LogOut } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
-
-const VIDEO = "https://video.wixstatic.com/video/50f4bf_536b2010396c43bd9a462af825339fa5/720p/mp4/file.mp4";
-const LOGO = "https://static.wixstatic.com/media/50f4bf_7140cdf76a2742628049849ce89b7560~mv2.png";
+import { useDebugLog } from '@/hooks/useDebugLog';
+import GoogleAuthDebugPanel from '@/components/GoogleAuthDebugPanel';
+import { useBackendHealthCheck } from '@/hooks/useBackendHealthCheck';
+import BackendHealthCheckModal from '@/components/BackendHealthCheckModal';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { isAuthenticated, playerData, logout } = useGoogleAuth();
+  const [mechanics, setMechanics] = useState<GameMechanics[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    playerData,
+    error: authError,
+    logout,
+  } = useGoogleAuth();
+
+  const { logs, addLog } = useDebugLog();
+  const { isChecking, status, checkBackendHealth, reset } = useBackendHealthCheck();
+
+  const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [buttonRendered, setButtonRendered] = useState(false);
+  const [credentialReceived, setCredentialReceived] = useState(false);
+  const [backendRequestStarted, setBackendRequestStarted] = useState(false);
+  const [backendResponseReceived, setBackendResponseReceived] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<number | undefined>();
+  const [backendResponse, setBackendResponse] = useState<any>(null);
+  const [finalError, setFinalError] = useState<string | null>(null);
+  const [isLoginComplete, setIsLoginComplete] = useState(false);
+  const [showHealthCheckModal, setShowHealthCheckModal] = useState(false);
+  const [pendingGoogleResponse, setPendingGoogleResponse] = useState<any>(null);
 
   useEffect(() => {
-    if (window.google && !isAuthenticated) {
-      window.google.accounts.id.initialize({
-        client_id: "948102948683-u0o9lg73rprka2t0pp0tr4ol96echnf4.apps.googleusercontent.com",
-        callback: async (response: any) => {
-          const res = await fetch("https://comando-backend.onrender.com/auth/google", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: response.credential })
-          });
+    loadMechanics();
+  }, []);
 
-          const data = await res.json();
+  useEffect(() => {
+    if (authError) {
+      setFinalError(authError);
+      addLog('Auth Error', 'error', authError);
+    }
+  }, [authError, addLog]);
 
-          if (data.token && data.player) {
-            localStorage.setItem("authToken", data.token);
-            localStorage.setItem("playerData", JSON.stringify(data.player));
-            window.location.reload();
-          }
+  useEffect(() => {
+    if (isAuthenticated && playerData) {
+      setIsLoginComplete(true);
+      setFinalError(null);
+      addLog('Login Complete', 'success', `Welcome ${playerData.name}`);
+    }
+  }, [isAuthenticated, playerData, addLog]);
+
+  useEffect(() => {
+    addLog('Init', 'pending', 'iniciando login');
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      setGoogleScriptLoaded(true);
+      addLog('Script', 'success', 'script carregado');
+
+      if (window.google) {
+        setGoogleAvailable(true);
+        addLog('Google', 'success', 'google disponível');
+      }
+    };
+
+    script.onerror = () => {
+      addLog('Script', 'error', 'falha ao carregar script');
+      setFinalError('Falha ao carregar Google Sign-In');
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  }, [addLog]);
+
+  const handleGoogleResponseWithDebug = async (response: any) => {
+    try {
+      setFinalError(null);
+      setCredentialReceived(true);
+      addLog('Credential', 'success', 'credential recebida');
+
+      const credential = response?.credential;
+      if (!credential) {
+        throw new Error('No credential received from Google');
+      }
+
+      // Store the response for later use after health check
+      setPendingGoogleResponse(response);
+
+      // Show health check modal and start checking backend
+      setShowHealthCheckModal(true);
+      reset();
+      addLog('HealthCheck', 'pending', 'iniciando verificação do servidor');
+
+      const healthCheckResult = await checkBackendHealth();
+
+      if (!healthCheckResult.isHealthy) {
+        addLog('HealthCheck', 'error', healthCheckResult.message);
+        // Modal will show error, user can retry
+        return;
+      }
+
+      // Backend is healthy, proceed with login
+      addLog('HealthCheck', 'success', 'servidor está pronto');
+      setShowHealthCheckModal(false);
+
+      // Now proceed with the actual authentication
+      setBackendRequestStarted(true);
+      addLog('Backend', 'pending', 'enviando para backend');
+
+      const responseFromBackend = await fetch('https://comando-backend.onrender.com/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        ux_mode: "popup"
+        body: JSON.stringify({ token: credential }),
       });
 
-      const el = document.getElementById("google-btn");
-      if (el) {
-        el.innerHTML = "";
-        window.google.accounts.id.renderButton(el, {
-          theme: "outline",
-          size: "large",
-          width: 260
-        });
+      setBackendStatus(responseFromBackend.status);
+      setBackendResponseReceived(true);
+      addLog('Backend', 'success', `resposta recebida - status ${responseFromBackend.status}`);
+
+      const data = await responseFromBackend.json();
+      setBackendResponse(data);
+      addLog('Backend', 'success', 'JSON parseado', data);
+
+      if (!responseFromBackend.ok) {
+        throw new Error(`Backend error: ${responseFromBackend.statusText}`);
+      }
+
+      if (data.token && data.player) {
+        addLog('Auth', 'success', 'token e player recebidos');
+
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('playerData', JSON.stringify(data.player));
+
+        setIsLoginComplete(true);
+        setFinalError(null);
+
+        addLog('Login Complete', 'success', `Welcome ${data.player.name}`);
+
+        window.location.reload();
+      } else {
+        throw new Error(data.message || 'Backend did not return token and player');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+      setFinalError(errorMessage);
+      addLog('Error', 'error', errorMessage);
+      console.error('Google auth error:', err);
+      setShowHealthCheckModal(false);
+    }
+  };
+
+  const handleHealthCheckRetry = async () => {
+    reset();
+    const healthCheckResult = await checkBackendHealth();
+
+    if (healthCheckResult.isHealthy) {
+      addLog('HealthCheck', 'success', 'servidor está pronto');
+      setShowHealthCheckModal(false);
+
+      // Proceed with login using the pending response
+      if (pendingGoogleResponse) {
+        const credential = pendingGoogleResponse.credential;
+
+        setBackendRequestStarted(true);
+        addLog('Backend', 'pending', 'enviando para backend');
+
+        try {
+          const responseFromBackend = await fetch('https://comando-backend.onrender.com/auth/google', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token: credential }),
+          });
+
+          setBackendStatus(responseFromBackend.status);
+          setBackendResponseReceived(true);
+          addLog('Backend', 'success', `resposta recebida - status ${responseFromBackend.status}`);
+
+          const data = await responseFromBackend.json();
+          setBackendResponse(data);
+          addLog('Backend', 'success', 'JSON parseado', data);
+
+          if (!responseFromBackend.ok) {
+            throw new Error(`Backend error: ${responseFromBackend.statusText}`);
+          }
+
+          if (data.token && data.player) {
+            addLog('Auth', 'success', 'token e player recebidos');
+
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('playerData', JSON.stringify(data.player));
+
+            setIsLoginComplete(true);
+            setFinalError(null);
+
+            addLog('Login Complete', 'success', `Welcome ${data.player.name}`);
+
+            window.location.reload();
+          } else {
+            throw new Error(data.message || 'Backend did not return token and player');
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+          setFinalError(errorMessage);
+          addLog('Error', 'error', errorMessage);
+          console.error('Google auth error:', err);
+        }
       }
     }
-  }, [isAuthenticated]);
+  };
+
+  useEffect(() => {
+    if (window.google && !authLoading && googleScriptLoaded && !isAuthenticated) {
+      window.google.accounts.id.initialize({
+        client_id: '948102948683-u0o9lg73rprka2t0pp0tr4ol96echnf4.apps.googleusercontent.com',
+        callback: handleGoogleResponseWithDebug,
+      });
+
+      const heroButton = document.getElementById('google-signin-button');
+      if (heroButton) {
+        heroButton.innerHTML = '';
+        window.google.accounts.id.renderButton(heroButton, {
+          theme: 'dark',
+          size: 'large',
+          text: 'signin_with',
+        });
+        setButtonRendered(true);
+        addLog('Button', 'success', 'botão renderizado (hero)');
+      }
+
+      const ctaButton = document.getElementById('google-signin-button-cta');
+      if (ctaButton) {
+        ctaButton.innerHTML = '';
+        window.google.accounts.id.renderButton(ctaButton, {
+          theme: 'dark',
+          size: 'large',
+          text: 'signin_with',
+        });
+        addLog('Button', 'success', 'botão renderizado (cta)');
+      }
+    }
+  }, [authLoading, googleScriptLoaded, isAuthenticated, addLog]);
+
+  const loadMechanics = async () => {
+    try {
+      setError(null);
+      const result = await BaseCrudService.getAll<GameMechanics>('gamemechanics');
+      setMechanics(result.items || []);
+    } catch (err) {
+      console.error('Error loading mechanics:', err);
+      setError('Erro ao carregar mecânicas do jogo');
+      setMechanics([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-black text-white">
+    <div className="min-h-screen bg-background pb-[40vh]">
+      <Header />
 
-      {/* 🎥 VIDEO */}
-      <video
-        src={VIDEO}
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="absolute w-full h-full object-cover"
-      />
-
-      {/* 🎭 OVERLAY INTELIGENTE */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/20 to-black/80" />
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent,black_80%)]" />
-
-      {/* 🎬 CONTEÚDO */}
-      <div className="relative z-10 flex h-full items-center justify-between px-8 md:px-20">
-
-        {/* 🧠 LADO ESQUERDO */}
-        <div className="max-w-xl">
-
-          <motion.img
-            src={LOGO}
-            className="w-40 mb-6 opacity-90"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 0.9, y: 0 }}
-            transition={{ duration: 1 }}
-          />
-
-          <motion.h1
-            className="text-4xl md:text-6xl font-bold uppercase tracking-wider"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            A cidade não respeita fracos.
-          </motion.h1>
-
-          <motion.p
-            className="mt-4 text-gray-300"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-          >
-            O poder não se herda. Se toma.
-          </motion.p>
-
-          <motion.button
-            onClick={() => navigate('/game')}
-            className="mt-8 px-8 py-4 bg-red-700 hover:bg-red-800 rounded-lg font-bold tracking-widest"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 }}
-          >
-            ENTRAR NO COMANDO
-          </motion.button>
-
-        </div>
-
-        {/* 🔐 LADO DIREITO (LOGIN / HUD) */}
-        <div className="hidden md:block">
-
+      <section className="pt-32 pb-24 bg-gradient-to-b from-primary/10 to-background">
+        <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
           {isAuthenticated && playerData ? (
-            <div className="bg-black/40 backdrop-blur-xl p-6 rounded-2xl border border-white/10 w-72">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="text-center space-y-8"
+            >
+              <h1 className="font-heading text-5xl lg:text-7xl uppercase tracking-wider text-foreground">
+                Bem-vindo, <span className="text-primary">{playerData.name}</span>
+              </h1>
 
-              <h2 className="text-xl font-bold">{playerData.name}</h2>
-              <p className="text-sm text-gray-400">{playerData.email}</p>
-
-              <div className="mt-4 space-y-2 text-sm">
-                <p>Level: {playerData.level || 1}</p>
-                <p>HP: {playerData.hp || 100}</p>
-                <p>Money: {playerData.money || 0}</p>
+              <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 max-w-2xl mx-auto space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="font-paragraph text-sm text-foreground/60">Email</p>
+                    <p className="font-heading text-lg text-foreground">{playerData.email}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-paragraph text-sm text-foreground/60">Level</p>
+                    <p className="font-heading text-lg text-primary">{playerData.level || 1}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-paragraph text-sm text-foreground/60">HP</p>
+                    <p className="font-heading text-lg text-foreground">{playerData.hp || 100}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-paragraph text-sm text-foreground/60">Moedas</p>
+                    <p className="font-heading text-lg text-secondary">{playerData.money || 0}</p>
+                  </div>
+                </div>
               </div>
 
-              <button
-                onClick={() => navigate('/game')}
-                className="mt-4 w-full bg-red-700 py-2 rounded-lg"
-              >
-                CONTINUAR
-              </button>
+              <div className="flex gap-4 justify-center pt-8">
+                <button
+                  onClick={() => navigate('/game')}
+                  className="px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+                >
+                  Continuar
+                </button>
 
-              <button
-                onClick={logout}
-                className="mt-2 w-full border border-red-500 py-2 rounded-lg"
-              >
-                SAIR
-              </button>
-
-            </div>
+                <button
+                  onClick={logout}
+                  className="px-8 py-4 border-2 border-destructive text-destructive font-heading uppercase tracking-wider rounded-lg hover:bg-destructive/10 transition-all flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sair
+                </button>
+              </div>
+            </motion.div>
           ) : (
-            <div className="bg-black/40 backdrop-blur-xl p-6 rounded-2xl border border-white/10 w-72 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="text-center space-y-8"
+            >
+              <h1 className="font-heading text-7xl lg:text-9xl uppercase tracking-wider text-foreground">
+                Domínio do <span className="text-primary">Comando</span>
+              </h1>
 
-              <p className="mb-4 text-sm tracking-widest text-gray-400">
-                ACESSO AO SISTEMA
+              <p className="font-paragraph text-xl lg:text-2xl text-foreground/80 max-w-3xl mx-auto leading-relaxed">
+                Mergulhe em um universo de estratégia, poder e domínio absoluto. Domine o jogo, controle o destino.
               </p>
 
-              <div id="google-btn" />
+              <div className="flex gap-4 justify-center pt-8">
+                <Link
+                  to="/galeria"
+                  className="px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+                >
+                  Explorar Galeria
+                </Link>
 
-            </div>
+                <div id="google-signin-button" className="flex items-center" />
+              </div>
+            </motion.div>
           )}
-
         </div>
+      </section>
 
-      </div>
+      <section className="py-24">
+        <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="font-heading text-5xl lg:text-6xl uppercase tracking-wider text-foreground mb-4">
+              Mecânicas do <span className="text-primary">Jogo</span>
+            </h2>
+            <p className="font-paragraph text-lg text-foreground/70 max-w-2xl mx-auto">
+              Descubra os sistemas que definem sua jornada no Domínio do Comando
+            </p>
+          </motion.div>
 
-      {/* 📱 MOBILE */}
-      <div className="md:hidden absolute bottom-10 w-full px-6 text-center z-10">
+          <div className="min-h-[600px]">
+            {isLoading ? null : error ? (
+              <div className="text-center py-24">
+                <p className="font-paragraph text-xl text-destructive mb-4">{error}</p>
+                <button
+                  onClick={loadMechanics}
+                  className="px-6 py-2 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+                >
+                  Tentar Novamente
+                </button>
+              </div>
+            ) : mechanics.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {mechanics.map((mechanic, index) => (
+                  <motion.div
+                    key={mechanic._id}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.6, delay: index * 0.1 }}
+                    className="group"
+                  >
+                    <div className="bg-custom4/30 border border-secondary/20 rounded-lg overflow-hidden hover:border-primary/50 transition-all h-full flex flex-col">
+                      {mechanic.mechanicImage && (
+                        <div className="relative h-64 overflow-hidden">
+                          <Image
+                            src={mechanic.mechanicImage}
+                            alt={mechanic.title || 'Game mechanic'}
+                            width={500}
+                            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                          />
+                        </div>
+                      )}
 
-        {isAuthenticated && playerData ? (
-          <>
-            <button
-              onClick={() => navigate('/game')}
-              className="w-full bg-red-700 py-4 rounded-xl font-bold"
+                      <div className="p-6 space-y-4 flex-1 flex flex-col">
+                        {mechanic.title && (
+                          <h3 className="font-heading text-2xl uppercase tracking-wider text-foreground group-hover:text-primary transition-colors">
+                            {mechanic.title}
+                          </h3>
+                        )}
+
+                        {mechanic.description && (
+                          <p className="font-paragraph text-base text-foreground/80 leading-relaxed flex-1">
+                            {mechanic.description}
+                          </p>
+                        )}
+
+                        <div className="pt-4 border-t border-secondary/20 space-y-2">
+                          {mechanic.mechanicType && (
+                            <div className="flex items-center gap-2">
+                              <Zap className="w-4 h-4 text-primary" />
+                              <p className="font-paragraph text-sm text-foreground/70">
+                                Tipo: {mechanic.mechanicType}
+                              </p>
+                            </div>
+                          )}
+
+                          {mechanic.levelRequirement && (
+                            <div className="flex items-center gap-2">
+                              <Target className="w-4 h-4 text-secondary" />
+                              <p className="font-paragraph text-sm text-foreground/70">
+                                Nível: {mechanic.levelRequirement}
+                              </p>
+                            </div>
+                          )}
+
+                          {mechanic.reward && (
+                            <div className="flex items-center gap-2">
+                              <Trophy className="w-4 h-4 text-primary" />
+                              <p className="font-paragraph text-sm text-foreground/70">
+                                Recompensa: {mechanic.reward}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-24">
+                <p className="font-paragraph text-xl text-foreground/60">
+                  Mecânicas do jogo em breve
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {!isAuthenticated && (
+        <section className="py-24 bg-custom4/20">
+          <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="text-center space-y-8"
             >
-              CONTINUAR
-            </button>
-          </>
-        ) : (
-          <div id="google-btn" className="flex justify-center" />
-        )}
+              <h2 className="font-heading text-5xl lg:text-6xl uppercase tracking-wider text-foreground">
+                Pronto para <span className="text-primary">Dominar</span>?
+              </h2>
 
-      </div>
+              <p className="font-paragraph text-lg text-foreground/70 max-w-2xl mx-auto">
+                Junte-se a milhares de jogadores que já conquistaram seu lugar no Domínio do Comando
+              </p>
 
+              <div id="google-signin-button-cta" className="flex justify-center" />
+            </motion.div>
+          </div>
+        </section>
+      )}
+
+      <Footer />
+
+      {!isAuthenticated && (
+        <GoogleAuthDebugPanel
+          logs={logs}
+          googleScriptLoaded={googleScriptLoaded}
+          googleAvailable={googleAvailable}
+          buttonRendered={buttonRendered}
+          credentialReceived={credentialReceived}
+          backendRequestStarted={backendRequestStarted}
+          backendResponseReceived={backendResponseReceived}
+          backendStatus={backendStatus}
+          backendResponse={backendResponse}
+          finalError={finalError}
+          playerName={playerData?.name}
+          isLoginComplete={isLoginComplete}
+        />
+      )}
+
+      <BackendHealthCheckModal
+        isOpen={showHealthCheckModal}
+        isChecking={isChecking}
+        message={status?.message || 'Aguardando backend iniciar...'}
+        isHealthy={status?.isHealthy}
+        timedOut={status?.timedOut}
+        onRetry={handleHealthCheckRetry}
+        onClose={() => setShowHealthCheckModal(false)}
+      />
     </div>
   );
 }
