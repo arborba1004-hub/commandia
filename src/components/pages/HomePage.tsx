@@ -16,10 +16,17 @@ export default function HomePage() {
   const [mechanics, setMechanics] = useState<GameMechanics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated, handleGoogleResponse, isLoading: authLoading, playerData, error: authError, logout } = useGoogleAuth();
-  const { logs, addLog, clearLogs } = useDebugLog();
 
-  // Debug state
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    playerData,
+    error: authError,
+    logout,
+  } = useGoogleAuth();
+
+  const { logs, addLog } = useDebugLog();
+
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const [googleAvailable, setGoogleAvailable] = useState(false);
   const [buttonRendered, setButtonRendered] = useState(false);
@@ -35,7 +42,6 @@ export default function HomePage() {
     loadMechanics();
   }, []);
 
-  // Monitor auth errors
   useEffect(() => {
     if (authError) {
       setFinalError(authError);
@@ -43,40 +49,39 @@ export default function HomePage() {
     }
   }, [authError, addLog]);
 
-  // Monitor login completion
   useEffect(() => {
     if (isAuthenticated && playerData) {
       setIsLoginComplete(true);
+      setFinalError(null);
       addLog('Login Complete', 'success', `Welcome ${playerData.name}`);
     }
   }, [isAuthenticated, playerData, addLog]);
 
-  // Load Google script
   useEffect(() => {
     addLog('Init', 'pending', 'iniciando login');
-    
+
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
-    
+
     script.onload = () => {
       setGoogleScriptLoaded(true);
       addLog('Script', 'success', 'script carregado');
-      
+
       if (window.google) {
         setGoogleAvailable(true);
         addLog('Google', 'success', 'google disponível');
       }
     };
-    
+
     script.onerror = () => {
       addLog('Script', 'error', 'falha ao carregar script');
       setFinalError('Falha ao carregar Google Sign-In');
     };
-    
+
     document.head.appendChild(script);
-    
+
     return () => {
       if (script.parentNode) {
         script.parentNode.removeChild(script);
@@ -84,13 +89,13 @@ export default function HomePage() {
     };
   }, [addLog]);
 
-  // Wrap handleGoogleResponse to add debug logging
   const handleGoogleResponseWithDebug = async (response: any) => {
     try {
+      setFinalError(null);
       setCredentialReceived(true);
       addLog('Credential', 'success', 'credential recebida');
-      
-      const credential = response.credential;
+
+      const credential = response?.credential;
       if (!credential) {
         throw new Error('No credential received from Google');
       }
@@ -98,8 +103,7 @@ export default function HomePage() {
       setBackendRequestStarted(true);
       addLog('Backend', 'pending', 'enviando para backend');
 
-      // Send token to backend
-      const backendResponse = await fetch('https://comando-backend.onrender.com/auth/google', {
+      const responseFromBackend = await fetch('https://comando-backend.onrender.com/auth/google', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,23 +111,30 @@ export default function HomePage() {
         body: JSON.stringify({ token: credential }),
       });
 
-      setBackendStatus(backendResponse.status);
+      setBackendStatus(responseFromBackend.status);
       setBackendResponseReceived(true);
-      addLog('Backend', 'success', `resposta recebida - status ${backendResponse.status}`);
+      addLog('Backend', 'success', `resposta recebida - status ${responseFromBackend.status}`);
 
-      const data = await backendResponse.json();
+      const data = await responseFromBackend.json();
       setBackendResponse(data);
       addLog('Backend', 'success', 'JSON parseado', data);
 
-      if (!backendResponse.ok) {
-        throw new Error(`Backend error: ${backendResponse.statusText}`);
+      if (!responseFromBackend.ok) {
+        throw new Error(`Backend error: ${responseFromBackend.statusText}`);
       }
 
-      // Check for token and player - correct success condition
       if (data.token && data.player) {
         addLog('Auth', 'success', 'token e player recebidos');
-        // Call original handler
-        await handleGoogleResponse(response);
+
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('playerData', JSON.stringify(data.player));
+
+        setIsLoginComplete(true);
+        setFinalError(null);
+
+        addLog('Login Complete', 'success', `Welcome ${data.player.name}`);
+
+        window.location.reload();
       } else {
         throw new Error(data.message || 'Backend did not return token and player');
       }
@@ -136,16 +147,15 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    // Initialize Google Sign-In
-    if (window.google && !authLoading && googleScriptLoaded) {
+    if (window.google && !authLoading && googleScriptLoaded && !isAuthenticated) {
       window.google.accounts.id.initialize({
         client_id: '948102948683-u0o9lg73rprka2t0pp0tr4ol96echnf4.apps.googleusercontent.com',
         callback: handleGoogleResponseWithDebug,
       });
 
-      // Render button in hero section
       const heroButton = document.getElementById('google-signin-button');
-      if (heroButton && !heroButton.hasChildNodes()) {
+      if (heroButton) {
+        heroButton.innerHTML = '';
         window.google.accounts.id.renderButton(heroButton, {
           theme: 'dark',
           size: 'large',
@@ -155,9 +165,9 @@ export default function HomePage() {
         addLog('Button', 'success', 'botão renderizado (hero)');
       }
 
-      // Render button in CTA section
       const ctaButton = document.getElementById('google-signin-button-cta');
-      if (ctaButton && !ctaButton.hasChildNodes()) {
+      if (ctaButton) {
+        ctaButton.innerHTML = '';
         window.google.accounts.id.renderButton(ctaButton, {
           theme: 'dark',
           size: 'large',
@@ -166,15 +176,15 @@ export default function HomePage() {
         addLog('Button', 'success', 'botão renderizado (cta)');
       }
     }
-  }, [authLoading, handleGoogleResponseWithDebug, googleScriptLoaded, addLog]);
+  }, [authLoading, googleScriptLoaded, isAuthenticated, addLog]);
 
   const loadMechanics = async () => {
     try {
       setError(null);
       const result = await BaseCrudService.getAll<GameMechanics>('gamemechanics');
       setMechanics(result.items || []);
-    } catch (error) {
-      console.error('Error loading mechanics:', error);
+    } catch (err) {
+      console.error('Error loading mechanics:', err);
       setError('Erro ao carregar mecânicas do jogo');
       setMechanics([]);
     } finally {
@@ -186,11 +196,9 @@ export default function HomePage() {
     <div className="min-h-screen bg-background pb-[40vh]">
       <Header />
 
-      {/* Hero Section */}
       <section className="pt-32 pb-24 bg-gradient-to-b from-primary/10 to-background">
         <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
           {isAuthenticated && playerData ? (
-            // Authenticated Hero
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -200,7 +208,7 @@ export default function HomePage() {
               <h1 className="font-heading text-5xl lg:text-7xl uppercase tracking-wider text-foreground">
                 Bem-vindo, <span className="text-primary">{playerData.name}</span>
               </h1>
-              
+
               <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 max-w-2xl mx-auto space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -229,6 +237,7 @@ export default function HomePage() {
                 >
                   Continuar
                 </button>
+
                 <button
                   onClick={logout}
                   className="px-8 py-4 border-2 border-destructive text-destructive font-heading uppercase tracking-wider rounded-lg hover:bg-destructive/10 transition-all flex items-center gap-2"
@@ -239,7 +248,6 @@ export default function HomePage() {
               </div>
             </motion.div>
           ) : (
-            // Unauthenticated Hero
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -249,9 +257,11 @@ export default function HomePage() {
               <h1 className="font-heading text-7xl lg:text-9xl uppercase tracking-wider text-foreground">
                 Domínio do <span className="text-primary">Comando</span>
               </h1>
+
               <p className="font-paragraph text-xl lg:text-2xl text-foreground/80 max-w-3xl mx-auto leading-relaxed">
                 Mergulhe em um universo de estratégia, poder e domínio absoluto. Domine o jogo, controle o destino.
               </p>
+
               <div className="flex gap-4 justify-center pt-8">
                 <Link
                   to="/galeria"
@@ -259,17 +269,14 @@ export default function HomePage() {
                 >
                   Explorar Galeria
                 </Link>
-                <div
-                  id="google-signin-button"
-                  className="flex items-center"
-                />
+
+                <div id="google-signin-button" className="flex items-center" />
               </div>
             </motion.div>
           )}
         </div>
       </section>
 
-      {/* Game Mechanics Section */}
       <section className="py-24">
         <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
           <motion.div
@@ -290,9 +297,7 @@ export default function HomePage() {
           <div className="min-h-[600px]">
             {isLoading ? null : error ? (
               <div className="text-center py-24">
-                <p className="font-paragraph text-xl text-destructive mb-4">
-                  {error}
-                </p>
+                <p className="font-paragraph text-xl text-destructive mb-4">{error}</p>
                 <button
                   onClick={loadMechanics}
                   className="px-6 py-2 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
@@ -380,7 +385,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA Section */}
       {!isAuthenticated && (
         <section className="py-24 bg-custom4/20">
           <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
@@ -394,9 +398,11 @@ export default function HomePage() {
               <h2 className="font-heading text-5xl lg:text-6xl uppercase tracking-wider text-foreground">
                 Pronto para <span className="text-primary">Dominar</span>?
               </h2>
+
               <p className="font-paragraph text-lg text-foreground/70 max-w-2xl mx-auto">
                 Junte-se a milhares de jogadores que já conquistaram seu lugar no Domínio do Comando
               </p>
+
               <div id="google-signin-button-cta" className="flex justify-center" />
             </motion.div>
           </div>
@@ -405,7 +411,6 @@ export default function HomePage() {
 
       <Footer />
 
-      {/* Debug Panel */}
       {!isAuthenticated && (
         <GoogleAuthDebugPanel
           logs={logs}
