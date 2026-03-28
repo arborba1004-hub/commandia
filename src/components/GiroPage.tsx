@@ -7,13 +7,20 @@ import { usePlayerStore } from '@/store/playerStore';
 const symbols = ['💵', '💎', '🚔', '🔫'];
 
 export default function GiroPage() {
-  const { player, addDirtyMoney, removeDirtyMoneyPercent, removeCorre } = usePlayerStore();
+  const { player, addDirtyMoney, removeDirtyMoneyPercent, removeCorre, useGiroSpin, getAvailableSpins } = usePlayerStore();
 
   const [slots, setSlots] = useState(['❔', '❔', '❔']);
   const [isSpinning, setIsSpinning] = useState(false);
 
   const spin = () => {
     if (isSpinning) return;
+    
+    const availableSpins = getAvailableSpins();
+    if (availableSpins <= 0) {
+      alert('Sem giros disponíveis');
+      return;
+    }
+
     if (player.balances.corre <= 0) {
       alert('Sem corre disponível');
       return;
@@ -21,6 +28,9 @@ export default function GiroPage() {
 
     setIsSpinning(true);
 
+    // Use a giro spin
+    useGiroSpin();
+    
     // remove 1 corre
     removeCorre(1);
 
@@ -85,7 +95,8 @@ export default function GiroPage() {
         {/* BOTÃO */}
         <button
           onClick={spin}
-          className="bg-red-600 px-8 py-4 rounded-lg text-xl"
+          disabled={isSpinning || getAvailableSpins() <= 0}
+          className="bg-red-600 px-8 py-4 rounded-lg text-xl disabled:opacity-50 disabled:cursor-not-allowed"
         >
           GIRAR
         </button>
@@ -94,6 +105,7 @@ export default function GiroPage() {
         <div className="text-center space-y-2">
           <p>💰 Dirty: {player.balances.dirtyMoney}</p>
           <p>⚡ Corre: {player.balances.corre}</p>
+          <p>🎰 Giros Disponíveis: {getAvailableSpins()}</p>
         </div>
 
       </div>

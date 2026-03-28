@@ -10,6 +10,12 @@ type Balances = {
   corre: number;
 };
 
+type GiroStorage = {
+  totalSpins: number;
+  spinsUsed: number;
+  lastSpinDate?: string;
+};
+
 type Inventory = {
   items: any[];
   gifts: any[];
@@ -77,6 +83,8 @@ export type PlayerState = {
   hierarchyBadge: string;
 
   barracoPosition: BarracoPosition;
+
+  giroStorage: GiroStorage;
 };
 
 type PlayerStore = {
@@ -92,6 +100,11 @@ type PlayerStore = {
   saveLocal: () => void;
   scheduleSync: () => void;
   syncPlayerToBackend: () => Promise<void>;
+
+  // GIRO STORAGE
+  addGiroSpins: (amount: number) => void;
+  useGiroSpin: () => void;
+  getAvailableSpins: () => number;
 
   // BALANCES
   addDirtyMoney: (amount: number) => void;
@@ -186,6 +199,12 @@ const initialPlayer: PlayerState = {
     y: 0,
     z: 0,
   },
+
+  giroStorage: {
+    totalSpins: 0,
+    spinsUsed: 0,
+    lastSpinDate: undefined,
+  },
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
@@ -224,6 +243,11 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     barracoPosition: {
       ...initialPlayer.barracoPosition,
       ...(incoming?.barracoPosition || {}),
+    },
+
+    giroStorage: {
+      ...initialPlayer.giroStorage,
+      ...(incoming?.giroStorage || {}),
     },
   };
 }
@@ -649,5 +673,48 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     set({ player: updated });
     get().saveLocal();
     get().scheduleSync();
+  },
+
+  addGiroSpins: (amount) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      giroStorage: {
+        ...current.giroStorage,
+        totalSpins: current.giroStorage.totalSpins + amount,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  useGiroSpin: () => {
+    const current = get().player;
+    const available = current.giroStorage.totalSpins - current.giroStorage.spinsUsed;
+
+    if (available <= 0) {
+      throw new Error('Sem giros disponíveis');
+    }
+
+    const updated = mergePlayer({
+      ...current,
+      giroStorage: {
+        ...current.giroStorage,
+        spinsUsed: current.giroStorage.spinsUsed + 1,
+        lastSpinDate: new Date().toISOString(),
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  getAvailableSpins: () => {
+    const current = get().player;
+    return current.giroStorage.totalSpins - current.giroStorage.spinsUsed;
   },
 }));
