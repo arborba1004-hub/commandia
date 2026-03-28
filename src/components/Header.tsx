@@ -1,11 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LogOut, User } from 'lucide-react';
-import { usePlayerStore } from '@/store/playerStore';
 
 export default function Header() {
   const { playerData, isAuthenticated, logout } = useGoogleAuth();
-  const { player } = usePlayerStore();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-custom4">
@@ -13,23 +11,6 @@ export default function Header() {
         <Link to="/" className="font-heading text-2xl lg:text-3xl uppercase tracking-wider text-foreground hover:text-primary transition-colors">
           Domínio do Comando
         </Link>
-
-        {/* Vaults Section */}
-        {isAuthenticated && (
-          <div className="flex items-center gap-6">
-            {/* Dirty Money Vault */}
-            <div className="flex items-center gap-2 bg-custom4 px-4 py-2 rounded-lg border border-primary">
-              <span className="text-sm font-heading uppercase tracking-wider text-foreground">💰 Sujo:</span>
-              <span className="text-lg font-heading text-primary font-bold">{player.balances.dirtyMoney.toLocaleString()}</span>
-            </div>
-
-            {/* Clean Money Vault */}
-            <div className="flex items-center gap-2 bg-custom4 px-4 py-2 rounded-lg border border-secondary">
-              <span className="text-sm font-heading uppercase tracking-wider text-foreground">💵 Limpo:</span>
-              <span className="text-lg font-heading text-secondary font-bold">{player.balances.cleanMoney.toLocaleString()}</span>
-            </div>
-          </div>
-        )}
         
         <nav className="flex items-center gap-8">
           <Link 
