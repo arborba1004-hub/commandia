@@ -1,530 +1,533 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BaseCrudService } from '@/integrations';
-import { GameMechanics } from '@/entities';
+import { Crown, Shield, Flame, Play, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Image } from '@/components/ui/image';
-import { Zap, Target, Trophy, LogOut } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
-import { useDebugLog } from '@/hooks/useDebugLog';
-import GoogleAuthDebugPanel from '@/components/GoogleAuthDebugPanel';
-import { useBackendHealthCheck } from '@/hooks/useBackendHealthCheck';
-import BackendHealthCheckModal from '@/components/BackendHealthCheckModal';
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: any) => void;
+          renderButton: (element: HTMLElement, config: any) => void;
+        };
+      };
+    };
+  }
+}
+
+const LOGO_URL =
+  'https://static.wixstatic.com/media/50f4bf_7140cdf76a2742628049849ce89b7560~mv2.png';
+
+const VIDEO_URL =
+  'https://video.wixstatic.com/video/50f4bf_536b2010396c43bd9a462af825339fa5/720p/mp4/file.mp4';
+
+const cards = [
+  {
+    title: 'PODER',
+    description: 'Cada decisão muda o equilíbrio da cidade.',
+    icon: Crown,
+  },
+  {
+    title: 'LEALDADE',
+    description: 'Quem entra no comando escolhe um lado.',
+    icon: Shield,
+  },
+  {
+    title: 'DOMÍNIO',
+    description: 'Só permanece quem impõe respeito.',
+    icon: Flame,
+  },
+];
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const [mechanics, setMechanics] = useState<GameMechanics[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const manifestoRef = useRef<HTMLElement | null>(null);
 
-  const {
-    isAuthenticated,
-    isLoading: authLoading,
-    playerData,
-    error: authError,
-    logout,
-  } = useGoogleAuth();
+  const { isAuthenticated, playerData, logout, authToken, isLoading } = useGoogleAuth();
 
-  const { logs, addLog } = useDebugLog();
-  const { isChecking, status, checkBackendHealth, reset } = useBackendHealthCheck();
-
-  const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
-  const [googleAvailable, setGoogleAvailable] = useState(false);
-  const [buttonRendered, setButtonRendered] = useState(false);
-  const [credentialReceived, setCredentialReceived] = useState(false);
-  const [backendRequestStarted, setBackendRequestStarted] = useState(false);
-  const [backendResponseReceived, setBackendResponseReceived] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<number | undefined>();
-  const [backendResponse, setBackendResponse] = useState<any>(null);
-  const [finalError, setFinalError] = useState<string | null>(null);
-  const [isLoginComplete, setIsLoginComplete] = useState(false);
-  const [showHealthCheckModal, setShowHealthCheckModal] = useState(false);
-  const [pendingGoogleResponse, setPendingGoogleResponse] = useState<any>(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
-    loadMechanics();
-  }, []);
+    const scriptId = 'google-gsi-script';
 
-  useEffect(() => {
-    if (authError) {
-      setFinalError(authError);
-      addLog('Auth Error', 'error', authError);
+    if (document.getElementById(scriptId)) {
+      if (window.google) setGoogleReady(true);
+      return;
     }
-  }, [authError, addLog]);
-
-  useEffect(() => {
-    if (isAuthenticated && playerData) {
-      setIsLoginComplete(true);
-      setFinalError(null);
-      addLog('Login Complete', 'success', `Welcome ${playerData.name}`);
-    }
-  }, [isAuthenticated, playerData, addLog]);
-
-  useEffect(() => {
-    addLog('Init', 'pending', 'iniciando login');
 
     const script = document.createElement('script');
+    script.id = scriptId;
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
 
     script.onload = () => {
-      setGoogleScriptLoaded(true);
-      addLog('Script', 'success', 'script carregado');
-
       if (window.google) {
-        setGoogleAvailable(true);
-        addLog('Google', 'success', 'google disponível');
+        setGoogleReady(true);
       }
     };
 
     script.onerror = () => {
-      addLog('Script', 'error', 'falha ao carregar script');
-      setFinalError('Falha ao carregar Google Sign-In');
+      setLoginError('Falha ao carregar o login Google.');
     };
 
     document.head.appendChild(script);
+  }, []);
 
-    return () => {
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    };
-  }, [addLog]);
+  useEffect(() => {
+    if (!googleReady || isAuthenticated || isLoading || !window.google) return;
 
-  const handleGoogleResponseWithDebug = async (response: any) => {
-    try {
-      setFinalError(null);
-      setCredentialReceived(true);
-      addLog('Credential', 'success', 'credential recebida');
+    const handleGoogleLogin = async (response: any) => {
+      try {
+        setLoginError(null);
+        setLoginLoading(true);
 
-      const credential = response?.credential;
-      if (!credential) {
-        throw new Error('No credential received from Google');
-      }
+        const credential = response?.credential;
+        if (!credential) {
+          throw new Error('Não foi possível obter a credencial do Google.');
+        }
 
-      // Store the response for later use after health check
-      setPendingGoogleResponse(response);
+        try {
+          await fetch('https://comando-backend.onrender.com', { method: 'GET' });
+        } catch {
+          // Render pode estar acordando; segue para o POST
+        }
 
-      // Show health check modal and start checking backend
-      setShowHealthCheckModal(true);
-      reset();
-      addLog('HealthCheck', 'pending', 'iniciando verificação do servidor');
+        const backendResponse = await fetch(
+          'https://comando-backend.onrender.com/auth/google',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: credential }),
+          }
+        );
 
-      const healthCheckResult = await checkBackendHealth();
+        const data = await backendResponse.json();
 
-      if (!healthCheckResult.isHealthy) {
-        addLog('HealthCheck', 'error', healthCheckResult.message);
-        // Modal will show error, user can retry
-        return;
-      }
+        if (!backendResponse.ok) {
+          throw new Error(data?.error || 'Falha na autenticação.');
+        }
 
-      // Backend is healthy, proceed with login
-      addLog('HealthCheck', 'success', 'servidor está pronto');
-      setShowHealthCheckModal(false);
-
-      // Now proceed with the actual authentication
-      setBackendRequestStarted(true);
-      addLog('Backend', 'pending', 'enviando para backend');
-
-      const responseFromBackend = await fetch('https://comando-backend.onrender.com/auth/google', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token: credential }),
-      });
-
-      setBackendStatus(responseFromBackend.status);
-      setBackendResponseReceived(true);
-      addLog('Backend', 'success', `resposta recebida - status ${responseFromBackend.status}`);
-
-      const data = await responseFromBackend.json();
-      setBackendResponse(data);
-      addLog('Backend', 'success', 'JSON parseado', data);
-
-      if (!responseFromBackend.ok) {
-        throw new Error(`Backend error: ${responseFromBackend.statusText}`);
-      }
-
-      if (data.token && data.player) {
-        addLog('Auth', 'success', 'token e player recebidos');
+        if (!(data.token && data.player)) {
+          throw new Error('Resposta inválida do servidor.');
+        }
 
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('playerData', JSON.stringify(data.player));
 
-        setIsLoginComplete(true);
-        setFinalError(null);
-
-        addLog('Login Complete', 'success', `Welcome ${data.player.name}`);
-
         window.location.reload();
-      } else {
-        throw new Error(data.message || 'Backend did not return token and player');
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Erro ao conectar com o servidor. Tente novamente.';
+        setLoginError(message);
+      } finally {
+        setLoginLoading(false);
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
-      setFinalError(errorMessage);
-      addLog('Error', 'error', errorMessage);
-      console.error('Google auth error:', err);
-      setShowHealthCheckModal(false);
-    }
-  };
+    };
 
-  const handleHealthCheckRetry = async () => {
-    reset();
-    const healthCheckResult = await checkBackendHealth();
+    window.google.accounts.id.initialize({
+      client_id:
+        '948102948683-u0o9lg73rprka2t0pp0tr4ol96echnf4.apps.googleusercontent.com',
+      callback: handleGoogleLogin,
+      ux_mode: 'popup',
+      auto_select: false,
+      cancel_on_tap_outside: false,
+    });
 
-    if (healthCheckResult.isHealthy) {
-      addLog('HealthCheck', 'success', 'servidor está pronto');
-      setShowHealthCheckModal(false);
-
-      // Proceed with login using the pending response
-      if (pendingGoogleResponse) {
-        const credential = pendingGoogleResponse.credential;
-
-        setBackendRequestStarted(true);
-        addLog('Backend', 'pending', 'enviando para backend');
-
-        try {
-          const responseFromBackend = await fetch('https://comando-backend.onrender.com/auth/google', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ token: credential }),
-          });
-
-          setBackendStatus(responseFromBackend.status);
-          setBackendResponseReceived(true);
-          addLog('Backend', 'success', `resposta recebida - status ${responseFromBackend.status}`);
-
-          const data = await responseFromBackend.json();
-          setBackendResponse(data);
-          addLog('Backend', 'success', 'JSON parseado', data);
-
-          if (!responseFromBackend.ok) {
-            throw new Error(`Backend error: ${responseFromBackend.statusText}`);
-          }
-
-          if (data.token && data.player) {
-            addLog('Auth', 'success', 'token e player recebidos');
-
-            localStorage.setItem('authToken', data.token);
-            localStorage.setItem('playerData', JSON.stringify(data.player));
-
-            setIsLoginComplete(true);
-            setFinalError(null);
-
-            addLog('Login Complete', 'success', `Welcome ${data.player.name}`);
-
-            window.location.reload();
-          } else {
-            throw new Error(data.message || 'Backend did not return token and player');
-          }
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
-          setFinalError(errorMessage);
-          addLog('Error', 'error', errorMessage);
-          console.error('Google auth error:', err);
-        }
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (window.google && !authLoading && googleScriptLoaded && !isAuthenticated) {
-      window.google.accounts.id.initialize({
-        client_id: '948102948683-u0o9lg73rprka2t0pp0tr4ol96echnf4.apps.googleusercontent.com',
-        callback: handleGoogleResponseWithDebug,
+    const desktopBtn = document.getElementById('google-signin-desktop');
+    if (desktopBtn) {
+      desktopBtn.innerHTML = '';
+      window.google.accounts.id.renderButton(desktopBtn, {
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'pill',
+        width: 300,
       });
-
-      const heroButton = document.getElementById('google-signin-button');
-      if (heroButton) {
-        heroButton.innerHTML = '';
-        window.google.accounts.id.renderButton(heroButton, {
-          theme: 'dark',
-          size: 'large',
-          text: 'signin_with',
-        });
-        setButtonRendered(true);
-        addLog('Button', 'success', 'botão renderizado (hero)');
-      }
-
-      const ctaButton = document.getElementById('google-signin-button-cta');
-      if (ctaButton) {
-        ctaButton.innerHTML = '';
-        window.google.accounts.id.renderButton(ctaButton, {
-          theme: 'dark',
-          size: 'large',
-          text: 'signin_with',
-        });
-        addLog('Button', 'success', 'botão renderizado (cta)');
-      }
     }
-  }, [authLoading, googleScriptLoaded, isAuthenticated, addLog]);
 
-  const loadMechanics = async () => {
-    try {
-      setError(null);
-      const result = await BaseCrudService.getAll<GameMechanics>('gamemechanics');
-      setMechanics(result.items || []);
-    } catch (err) {
-      console.error('Error loading mechanics:', err);
-      setError('Erro ao carregar mecânicas do jogo');
-      setMechanics([]);
-    } finally {
-      setIsLoading(false);
+    const mobileBtn = document.getElementById('google-signin-mobile');
+    if (mobileBtn) {
+      mobileBtn.innerHTML = '';
+      window.google.accounts.id.renderButton(mobileBtn, {
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'pill',
+        width: 280,
+      });
     }
+  }, [googleReady, isAuthenticated, isLoading]);
+
+  const scrollToManifesto = () => {
+    manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
-    <div className="min-h-screen bg-background pb-[40vh]">
+    <div className="min-h-screen bg-black text-white overflow-x-hidden">
       <Header />
 
-      <section className="pt-32 pb-24 bg-gradient-to-b from-primary/10 to-background">
-        <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-          {isAuthenticated && playerData ? (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="text-center space-y-8"
-            >
-              <h1 className="font-heading text-5xl lg:text-7xl uppercase tracking-wider text-foreground">
-                Bem-vindo, <span className="text-primary">{playerData.name}</span>
-              </h1>
+      <section className="relative min-h-screen overflow-hidden">
+        <video
+          src={VIDEO_URL}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+        />
 
-              <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 max-w-2xl mx-auto space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <p className="font-paragraph text-sm text-foreground/60">Email</p>
-                    <p className="font-heading text-lg text-foreground">{playerData.email}</p>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/15 to-black/65" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/75" />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle at center, rgba(0,0,0,0.02) 25%, rgba(0,0,0,0.58) 100%)',
+          }}
+        />
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_30%,rgba(120,0,0,0.18),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(255,180,80,0.10),transparent_28%)]" />
+
+        <div className="relative z-20 flex min-h-screen items-center px-6 pt-28 pb-16 md:px-12 lg:px-20">
+          <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="text-center lg:text-left">
+              <motion.div
+                initial={{ opacity: 0, y: -18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.9 }}
+                className="mb-5 flex justify-center lg:justify-start"
+              >
+                <img
+                  src={LOGO_URL}
+                  alt="Domínio do Comando"
+                  className="w-[220px] sm:w-[260px] md:w-[320px] lg:w-[360px] object-contain drop-shadow-[0_0_16px_rgba(255,210,120,0.12)]"
+                />
+              </motion.div>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 22 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.18, duration: 0.85 }}
+                className="max-w-4xl text-4xl font-black uppercase tracking-[0.12em] text-white sm:text-5xl md:text-6xl lg:text-7xl"
+              >
+                A cidade não respeita fracos.
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 22 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35, duration: 0.8 }}
+                className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-zinc-200 sm:text-lg lg:mx-0"
+              >
+                O poder não se herda. Se toma.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 26 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.55, duration: 0.8 }}
+                className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start"
+              >
+                <button
+                  onClick={() => (isAuthenticated ? navigate('/game') : scrollToManifesto())}
+                  className="group relative w-full max-w-[320px] overflow-hidden rounded-2xl border border-amber-300/25 bg-gradient-to-r from-red-950 via-red-800 to-red-950 px-8 py-4 text-sm font-bold uppercase tracking-[0.28em] text-white shadow-[0_12px_40px_rgba(110,0,0,0.35)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_16px_55px_rgba(150,0,0,0.45)] sm:w-auto"
+                >
+                  <span className="absolute inset-0 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.15),transparent)] translate-x-[-120%] transition-transform duration-700 group-hover:translate-x-[120%]" />
+                  <span className="relative z-10">ENTRAR NO COMANDO</span>
+                </button>
+
+                <button
+                  onClick={scrollToManifesto}
+                  className="flex w-full max-w-[320px] items-center justify-center gap-2 rounded-2xl border border-white/15 bg-black/30 px-8 py-4 text-sm font-semibold uppercase tracking-[0.22em] text-zinc-100 backdrop-blur-md transition-all duration-300 hover:border-white/30 hover:bg-black/45 sm:w-auto"
+                >
+                  <Play className="h-4 w-4 fill-current" />
+                  Assistir Introdução
+                </button>
+              </motion.div>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.35, duration: 0.95 }}
+              className="hidden lg:block"
+            >
+              {isAuthenticated && playerData ? (
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-[30px] bg-red-900/15 blur-2xl" />
+                  <div className="relative rounded-[30px] border border-white/10 bg-black/35 p-6 backdrop-blur-xl shadow-[0_25px_90px_rgba(0,0,0,0.45)]">
+                    <div className="mb-5 border-b border-white/10 pb-5">
+                      <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
+                        acesso liberado
+                      </p>
+                      <h2 className="mt-2 text-3xl font-black uppercase tracking-[0.12em] text-amber-100">
+                        {playerData.name}
+                      </h2>
+                      <p className="mt-2 text-sm text-zinc-400 break-all">{playerData.email}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">LEVEL</p>
+                        <p className="mt-2 text-2xl font-bold text-white">
+                          {playerData.level || 1}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">HP</p>
+                        <p className="mt-2 text-2xl font-bold text-white">
+                          {playerData.hp || 100}
+                        </p>
+                      </div>
+                      <div className="col-span-2 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">MONEY</p>
+                        <p className="mt-2 text-3xl font-bold text-red-300">
+                          {playerData.money || 0}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                      <button
+                        onClick={() => navigate('/game')}
+                        className="w-full rounded-2xl border border-amber-300/20 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 px-6 py-4 text-sm font-bold uppercase tracking-[0.28em] text-amber-100 transition hover:scale-[1.01] hover:border-amber-300/35 hover:text-white"
+                      >
+                        CONTINUAR
+                      </button>
+
+                      <button
+                        onClick={logout}
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-950/35 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-red-200 transition hover:bg-red-900/35"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        SAIR
+                      </button>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <p className="font-paragraph text-sm text-foreground/60">Level</p>
-                    <p className="font-heading text-lg text-primary">{playerData.level || 1}</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-[30px] bg-red-900/15 blur-2xl" />
+                  <div className="relative rounded-[30px] border border-white/10 bg-black/35 p-6 backdrop-blur-xl shadow-[0_25px_90px_rgba(0,0,0,0.45)]">
+                    <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
+                      acesso restrito
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black uppercase tracking-[0.12em] text-white">
+                      Identificação necessária
+                    </h2>
+                    <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+                      Entre com sua conta oficial para salvar progresso, acessar o sistema e iniciar sua ascensão.
+                    </p>
+
+                    <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5">
+                      <div
+                        id="google-signin-desktop"
+                        className="flex min-h-[48px] items-center justify-center"
+                      />
+                    </div>
+
+                    {loginLoading && (
+                      <p className="mt-4 text-sm text-zinc-300">
+                        Conectando ao servidor...
+                      </p>
+                    )}
+
+                    {loginError && (
+                      <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-950/35 px-4 py-3 text-sm text-red-200">
+                        {loginError}
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <p className="font-paragraph text-sm text-foreground/60">HP</p>
-                    <p className="font-heading text-lg text-foreground">{playerData.hp || 100}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-paragraph text-sm text-foreground/60">Moedas</p>
-                    <p className="font-heading text-lg text-secondary">{playerData.money || 0}</p>
-                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        </div>
+
+        {!isAuthenticated && (
+          <div className="relative z-20 px-6 pb-12 lg:hidden">
+            <div className="mx-auto max-w-md rounded-[28px] border border-white/10 bg-black/35 p-5 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+              <p className="text-center text-[10px] uppercase tracking-[0.32em] text-zinc-500">
+                acesso restrito
+              </p>
+              <h2 className="mt-2 text-center text-xl font-black uppercase tracking-[0.12em] text-white">
+                Identificação necessária
+              </h2>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+                <div
+                  id="google-signin-mobile"
+                  className="flex min-h-[48px] items-center justify-center"
+                />
+              </div>
+
+              {loginLoading && (
+                <p className="mt-4 text-center text-sm text-zinc-300">
+                  Conectando ao servidor...
+                </p>
+              )}
+
+              {loginError && (
+                <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-950/35 px-4 py-3 text-sm text-red-200">
+                  {loginError}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isAuthenticated && playerData && (
+          <div className="relative z-20 px-6 pb-12 lg:hidden">
+            <div className="mx-auto max-w-md rounded-[28px] border border-white/10 bg-black/35 p-5 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+              <p className="text-center text-[10px] uppercase tracking-[0.32em] text-zinc-500">
+                acesso liberado
+              </p>
+              <h2 className="mt-2 text-center text-2xl font-black uppercase tracking-[0.12em] text-amber-100">
+                {playerData.name}
+              </h2>
+              <p className="mt-2 text-center text-sm text-zinc-400 break-all">{playerData.email}</p>
+
+              <div className="mt-5 grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">LEVEL</p>
+                  <p className="mt-2 text-lg font-bold text-white">{playerData.level || 1}</p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">HP</p>
+                  <p className="mt-2 text-lg font-bold text-white">{playerData.hp || 100}</p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">MONEY</p>
+                  <p className="mt-2 text-lg font-bold text-red-300">{playerData.money || 0}</p>
                 </div>
               </div>
 
-              <div className="flex gap-4 justify-center pt-8">
+              <div className="mt-5 space-y-3">
                 <button
                   onClick={() => navigate('/game')}
-                  className="px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+                  className="w-full rounded-2xl border border-amber-300/20 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 px-6 py-4 text-sm font-bold uppercase tracking-[0.28em] text-amber-100"
                 >
-                  Continuar
+                  CONTINUAR
                 </button>
-
                 <button
                   onClick={logout}
-                  className="px-8 py-4 border-2 border-destructive text-destructive font-heading uppercase tracking-wider rounded-lg hover:bg-destructive/10 transition-all flex items-center gap-2"
+                  className="w-full rounded-2xl border border-red-500/25 bg-red-950/35 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-red-200"
                 >
-                  <LogOut className="w-4 h-4" />
-                  Sair
+                  SAIR
                 </button>
               </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="text-center space-y-8"
-            >
-              <h1 className="font-heading text-7xl lg:text-9xl uppercase tracking-wider text-foreground">
-                Domínio do <span className="text-primary">Comando</span>
-              </h1>
+            </div>
+          </div>
+        )}
+      </section>
 
-              <p className="font-paragraph text-xl lg:text-2xl text-foreground/80 max-w-3xl mx-auto leading-relaxed">
-                Mergulhe em um universo de estratégia, poder e domínio absoluto. Domine o jogo, controle o destino.
-              </p>
+      <section
+        ref={manifestoRef}
+        className="relative bg-[linear-gradient(to_bottom,#050505,#090909,#0d0d0d)] px-6 py-24"
+      >
+        <div className="mx-auto max-w-6xl">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-10%' }}
+            transition={{ duration: 0.8 }}
+            className="mb-14 text-center"
+          >
+            <p className="text-xs uppercase tracking-[0.34em] text-zinc-500">
+              Manifesto
+            </p>
+            <h2 className="mt-4 text-4xl font-black uppercase tracking-[0.14em] text-white md:text-6xl">
+              O código do comando
+            </h2>
+          </motion.div>
 
-              <div className="flex gap-4 justify-center pt-8">
-                <Link
-                  to="/galeria"
-                  className="px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+          <div className="grid gap-6 md:grid-cols-3">
+            {cards.map((card, index) => {
+              const Icon = card.icon;
+              return (
+                <motion.div
+                  key={card.title}
+                  initial={{ opacity: 0, y: 28 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-10%' }}
+                  transition={{ duration: 0.7, delay: index * 0.12 }}
+                  className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] p-7 shadow-[0_20px_60px_rgba(0,0,0,0.28)] transition duration-300 hover:border-red-500/25 hover:bg-[linear-gradient(180deg,rgba(80,0,0,0.15),rgba(255,255,255,0.01))]"
                 >
-                  Explorar Galeria
-                </Link>
-
-                <div id="google-signin-button" className="flex items-center" />
-              </div>
-            </motion.div>
-          )}
+                  <div className="mb-6 inline-flex rounded-2xl border border-amber-400/15 bg-amber-300/5 p-4 text-amber-200">
+                    <Icon className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-2xl font-black uppercase tracking-[0.18em] text-white">
+                    {card.title}
+                  </h3>
+                  <p className="mt-4 text-base leading-relaxed text-zinc-300">
+                    {card.description}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
-      <section className="py-24">
-        <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-          <motion.div
+      <section className="relative overflow-hidden bg-black px-6 py-24">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(120,0,0,0.18),transparent_45%)]" />
+        <div className="relative mx-auto max-w-5xl text-center">
+          <motion.p
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            transition={{ duration: 0.7 }}
+            className="text-xs uppercase tracking-[0.34em] text-zinc-500"
           >
-            <h2 className="font-heading text-5xl lg:text-6xl uppercase tracking-wider text-foreground mb-4">
-              Mecânicas do <span className="text-primary">Jogo</span>
-            </h2>
-            <p className="font-paragraph text-lg text-foreground/70 max-w-2xl mx-auto">
-              Descubra os sistemas que definem sua jornada no Domínio do Comando
-            </p>
+            Ascensão
+          </motion.p>
+
+          <motion.h2
+            initial={{ opacity: 0, y: 26 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1, duration: 0.8 }}
+            className="mt-4 text-4xl font-black uppercase tracking-[0.16em] text-white md:text-6xl"
+          >
+            A cidade não espera.
+          </motion.h2>
+
+          <motion.p
+            initial={{ opacity: 0, y: 26 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2, duration: 0.8 }}
+            className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-300"
+          >
+            Toda entrada tem um preço. Toda escolha tem um peso. Toda coroa exige sangue frio.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.35, duration: 0.85 }}
+            className="mt-10"
+          >
+            <button
+              onClick={() => (isAuthenticated ? navigate('/game') : scrollToManifesto())}
+              className="rounded-2xl border border-amber-300/20 bg-gradient-to-r from-red-950 via-red-800 to-red-950 px-10 py-5 text-sm font-bold uppercase tracking-[0.28em] text-white shadow-[0_15px_50px_rgba(120,0,0,0.35)] transition-all hover:scale-[1.02] hover:shadow-[0_18px_60px_rgba(160,0,0,0.45)]"
+            >
+              INICIAR ASCENSÃO
+            </button>
           </motion.div>
-
-          <div className="min-h-[600px]">
-            {isLoading ? null : error ? (
-              <div className="text-center py-24">
-                <p className="font-paragraph text-xl text-destructive mb-4">{error}</p>
-                <button
-                  onClick={loadMechanics}
-                  className="px-6 py-2 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
-                >
-                  Tentar Novamente
-                </button>
-              </div>
-            ) : mechanics.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {mechanics.map((mechanic, index) => (
-                  <motion.div
-                    key={mechanic._id}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
-                    className="group"
-                  >
-                    <div className="bg-custom4/30 border border-secondary/20 rounded-lg overflow-hidden hover:border-primary/50 transition-all h-full flex flex-col">
-                      {mechanic.mechanicImage && (
-                        <div className="relative h-64 overflow-hidden">
-                          <Image
-                            src={mechanic.mechanicImage}
-                            alt={mechanic.title || 'Game mechanic'}
-                            width={500}
-                            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
-                          />
-                        </div>
-                      )}
-
-                      <div className="p-6 space-y-4 flex-1 flex flex-col">
-                        {mechanic.title && (
-                          <h3 className="font-heading text-2xl uppercase tracking-wider text-foreground group-hover:text-primary transition-colors">
-                            {mechanic.title}
-                          </h3>
-                        )}
-
-                        {mechanic.description && (
-                          <p className="font-paragraph text-base text-foreground/80 leading-relaxed flex-1">
-                            {mechanic.description}
-                          </p>
-                        )}
-
-                        <div className="pt-4 border-t border-secondary/20 space-y-2">
-                          {mechanic.mechanicType && (
-                            <div className="flex items-center gap-2">
-                              <Zap className="w-4 h-4 text-primary" />
-                              <p className="font-paragraph text-sm text-foreground/70">
-                                Tipo: {mechanic.mechanicType}
-                              </p>
-                            </div>
-                          )}
-
-                          {mechanic.levelRequirement && (
-                            <div className="flex items-center gap-2">
-                              <Target className="w-4 h-4 text-secondary" />
-                              <p className="font-paragraph text-sm text-foreground/70">
-                                Nível: {mechanic.levelRequirement}
-                              </p>
-                            </div>
-                          )}
-
-                          {mechanic.reward && (
-                            <div className="flex items-center gap-2">
-                              <Trophy className="w-4 h-4 text-primary" />
-                              <p className="font-paragraph text-sm text-foreground/70">
-                                Recompensa: {mechanic.reward}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-24">
-                <p className="font-paragraph text-xl text-foreground/60">
-                  Mecânicas do jogo em breve
-                </p>
-              </div>
-            )}
-          </div>
         </div>
       </section>
 
-      {!isAuthenticated && (
-        <section className="py-24 bg-custom4/20">
-          <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="text-center space-y-8"
-            >
-              <h2 className="font-heading text-5xl lg:text-6xl uppercase tracking-wider text-foreground">
-                Pronto para <span className="text-primary">Dominar</span>?
-              </h2>
-
-              <p className="font-paragraph text-lg text-foreground/70 max-w-2xl mx-auto">
-                Junte-se a milhares de jogadores que já conquistaram seu lugar no Domínio do Comando
-              </p>
-
-              <div id="google-signin-button-cta" className="flex justify-center" />
-            </motion.div>
-          </div>
-        </section>
-      )}
-
       <Footer />
-
-      {!isAuthenticated && (
-        <GoogleAuthDebugPanel
-          logs={logs}
-          googleScriptLoaded={googleScriptLoaded}
-          googleAvailable={googleAvailable}
-          buttonRendered={buttonRendered}
-          credentialReceived={credentialReceived}
-          backendRequestStarted={backendRequestStarted}
-          backendResponseReceived={backendResponseReceived}
-          backendStatus={backendStatus}
-          backendResponse={backendResponse}
-          finalError={finalError}
-          playerName={playerData?.name}
-          isLoginComplete={isLoginComplete}
-        />
-      )}
-
-      <BackendHealthCheckModal
-        isOpen={showHealthCheckModal}
-        isChecking={isChecking}
-        message={status?.message || 'Aguardando backend iniciar...'}
-        isHealthy={status?.isHealthy}
-        timedOut={status?.timedOut}
-        onRetry={handleHealthCheckRetry}
-        onClose={() => setShowHealthCheckModal(false)}
-      />
     </div>
   );
 }
