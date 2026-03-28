@@ -73,7 +73,7 @@ export function useGoogleAuth() {
 
       const data = await backendResponse.json();
 
-      if (!data.success) {
+      if (!(data.token && data.player)) {
         throw new Error(data.message || 'Authentication failed');
       }
 
