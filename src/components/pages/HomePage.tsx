@@ -1,10 +1,11 @@
-eryimportimport { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Shield, Flame, Play, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { Image } from '@/components/ui/image';
 
 declare global {
   interface Window {
@@ -205,11 +206,7 @@ export default function HomePage() {
                 transition={{ duration: 0.9 }}
                 className="mb-5 flex justify-center lg:justify-start"
               >
-                <img
-                  src={LOGO_URL}
-                  alt="Domínio do Comando"
-                  className="w-[220px] sm:w-[260px] md:w-[320px] lg:w-[360px] object-contain drop-shadow-[0_0_16px_rgba(255,210,120,0.12)]"
-                />
+                <Image src={LOGO_URL} alt="Domínio do Comando" className="w-[220px] sm:w-[260px] md:w-[320px] lg:w-[360px] object-contain drop-shadow-[0_0_16px_rgba(255,210,120,0.12)]" />
               </motion.div>
 
               <motion.h1
