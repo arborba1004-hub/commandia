@@ -7,9 +7,8 @@ import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Link } from 'react-router-dom';
 
 export default function ProfilePage() {
-  const { playerData, isAuthenticated, logout, isLoading } = useGoogleAuth();
+  const { playerData, isAuthenticated, logout } = useGoogleAuth();
 
-  // If not authenticated, show sign in prompt
   if (!isAuthenticated || !playerData) {
     return (
       <div className="min-h-screen bg-background">
@@ -38,7 +37,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <section className="pt-32 pb-24 bg-gradient-to-b from-primary/10 to-background">
         <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
           <motion.div
@@ -66,10 +65,14 @@ export default function ProfilePage() {
             className="max-w-2xl mx-auto"
           >
             <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 space-y-8">
-              {/* Profile Header */}
               <div className="flex items-center gap-6 pb-8 border-b border-secondary/20">
-                {playerData?.picture ? (
-                  <Image src={playerData.picture} alt={playerData.name || 'Profile'} width={96} className="w-24 h-24 rounded-full object-cover border-2 border-primary" />
+                {playerData?.avatar ? (
+                  <Image
+                    src={playerData.avatar}
+                    alt={playerData.name || 'Profile'}
+                    width={96}
+                    className="w-24 h-24 rounded-full object-cover border-2 border-primary"
+                  />
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
                     <User className="w-12 h-12 text-primary" />
@@ -85,7 +88,6 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Profile Information */}
               <div className="space-y-6">
                 <div>
                   <label className="font-heading text-sm uppercase tracking-wider text-foreground/60 block mb-2">
@@ -99,36 +101,23 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {playerData?.id && (
+                {playerData?._id && (
                   <div>
                     <label className="font-heading text-sm uppercase tracking-wider text-foreground/60 block mb-2">
                       ID do Jogador
                     </label>
                     <div className="bg-background/50 rounded-lg p-4">
                       <p className="font-paragraph text-foreground text-sm break-all">
-                        {playerData.id}
+                        {playerData._id}
                       </p>
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Logout Button */}
-              <div className="pt-8 border-t border-secondary/20">
-                <button
-                  onClick={logout}
-                  className="w-full flex items-center justify-center gap-3 bg-destructive text-destructiveforeground font-heading uppercase tracking-wider px-6 py-4 rounded-lg hover:bg-destructive/90 transition-all"
-                >
-                  <LogOut className="w-5 h-5" />
-                  Sair da Conta
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      <Footer />
-    </div>
-  );
-}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-background/50 rounded-lg p-4">
+                    <p className="font-heading text-sm uppercase tracking-wider text-foreground/60 mb-2">
+                      Level
+                    </p>
+                    <p className="font-paragraph text-foreground">
+                      {playerData?.level ??
