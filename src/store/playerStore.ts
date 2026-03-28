@@ -2,34 +2,34 @@ import { create } from 'zustand';
 
 const STORAGE_KEY = 'playerData';
 
-export type PlayerBalances = {
+let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+
+type Balances = {
   dirtyMoney: number;
   cleanMoney: number;
   corre: number;
 };
 
-export type PlayerInventory = {
+type Inventory = {
   items: any[];
   gifts: any[];
   rewards: any[];
 };
 
-export type PlayerProgression = {
-  playerLevel: number;
-  power: number;
-  hierarchyBadge: string;
-  pageLevels: {
-    barraco: number;
-    giro: number;
-    lavagem: number;
-    luxury: number;
-    arsenal: number;
-    bribery: number;
-    [key: string]: number;
-  };
+type PageLevels = {
+  barraco: number;
+  giro: number;
+  lavagem: number;
+  luxury: number;
+  arsenal: number;
+  bribery: number;
+  hierarchy: number;
+  home: number;
+  game: number;
+  [key: string]: number;
 };
 
-export type PlayerSkills = {
+type Skills = {
   attack: number;
   defense: number;
   intelligence: number;
@@ -39,43 +39,111 @@ export type PlayerSkills = {
   [key: string]: number;
 };
 
-export type Player = {
+type Niveis = {
+  playerLevel: number;
+  barracoLevel: number;
+  hierarchyLevel: number;
+  arsenalLevel: number;
+  giroLevel: number;
+  lavagemLevel: number;
+  luxuryLevel: number;
+  briberyLevel: number;
+};
+
+type BarracoPosition = {
+  x: number;
+  y: number;
+  z: number;
+};
+
+export type PlayerState = {
   _id?: string;
   googleId?: string;
-  email: string;
-  name: string;
+  email?: string;
+  name?: string;
   avatar?: string;
 
-  balances: PlayerBalances;
-  inventory: PlayerInventory;
-  progression: PlayerProgression;
-  skills: PlayerSkills;
+  niveis: Niveis;
+
+  balances: Balances;
+
+  inventory: Inventory;
+
+  pageLevels: PageLevels;
+
+  skills: Skills;
+
+  power: number;
+  hierarchyBadge: string;
+
+  barracoPosition: BarracoPosition;
 };
 
 type PlayerStore = {
-  player: Player | null;
+  player: PlayerState;
   isLoaded: boolean;
   isSyncing: boolean;
   syncError: string | null;
 
-  loadPlayerFromStorage: () => void;
-  setPlayer: (player: Player) => void;
+  loadPlayer: () => void;
+  setPlayer: (incoming: Partial<PlayerState>) => void;
   clearPlayer: () => void;
 
-  setBalances: (balances: Partial<PlayerBalances>) => void;
-  setInventory: (inventory: Partial<PlayerInventory>) => void;
-  setProgression: (progression: Partial<PlayerProgression>) => void;
-  setPageLevel: (pageKey: string, level: number) => void;
-  setSkills: (skills: Partial<PlayerSkills>) => void;
-
+  saveLocal: () => void;
+  scheduleSync: () => void;
   syncPlayerToBackend: () => Promise<void>;
-  refreshPlayerFromBackend: () => Promise<void>;
+
+  // BALANCES
+  addDirtyMoney: (amount: number) => void;
+  removeDirtyMoney: (amount: number) => void;
+  removeDirtyMoneyPercent: (percent: number) => void;
+
+  addCleanMoney: (amount: number) => void;
+  removeCleanMoney: (amount: number) => void;
+
+  addCorre: (amount: number) => void;
+  removeCorre: (amount: number) => void;
+
+  // INVENTORY
+  addInventoryItem: (item: any) => void;
+  removeInventoryItem: (itemId: string) => void;
+  addGift: (gift: any) => void;
+  addReward: (reward: any) => void;
+
+  // NIVEIS
+  setNiveis: (incoming: Partial<Niveis>) => void;
+
+  // PAGE LEVELS
+  setPageLevel: (page: string, level: number) => void;
+
+  // SKILLS
+  setSkills: (incoming: Partial<Skills>) => void;
+  addSkill: (skill: keyof Skills, value: number) => void;
+  addSkillPercent: (skill: keyof Skills, percent: number) => void;
+
+  // POWER / BADGE / GRID
+  setPower: (value: number) => void;
+  setHierarchyBadge: (badge: string) => void;
+  setBarracoPosition: (position: Partial<BarracoPosition>) => void;
 };
 
-const initialPlayer: Player = {
+const initialPlayer: PlayerState = {
+  _id: '',
+  googleId: '',
   email: '',
   name: '',
   avatar: '',
+
+  niveis: {
+    playerLevel: 1,
+    barracoLevel: 1,
+    hierarchyLevel: 1,
+    arsenalLevel: 1,
+    giroLevel: 1,
+    lavagemLevel: 1,
+    luxuryLevel: 1,
+    briberyLevel: 1,
+  },
 
   balances: {
     dirtyMoney: 1000,
@@ -89,18 +157,16 @@ const initialPlayer: Player = {
     rewards: [],
   },
 
-  progression: {
-    playerLevel: 1,
-    power: 0,
-    hierarchyBadge: 'Antena',
-    pageLevels: {
-      barraco: 1,
-      giro: 1,
-      lavagem: 1,
-      luxury: 1,
-      arsenal: 1,
-      bribery: 1,
-    },
+  pageLevels: {
+    barraco: 1,
+    giro: 1,
+    lavagem: 1,
+    luxury: 1,
+    arsenal: 1,
+    bribery: 1,
+    hierarchy: 1,
+    home: 1,
+    game: 1,
   },
 
   skills: {
@@ -111,48 +177,70 @@ const initialPlayer: Player = {
     respect: 0,
     vigor: 0,
   },
+
+  power: 0,
+  hierarchyBadge: 'Antena',
+
+  barracoPosition: {
+    x: 0,
+    y: 0,
+    z: 0,
+  },
 };
 
-function mergePlayerData(incoming: Partial<Player>): Player {
+function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   return {
     ...initialPlayer,
-    ...incoming,
+    ...(incoming || {}),
+
+    niveis: {
+      ...initialPlayer.niveis,
+      ...(incoming?.niveis || {}),
+    },
+
     balances: {
       ...initialPlayer.balances,
-      ...(incoming.balances || {}),
+      ...(incoming?.balances || {}),
     },
+
     inventory: {
       ...initialPlayer.inventory,
-      ...(incoming.inventory || {}),
+      ...(incoming?.inventory || {}),
+      items: incoming?.inventory?.items || initialPlayer.inventory.items,
+      gifts: incoming?.inventory?.gifts || initialPlayer.inventory.gifts,
+      rewards: incoming?.inventory?.rewards || initialPlayer.inventory.rewards,
     },
-    progression: {
-      ...initialPlayer.progression,
-      ...(incoming.progression || {}),
-      pageLevels: {
-        ...initialPlayer.progression.pageLevels,
-        ...(incoming.progression?.pageLevels || {}),
-      },
+
+    pageLevels: {
+      ...initialPlayer.pageLevels,
+      ...(incoming?.pageLevels || {}),
     },
+
     skills: {
       ...initialPlayer.skills,
-      ...(incoming.skills || {}),
+      ...(incoming?.skills || {}),
+    },
+
+    barracoPosition: {
+      ...initialPlayer.barracoPosition,
+      ...(incoming?.barracoPosition || {}),
     },
   };
 }
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
-  player: null,
+  player: initialPlayer,
   isLoaded: false,
   isSyncing: false,
   syncError: null,
 
-  loadPlayerFromStorage: () => {
+  loadPlayer: () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
 
       if (!stored) {
         set({
-          player: null,
+          player: initialPlayer,
           isLoaded: true,
           syncError: null,
         });
@@ -160,7 +248,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       }
 
       const parsed = JSON.parse(stored);
-      const merged = mergePlayerData(parsed);
+      const merged = mergePlayer(parsed);
 
       set({
         player: merged,
@@ -170,15 +258,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     } catch (error) {
       console.error('Erro ao carregar playerData:', error);
       set({
-        player: null,
+        player: initialPlayer,
         isLoaded: true,
         syncError: 'Erro ao carregar player local',
       });
     }
   },
 
-  setPlayer: (player) => {
-    const merged = mergePlayerData(player);
+  setPlayer: (incoming) => {
+    const merged = mergePlayer({
+      ...get().player,
+      ...incoming,
+    });
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 
@@ -186,111 +277,39 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       player: merged,
       syncError: null,
     });
+
+    get().scheduleSync();
   },
 
   clearPlayer: () => {
     localStorage.removeItem(STORAGE_KEY);
 
     set({
-      player: null,
+      player: initialPlayer,
       isLoaded: true,
       isSyncing: false,
       syncError: null,
     });
   },
 
-  setBalances: (balances) => {
-    const current = get().player;
-    if (!current) return;
-
-    const updated: Player = {
-      ...current,
-      balances: {
-        ...current.balances,
-        ...balances,
-      },
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    set({ player: updated });
+  saveLocal: () => {
+    const player = get().player;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(player));
   },
 
-  setInventory: (inventory) => {
-    const current = get().player;
-    if (!current) return;
+  scheduleSync: () => {
+    if (syncTimeout) clearTimeout(syncTimeout);
 
-    const updated: Player = {
-      ...current,
-      inventory: {
-        ...current.inventory,
-        ...inventory,
-      },
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    set({ player: updated });
-  },
-
-  setProgression: (progression) => {
-    const current = get().player;
-    if (!current) return;
-
-    const updated: Player = {
-      ...current,
-      progression: {
-        ...current.progression,
-        ...progression,
-        pageLevels: {
-          ...current.progression.pageLevels,
-          ...(progression.pageLevels || {}),
-        },
-      },
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    set({ player: updated });
-  },
-
-  setPageLevel: (pageKey, level) => {
-    const current = get().player;
-    if (!current) return;
-
-    const updated: Player = {
-      ...current,
-      progression: {
-        ...current.progression,
-        pageLevels: {
-          ...current.progression.pageLevels,
-          [pageKey]: level,
-        },
-      },
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    set({ player: updated });
-  },
-
-  setSkills: (skills) => {
-    const current = get().player;
-    if (!current) return;
-
-    const updated: Player = {
-      ...current,
-      skills: {
-        ...current.skills,
-        ...skills,
-      },
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    set({ player: updated });
+    syncTimeout = setTimeout(() => {
+      get().syncPlayerToBackend();
+    }, 500);
   },
 
   syncPlayerToBackend: async () => {
-    const current = get().player;
+    const player = get().player;
     const token = localStorage.getItem('authToken');
 
-    if (!current || !token) return;
+    if (!token) return;
 
     try {
       set({
@@ -304,7 +323,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(current),
+        body: JSON.stringify(player),
       });
 
       const data = await response.json();
@@ -313,7 +332,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         throw new Error(data?.error || 'Erro ao sincronizar player');
       }
 
-      const merged = mergePlayerData(data.player);
+      const merged = mergePlayer(data.player);
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 
@@ -331,48 +350,304 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     }
   },
 
-  refreshPlayerFromBackend: async () => {
-    const token = localStorage.getItem('authToken');
+  addDirtyMoney: (amount) => {
     const current = get().player;
 
-    if (!token || !current?._id) return;
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        dirtyMoney: current.balances.dirtyMoney + amount,
+      },
+    });
 
-    try {
-      set({
-        isSyncing: true,
-        syncError: null,
-      });
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
 
-      const response = await fetch('https://comando-backend.onrender.com/player/update', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(current),
-      });
+  removeDirtyMoney: (amount) => {
+    const current = get().player;
 
-      const data = await response.json();
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        dirtyMoney: Math.max(0, current.balances.dirtyMoney - amount),
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error(data?.error || 'Erro ao atualizar player');
-      }
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
 
-      const merged = mergePlayerData(data.player);
+  removeDirtyMoneyPercent: (percent) => {
+    const current = get().player;
+    const loss = current.balances.dirtyMoney * (percent / 100);
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        dirtyMoney: Math.max(0, current.balances.dirtyMoney - loss),
+      },
+    });
 
-      set({
-        player: merged,
-        isSyncing: false,
-        syncError: null,
-      });
-    } catch (error) {
-      console.error('Erro refresh player:', error);
-      set({
-        isSyncing: false,
-        syncError: error instanceof Error ? error.message : 'Erro ao atualizar player',
-      });
-    }
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  addCleanMoney: (amount) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        cleanMoney: current.balances.cleanMoney + amount,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  removeCleanMoney: (amount) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        cleanMoney: Math.max(0, current.balances.cleanMoney - amount),
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  addCorre: (amount) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        corre: current.balances.corre + amount,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  removeCorre: (amount) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        corre: Math.max(0, current.balances.corre - amount),
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  addInventoryItem: (item) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      inventory: {
+        ...current.inventory,
+        items: [...current.inventory.items, item],
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  removeInventoryItem: (itemId) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      inventory: {
+        ...current.inventory,
+        items: current.inventory.items.filter((item: any) => item?.id !== itemId && item?._id !== itemId),
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  addGift: (gift) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      inventory: {
+        ...current.inventory,
+        gifts: [...current.inventory.gifts, gift],
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  addReward: (reward) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      inventory: {
+        ...current.inventory,
+        rewards: [...current.inventory.rewards, reward],
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  setNiveis: (incoming) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      niveis: {
+        ...current.niveis,
+        ...incoming,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  setPageLevel: (page, level) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      pageLevels: {
+        ...current.pageLevels,
+        [page]: level,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  setSkills: (incoming) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      skills: {
+        ...current.skills,
+        ...incoming,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  addSkill: (skill, value) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      skills: {
+        ...current.skills,
+        [skill]: (current.skills[skill] || 0) + value,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  addSkillPercent: (skill, percent) => {
+    const current = get().player;
+    const currentValue = current.skills[skill] || 0;
+    const increase = currentValue * (percent / 100);
+
+    const updated = mergePlayer({
+      ...current,
+      skills: {
+        ...current.skills,
+        [skill]: currentValue + increase,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  setPower: (value) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      power: value,
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  setHierarchyBadge: (badge) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      hierarchyBadge: badge,
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  setBarracoPosition: (position) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      barracoPosition: {
+        ...current.barracoPosition,
+        ...position,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
   },
 }));
