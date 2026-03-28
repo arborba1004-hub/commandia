@@ -14,7 +14,7 @@ export function SignIn({
   message = "Please sign in to access this content.",
   className = "min-h-screen flex items-center justify-center px-4 ",
   cardClassName = "w-fit max-w-xl mx-auto text-foreground",
-  googleClientId = "YOUR_GOOGLE_CLIENT_ID"
+  googleClientId = "948102948683-u0o9lg73rprka2t0pp0tr4ol96echnf4.apps.googleusercontent.com"
 }: SignInProps) {
   
   useEffect(() => {
