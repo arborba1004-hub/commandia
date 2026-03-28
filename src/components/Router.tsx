@@ -5,6 +5,7 @@ import HomePage from '@/components/pages/HomePage';
 import GaleriaPage from '@/components/pages/GaleriaPage';
 import ProfilePage from '@/components/pages/ProfilePage';
 import GamePage from '@/components/pages/GamePage';
+import GiroPage from '@/components/pages/GiroPage';
 
 function Layout() {
   return (
@@ -47,6 +48,13 @@ const router = createBrowserRouter([
         element: <GamePage />,
         routeMetadata: {
           pageIdentifier: 'game',
+        },
+      },
+      {
+        path: "giro",
+        element: <GiroPage />,
+        routeMetadata: {
+          pageIdentifier: 'giro',
         },
       },
       {
