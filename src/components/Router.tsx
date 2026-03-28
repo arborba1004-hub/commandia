@@ -1,4 +1,3 @@
-import { MemberProvider } from '@/integrations';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
@@ -7,7 +6,6 @@ import GaleriaPage from '@/components/pages/GaleriaPage';
 import ProfilePage from '@/components/pages/ProfilePage';
 import GamePage from '@/components/pages/GamePage';
 
-// Layout component that includes ScrollToTop
 function Layout() {
   return (
     <>
@@ -62,9 +60,5 @@ const router = createBrowserRouter([
 });
 
 export default function AppRouter() {
-  return (
-    <MemberProvider>
-      <RouterProvider router={router} />
-    </MemberProvider>
-  );
+  return <RouterProvider router={router} />;
 }
