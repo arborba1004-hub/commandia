@@ -2,6 +2,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Link } from 'react-router-dom';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { Image } from '@/components/ui/image';
 
 export default function ProfilePage() {
   const { playerData, isAuthenticated, logout } = useGoogleAuth();
@@ -53,11 +54,7 @@ export default function ProfilePage() {
 
             {playerData.avatar && (
               <div>
-                <img
-                  src={playerData.avatar}
-                  alt={playerData.name || 'Perfil'}
-                  className="w-24 h-24 rounded-full object-cover border-2 border-primary"
-                />
+                <Image src={playerData.avatar} alt={playerData.name || 'Perfil'} className="w-24 h-24 rounded-full object-cover border-2 border-primary" />
               </div>
             )}
 

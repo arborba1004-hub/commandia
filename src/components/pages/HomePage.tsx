@@ -10,6 +10,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useDebugLog } from '@/hooks/useDebugLog';
 import GoogleAuthDebugPanel from '@/components/GoogleAuthDebugPanel';
+import { useBackendHealthCheck } from '@/hooks/useBackendHealthCheck';
+import BackendHealthCheckModal from '@/components/BackendHealthCheckModal';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ export default function HomePage() {
   } = useGoogleAuth();
 
   const { logs, addLog } = useDebugLog();
+  const { isChecking, status, checkBackendHealth, reset } = useBackendHealthCheck();
 
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const [googleAvailable, setGoogleAvailable] = useState(false);
@@ -37,6 +40,8 @@ export default function HomePage() {
   const [backendResponse, setBackendResponse] = useState<any>(null);
   const [finalError, setFinalError] = useState<string | null>(null);
   const [isLoginComplete, setIsLoginComplete] = useState(false);
+  const [showHealthCheckModal, setShowHealthCheckModal] = useState(false);
+  const [pendingGoogleResponse, setPendingGoogleResponse] = useState<any>(null);
 
   useEffect(() => {
     loadMechanics();
@@ -100,6 +105,27 @@ export default function HomePage() {
         throw new Error('No credential received from Google');
       }
 
+      // Store the response for later use after health check
+      setPendingGoogleResponse(response);
+
+      // Show health check modal and start checking backend
+      setShowHealthCheckModal(true);
+      reset();
+      addLog('HealthCheck', 'pending', 'iniciando verificação do servidor');
+
+      const healthCheckResult = await checkBackendHealth();
+
+      if (!healthCheckResult.isHealthy) {
+        addLog('HealthCheck', 'error', healthCheckResult.message);
+        // Modal will show error, user can retry
+        return;
+      }
+
+      // Backend is healthy, proceed with login
+      addLog('HealthCheck', 'success', 'servidor está pronto');
+      setShowHealthCheckModal(false);
+
+      // Now proceed with the actual authentication
       setBackendRequestStarted(true);
       addLog('Backend', 'pending', 'enviando para backend');
 
@@ -143,6 +169,68 @@ export default function HomePage() {
       setFinalError(errorMessage);
       addLog('Error', 'error', errorMessage);
       console.error('Google auth error:', err);
+      setShowHealthCheckModal(false);
+    }
+  };
+
+  const handleHealthCheckRetry = async () => {
+    reset();
+    const healthCheckResult = await checkBackendHealth();
+
+    if (healthCheckResult.isHealthy) {
+      addLog('HealthCheck', 'success', 'servidor está pronto');
+      setShowHealthCheckModal(false);
+
+      // Proceed with login using the pending response
+      if (pendingGoogleResponse) {
+        const credential = pendingGoogleResponse.credential;
+
+        setBackendRequestStarted(true);
+        addLog('Backend', 'pending', 'enviando para backend');
+
+        try {
+          const responseFromBackend = await fetch('https://comando-backend.onrender.com/auth/google', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token: credential }),
+          });
+
+          setBackendStatus(responseFromBackend.status);
+          setBackendResponseReceived(true);
+          addLog('Backend', 'success', `resposta recebida - status ${responseFromBackend.status}`);
+
+          const data = await responseFromBackend.json();
+          setBackendResponse(data);
+          addLog('Backend', 'success', 'JSON parseado', data);
+
+          if (!responseFromBackend.ok) {
+            throw new Error(`Backend error: ${responseFromBackend.statusText}`);
+          }
+
+          if (data.token && data.player) {
+            addLog('Auth', 'success', 'token e player recebidos');
+
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('playerData', JSON.stringify(data.player));
+
+            setIsLoginComplete(true);
+            setFinalError(null);
+
+            addLog('Login Complete', 'success', `Welcome ${data.player.name}`);
+
+            window.location.reload();
+          } else {
+            throw new Error(data.message || 'Backend did not return token and player');
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+          setFinalError(errorMessage);
+          addLog('Error', 'error', errorMessage);
+          console.error('Google auth error:', err);
+        }
+      }
     }
   };
 
@@ -427,6 +515,16 @@ export default function HomePage() {
           isLoginComplete={isLoginComplete}
         />
       )}
+
+      <BackendHealthCheckModal
+        isOpen={showHealthCheckModal}
+        isChecking={isChecking}
+        message={status?.message || 'Aguardando backend iniciar...'}
+        isHealthy={status?.isHealthy}
+        timedOut={status?.timedOut}
+        onRetry={handleHealthCheckRetry}
+        onClose={() => setShowHealthCheckModal(false)}
+      />
     </div>
   );
 }
