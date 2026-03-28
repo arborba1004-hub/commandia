@@ -295,8 +295,8 @@ const handleSpin = () => {
   const machineScaleClass =
     'w-[360px] sm:w-[420px] md:w-[520px] lg:w-[620px] xl:w-[680px]';
 
-  const reelWindowClass =
-    'absolute top-[38%] h-[16.5%] w-[18%] -translate-y-1/2 rounded-[18px] overflow-hidden';
+  const reelBase =
+    'absolute top-[42%] -translate-y-1/2 h-[12%] w-[14%] rounded-[18px] overflow-hidden';
 
   return (
     <div className="min-h-screen bg-[#07090d] text-white relative overflow-x-hidden">
@@ -431,7 +431,7 @@ const handleSpin = () => {
             <div className={`relative ${machineScaleClass}`}>
               <Image src={MACHINE_BG} alt="Estrutura da máquina" className="w-full h-auto object-contain select-none pointer-events-none opacity-0" />
 
-              <div className={`${reelWindowClass} left-[21.5%]`}>
+              <div className={`${reelBase} left-[28%]`}>
                 <div className="relative flex h-full w-full items-center justify-center rounded-[12px] bg-black/80 border border-yellow-400/40 shadow-[inset_0_0_20px_rgba(255,200,0,0.3)] overflow-hidden">
                   <motion.img
                     key={`reel-0-${displayedReels[0]}-${lockedReels[0]}`}
@@ -445,7 +445,7 @@ const handleSpin = () => {
                 </div>
               </div>
 
-              <div className={`${reelWindowClass} left-[41%]`}>
+              <div className={`${reelBase} left-[43%]`}>
                 <div className="relative flex h-full w-full items-center justify-center rounded-[12px] bg-black/80 border border-yellow-400/40 shadow-[inset_0_0_20px_rgba(255,200,0,0.3)] overflow-hidden">
                   <motion.img
                     key={`reel-1-${displayedReels[1]}-${lockedReels[1]}`}
@@ -459,7 +459,7 @@ const handleSpin = () => {
                 </div>
               </div>
 
-              <div className={`${reelWindowClass} left-[60.6%]`}>
+              <div className={`${reelBase} left-[58%]`}>
                 <div className="relative flex h-full w-full items-center justify-center rounded-[12px] bg-black/80 border border-yellow-400/40 shadow-[inset_0_0_20px_rgba(255,200,0,0.3)] overflow-hidden">
                   <motion.img
                     key={`reel-2-${displayedReels[2]}-${lockedReels[2]}`}
