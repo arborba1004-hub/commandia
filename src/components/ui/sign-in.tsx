@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface SignInProps {
   title?: string;
@@ -10,6 +11,12 @@ interface SignInProps {
   cardClassName?: string;
   googleClientId?: string;
   onSignInSuccess?: () => void;
+}
+
+interface PlayerData {
+  name?: string;
+  email?: string;
+  [key: string]: any;
 }
 
 export function SignIn({
@@ -23,9 +30,18 @@ export function SignIn({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [playerData, setPlayerData] = useState<PlayerData | null>(null);
   
   useEffect(() => {
-    // Load Google Sign-In script
+    // Check for existing authentication on mount
+    checkExistingAuth();
+  }, []);
+
+  useEffect(() => {
+    // Load Google Sign-In script only if not authenticated
+    if (isAuthenticated) return;
+
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
@@ -54,7 +70,38 @@ export function SignIn({
         document.head.removeChild(script);
       }
     };
-  }, [googleClientId]);
+  }, [googleClientId, isAuthenticated]);
+
+  const checkExistingAuth = () => {
+    const authToken = localStorage.getItem('authToken');
+    const playerDataStr = localStorage.getItem('playerData');
+
+    if (authToken && playerDataStr) {
+      try {
+        const data = JSON.parse(playerDataStr);
+        setPlayerData(data);
+        setIsAuthenticated(true);
+      } catch (err) {
+        console.error('Error parsing playerData:', err);
+        setIsAuthenticated(false);
+      }
+    }
+  };
+
+  const handleContinue = () => {
+    if (onSignInSuccess) {
+      onSignInSuccess();
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('playerData');
+    setIsAuthenticated(false);
+    setPlayerData(null);
+    setError(null);
+    setSuccess(false);
+  };
 
   const handleCredentialResponse = async (response: any) => {
     setLoading(true);
@@ -133,15 +180,53 @@ export function SignIn({
             </Alert>
           )}
 
-          <div 
-            id="google-signin-button" 
-            className={`flex justify-center ${loading || success ? 'opacity-50 pointer-events-none' : ''}`}
-          ></div>
-          
-          {loading && (
-            <p className="text-sm text-secondary-foreground">
-              Authenticating with backend...
-            </p>
+          {isAuthenticated && playerData ? (
+            <div className="space-y-6">
+              <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-6 space-y-3">
+                {playerData.name && (
+                  <div>
+                    <p className="text-sm text-foreground/60 mb-1">Nome do Jogador</p>
+                    <p className="font-heading text-xl text-foreground">{playerData.name}</p>
+                  </div>
+                )}
+                {playerData.email && (
+                  <div>
+                    <p className="text-sm text-foreground/60 mb-1">Email</p>
+                    <p className="font-paragraph text-base text-foreground/80">{playerData.email}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <Button
+                  onClick={handleContinue}
+                  className="w-full bg-primary text-primary-foreground font-heading uppercase tracking-wider hover:bg-primary/90"
+                >
+                  Continuar
+                </Button>
+                <Button
+                  onClick={handleLogout}
+                  variant="outline"
+                  className="w-full border-secondary/40 text-foreground hover:bg-secondary/10"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div 
+                id="google-signin-button" 
+                className={`flex justify-center ${loading || success ? 'opacity-50 pointer-events-none' : ''}`}
+              ></div>
+              
+              {loading && (
+                <p className="text-sm text-secondary-foreground">
+                  Authenticating with backend...
+                </p>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
