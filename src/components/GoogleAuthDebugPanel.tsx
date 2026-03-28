@@ -102,8 +102,8 @@ export default function GoogleAuthDebugPanel({
           </div>
         )}
 
-        {/* Final Error */}
-        {finalError && (
+        {/* Final Error - Only show if no token and player in response */}
+        {finalError && !(backendResponse?.token && backendResponse?.player) && (
           <div className="text-red-400 bg-red-900/20 p-2 rounded">
             ✗ Erro: {finalError}
           </div>

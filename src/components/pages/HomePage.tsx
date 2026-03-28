@@ -118,12 +118,14 @@ export default function HomePage() {
         throw new Error(`Backend error: ${backendResponse.statusText}`);
       }
 
-      if (!data.success) {
-        throw new Error(data.message || 'Authentication failed');
+      // Check for token and player - correct success condition
+      if (data.token && data.player) {
+        addLog('Auth', 'success', 'token e player recebidos');
+        // Call original handler
+        await handleGoogleResponse(response);
+      } else {
+        throw new Error(data.message || 'Backend did not return token and player');
       }
-
-      // Call original handler
-      await handleGoogleResponse(response);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
       setFinalError(errorMessage);
