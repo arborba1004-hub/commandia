@@ -1,10 +1,7 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { motion } from 'framer-motion';
-import { LogOut, Mail, User } from 'lucide-react';
-import { Image } from '@/components/ui/image';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Link } from 'react-router-dom';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 export default function ProfilePage() {
   const { playerData, isAuthenticated, logout } = useGoogleAuth();
@@ -14,18 +11,18 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-background">
         <Header />
         <section className="pt-32 pb-24 flex items-center justify-center">
-          <div className="max-w-[120rem] mx-auto px-6 lg:px-12 text-center">
-            <h1 className="font-heading text-6xl lg:text-8xl uppercase tracking-wider text-foreground mb-6">
-              Acesso <span className="text-primary">Negado</span>
+          <div className="max-w-3xl mx-auto px-6 text-center">
+            <h1 className="text-4xl font-bold mb-4">
+              Acesso negado
             </h1>
-            <p className="font-paragraph text-xl text-foreground/80 mb-8">
+            <p className="text-lg mb-8">
               Você precisa estar autenticado para acessar seu perfil.
             </p>
             <Link
               to="/"
-              className="inline-block px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+              className="inline-block px-6 py-3 bg-primary text-primary-foreground rounded-lg"
             >
-              Voltar ao Início
+              Voltar ao início
             </Link>
           </div>
         </section>
@@ -38,86 +35,43 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <section className="pt-32 pb-24 bg-gradient-to-b from-primary/10 to-background">
-        <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center space-y-6"
-          >
-            <h1 className="font-heading text-6xl lg:text-8xl uppercase tracking-wider text-foreground">
-              Meu <span className="text-primary">Perfil</span>
+      <section className="pt-32 pb-24">
+        <div className="max-w-3xl mx-auto px-6">
+          <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 space-y-6">
+            <h1 className="text-4xl font-bold">
+              Meu Perfil
             </h1>
-            <p className="font-paragraph text-xl text-foreground/80 max-w-3xl mx-auto leading-relaxed">
-              Gerencie suas informações e preferências no Domínio do Comando
-            </p>
-          </motion.div>
+
+            <div className="space-y-3">
+              <p><strong>Nome:</strong> {playerData.name || 'Jogador'}</p>
+              <p><strong>Email:</strong> {playerData.email || 'Não disponível'}</p>
+              <p><strong>ID:</strong> {playerData._id || 'Não disponível'}</p>
+              <p><strong>Level:</strong> {playerData.level ?? 1}</p>
+              <p><strong>HP:</strong> {playerData.hp ?? 100}</p>
+              <p><strong>Moedas:</strong> {playerData.money ?? 0}</p>
+            </div>
+
+            {playerData.avatar && (
+              <div>
+                <img
+                  src={playerData.avatar}
+                  alt={playerData.name || 'Perfil'}
+                  className="w-24 h-24 rounded-full object-cover border-2 border-primary"
+                />
+              </div>
+            )}
+
+            <button
+              onClick={logout}
+              className="w-full px-6 py-4 bg-red-600 text-white rounded-lg"
+            >
+              Sair da conta
+            </button>
+          </div>
         </div>
       </section>
 
-      <section className="py-24">
-        <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-2xl mx-auto"
-          >
-            <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 space-y-8">
-              <div className="flex items-center gap-6 pb-8 border-b border-secondary/20">
-                {playerData?.avatar ? (
-                  <Image
-                    src={playerData.avatar}
-                    alt={playerData.name || 'Profile'}
-                    width={96}
-                    className="w-24 h-24 rounded-full object-cover border-2 border-primary"
-                  />
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-                    <User className="w-12 h-12 text-primary" />
-                  </div>
-                )}
-                <div>
-                  <h2 className="font-heading text-3xl uppercase tracking-wider text-foreground">
-                    {playerData?.name || 'Jogador'}
-                  </h2>
-                  <p className="font-paragraph text-foreground/60 mt-2">
-                    Jogador do Domínio do Comando
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="font-heading text-sm uppercase tracking-wider text-foreground/60 block mb-2">
-                    Email
-                  </label>
-                  <div className="flex items-center gap-3 bg-background/50 rounded-lg p-4">
-                    <Mail className="w-5 h-5 text-primary" />
-                    <p className="font-paragraph text-foreground">
-                      {playerData?.email || 'Não disponível'}
-                    </p>
-                  </div>
-                </div>
-
-                {playerData?._id && (
-                  <div>
-                    <label className="font-heading text-sm uppercase tracking-wider text-foreground/60 block mb-2">
-                      ID do Jogador
-                    </label>
-                    <div className="bg-background/50 rounded-lg p-4">
-                      <p className="font-paragraph text-foreground text-sm break-all">
-                        {playerData._id}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-background/50 rounded-lg p-4">
-                    <p className="font-heading text-sm uppercase tracking-wider text-foreground/60 mb-2">
-                      Level
-                    </p>
-                    <p className="font-paragraph text-foreground">
-                      {playerData?.level ??
+      <Footer />
+    </div>
+  );
+}
