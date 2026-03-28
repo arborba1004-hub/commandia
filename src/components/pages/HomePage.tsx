@@ -234,7 +234,7 @@ export default function HomePage() {
                 className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start"
               >
                 <button
-                  onClick={() => (isAuthenticated ? navigate('/game') : scrollToManifesto())}
+  onClick={() => (isAuthenticated ? navigate('/giro') : scrollToManifesto())}
                   className="group relative w-full max-w-[320px] overflow-hidden rounded-2xl border border-amber-300/25 bg-gradient-to-r from-red-950 via-red-800 to-red-950 px-8 py-4 text-sm font-bold uppercase tracking-[0.28em] text-white shadow-[0_12px_40px_rgba(110,0,0,0.35)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_16px_55px_rgba(150,0,0,0.45)] sm:w-auto"
                 >
                   <span className="absolute inset-0 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.15),transparent)] translate-x-[-120%] transition-transform duration-700 group-hover:translate-x-[120%]" />
