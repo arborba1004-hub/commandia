@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+eryimportimport { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Shield, Flame, Play, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
