@@ -8,23 +8,136 @@ import { Image } from '@/components/ui/image';
 import { Zap, Target, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useDebugLog } from '@/hooks/useDebugLog';
+import GoogleAuthDebugPanel from '@/components/GoogleAuthDebugPanel';
 
 export default function HomePage() {
   const [mechanics, setMechanics] = useState<GameMechanics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated, handleGoogleResponse, isLoading: authLoading } = useGoogleAuth();
+  const { isAuthenticated, handleGoogleResponse, isLoading: authLoading, playerData, error: authError } = useGoogleAuth();
+  const { logs, addLog, clearLogs } = useDebugLog();
+
+  // Debug state
+  const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [buttonRendered, setButtonRendered] = useState(false);
+  const [credentialReceived, setCredentialReceived] = useState(false);
+  const [backendRequestStarted, setBackendRequestStarted] = useState(false);
+  const [backendResponseReceived, setBackendResponseReceived] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<number | undefined>();
+  const [backendResponse, setBackendResponse] = useState<any>(null);
+  const [finalError, setFinalError] = useState<string | null>(null);
+  const [isLoginComplete, setIsLoginComplete] = useState(false);
 
   useEffect(() => {
     loadMechanics();
   }, []);
 
+  // Monitor auth errors
+  useEffect(() => {
+    if (authError) {
+      setFinalError(authError);
+      addLog('Auth Error', 'error', authError);
+    }
+  }, [authError, addLog]);
+
+  // Monitor login completion
+  useEffect(() => {
+    if (isAuthenticated && playerData) {
+      setIsLoginComplete(true);
+      addLog('Login Complete', 'success', `Welcome ${playerData.name}`);
+    }
+  }, [isAuthenticated, playerData, addLog]);
+
+  // Load Google script
+  useEffect(() => {
+    addLog('Init', 'pending', 'iniciando login');
+    
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    
+    script.onload = () => {
+      setGoogleScriptLoaded(true);
+      addLog('Script', 'success', 'script carregado');
+      
+      if (window.google) {
+        setGoogleAvailable(true);
+        addLog('Google', 'success', 'google disponível');
+      }
+    };
+    
+    script.onerror = () => {
+      addLog('Script', 'error', 'falha ao carregar script');
+      setFinalError('Falha ao carregar Google Sign-In');
+    };
+    
+    document.head.appendChild(script);
+    
+    return () => {
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  }, [addLog]);
+
+  // Wrap handleGoogleResponse to add debug logging
+  const handleGoogleResponseWithDebug = async (response: any) => {
+    try {
+      setCredentialReceived(true);
+      addLog('Credential', 'success', 'credential recebida');
+      
+      const credential = response.credential;
+      if (!credential) {
+        throw new Error('No credential received from Google');
+      }
+
+      setBackendRequestStarted(true);
+      addLog('Backend', 'pending', 'enviando para backend');
+
+      // Send token to backend
+      const backendResponse = await fetch('https://comando-backend.onrender.com/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: credential }),
+      });
+
+      setBackendStatus(backendResponse.status);
+      setBackendResponseReceived(true);
+      addLog('Backend', 'success', `resposta recebida - status ${backendResponse.status}`);
+
+      const data = await backendResponse.json();
+      setBackendResponse(data);
+      addLog('Backend', 'success', 'JSON parseado', data);
+
+      if (!backendResponse.ok) {
+        throw new Error(`Backend error: ${backendResponse.statusText}`);
+      }
+
+      if (!data.success) {
+        throw new Error(data.message || 'Authentication failed');
+      }
+
+      // Call original handler
+      await handleGoogleResponse(response);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+      setFinalError(errorMessage);
+      addLog('Error', 'error', errorMessage);
+      console.error('Google auth error:', err);
+    }
+  };
+
   useEffect(() => {
     // Initialize Google Sign-In
-    if (window.google && !authLoading) {
+    if (window.google && !authLoading && googleScriptLoaded) {
       window.google.accounts.id.initialize({
         client_id: '948102948683-u0o9lg73rprka2t0pp0tr4ol96echnf4.apps.googleusercontent.com',
-        callback: handleGoogleResponse,
+        callback: handleGoogleResponseWithDebug,
       });
 
       // Render button in hero section
@@ -35,6 +148,8 @@ export default function HomePage() {
           size: 'large',
           text: 'signin_with',
         });
+        setButtonRendered(true);
+        addLog('Button', 'success', 'botão renderizado (hero)');
       }
 
       // Render button in CTA section
@@ -45,9 +160,10 @@ export default function HomePage() {
           size: 'large',
           text: 'signin_with',
         });
+        addLog('Button', 'success', 'botão renderizado (cta)');
       }
     }
-  }, [authLoading, handleGoogleResponse]);
+  }, [authLoading, handleGoogleResponseWithDebug, googleScriptLoaded, addLog]);
 
   const loadMechanics = async () => {
     try {
@@ -64,7 +180,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-[40vh]">
       <Header />
 
       {/* Hero Section */}
@@ -249,6 +365,22 @@ export default function HomePage() {
       </section>
 
       <Footer />
+
+      {/* Debug Panel */}
+      <GoogleAuthDebugPanel
+        logs={logs}
+        googleScriptLoaded={googleScriptLoaded}
+        googleAvailable={googleAvailable}
+        buttonRendered={buttonRendered}
+        credentialReceived={credentialReceived}
+        backendRequestStarted={backendRequestStarted}
+        backendResponseReceived={backendResponseReceived}
+        backendStatus={backendStatus}
+        backendResponse={backendResponse}
+        finalError={finalError}
+        playerName={playerData?.name}
+        isLoginComplete={isLoginComplete}
+      />
     </div>
   );
 }
