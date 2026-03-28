@@ -10,6 +10,11 @@ type Balances = {
   corre: number;
 };
 
+type GiroStorage = {
+  totalSpins: number;
+  spinsUsed: number;
+};
+
 type Inventory = {
   items: any[];
   gifts: any[];
@@ -77,6 +82,8 @@ export type PlayerState = {
   hierarchyBadge: string;
 
   barracoPosition: BarracoPosition;
+
+  giroStorage: GiroStorage;
 };
 
 type PlayerStore = {
@@ -125,6 +132,10 @@ type PlayerStore = {
   setPower: (value: number) => void;
   setHierarchyBadge: (badge: string) => void;
   setBarracoPosition: (position: Partial<BarracoPosition>) => void;
+
+  // GIRO STORAGE
+  addGiroSpin: () => void;
+  useGiroSpin: () => void;
 };
 
 const initialPlayer: PlayerState = {
@@ -186,6 +197,11 @@ const initialPlayer: PlayerState = {
     y: 0,
     z: 0,
   },
+
+  giroStorage: {
+    totalSpins: 0,
+    spinsUsed: 0,
+  },
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
@@ -224,6 +240,11 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     barracoPosition: {
       ...initialPlayer.barracoPosition,
       ...(incoming?.barracoPosition || {}),
+    },
+
+    giroStorage: {
+      ...initialPlayer.giroStorage,
+      ...(incoming?.giroStorage || {}),
     },
   };
 }
@@ -643,6 +664,38 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       barracoPosition: {
         ...current.barracoPosition,
         ...position,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  addGiroSpin: () => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      giroStorage: {
+        ...current.giroStorage,
+        totalSpins: current.giroStorage.totalSpins + 1,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  useGiroSpin: () => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      giroStorage: {
+        ...current.giroStorage,
+        spinsUsed: current.giroStorage.spinsUsed + 1,
       },
     });
 

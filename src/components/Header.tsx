@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { usePlayerStore } from '@/store/playerStore';
 import { LogOut, User } from 'lucide-react';
 
 export default function Header() {
   const { playerData, isAuthenticated, logout } = useGoogleAuth();
+  const { player } = usePlayerStore();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-custom4">
@@ -32,6 +34,21 @@ export default function Header() {
             >
               Missões
             </a>
+          )}
+          
+          {/* Money Vaults */}
+          {isAuthenticated && (
+            <div className="flex items-center gap-4 px-4 py-2 bg-custom4/30 rounded-lg border border-custom4">
+              <div className="flex items-center gap-2">
+                <span className="text-primary font-heading text-xs uppercase">💰 Sujo:</span>
+                <span className="text-foreground font-heading text-sm">{player.balances.dirtyMoney}</span>
+              </div>
+              <div className="w-px h-4 bg-custom4"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-secondary font-heading text-xs uppercase">💵 Limpo:</span>
+                <span className="text-foreground font-heading text-sm">{player.balances.cleanMoney}</span>
+              </div>
+            </div>
           )}
           
           {/* Auth Section */}

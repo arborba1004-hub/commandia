@@ -7,7 +7,7 @@ import { usePlayerStore } from '@/store/playerStore';
 const symbols = ['💵', '💎', '🚔', '🔫'];
 
 export default function GiroPage() {
-  const { player, addDirtyMoney, removeDirtyMoneyPercent, removeCorre } = usePlayerStore();
+  const { player, addDirtyMoney, removeDirtyMoneyPercent, removeCorre, useGiroSpin } = usePlayerStore();
 
   const [slots, setSlots] = useState(['❔', '❔', '❔']);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -21,8 +21,9 @@ export default function GiroPage() {
 
     setIsSpinning(true);
 
-    // remove 1 corre
+    // remove 1 corre and track spin usage
     removeCorre(1);
+    useGiroSpin();
 
     setTimeout(() => {
       const result = [
@@ -94,6 +95,7 @@ export default function GiroPage() {
         <div className="text-center space-y-2">
           <p>💰 Dirty: {player.balances.dirtyMoney}</p>
           <p>⚡ Corre: {player.balances.corre}</p>
+          <p>🎰 Giros Usados: {player.giroStorage.spinsUsed}</p>
         </div>
 
       </div>
