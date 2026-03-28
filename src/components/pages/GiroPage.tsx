@@ -432,7 +432,7 @@ const handleSpin = () => {
               <Image src={MACHINE_BG} alt="Estrutura da máquina" className="w-full h-auto object-contain select-none pointer-events-none opacity-0" />
 
               <div className={`${reelWindowClass} left-[21.5%]`}>
-                <div className="relative flex h-full w-full items-center justify-center rounded-[18px] border border-yellow-400/35 bg-black/70 shadow-[inset_0_0_24px_rgba(255,200,0,0.18)]">
+                <div className="relative flex h-full w-full items-center justify-center rounded-[12px] bg-black/80 border border-yellow-400/40 shadow-[inset_0_0_20px_rgba(255,200,0,0.3)] overflow-hidden">
                   <motion.img
                     key={`reel-0-${displayedReels[0]}-${lockedReels[0]}`}
                     src={SLOT_ASSETS[displayedReels[0]]}
@@ -440,13 +440,13 @@ const handleSpin = () => {
                     initial={{ y: lockedReels[0] ? -18 : 0, opacity: 0.75 }}
                     animate={{ y: 0, opacity: 1, scale: lockedReels[0] ? 1 : 0.96 }}
                     transition={{ duration: 0.18 }}
-                    className="h-[68%] w-[68%] object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.15)]"
+                    className="h-[75%] w-[75%] object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
                   />
                 </div>
               </div>
 
               <div className={`${reelWindowClass} left-[41%]`}>
-                <div className="relative flex h-full w-full items-center justify-center rounded-[18px] border border-yellow-400/35 bg-black/70 shadow-[inset_0_0_24px_rgba(255,200,0,0.18)]">
+                <div className="relative flex h-full w-full items-center justify-center rounded-[12px] bg-black/80 border border-yellow-400/40 shadow-[inset_0_0_20px_rgba(255,200,0,0.3)] overflow-hidden">
                   <motion.img
                     key={`reel-1-${displayedReels[1]}-${lockedReels[1]}`}
                     src={SLOT_ASSETS[displayedReels[1]]}
@@ -454,13 +454,13 @@ const handleSpin = () => {
                     initial={{ y: lockedReels[1] ? -18 : 0, opacity: 0.75 }}
                     animate={{ y: 0, opacity: 1, scale: lockedReels[1] ? 1 : 0.96 }}
                     transition={{ duration: 0.2 }}
-                    className="h-[68%] w-[68%] object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.15)]"
+                    className="h-[75%] w-[75%] object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
                   />
                 </div>
               </div>
 
               <div className={`${reelWindowClass} left-[60.6%]`}>
-                <div className="relative flex h-full w-full items-center justify-center rounded-[18px] border border-yellow-400/35 bg-black/70 shadow-[inset_0_0_24px_rgba(255,200,0,0.18)]">
+                <div className="relative flex h-full w-full items-center justify-center rounded-[12px] bg-black/80 border border-yellow-400/40 shadow-[inset_0_0_20px_rgba(255,200,0,0.3)] overflow-hidden">
                   <motion.img
                     key={`reel-2-${displayedReels[2]}-${lockedReels[2]}`}
                     src={SLOT_ASSETS[displayedReels[2]]}
@@ -468,7 +468,7 @@ const handleSpin = () => {
                     initial={{ y: lockedReels[2] ? -18 : 0, opacity: 0.75 }}
                     animate={{ y: 0, opacity: 1, scale: lockedReels[2] ? 1 : 0.96 }}
                     transition={{ duration: 0.22 }}
-                    className="h-[68%] w-[68%] object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.15)]"
+                    className="h-[75%] w-[75%] object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
                   />
                 </div>
               </div>
