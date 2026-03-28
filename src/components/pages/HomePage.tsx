@@ -5,17 +5,18 @@ import { GameMechanics } from '@/entities';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Image } from '@/components/ui/image';
-import { Zap, Target, Trophy } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Zap, Target, Trophy, LogOut } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useDebugLog } from '@/hooks/useDebugLog';
 import GoogleAuthDebugPanel from '@/components/GoogleAuthDebugPanel';
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const [mechanics, setMechanics] = useState<GameMechanics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated, handleGoogleResponse, isLoading: authLoading, playerData, error: authError } = useGoogleAuth();
+  const { isAuthenticated, handleGoogleResponse, isLoading: authLoading, playerData, error: authError, logout } = useGoogleAuth();
   const { logs, addLog, clearLogs } = useDebugLog();
 
   // Debug state
@@ -188,40 +189,83 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="pt-32 pb-24 bg-gradient-to-b from-primary/10 to-background">
         <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center space-y-8"
-          >
-            <h1 className="font-heading text-7xl lg:text-9xl uppercase tracking-wider text-foreground">
-              Domínio do <span className="text-primary">Comando</span>
-            </h1>
-            <p className="font-paragraph text-xl lg:text-2xl text-foreground/80 max-w-3xl mx-auto leading-relaxed">
-              Mergulhe em um universo de estratégia, poder e domínio absoluto. Domine o jogo, controle o destino.
-            </p>
-            <div className="flex gap-4 justify-center pt-8">
-              <Link
-                to="/galeria"
-                className="px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
-              >
-                Explorar Galeria
-              </Link>
-              {!isAuthenticated ? (
+          {isAuthenticated && playerData ? (
+            // Authenticated Hero
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="text-center space-y-8"
+            >
+              <h1 className="font-heading text-5xl lg:text-7xl uppercase tracking-wider text-foreground">
+                Bem-vindo, <span className="text-primary">{playerData.name}</span>
+              </h1>
+              
+              <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 max-w-2xl mx-auto space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="font-paragraph text-sm text-foreground/60">Email</p>
+                    <p className="font-heading text-lg text-foreground">{playerData.email}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-paragraph text-sm text-foreground/60">Level</p>
+                    <p className="font-heading text-lg text-primary">{playerData.level || 1}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-paragraph text-sm text-foreground/60">HP</p>
+                    <p className="font-heading text-lg text-foreground">{playerData.hp || 100}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-paragraph text-sm text-foreground/60">Moedas</p>
+                    <p className="font-heading text-lg text-secondary">{playerData.money || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 justify-center pt-8">
+                <button
+                  onClick={() => navigate('/game')}
+                  className="px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+                >
+                  Continuar
+                </button>
+                <button
+                  onClick={logout}
+                  className="px-8 py-4 border-2 border-destructive text-destructive font-heading uppercase tracking-wider rounded-lg hover:bg-destructive/10 transition-all flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sair
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            // Unauthenticated Hero
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="text-center space-y-8"
+            >
+              <h1 className="font-heading text-7xl lg:text-9xl uppercase tracking-wider text-foreground">
+                Domínio do <span className="text-primary">Comando</span>
+              </h1>
+              <p className="font-paragraph text-xl lg:text-2xl text-foreground/80 max-w-3xl mx-auto leading-relaxed">
+                Mergulhe em um universo de estratégia, poder e domínio absoluto. Domine o jogo, controle o destino.
+              </p>
+              <div className="flex gap-4 justify-center pt-8">
+                <Link
+                  to="/galeria"
+                  className="px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+                >
+                  Explorar Galeria
+                </Link>
                 <div
                   id="google-signin-button"
                   className="flex items-center"
                 />
-              ) : (
-                <Link
-                  to="/profile"
-                  className="px-8 py-4 border-2 border-primary text-primary font-heading uppercase tracking-wider rounded-lg hover:bg-primary/10 transition-all"
-                >
-                  Meu Perfil
-                </Link>
-              )}
-            </div>
-          </motion.div>
+              </div>
+            </motion.div>
+          )}
         </div>
       </section>
 
@@ -337,52 +381,47 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-custom4/20">
-        <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center space-y-8"
-          >
-            <h2 className="font-heading text-5xl lg:text-6xl uppercase tracking-wider text-foreground">
-              Pronto para <span className="text-primary">Dominar</span>?
-            </h2>
-            <p className="font-paragraph text-lg text-foreground/70 max-w-2xl mx-auto">
-              Junte-se a milhares de jogadores que já conquistaram seu lugar no Domínio do Comando
-            </p>
-            {!isAuthenticated ? (
+      {!isAuthenticated && (
+        <section className="py-24 bg-custom4/20">
+          <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="text-center space-y-8"
+            >
+              <h2 className="font-heading text-5xl lg:text-6xl uppercase tracking-wider text-foreground">
+                Pronto para <span className="text-primary">Dominar</span>?
+              </h2>
+              <p className="font-paragraph text-lg text-foreground/70 max-w-2xl mx-auto">
+                Junte-se a milhares de jogadores que já conquistaram seu lugar no Domínio do Comando
+              </p>
               <div id="google-signin-button-cta" className="flex justify-center" />
-            ) : (
-              <Link
-                to="/profile"
-                className="inline-block px-10 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all text-lg"
-              >
-                Começar Agora
-              </Link>
-            )}
-          </motion.div>
-        </div>
-      </section>
+            </motion.div>
+          </div>
+        </section>
+      )}
 
       <Footer />
 
       {/* Debug Panel */}
-      <GoogleAuthDebugPanel
-        logs={logs}
-        googleScriptLoaded={googleScriptLoaded}
-        googleAvailable={googleAvailable}
-        buttonRendered={buttonRendered}
-        credentialReceived={credentialReceived}
-        backendRequestStarted={backendRequestStarted}
-        backendResponseReceived={backendResponseReceived}
-        backendStatus={backendStatus}
-        backendResponse={backendResponse}
-        finalError={finalError}
-        playerName={playerData?.name}
-        isLoginComplete={isLoginComplete}
-      />
+      {!isAuthenticated && (
+        <GoogleAuthDebugPanel
+          logs={logs}
+          googleScriptLoaded={googleScriptLoaded}
+          googleAvailable={googleAvailable}
+          buttonRendered={buttonRendered}
+          credentialReceived={credentialReceived}
+          backendRequestStarted={backendRequestStarted}
+          backendResponseReceived={backendResponseReceived}
+          backendStatus={backendStatus}
+          backendResponse={backendResponse}
+          finalError={finalError}
+          playerName={playerData?.name}
+          isLoginComplete={isLoginComplete}
+        />
+      )}
     </div>
   );
 }

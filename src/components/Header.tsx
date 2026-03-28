@@ -25,23 +25,25 @@ export default function Header() {
           >
             Galeria
           </Link>
-          <a 
-            href="#missoes"
-            className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
-          >
-            Missões
-          </a>
+          {!isAuthenticated && (
+            <a 
+              href="#missoes"
+              className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
+            >
+              Missões
+            </a>
+          )}
           
           {/* Auth Section */}
           <div className="flex items-center gap-4">
             {isAuthenticated ? (
               <>
                 <Link
-                  to="/profile"
+                  to="/game"
                   className="flex items-center gap-2 font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
                 >
                   <User className="w-4 h-4" />
-                  {playerData?.name || 'Perfil'}
+                  {playerData?.name || 'Jogo'}
                 </Link>
                 <button
                   onClick={logout}
