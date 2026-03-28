@@ -1,39 +1,16 @@
-import { useMember } from '@/integrations';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { motion } from 'framer-motion';
 import { LogOut, Mail, User } from 'lucide-react';
 import { Image } from '@/components/ui/image';
-import { useEffect, useState } from 'react';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { Link } from 'react-router-dom';
 
 export default function ProfilePage() {
-  const { member, actions, isLoading } = useMember();
-  const [isPageReady, setIsPageReady] = useState(false);
+  const { playerData, isAuthenticated, logout, isLoading } = useGoogleAuth();
 
-  useEffect(() => {
-    // Give the member context time to load
-    const timer = setTimeout(() => {
-      setIsPageReady(true);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleLogout = async () => {
-    await actions.logout();
-  };
-
-  // Show loading state while checking authentication
-  if (isLoading || !isPageReady) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <LoadingSpinner message="Carregando perfil..." />
-      </div>
-    );
-  }
-
-  // If no member data, show sign in prompt
-  if (!member) {
+  // If not authenticated, show sign in prompt
+  if (!isAuthenticated || !playerData) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -45,12 +22,12 @@ export default function ProfilePage() {
             <p className="font-paragraph text-xl text-foreground/80 mb-8">
               Você precisa estar autenticado para acessar seu perfil.
             </p>
-            <button
-              onClick={actions.login}
-              className="px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+            <Link
+              to="/"
+              className="inline-block px-8 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
             >
-              Entrar na Conta
-            </button>
+              Voltar ao Início
+            </Link>
           </div>
         </section>
         <Footer />
@@ -91,8 +68,8 @@ export default function ProfilePage() {
             <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 space-y-8">
               {/* Profile Header */}
               <div className="flex items-center gap-6 pb-8 border-b border-secondary/20">
-                {member?.profile?.photo?.url ? (
-                  <Image src={member.profile.photo.url} alt={member.profile.nickname || 'Profile'} className="w-24 h-24 rounded-full object-cover border-2 border-primary" />
+                {playerData?.picture ? (
+                  <Image src={playerData.picture} alt={playerData.name || 'Profile'} width={96} className="w-24 h-24 rounded-full object-cover border-2 border-primary" />
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
                     <User className="w-12 h-12 text-primary" />
@@ -100,10 +77,10 @@ export default function ProfilePage() {
                 )}
                 <div>
                   <h2 className="font-heading text-3xl uppercase tracking-wider text-foreground">
-                    {member?.profile?.nickname || 'Jogador'}
+                    {playerData?.name || 'Jogador'}
                   </h2>
                   <p className="font-paragraph text-foreground/60 mt-2">
-                    Membro desde {member?._createdDate ? new Date(member._createdDate).toLocaleDateString('pt-BR') : 'recentemente'}
+                    Jogador do Domínio do Comando
                   </p>
                 </div>
               </div>
@@ -117,40 +94,29 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-3 bg-background/50 rounded-lg p-4">
                     <Mail className="w-5 h-5 text-primary" />
                     <p className="font-paragraph text-foreground">
-                      {member?.loginEmail || 'Não disponível'}
+                      {playerData?.email || 'Não disponível'}
                     </p>
                   </div>
                 </div>
 
-                {member?.profile?.title && (
+                {playerData?.id && (
                   <div>
                     <label className="font-heading text-sm uppercase tracking-wider text-foreground/60 block mb-2">
-                      Título
+                      ID do Jogador
                     </label>
                     <div className="bg-background/50 rounded-lg p-4">
-                      <p className="font-paragraph text-foreground">
-                        {member.profile.title}
+                      <p className="font-paragraph text-foreground text-sm break-all">
+                        {playerData.id}
                       </p>
                     </div>
                   </div>
                 )}
-
-                <div>
-                  <label className="font-heading text-sm uppercase tracking-wider text-foreground/60 block mb-2">
-                    Status
-                  </label>
-                  <div className="bg-background/50 rounded-lg p-4">
-                    <p className="font-paragraph text-foreground capitalize">
-                      {member?.status || 'Ativo'}
-                    </p>
-                  </div>
-                </div>
               </div>
 
               {/* Logout Button */}
               <div className="pt-8 border-t border-secondary/20">
                 <button
-                  onClick={handleLogout}
+                  onClick={logout}
                   className="w-full flex items-center justify-center gap-3 bg-destructive text-destructiveforeground font-heading uppercase tracking-wider px-6 py-4 rounded-lg hover:bg-destructive/90 transition-all"
                 >
                   <LogOut className="w-5 h-5" />

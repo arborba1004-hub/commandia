@@ -7,15 +7,47 @@ import Footer from '@/components/Footer';
 import { Image } from '@/components/ui/image';
 import { Zap, Target, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 export default function HomePage() {
   const [mechanics, setMechanics] = useState<GameMechanics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated, handleGoogleResponse, isLoading: authLoading } = useGoogleAuth();
 
   useEffect(() => {
     loadMechanics();
   }, []);
+
+  useEffect(() => {
+    // Initialize Google Sign-In
+    if (window.google && !authLoading) {
+      window.google.accounts.id.initialize({
+        client_id: '948102948683-u0o9lg73rprka2t0pp0tr4ol96echnf4.apps.googleusercontent.com',
+        callback: handleGoogleResponse,
+      });
+
+      // Render button in hero section
+      const heroButton = document.getElementById('google-signin-button');
+      if (heroButton && !heroButton.hasChildNodes()) {
+        window.google.accounts.id.renderButton(heroButton, {
+          theme: 'dark',
+          size: 'large',
+          text: 'signin_with',
+        });
+      }
+
+      // Render button in CTA section
+      const ctaButton = document.getElementById('google-signin-button-cta');
+      if (ctaButton && !ctaButton.hasChildNodes()) {
+        window.google.accounts.id.renderButton(ctaButton, {
+          theme: 'dark',
+          size: 'large',
+          text: 'signin_with',
+        });
+      }
+    }
+  }, [authLoading, handleGoogleResponse]);
 
   const loadMechanics = async () => {
     try {
@@ -57,9 +89,19 @@ export default function HomePage() {
               >
                 Explorar Galeria
               </Link>
-              <button className="px-8 py-4 border-2 border-primary text-primary font-heading uppercase tracking-wider rounded-lg hover:bg-primary/10 transition-all">
-                Começar Jogo
-              </button>
+              {!isAuthenticated ? (
+                <div
+                  id="google-signin-button"
+                  className="flex items-center"
+                />
+              ) : (
+                <Link
+                  to="/profile"
+                  className="px-8 py-4 border-2 border-primary text-primary font-heading uppercase tracking-wider rounded-lg hover:bg-primary/10 transition-all"
+                >
+                  Meu Perfil
+                </Link>
+              )}
             </div>
           </motion.div>
         </div>
@@ -192,9 +234,16 @@ export default function HomePage() {
             <p className="font-paragraph text-lg text-foreground/70 max-w-2xl mx-auto">
               Junte-se a milhares de jogadores que já conquistaram seu lugar no Domínio do Comando
             </p>
-            <button className="px-10 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all text-lg">
-              Começar Agora
-            </button>
+            {!isAuthenticated ? (
+              <div id="google-signin-button-cta" className="flex justify-center" />
+            ) : (
+              <Link
+                to="/profile"
+                className="inline-block px-10 py-4 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all text-lg"
+              >
+                Começar Agora
+              </Link>
+            )}
           </motion.div>
         </div>
       </section>

@@ -1,10 +1,9 @@
 import { Link } from 'react-router-dom';
-import { useMember } from '@/integrations';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LogOut, User } from 'lucide-react';
 
 export default function Header() {
-  const { member, isAuthenticated, isLoading, actions } = useMember();
+  const { playerData, isAuthenticated, logout } = useGoogleAuth();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-custom4">
@@ -35,19 +34,17 @@ export default function Header() {
           
           {/* Auth Section */}
           <div className="flex items-center gap-4">
-            {isLoading ? (
-              <LoadingSpinner />
-            ) : isAuthenticated ? (
+            {isAuthenticated ? (
               <>
                 <Link
                   to="/profile"
                   className="flex items-center gap-2 font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
                 >
                   <User className="w-4 h-4" />
-                  {member?.profile?.nickname || 'Perfil'}
+                  {playerData?.name || 'Perfil'}
                 </Link>
                 <button
-                  onClick={actions.logout}
+                  onClick={logout}
                   className="flex items-center gap-2 bg-destructive text-destructiveforeground font-heading text-sm uppercase tracking-wider px-4 py-2 rounded-full hover:opacity-90 transition-opacity"
                 >
                   <LogOut className="w-4 h-4" />
@@ -56,12 +53,12 @@ export default function Header() {
               </>
             ) : (
               <>
-                <button
-                  onClick={actions.login}
+                <Link
+                  to="/"
                   className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
                 >
                   Entrar
-                </button>
+                </Link>
                 <button className="bg-primary text-primary-foreground font-heading text-sm uppercase tracking-wider px-6 py-3 rounded-full hover:opacity-90 transition-opacity">
                   Jogar
                 </button>
