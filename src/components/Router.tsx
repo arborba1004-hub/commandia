@@ -6,6 +6,7 @@ import GaleriaPage from '@/components/pages/GaleriaPage';
 import ProfilePage from '@/components/pages/ProfilePage';
 import GamePage from '@/components/pages/GamePage';
 import GiroPage from '@/components/pages/GiroPage';
+import LuxuryshowroomPage from '@/components/pages/LuxuryshowroomPage';
 
 function Layout() {
   return (
@@ -55,6 +56,13 @@ const router = createBrowserRouter([
         element: <GiroPage />,
         routeMetadata: {
           pageIdentifier: 'giro',
+        },
+      },
+      {
+        path: "luxuryshowroom",
+        element: <LuxuryshowroomPage />,
+        routeMetadata: {
+          pageIdentifier: 'luxuryshowroom',
         },
       },
       {
