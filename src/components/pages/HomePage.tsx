@@ -17,7 +17,10 @@ async function gameRequest(action: string, payload: any) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ action, payload }),
+    body: JSON.stringify({
+      action: 'spin',
+      payload: { bet: 100 }
+    }),
   });
 
   const data = await response.json();
