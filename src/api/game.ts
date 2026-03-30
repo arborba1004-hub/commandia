@@ -18,8 +18,8 @@ interface GameActionResponse {
 }
 
 async function getAuthToken(): Promise<string> {
-  // Get token from Wix Members or localStorage
-  const token = localStorage.getItem('wix_auth_token');
+  // Get token from localStorage
+  const token = localStorage.getItem('authToken');
   
   if (!token) {
     throw new Error('Token de autenticação não encontrado. Por favor, faça login.');
