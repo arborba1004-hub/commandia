@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { usePlayerStore } from '@/store/playerStore';
 
 export interface PlayerData {
-  id: string;
-  email: string;
-  name: string;
+  id?: string;
+  _id?: string;
+  email?: string;
+  name?: string;
   picture?: string;
+  avatar?: string;
   [key: string]: any;
 }
 
@@ -26,39 +29,57 @@ export function useGoogleAuth() {
     error: null,
   });
 
-  // Load auth state from localStorage on mount
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
+  const clearPlayer = usePlayerStore((state) => state.clearPlayer);
+
   useEffect(() => {
     const token = localStorage.getItem(STORAGE_KEY_TOKEN);
     const playerJson = localStorage.getItem(STORAGE_KEY_PLAYER);
-    
+
     if (token && playerJson) {
       try {
         const player = JSON.parse(playerJson);
+
         setAuthState({
           authToken: token,
           playerData: player,
           isLoading: false,
           error: null,
         });
+
+        // abastece a playerStore com o mesmo player salvo no login
+        setPlayer(player);
       } catch (e) {
         console.error('Error parsing stored player data:', e);
-        setAuthState(prev => ({ ...prev, isLoading: false }));
+
+        setAuthState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: 'Erro ao carregar sessão local',
+        }));
       }
     } else {
-      setAuthState(prev => ({ ...prev, isLoading: false }));
+      setAuthState((prev) => ({
+        ...prev,
+        isLoading: false,
+      }));
     }
-  }, []);
+  }, [setPlayer]);
 
   const handleGoogleResponse = async (response: any) => {
     try {
-      setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+      setAuthState((prev) => ({
+        ...prev,
+        isLoading: true,
+        error: null,
+      }));
 
-      const credential = response.credential;
+      const credential = response?.credential;
+
       if (!credential) {
         throw new Error('No credential received from Google');
       }
 
-      // Send token to backend
       const backendResponse = await fetch('https://comando-backend.onrender.com/auth/google', {
         method: 'POST',
         headers: {
@@ -77,9 +98,11 @@ export function useGoogleAuth() {
         throw new Error(data.message || 'Authentication failed');
       }
 
-      // Save to localStorage
       localStorage.setItem(STORAGE_KEY_TOKEN, data.token);
       localStorage.setItem(STORAGE_KEY_PLAYER, JSON.stringify(data.player));
+
+      // abastece a playerStore imediatamente
+      setPlayer(data.player);
 
       setAuthState({
         authToken: data.token,
@@ -88,9 +111,12 @@ export function useGoogleAuth() {
         error: null,
       });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Authentication failed';
+
       console.error('Google auth error:', err);
-      setAuthState(prev => ({
+
+      setAuthState((prev) => ({
         ...prev,
         isLoading: false,
         error: errorMessage,
@@ -101,6 +127,10 @@ export function useGoogleAuth() {
   const logout = () => {
     localStorage.removeItem(STORAGE_KEY_TOKEN);
     localStorage.removeItem(STORAGE_KEY_PLAYER);
+
+    // limpa a playerStore junto
+    clearPlayer();
+
     setAuthState({
       authToken: null,
       playerData: null,
