@@ -6,14 +6,13 @@ import { useEffect } from 'react';
 
 export default function Header() {
   const { playerData, isAuthenticated, logout } = useGoogleAuth();
-  const { player, loadPlayer, clearPlayer } = usePlayerStore();
+  const { player, loadPlayer } = usePlayerStore();
 
   useEffect(() => {
     loadPlayer();
   }, [loadPlayer]);
 
   const handleLogout = () => {
-    clearPlayer();
     logout();
   };
 
@@ -75,7 +74,7 @@ export default function Header() {
                   className="flex items-center gap-2 font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
                 >
                   <User className="w-4 h-4" />
-                  {playerData?.name || 'Jogo'}
+                  {playerData?.name || player?.name || 'Jogo'}
                 </Link>
 
                 <button
