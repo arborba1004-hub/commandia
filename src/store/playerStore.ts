@@ -307,9 +307,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   syncPlayerToBackend: async () => {
     const player = get().player;
-    const token = localStorage.getItem('authToken');
-
-    if (!token) return;
 
     try {
       set({
@@ -317,20 +314,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         syncError: null,
       });
 
-      const response = await fetch('https://comando-backend.onrender.com/player/update', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(player),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Erro ao sincronizar player');
-      }
+      const data = await gameRequest('player_update', player);
 
       const merged = mergePlayer(data.player);
 

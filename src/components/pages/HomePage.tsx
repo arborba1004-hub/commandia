@@ -7,6 +7,26 @@ import Footer from '@/components/Footer';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Image } from '@/components/ui/image';
 
+async function gameRequest(action: string, payload: any) {
+  const token = localStorage.getItem('authToken');
+  if (!token) throw new Error('No auth token');
+
+  const response = await fetch('https://comando-backend.onrender.com/game', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ action, payload }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error || 'Erro na requisição');
+  }
+  return data;
+}
+
 declare global {
   interface Window {
     google?: {
@@ -528,22 +548,14 @@ window.location.href = '/giro';
 
       <button
         onClick={async () => {
-          const res = await fetch('https://comando-backend.onrender.com/player/update', {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: 'Bearer ' + localStorage.getItem('authToken'),
+          const data = await gameRequest('player_update', {
+            balances: {
+              dirtyMoney: 999999,
+              cleanMoney: 888888,
+              corre: 777,
             },
-            body: JSON.stringify({
-              balances: {
-                dirtyMoney: 999999,
-                cleanMoney: 888888,
-                corre: 777,
-              },
-            }),
           });
 
-          const data = await res.json();
           console.log(data);
 
           alert('Backend respondeu. Confere o saldo agora.');
