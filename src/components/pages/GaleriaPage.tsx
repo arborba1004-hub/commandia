@@ -481,5 +481,151 @@ const newItem = {
                           Aproxime o cartão
                         </p>
                       )}
+                      {transactionStage === 'approach' && (
+                        <motion.p
+                          animate={{ opacity: [0.45, 1, 0.45] }}
+                          transition={{ duration: 0.8, repeat: Infinity }}
+                          className="text-lg font-black uppercase tracking-[0.18em]"
+                          style={{ color: visual.accent }}
+                        >
+                          Lendo cartão...
+                        </motion.p>
+                      )}
 
+                      {transactionStage === 'accepted' && (
+                        <p className="text-lg font-black uppercase tracking-[0.18em] text-emerald-400">
+                          Transação aceita
+                        </p>
+                      )}
+
+                      {transactionStage === 'insufficient' && (
+                        <p className="text-lg font-black uppercase tracking-[0.18em] text-red-400">
+                          Saldo insuficiente
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={handleSimulateCard}
+                        disabled={transactionStage === 'approach' || transactionStage === 'accepted'}
+                        className="flex-1 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-[0.22em] text-black disabled:opacity-45"
+                        style={{
+                          background: visual.cardMetal,
+                          boxShadow: `0 12px 28px ${visual.accentSoft}`,
+                        }}
+                      >
+                        Aproximar cartão
+                      </button>
+
+                      <button
+                        onClick={() => setTransactionOpen(false)}
+                        className="flex-1 rounded-2xl border border-white/14 bg-white/5 px-5 py-4 text-sm font-black uppercase tracking-[0.22em] text-white"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* MAQUININHA */}
+                <motion.div
+                  initial={{ opacity: 0, x: 60, scale: 0.92, filter: 'blur(8px)' }}
+                  animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+                  transition={{ duration: 0.55 }}
+                  className="relative mx-auto w-full max-w-[420px]"
+                >
+                  <div className="rounded-[34px] border border-white/14 bg-[linear-gradient(180deg,#101010_0%,#181818_35%,#0a0a0a_100%)] p-6 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+                    <div className="rounded-[22px] border border-white/10 bg-black/45 p-4">
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-white/42">terminal</p>
+                      <div className="mt-3 h-24 rounded-2xl border border-white/8 bg-black/60 flex items-center justify-center">
+                        {transactionStage === 'idle' && (
+                          <span className="text-sm font-black uppercase tracking-[0.18em] text-white/88">
+                            aproxime o cartão
+                          </span>
+                        )}
+                        {transactionStage === 'approach' && (
+                          <motion.span
+                            animate={{ opacity: [0.45, 1, 0.45] }}
+                            transition={{ duration: 0.8, repeat: Infinity }}
+                            className="text-sm font-black uppercase tracking-[0.18em]"
+                            style={{ color: visual.accent }}
+                          >
+                            processando...
+                          </motion.span>
+                        )}
+                        {transactionStage === 'accepted' && (
+                          <span className="text-sm font-black uppercase tracking-[0.18em] text-emerald-400">
+                            transação aceita
+                          </span>
+                        )}
+                        {transactionStage === 'insufficient' && (
+                          <span className="text-sm font-black uppercase tracking-[0.18em] text-red-400">
+                            saldo insuficiente
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-3 gap-3">
+                      {[1,2,3,4,5,6,7,8,9].map((n) => (
+                        <div key={n} className="h-12 rounded-xl border border-white/10 bg-white/5" />
+                      ))}
+                    </div>
+
+                    <div className="mt-5 rounded-[24px] border border-white/12 bg-white/5 p-5">
+                      <p className="text-[10px] uppercase tracking-[0.26em] text-white/42">Cartão gamer</p>
+
+                      <motion.div
+                        animate={
+                          transactionStage === 'approach'
+                            ? { y: [0, -10, 6, -4, 0], rotate: [0, -3, 3, -2, 0] }
+                            : {}
+                        }
+                        transition={{ duration: 1.1 }}
+                        className="mt-4 rounded-[24px] border border-white/12 p-5"
+                        style={{
+                          background: visual.cardMetal,
+                          boxShadow: `0 12px 28px ${visual.accentSoft}`,
+                        }}
+                      >
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-black/70">holder</p>
+                        <p className="mt-2 text-2xl font-black uppercase tracking-[0.16em] text-black">
+                          {playerName}
+                        </p>
+                      </motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* FEEDBACK */}
+        <AnimatePresence>
+          {feedback && (
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.25 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10030] w-[92%] max-w-[760px] rounded-[24px] border border-white/12 bg-black/75 px-5 py-4 text-center text-sm md:text-base text-white/92 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+            >
+              {feedback}
+              <button
+                onClick={() => setFeedback(null)}
+                className="ml-4 text-white/60 hover:text-white"
+              >
+                fechar
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
             
