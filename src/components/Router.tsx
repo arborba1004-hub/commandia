@@ -7,6 +7,7 @@ import ProfilePage from '@/components/pages/ProfilePage';
 import GamePage from '@/components/pages/GamePage';
 import GiroPage from '@/components/pages/GiroPage';
 import LuxuryshowroomPage from '@/components/pages/LuxuryshowroomPage';
+import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
 
 function Layout() {
   return (
@@ -63,6 +64,13 @@ const router = createBrowserRouter([
         element: <LuxuryshowroomPage />,
         routeMetadata: {
           pageIdentifier: 'luxuryshowroom',
+        },
+      },
+      {
+        path: "lavagem-de-dinheiro",
+        element: <LavagemDeDinheiroPage />,
+        routeMetadata: {
+          pageIdentifier: 'lavagem-de-dinheiro',
         },
       },
       {
