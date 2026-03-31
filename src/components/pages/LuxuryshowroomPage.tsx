@@ -11,9 +11,7 @@ export default function LuxuryshowroomPage() {
   const [showDialog, setShowDialog] = useState(false);
   const [showButton, setShowButton] = useState(false);
 
-  const fullText = 'Boa noite, Comandante! 
-Sua coleção está pronta 
-para você.';
+  const fullText = 'Boa noite, Comandante!     Sua coleção  está  pronta  para você.';
 
   useEffect(() => {
     const video = videoRef.current;
