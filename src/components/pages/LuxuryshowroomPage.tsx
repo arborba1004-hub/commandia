@@ -98,7 +98,7 @@ export default function LuxuryshowroomPage() {
   <div
     className="
       absolute
-      left-[51%]
+      left-[21%]
       top-[50%]
       -translate-x-1/2
       -translate-y-1/2
