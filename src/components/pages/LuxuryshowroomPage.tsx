@@ -79,7 +79,7 @@ export default function LuxuryshowroomPage() {
                       filter: 'blur(0px)',
                     }}
                     transition={{
-                      delay: i * 0.03,
+                      delay: i * 0.11,
                       duration: 0.35,
                     }}
                     className="
