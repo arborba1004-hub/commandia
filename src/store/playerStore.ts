@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { gameRequest } from '@/api/game';
 
 const STORAGE_KEY = 'playerData';
 
