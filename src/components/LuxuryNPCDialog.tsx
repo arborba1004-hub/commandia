@@ -2,19 +2,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   isOpen: boolean;
+  playerName?: string;
+  collectionName?: string;
   onClose: () => void;
   onViewCollection: () => void;
-  title: string;
-  message: string;
 }
 
 export default function LuxuryNPCDialog({
   isOpen,
+  playerName,
+  collectionName,
   onClose,
   onViewCollection,
-  title,
-  message,
 }: Props) {
+  const message = `Bem-vindo, ${playerName || 'COMANDANTE'}. A coleção ${collectionName || 'Luxury'} já está separada pra você. Aqui não se compra só peça. Aqui se compra presença.`;
   return (
     <AnimatePresence>
       {isOpen && (
@@ -32,7 +33,7 @@ export default function LuxuryNPCDialog({
             className="w-full max-w-[700px] rounded-t-[28px] bg-[#0a0a0a] border border-white/10 p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.6)]"
           >
             <h2 className="text-lg font-black uppercase tracking-widest text-white">
-              {title}
+              Atendimento Privado
             </h2>
 
             <p className="mt-3 text-sm text-white/80 leading-relaxed">

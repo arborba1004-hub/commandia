@@ -311,6 +311,14 @@ const newItem = {
             </div>
           )}
 
+          <LuxuryNPCDialog
+            isOpen={dialogOpen}
+            playerName={playerName}
+            collectionName={collectionName}
+            onClose={() => setDialogOpen(false)}
+            onViewCollection={closeIntroAndShowCollection}
+          />
+
 <AnimatePresence>
             {showCollection && (
               <motion.div
