@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { syncPlayerUpdate, hydratePlayerFromBackend } from '@/api/game';
+import { fetchCurrentPlayer, syncPlayerUpdate, hydratePlayerFromBackend } from '@/api/playerApi';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
@@ -436,7 +436,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     if (!token) return;
 
     try {
-      const serverPlayer = await hydratePlayerFromBackend();
+      const serverPlayer = await fetchCurrentPlayer();
 
       if (serverPlayer) {
         // Hidrata sem disparar sync (evita loop)
