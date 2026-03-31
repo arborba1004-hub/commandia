@@ -81,13 +81,16 @@ export default function LuxuryshowroomPage() {
                     ease: 'easeOut',
                   }}
                   style={{
-                    color: '#7a2f2f',
-                    textShadow: '0 0 12px rgba(122,47,47,0.5)',
+                    color: '#2a0f0f', // mais escuro (vinho profundo)
+textShadow: `
+  0 2px 6px rgba(0,0,0,0.6),
+  0 0 8px rgba(255,80,80,0.3)
+`,
                   }}
                   className="
                     text-[28px]
                     md:text-[38px]
-                    font-semibold
+                    font-bold
                     tracking-wide
                   "
                 >
