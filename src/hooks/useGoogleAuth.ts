@@ -30,6 +30,8 @@ export function useGoogleAuth() {
   // 🔥 STORE (CORREÇÃO)
   const hydratePlayerFromServer = usePlayerStore((state) => state.hydratePlayerFromServer);
   const clearPlayer = usePlayerStore((state) => state.clearPlayer);
+  const startPolling = usePlayerStore((state) => state.startPolling);
+  const stopPolling = usePlayerStore((state) => state.stopPolling);
 
   // ==========================================
   // LOAD LOCAL SESSION
@@ -97,6 +99,9 @@ export function useGoogleAuth() {
       // hidrata store com dados do servidor (não dispara sync)
       hydratePlayerFromServer(data.player);
 
+      // Inicia polling após login bem-sucedido
+      startPolling();
+
       setAuthState({
         authToken: data.token,
         playerData: data.player,
@@ -123,6 +128,7 @@ export function useGoogleAuth() {
     localStorage.removeItem(STORAGE_KEY_PLAYER);
 
     clearPlayer();
+    stopPolling();
 
     setAuthState({
       authToken: null,
