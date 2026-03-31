@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import LuxuryNPC from '@/components/LuxuryNPC';
 import LuxuryDialogFrame from '@/components/LuxuryDialogFrame';
+import { Image } from '@/components/ui/image';
 
 const SHOWROOM_BG =
   'https://static.wixstatic.com/media/50f4bf_58cda01923cf4acda15fa4b54cebc965~mv2.png';
@@ -155,12 +156,9 @@ export default function LuxuryShowroomPage() {
                   backgroundImage: `url(${SHOWCASE_BG})`,
                 }}
               >
-                <img
-                  src={ITEM_IMAGES[item.key]}
-                  style={{
+                <Image src={ITEM_IMAGES[item.key]} style={{
                     filter: `${visual.filter} ${visual.glow}`,
-                  }}
-                />
+                  }} />
 
                 <p>{item.name}</p>
                 <p>+{getBonus(level)}%</p>
