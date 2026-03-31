@@ -247,17 +247,16 @@ export async function giroStart(payload: {
 
 /**
  * Executa uma ação no jogo
- * Endpoint: POST /game/action (futuro específico)
+ * Endpoint: POST /game/action
+ * 
+ * Consolidado em playerApi.ts como cliente único do jogador
  */
 export async function gameAction(payload: {
   action: string;
   data?: any;
 }): Promise<{ player: PlayerState }> {
-  // TODO: Migrar de /game/action genérico para endpoints específicos
-  // return makeRequest<{ player: PlayerState }>('/game/action', {
-  //   method: 'POST',
-  //   body: JSON.stringify(payload),
-  // });
-
-  throw new Error('gameAction não implementado ainda');
+  return makeRequest<{ player: PlayerState }>('/game/action', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }

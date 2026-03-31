@@ -6,29 +6,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { Image } from '@/components/ui/image';
-
-async function gameRequest(action: string, payload: any) {
-  const token = localStorage.getItem('authToken');
-  if (!token) throw new Error('No auth token');
-
-  const response = await fetch('https://comando-backend.onrender.com/game', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      action: 'spin',
-      payload: { bet: 100 }
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error || 'Erro na requisição');
-  }
-  return data;
-}
+import { gameAction } from '@/api/playerApi';
 
 declare global {
   interface Window {
@@ -568,11 +546,14 @@ export default function HomePage() {
 
       <button
         onClick={async () => {
-          const data = await gameRequest('player_update', {
-            balances: {
-              dirtyMoney: 999999,
-              cleanMoney: 888888,
-              corre: 777,
+          const data = await gameAction({
+            action: 'player_update',
+            data: {
+              balances: {
+                dirtyMoney: 999999,
+                cleanMoney: 888888,
+                corre: 777,
+              },
             },
           });
 
