@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import { Image } from '@/components/ui/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { usePlayerStore } from '@/store/playerStore';
 
 interface Business {
   id: number;
@@ -14,8 +15,8 @@ interface Business {
   level: number;
   image: string;
   description: string;
-  operationTimeSeconds: number; // Tempo da operação em segundos
-  feePercentage: number; // Taxa em percentual (inversamente proporcional ao tempo)
+  operationTimeSeconds: number;
+  feePercentage: number;
 }
 
 const businesses: Business[] = [
@@ -28,7 +29,7 @@ const businesses: Business[] = [
     image: "https://static.wixstatic.com/media/50f4bf_f42d528276564481a42597abd5b44820~mv2.png",
     description: "Lava tudo que é carro, moto, bicicleta... até reputação!",
     operationTimeSeconds: 15,
-    feePercentage: 20 // Taxa alta, tempo curto
+    feePercentage: 20
   },
   {
     id: 2,
@@ -39,7 +40,7 @@ const businesses: Business[] = [
     image: "https://static.wixstatic.com/media/50f4bf_333f49de4e3c4276a53d8b3c425f8c1d~mv2.png",
     description: "Corte, barba e muito sigilo. Discrição garantida!",
     operationTimeSeconds: 25,
-    feePercentage: 12 // Taxa média
+    feePercentage: 12
   },
   {
     id: 3,
@@ -50,7 +51,7 @@ const businesses: Business[] = [
     image: "https://static.wixstatic.com/media/50f4bf_5aa149b5e2c34efd89ee1abf55b13f3d~mv2.png",
     description: "Pizza quentinha, dinheiro frio. Receita secreta!",
     operationTimeSeconds: 30,
-    feePercentage: 10 // Taxa média-baixa
+    feePercentage: 10
   },
   {
     id: 4,
@@ -61,7 +62,7 @@ const businesses: Business[] = [
     image: "https://static.wixstatic.com/media/50f4bf_2b009cc726f84c459f799b591a61dea7~mv2.png",
     description: "Suco natural, negócio artificial. Fresco demais!",
     operationTimeSeconds: 40,
-    feePercentage: 8 // Taxa baixa, tempo mais longo
+    feePercentage: 8
   },
   {
     id: 5,
@@ -72,7 +73,7 @@ const businesses: Business[] = [
     image: "https://static.wixstatic.com/media/50f4bf_0f1c29477d6344de97650e9485372983~mv2.png",
     description: "Roupa limpa, dinheiro mais limpo ainda. Confiável!",
     operationTimeSeconds: 50,
-    feePercentage: 5 // Taxa muito baixa, tempo longo
+    feePercentage: 5
   }
 ];
 
@@ -83,10 +84,33 @@ interface OperationState {
   netAmount: number;
 }
 
+interface DailyOperation {
+  businessId: number;
+  date: string;
+  amount: number;
+}
+
 export default function LavagemDeDinheiroPage() {
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
-  const [moneyLaundered, setMoneyLaundered] = useState<Record<number, number>>({});
   const [operationState, setOperationState] = useState<Record<number, OperationState>>({});
+  const [dailyOperations, setDailyOperations] = useState<DailyOperation[]>([]);
+  const { addCleanMoney } = usePlayerStore();
+
+  // Carrega operações diárias do localStorage
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const stored = localStorage.getItem('dailyLaundryOperations');
+    
+    if (stored) {
+      try {
+        const operations = JSON.parse(stored);
+        const todayOperations = operations.filter((op: DailyOperation) => op.date === today);
+        setDailyOperations(todayOperations);
+      } catch (error) {
+        console.error('Erro ao carregar operações diárias:', error);
+      }
+    }
+  }, []);
 
   // Efeito para processar operações em andamento
   useEffect(() => {
@@ -103,14 +127,23 @@ export default function LavagemDeDinheiroPage() {
             state.timeRemaining -= 1;
             hasChanges = true;
 
-            // Quando a operação termina
             if (state.timeRemaining === 0) {
               state.isProcessing = false;
-              // Adiciona o dinheiro lavado (valor inicial menos a taxa)
-              setMoneyLaundered(prev => ({
-                ...prev,
-                [businessId]: (prev[businessId] || 0) + state.netAmount
-              }));
+              addCleanMoney(state.netAmount);
+              
+              const today = new Date().toISOString().split('T')[0];
+              const newOperation: DailyOperation = {
+                businessId,
+                date: today,
+                amount: state.netAmount
+              };
+              
+              setDailyOperations(prev => [...prev, newOperation]);
+              
+              const stored = localStorage.getItem('dailyLaundryOperations') || '[]';
+              const operations = JSON.parse(stored);
+              operations.push(newOperation);
+              localStorage.setItem('dailyLaundryOperations', JSON.stringify(operations));
             }
           }
         });
@@ -120,9 +153,18 @@ export default function LavagemDeDinheiroPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [addCleanMoney]);
+
+  const canOperateToday = (businessId: number): boolean => {
+    return !dailyOperations.some(op => op.businessId === businessId);
+  };
 
   const handleLaunder = (businessId: number) => {
+    if (!canOperateToday(businessId)) {
+      alert('Você já realizou uma operação neste comércio hoje. Volte amanhã!');
+      return;
+    }
+
     const business = businesses.find(b => b.id === businessId);
     if (!business) return;
 
@@ -215,13 +257,14 @@ export default function LavagemDeDinheiroPage() {
                       </div>
                     </div>
 
-                    {/* Total Laundered */}
-                    {moneyLaundered[business.id] > 0 && (
-                      <div className="mb-4 p-3 bg-primary/10 border border-primary/30 rounded">
-                        <p className="text-xs text-gray-400 uppercase tracking-wider">Total Lavado</p>
-                        <p className="font-heading text-xl font-bold text-primary">
-                          R$ {moneyLaundered[business.id].toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
+                    {/* Daily Operation Status */}
+                    {canOperateToday(business.id) ? (
+                      <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded">
+                        <p className="text-xs text-green-400 uppercase tracking-wider font-bold">✓ Disponível Hoje</p>
+                      </div>
+                    ) : (
+                      <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded">
+                        <p className="text-xs text-red-400 uppercase tracking-wider font-bold">✗ Já Operou Hoje</p>
                       </div>
                     )}
 
@@ -250,12 +293,14 @@ export default function LavagemDeDinheiroPage() {
                         e.stopPropagation();
                         handleLaunder(business.id);
                       }}
-                      disabled={operationState[business.id]?.isProcessing}
+                      disabled={operationState[business.id]?.isProcessing || !canOperateToday(business.id)}
                       className="w-full bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-2 rounded"
                     >
                       {operationState[business.id]?.isProcessing 
                         ? `Processando... (${operationState[business.id].timeRemaining}s)`
-                        : `Lavar R$ ${business.initialMoney.toFixed(2)}`
+                        : canOperateToday(business.id)
+                        ? `Lavar R$ ${business.initialMoney.toFixed(2)}`
+                        : 'Já Operou Hoje'
                       }
                     </Button>
                   </div>
@@ -333,9 +378,9 @@ export default function LavagemDeDinheiroPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Total Lavado</p>
-                    <p className="font-heading text-2xl font-bold text-primary">
-                      R$ {(moneyLaundered[selectedBusiness.id] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Status</p>
+                    <p className={`font-heading text-2xl font-bold ${canOperateToday(selectedBusiness.id) ? 'text-green-400' : 'text-red-400'}`}>
+                      {canOperateToday(selectedBusiness.id) ? '✓ Disponível' : '✗ Operado'}
                     </p>
                   </div>
                 </div>
@@ -381,12 +426,14 @@ export default function LavagemDeDinheiroPage() {
                     onClick={() => {
                       handleLaunder(selectedBusiness.id);
                     }}
-                    disabled={operationState[selectedBusiness.id]?.isProcessing}
+                    disabled={operationState[selectedBusiness.id]?.isProcessing || !canOperateToday(selectedBusiness.id)}
                     className="flex-1 bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-3 rounded text-lg"
                   >
                     {operationState[selectedBusiness.id]?.isProcessing 
                       ? `Processando... (${operationState[selectedBusiness.id].timeRemaining}s)`
-                      : `Lavar R$ ${selectedBusiness.initialMoney.toFixed(2)}`
+                      : canOperateToday(selectedBusiness.id)
+                      ? `Lavar R$ ${selectedBusiness.initialMoney.toFixed(2)}`
+                      : 'Já Operou Hoje'
                     }
                   </Button>
                   <Button
