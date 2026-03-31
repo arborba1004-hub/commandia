@@ -205,6 +205,11 @@ export default function LavagemDeDinheiroPage() {
     return { scaledMoney, scaledTime, fee, netAmount };
   };
 
+  const handleResetDailyOperations = () => {
+    localStorage.removeItem('dailyLaundryOperations');
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-black text-white">
       <Header />
@@ -231,11 +236,18 @@ export default function LavagemDeDinheiroPage() {
               Escolha seu comércio favorito e comece a lavar dinheiro sujo. 
               Cada operação começa com R$ 500,00, mas a taxa varia conforme o tempo de processamento.
             </p>
-            <div className="inline-block bg-primary/20 border border-primary/50 rounded-lg px-6 py-3">
+            <div className="inline-block bg-primary/20 border border-primary/50 rounded-lg px-6 py-3 mb-6">
               <p className="text-primary font-bold text-lg">
                 Nível do Barraco: <span className="text-2xl">{barracoLevel}</span> | Multiplicador: <span className="text-2xl">{levelMultiplier.toFixed(2)}x</span>
               </p>
             </div>
+            {/* Reset Button - Temporary for testing */}
+            <Button
+              onClick={handleResetDailyOperations}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm"
+            >
+              🔄 Resetar Operações de Hoje (Teste)
+            </Button>
           </motion.div>
         </section>
 
