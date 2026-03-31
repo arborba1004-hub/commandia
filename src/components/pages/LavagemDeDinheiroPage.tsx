@@ -78,84 +78,44 @@ const businesses: Business[] = [
   }
 ];
 
-interface OperationState {
-  isProcessing: boolean;
-  timeRemaining: number;
-  fee: number;
-  netAmount: number;
-}
-
-interface DailyOperation {
-  businessId: number;
-  date: string;
-  amount: number;
-}
-
 export default function LavagemDeDinheiroPage() {
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
-  const [operationState, setOperationState] = useState<Record<number, OperationState>>({});
-  const [dailyOperations, setDailyOperations] = useState<DailyOperation[]>([]);
   const [animatingBusinessId, setAnimatingBusinessId] = useState<number | null>(null);
+  const [timerStates, setTimerStates] = useState<Record<number, number>>({});
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
-  const { addCleanMoney, removeDirtyMoney, player, isLoaded, loadPlayer } = usePlayerStore();
+  const { player, isLoaded, loadPlayer, startLaundryOperation, completeLaundryOperation, canOperateLaundryToday } = usePlayerStore();
   
   // Calculate level multiplier (1.1 per level)
   const barracoLevel = player?.niveis?.barracoLevel || 1;
   const levelMultiplier = Math.pow(1.1, barracoLevel - 1);
   const dirtyMoney = player?.balances?.dirtyMoney || 0;
+  const activeOperations = player?.laundryProgress?.activeOperations || [];
 
   useEffect(() => {
     if (!isLoaded) loadPlayer();
   }, [isLoaded, loadPlayer]);
 
-  // Carrega operações diárias do localStorage
+  // Timer para processar operações ativas
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const stored = localStorage.getItem('dailyLaundryOperations');
-    
-    if (stored) {
-      try {
-        const operations = JSON.parse(stored);
-        const todayOperations = operations.filter((op: DailyOperation) => op.date === today);
-        setDailyOperations(todayOperations);
-      } catch (error) {
-        console.error('Erro ao carregar operações diárias:', error);
-      }
-    }
-  }, []);
+    if (activeOperations.length === 0) return;
 
-  // Efeito para processar operações em andamento
-  useEffect(() => {
     const interval = setInterval(() => {
-      setOperationState(prev => {
+      setTimerStates(prev => {
         const updated = { ...prev };
         let hasChanges = false;
 
-        Object.keys(updated).forEach(businessIdStr => {
-          const businessId = parseInt(businessIdStr);
-          const state = updated[businessId];
+        activeOperations.forEach(op => {
+          const endsAt = new Date(op.endsAt);
+          const now = new Date();
+          const timeRemaining = Math.max(0, Math.floor((endsAt.getTime() - now.getTime()) / 1000));
 
-          if (state.isProcessing && state.timeRemaining > 0) {
-            state.timeRemaining -= 1;
+          if (timeRemaining !== (prev[op.businessId] ?? -1)) {
+            updated[op.businessId] = timeRemaining;
             hasChanges = true;
 
-            if (state.timeRemaining === 0) {
-              state.isProcessing = false;
-              addCleanMoney(state.netAmount);
-              
-              const today = new Date().toISOString().split('T')[0];
-              const newOperation: DailyOperation = {
-                businessId,
-                date: today,
-                amount: state.netAmount
-              };
-              
-              setDailyOperations(prev => [...prev, newOperation]);
-              
-              const stored = localStorage.getItem('dailyLaundryOperations') || '[]';
-              const operations = JSON.parse(stored);
-              operations.push(newOperation);
-              localStorage.setItem('dailyLaundryOperations', JSON.stringify(operations));
+            // Completa a operação quando o tempo chega a 0
+            if (timeRemaining === 0 && op.status === 'processing') {
+              completeLaundryOperation(op.businessId);
             }
           }
         });
@@ -165,20 +125,17 @@ export default function LavagemDeDinheiroPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [addCleanMoney]);
-
-  const canOperateToday = (businessId: number): boolean => {
-    return !dailyOperations.some(op => op.businessId === businessId);
-  };
+  }, [activeOperations, completeLaundryOperation]);
 
   const handleLaunder = (businessId: number) => {
-    if (!canOperateToday(businessId)) {
+    const business = businesses.find(b => b.id === businessId);
+    if (!business) return;
+
+    // Verifica se pode operar hoje (máximo 1 operação por dia por negócio)
+    if (!canOperateLaundryToday(businessId, 1)) {
       alert('Você já realizou uma operação neste comércio hoje. Volte amanhã!');
       return;
     }
-
-    const business = businesses.find(b => b.id === businessId);
-    if (!business) return;
 
     // Apply level multiplier to values
     const scaledMoney = business.initialMoney * levelMultiplier;
@@ -189,27 +146,29 @@ export default function LavagemDeDinheiroPage() {
       return;
     }
 
-    // Debit the dirty money before starting the operation
-    removeDirtyMoney(scaledMoney);
+    // Calculate values
+    const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
+    const fee = (scaledMoney * business.feePercentage) / 100;
+    const netAmount = scaledMoney - fee;
 
     // Trigger animation
     setAnimatingBusinessId(businessId);
     setTimeout(() => setAnimatingBusinessId(null), 2000);
 
-    // Calculate remaining values
-    const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
-    const fee = (scaledMoney * business.feePercentage) / 100;
-    const netAmount = scaledMoney - fee;
+    // Inicia a operação na store
+    const now = new Date();
+    const endsAt = new Date(now.getTime() + scaledTime * 1000);
 
-    setOperationState(prev => ({
-      ...prev,
-      [businessId]: {
-        isProcessing: true,
-        timeRemaining: scaledTime,
-        fee,
-        netAmount
-      }
-    }));
+    startLaundryOperation({
+      businessId,
+      businessName: business.name,
+      startedAt: now.toISOString(),
+      endsAt: endsAt.toISOString(),
+      grossAmount: scaledMoney,
+      feePercentage: business.feePercentage,
+      feeAmount: fee,
+      netAmount,
+    });
   };
 
   // Get scaled values for display
@@ -221,9 +180,9 @@ export default function LavagemDeDinheiroPage() {
     return { scaledMoney, scaledTime, fee, netAmount };
   };
 
-  const handleResetDailyOperations = () => {
-    localStorage.removeItem('dailyLaundryOperations');
-    window.location.reload();
+  // Obtém a operação ativa para um negócio
+  const getActiveOperation = (businessId: number) => {
+    return activeOperations.find(op => op.businessId === businessId && op.status === 'processing');
   };
 
   return (
@@ -257,13 +216,6 @@ export default function LavagemDeDinheiroPage() {
                 Nível do Barraco: <span className="text-2xl">{barracoLevel}</span> | Multiplicador: <span className="text-2xl">{levelMultiplier.toFixed(2)}x</span>
               </p>
             </div>
-            {/* Reset Button - Temporary for testing */}
-            <Button
-              onClick={handleResetDailyOperations}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm"
-            >
-              🔄 Resetar Operações de Hoje (Teste)
-            </Button>
           </motion.div>
         </section>
 
@@ -272,6 +224,10 @@ export default function LavagemDeDinheiroPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {businesses.map((business, index) => {
               const { scaledMoney, scaledTime, fee, netAmount } = getScaledValues(business);
+              const activeOp = getActiveOperation(business.id);
+              const timeRemaining = timerStates[business.id] ?? 0;
+              const canOperate = canOperateLaundryToday(business.id, 1);
+              
               return (
                 <motion.div
                   key={business.id}
@@ -330,7 +286,7 @@ export default function LavagemDeDinheiroPage() {
                       </div>
 
                       {/* Daily Operation Status */}
-                      {canOperateToday(business.id) ? (
+                      {canOperate ? (
                         <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
                           <p className="text-xs text-blue-400 uppercase tracking-wider font-bold">✓ Disponível Hoje</p>
                         </div>
@@ -341,18 +297,18 @@ export default function LavagemDeDinheiroPage() {
                       )}
 
                       {/* Operation Status */}
-                      {operationState[business.id]?.isProcessing && (
+                      {activeOp && (
                         <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded">
                           <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Operação em Andamento</p>
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm text-yellow-400">Tempo restante: {operationState[business.id].timeRemaining}s</span>
-                            <span className="text-sm text-yellow-400">Taxa: R$ {operationState[business.id].fee.toFixed(2)}</span>
+                            <span className="text-sm text-yellow-400">Tempo restante: {timeRemaining}s</span>
+                            <span className="text-sm text-yellow-400">Taxa: R$ {activeOp.feeAmount.toFixed(2)}</span>
                           </div>
                           <div className="w-full bg-gray-700 rounded-full h-2">
                             <motion.div
                               className="bg-yellow-500 h-2 rounded-full"
                               initial={{ width: '100%' }}
-                              animate={{ width: `${(operationState[business.id].timeRemaining / scaledTime) * 100}%` }}
+                              animate={{ width: `${(timeRemaining / scaledTime) * 100}%` }}
                               transition={{ duration: 1, ease: 'linear' }}
                             />
                           </div>
@@ -368,12 +324,12 @@ export default function LavagemDeDinheiroPage() {
                           e.stopPropagation();
                           handleLaunder(business.id);
                         }}
-                        disabled={operationState[business.id]?.isProcessing || !canOperateToday(business.id)}
+                        disabled={!!activeOp || !canOperate}
                         className="w-full bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-2 rounded"
                       >
-                        {operationState[business.id]?.isProcessing 
-                          ? `Processando... (${operationState[business.id].timeRemaining}s)`
-                          : canOperateToday(business.id)
+                        {activeOp 
+                          ? `Processando... (${timeRemaining}s)`
+                          : canOperate
                           ? `Lavar R$ ${scaledMoney.toFixed(2)}`
                           : 'Já Operou Hoje'
                         }
@@ -389,6 +345,10 @@ export default function LavagemDeDinheiroPage() {
         {/* Business Details Modal */}
         {selectedBusiness && (() => {
           const { scaledMoney, scaledTime, fee, netAmount } = getScaledValues(selectedBusiness);
+          const activeOp = getActiveOperation(selectedBusiness.id);
+          const timeRemaining = timerStates[selectedBusiness.id] ?? 0;
+          const canOperate = canOperateLaundryToday(selectedBusiness.id, 1);
+          
           return (
             <motion.div
               initial={{ opacity: 0 }}
@@ -464,26 +424,26 @@ export default function LavagemDeDinheiroPage() {
                   </div>
 
                   {/* Operation Status */}
-                  {operationState[selectedBusiness.id]?.isProcessing && (
+                  {activeOp && (
                     <div className="mb-8 p-6 bg-yellow-500/10 border border-yellow-500/30 rounded">
                       <p className="text-sm text-yellow-400 mb-4 font-bold">OPERAÇÃO EM ANDAMENTO</p>
                       <div className="grid grid-cols-3 gap-4 mb-4">
                         <div>
                           <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Tempo Restante</p>
                           <p className="font-heading text-3xl font-bold text-yellow-400">
-                            {operationState[selectedBusiness.id].timeRemaining}s
+                            {timeRemaining}s
                           </p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Taxa Cobrada</p>
                           <p className="font-heading text-3xl font-bold text-yellow-400">
-                            R$ {operationState[selectedBusiness.id].fee.toFixed(2)}
+                            R$ {activeOp.feeAmount.toFixed(2)}
                           </p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Valor Líquido</p>
                           <p className="font-heading text-3xl font-bold text-green-400">
-                            R$ {operationState[selectedBusiness.id].netAmount.toFixed(2)}
+                            R$ {activeOp.netAmount.toFixed(2)}
                           </p>
                         </div>
                       </div>
@@ -491,7 +451,7 @@ export default function LavagemDeDinheiroPage() {
                         <motion.div
                           className="bg-yellow-500 h-3 rounded-full"
                           initial={{ width: '100%' }}
-                          animate={{ width: `${(operationState[selectedBusiness.id].timeRemaining / scaledTime) * 100}%` }}
+                          animate={{ width: `${(timeRemaining / scaledTime) * 100}%` }}
                           transition={{ duration: 1, ease: 'linear' }}
                         />
                       </div>
@@ -507,12 +467,12 @@ export default function LavagemDeDinheiroPage() {
                       onClick={() => {
                         handleLaunder(selectedBusiness.id);
                       }}
-                      disabled={operationState[selectedBusiness.id]?.isProcessing || !canOperateToday(selectedBusiness.id)}
+                      disabled={!!activeOp || !canOperate}
                       className="flex-1 bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-3 rounded text-lg"
                     >
-                      {operationState[selectedBusiness.id]?.isProcessing 
-                        ? `Processando... (${operationState[selectedBusiness.id].timeRemaining}s)`
-                        : canOperateToday(selectedBusiness.id)
+                      {activeOp 
+                        ? `Processando... (${timeRemaining}s)`
+                        : canOperate
                         ? `Lavar R$ ${scaledMoney.toFixed(2)}`
                         : 'Já Operou Hoje'
                       }
