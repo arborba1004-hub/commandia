@@ -1,203 +1,485 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { BaseCrudService } from '@/integrations';
-import { ConceptArtGallery } from '@/entities';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Image } from '@/components/ui/image';
-import { Calendar, User } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { usePlayerStore } from '@/store/playerStore';
+import { getLuxurySystem } from '@/data/luxoItems';
 
-export default function GaleriaPage() {
-  const [artworks, setArtworks] = useState<ConceptArtGallery[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const SHOWROOM_BG =
+  'https://static.wixstatic.com/media/50f4bf_58cda01923cf4acda15fa4b54cebc965~mv2.png';
 
-  useEffect(() => {
-    loadArtworks();
-  }, []);
+const SHOWCASE_BG =
+  'https://static.wixstatic.com/media/50f4bf_bc5d38e571e7424f8ad8a566beb55dc1~mv2.png';
 
-  const loadArtworks = async () => {
-    try {
-      setError(null);
-      const result = await BaseCrudService.getAll<ConceptArtGallery>('conceptart');
-      setArtworks(result.items || []);
-    } catch (error) {
-      console.error('Error loading artworks:', error);
-      setError('Erro ao carregar galeria de arte');
-      setArtworks([]);
-    } finally {
-      setIsLoading(false);
+const ITEM_IMAGE_BY_KEY: Record<string, string> = {
+  ring: 'https://static.wixstatic.com/media/50f4bf_651d1089b4f94751b866a45cbd902243~mv2.png',
+  bracelet: 'https://static.wixstatic.com/media/50f4bf_44c2d719e7974529b9e0eea26dc937fa~mv2.png',
+  chain: 'https://static.wixstatic.com/media/50f4bf_95112066aaa34deba75e3955a7a9198b~mv2.png',
+  watch: 'https://static.wixstatic.com/media/50f4bf_9589a22c92ea41d0a4d64f480b077d89~mv2.png',
+  bag: 'https://static.wixstatic.com/media/50f4bf_0ed2c4ee08714e1b923b1e2def99fce9~mv2.png',
+  sunglasses: 'https://static.wixstatic.com/media/50f4bf_34b7f97d84b44ab7868db573ab58e00a~mv2.png',
+};
+
+const ITEM_SKILL_BY_KEY: Record<string, keyof PlayerSkills> = {
+  ring: 'respect',
+  bracelet: 'defense',
+  chain: 'attack',
+  watch: 'intelligence',
+  bag: 'respect',
+  sunglasses: 'agility',
+};
+
+type PlayerSkills = {
+  attack: number;
+  defense: number;
+  intelligence: number;
+  agility: number;
+  respect: number;
+  vigor: number;
+};
+
+type TransactionStage = 'idle' | 'approach' | 'accepted' | 'insufficient';
+
+function getFilterByLevel(level: number) {
+  const filters = [
+    'none',
+    'saturate(2) brightness(1.1) contrast(1.3)',
+    'saturate(2.2) brightness(1.05) contrast(1.4)',
+    'saturate(2.5) brightness(1.2) contrast(1.3)',
+    'saturate(2.3) brightness(1.08) contrast(1.35)',
+    'saturate(2.4) brightness(1.1) contrast(1.3)',
+    'saturate(2.2) brightness(1.12) contrast(1.32)',
+    'saturate(2.3) brightness(1.15) contrast(1.28)',
+    'saturate(2.4) brightness(1.08) contrast(1.35)',
+    'saturate(2.5) brightness(1.06) contrast(1.38)',
+    'saturate(2.3) brightness(1.1) contrast(1.36)',
+  ];
+
+  const filterIndex = level % filters.length;
+  return filters[filterIndex];
+}
+
+function getVisualByLevel(level: number) {
+  const colors = [
+    '#ff3b3b','#cc2f2f','#ff6b3b','#cc552f','#ff9b3b','#cc7a2f','#ffc93b','#cca32f',
+    '#f5ff3b','#c3cc2f','#baff3b','#94cc2f','#7dff3b','#64cc2f','#3bff57','#2fcc45',
+    '#3bff8c','#2fcc70','#3bffc2','#2fcc9a','#3bfff5','#2fccc3','#3bc7ff','#2fa0cc',
+    '#3b8fff','#2f73cc','#3b57ff','#2f45cc','#6b3bff','#552fcc','#9b3bff','#7a2fcc',
+    '#c93bff','#a32fcc','#ff3bf5','#cc2fc3','#ff3bc2','#cc2f9a','#ff3b8c','#cc2f70',
+    '#ff3b57','#cc2f45','#ff5e3b','#cc4b2f','#ff7a3b','#cc612f','#ff963b','#cc772f',
+    '#ffb23b','#cc8f2f','#ffce3b','#cca62f','#ffe93b','#ccb92f','#e1ff3b','#b5cc2f',
+    '#c5ff3b','#9dcc2f','#a9ff3b','#85cc2f','#8dff3b','#6dcc2f','#71ff3b','#56cc2f',
+    '#55ff3b','#42cc2f','#3bff49','#2fcc3a','#3bff66','#2fcc52','#3bff82','#2fcc69',
+    '#3bff9e','#2fcc80','#3bffba','#2fcc97','#3bffd6','#2fccae','#3bfff2','#2fccc6',
+    '#3be0ff','#2fb3cc','#3bc4ff','#2f9ecc','#3ba8ff','#2f88cc','#3b8cff','#2f73cc',
+    '#3b70ff','#2f5dcc','#3b54ff','#2f47cc','#4f3bff','#3f2fcc','#6b3bff','#552fcc',
+    '#873bff','#6a2fcc','#a33bff','#802fcc','#bf3bff','#962fcc','#db3bff','#ac2fcc',
+    '#f73bff','#c22fcc','#ff3be7','#cc2fb9','#ff3bcb','#cc2fa3','#ff3baf','#cc2f8c',
+    '#ff3b93','#cc2f76','#ff3b77','#cc2f60','#3bf5ff','#2fc3cc','#3be1ff','#2fb4cc',
+    '#3bcdff','#2fa4cc'
+  ];
+
+  const color = level <= 0 ? '#ffffff' : colors[(level - 1) % 100];
+
+  return {
+    glow: `
+      drop-shadow(0 0 6px rgba(255,255,255,0.6))
+      drop-shadow(0 0 18px ${color})
+      drop-shadow(0 0 40px ${color})
+    `,
+    halo: `radial-gradient(circle, ${color}66 0%, transparent 70%)`,
+    overlay: `radial-gradient(circle, ${color}55 0%, transparent 60%)`,
+    accent: color,
+    accentSoft: `${color}55`,
+    cardMetal: `linear-gradient(135deg, #ffffff, ${color}, #fff7d3)`,
+  };
+}
+
+function getBonusByLevel(level: number) {
+  if (level < 50) return 1;
+  return Number((1 + (level - 50) * 0.1).toFixed(1));
+}
+
+function getItemPrice(level: number) {
+  const safeLevel = Math.max(1, level || 1);
+  return Number((120 * Math.pow(1.1, safeLevel - 1)).toFixed(2));
+}
+
+function money(value: number) {
+  return Number(value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export default function LuxoItemPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const player = usePlayerStore((s) => s.player);
+  const setPlayer = usePlayerStore((s) => s.setPlayer);
+
+  const [transactionOpen, setTransactionOpen] = useState(false);
+  const [transactionStage, setTransactionStage] = useState<TransactionStage>('idle');
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const barracoLevel = player?.niveis?.barracoLevel || 1;
+  const cleanMoney = player?.balances?.cleanMoney || 0;
+  const inventoryItems = player?.inventory?.items || [];
+  const playerName = player?.name || 'COMANDANTE';
+
+  const luxurySystem = useMemo(() => getLuxurySystem(barracoLevel), [barracoLevel]);
+  const collectionName = luxurySystem?.collectionName || `Coleção ${barracoLevel}`;
+  const visual = useMemo(() => getVisualByLevel(barracoLevel), [barracoLevel]);
+  const imageFilter = useMemo(() => getFilterByLevel(barracoLevel), [barracoLevel]);
+
+  const itemKey = searchParams.get('item') || 'ring';
+  const itemNameFromQuery = searchParams.get('name');
+
+  const currentItem = useMemo(() => {
+    const found = luxurySystem.items.find((item: any) => item.key === itemKey);
+    const fallbackNameMap: Record<string, string> = {
+      ring: 'Anel',
+      bracelet: 'Pulseira',
+      chain: 'Corrente',
+      watch: 'Relógio',
+      bag: 'Bolsa',
+      sunglasses: 'Óculos',
+    };
+
+    return {
+      key: itemKey,
+      name: itemNameFromQuery || found?.name || fallbackNameMap[itemKey] || 'Item',
+      image: ITEM_IMAGE_BY_KEY[itemKey],
+      price: getItemPrice(barracoLevel),
+      bonusSkill: ITEM_SKILL_BY_KEY[itemKey] || 'respect',
+      bonusValue: getBonusByLevel(barracoLevel),
+      id: `luxury-${itemKey}-${barracoLevel}`,
+    };
+  }, [itemKey, itemNameFromQuery, luxurySystem, barracoLevel]);
+
+  const alreadyOwned = inventoryItems.some((item: any) => item?.id === currentItem.id);
+
+  const handleOpenTransaction = () => {
+    if (alreadyOwned) {
+      setFeedback('Esse item dessa coleção já foi comprado.');
+      return;
     }
+    setTransactionStage('idle');
+    setTransactionOpen(true);
   };
 
-  const formatDate = (date: Date | string | undefined) => {
-    if (!date) return '';
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return dateObj.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const handleSimulateCard = () => {
+    setTransactionStage('approach');
+
+    window.setTimeout(() => {
+      if (cleanMoney < currentItem.price) {
+        setTransactionStage('insufficient');
+        return;
+      }
+const newItem = {
+        id: currentItem.id,
+        category: 'luxury',
+        itemType: currentItem.key,
+        name: currentItem.name,
+        collectionName,
+        level: barracoLevel,
+        insured: false,
+        price: currentItem.price,
+        finalPrice: currentItem.price,
+        bonusSkill: currentItem.bonusSkill,
+        bonusValue: currentItem.bonusValue,
+        usable: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      const currentSkills: PlayerSkills = player?.skills || {
+        attack: 0,
+        defense: 0,
+        intelligence: 0,
+        agility: 0,
+        respect: 0,
+        vigor: 0,
+      };
+
+      const updatedPlayer = {
+        ...player,
+        balances: {
+          ...player.balances,
+          cleanMoney: Number((cleanMoney - currentItem.price).toFixed(2)),
+        },
+        inventory: {
+          ...player.inventory,
+          items: [...inventoryItems, newItem],
+        },
+        skills: {
+          ...currentSkills,
+          [currentItem.bonusSkill]: Number(
+            ((currentSkills[currentItem.bonusSkill] || 0) + currentItem.bonusValue).toFixed(1)
+          ),
+        },
+      };
+
+      setPlayer(updatedPlayer);
+      setTransactionStage('accepted');
+
+      window.setTimeout(() => {
+        setTransactionOpen(false);
+        setFeedback(`${currentItem.name} comprado com sucesso.`);
+      }, 1200);
+    }, 1300);
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black text-white overflow-x-hidden">
       <Header />
-      
-      {/* Hero Section */}
-      <section className="pt-32 pb-16 bg-gradient-to-b from-custom4/30 to-background">
-        <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center space-y-6"
-          >
-            <h1 className="font-heading text-6xl lg:text-8xl uppercase tracking-wider text-foreground">
-              Galeria <span className="text-primary">Visual</span>
-            </h1>
-            <p className="font-paragraph text-xl text-foreground/80 max-w-3xl mx-auto leading-relaxed">
-              Explore o universo visual de Domínio do Comando através de arte conceitual em estilo cartoon cinematográfico ultra realista
-            </p>
-          </motion.div>
-        </div>
-      </section>
 
-      {/* Gallery Grid */}
-      <section className="py-16">
-        <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-          <div className="min-h-[800px]">
-            {isLoading ? null : error ? (
-              <div className="text-center py-24">
-                <p className="font-paragraph text-xl text-destructive mb-4">
-                  {error}
-                </p>
+      <main className="relative min-h-screen pt-24">
+        <div
+          className="absolute inset-0 z-0"
+          style={{
+            backgroundImage: `url(${SHOWROOM_BG})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+
+        <div className="absolute inset-0 z-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.32)_0%,rgba(0,0,0,0.18)_22%,rgba(0,0,0,0.42)_58%,rgba(0,0,0,0.80)_100%)]" />
+
+        <div
+          className="absolute inset-0 z-0 pointer-events-none"
+          style={{
+            background: visual.overlay,
+            filter: 'blur(70px)',
+            opacity: 0.65,
+          }}
+        />
+
+        <div className="relative z-10 max-w-[1300px] mx-auto px-4 md:px-8 pb-20">
+          {/* TÍTULO */}
+          <section className="pt-4 text-center">
+            <motion.h1
+              className="text-3xl md:text-5xl lg:text-6xl font-black uppercase tracking-[0.18em] text-white"
+              initial={{ opacity: 0, y: -18, filter: 'blur(8px)', scale: 1.04 }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)', scale: 1 }}
+              transition={{ duration: 0.9, ease: 'easeOut' }}
+              style={{
+                textShadow: `0 0 18px rgba(255,255,255,0.35), 0 0 36px ${visual.accentSoft}`,
+              }}
+            >
+              {collectionName}
+            </motion.h1>
+
+            <motion.p
+              className="mt-3 text-xs md:text-sm uppercase tracking-[0.24em] text-white/78"
+              initial={{ opacity: 0, y: 10, filter: 'blur(8px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.9, delay: 0.18, ease: 'easeOut' }}
+            >
+              Coleção desbloqueada pelo barraco nível {barracoLevel}
+            </motion.p>
+          </section>
+
+          {/* VITRINE */}
+          <section className="mt-10 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 items-start">
+            <motion.div
+              initial={{ opacity: 0, x: -80, scale: 0.92, filter: 'blur(8px)' }}
+              animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="relative rounded-[34px] overflow-hidden border border-white/12 bg-black/45 shadow-[0_18px_60px_rgba(0,0,0,.38)]"
+              style={{ boxShadow: `0 0 28px ${visual.accentSoft}` }}
+            >
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${SHOWCASE_BG})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.60))]" />
+
+              <div className="relative z-10 p-6 md:p-8">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.32em] text-white/50">Vitrine privada</p>
+                    <h2 className="mt-2 text-3xl md:text-4xl font-black uppercase tracking-[0.14em] text-white">
+                      {currentItem.name}
+                    </h2>
+                  </div>
+
+                  <div
+                    className="rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-black"
+                    style={{ background: visual.cardMetal }}
+                  >
+                    Nível {barracoLevel}
+                  </div>
+                </div>
+
+                <div className="relative mt-8 min-h-[420px] flex items-center justify-center">
+                  <div
+                    className="absolute w-[280px] h-[280px] rounded-full opacity-50"
+                    style={{
+                      background: visual.halo,
+                      filter: 'blur(28px)',
+                    }}
+                  />
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.88, y: 30, filter: 'blur(8px)' }}
+                    animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                    transition={{ duration: 1.05, ease: [0.22, 1, 0.36, 1] }}
+                    className="relative z-10"
+                  >
+                    <Image
+                      src={currentItem.image}
+                      alt={currentItem.name}
+                      width={420}
+                      className="object-contain max-h-[380px]"
+                      style={{
+                        filter: `${imageFilter} ${visual.glow}`,
+                        transition: 'filter 0s',
+                      }}
+                    />
+                  </motion.div>
+                </div>
+              </div>
+            </motion.div>
+
+{/* DADOS */}
+            <motion.div
+              initial={{ opacity: 0, x: 80, scale: 0.94, filter: 'blur(8px)' }}
+              animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+              transition={{ duration: 0.8, ease: 'easeOut', delay: 0.12 }}
+              className="rounded-[30px] border border-white/12 bg-black/62 p-6 md:p-8 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,.45)]"
+            >
+              <p className="text-[10px] uppercase tracking-[0.30em] text-white/42">Apresentação do item</p>
+
+              <h3 className="mt-3 text-2xl md:text-3xl font-black uppercase tracking-[0.14em] text-white">
+                {collectionName}
+              </h3>
+
+              <div className="mt-6 space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Bônus individual</p>
+                  <p className="mt-2 text-xl font-black" style={{ color: visual.accent }}>
+                    +{currentItem.bonusValue}% em {currentItem.bonusSkill}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Valor</p>
+                  <p className="mt-2 text-2xl font-black text-white">
+                    {money(currentItem.price)} Commands Limpo
+                  </p>
+                  <p className="mt-2 text-xs text-white/52">
+                    Valor inicial 120,00 • fórmula 120 × 1.1^(nível - 1)
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Status</p>
+                  <p className="mt-2 text-sm text-white/78">
+                    {alreadyOwned ? 'Você já possui este item nesta coleção.' : 'Pronto para compra.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-8 grid grid-cols-1 gap-3">
                 <button
-                  onClick={loadArtworks}
-                  className="px-6 py-2 bg-primary text-primary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-primary/90 transition-all"
+                  onClick={handleOpenTransaction}
+                  disabled={alreadyOwned}
+                  className="rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-[0.22em] text-black disabled:opacity-45"
+                  style={{
+                    background: visual.cardMetal,
+                    boxShadow: `0 12px 28px ${visual.accentSoft}`,
+                  }}
                 >
-                  Tentar Novamente
+                  Comprar
+                </button>
+
+                <button
+                  onClick={() => navigate('/luxuryshowroom')}
+                  className="rounded-2xl border border-white/14 bg-white/5 px-5 py-3 text-sm font-black uppercase tracking-[0.22em] text-white"
+                >
+                  Voltar vitrine
+                </button>
+
+                <button
+                  onClick={() => navigate('/game')}
+                  className="rounded-2xl border border-white/14 bg-black/35 px-5 py-3 text-sm font-black uppercase tracking-[0.22em] text-white"
+                >
+                  Voltar game
                 </button>
               </div>
-            ) : artworks.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {artworks.map((artwork, index) => (
-                  <motion.div
-                    key={artwork._id}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
-                    className="group"
-                  >
-                    <div className="bg-custom4/30 border border-secondary/20 rounded-lg overflow-hidden hover:border-primary/50 transition-all">
-                      {artwork.artworkImage && (
-                        <div className="relative h-80 overflow-hidden">
-                          <Image
-                            src={artwork.artworkImage}
-                            alt={artwork.artworkTitle || 'Concept art'}
-                            width={600}
-                            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-custom4 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      )}
-                      
-                      <div className="p-6 space-y-4">
-                        {artwork.artworkTitle && (
-                          <h3 className="font-heading text-2xl uppercase tracking-wider text-foreground group-hover:text-primary transition-colors">
-                            {artwork.artworkTitle}
-                          </h3>
-                        )}
-                        
-                        {artwork.artworkDescription && (
-                          <p className="font-paragraph text-base text-foreground/80 leading-relaxed">
-                            {artwork.artworkDescription}
-                          </p>
-                        )}
-                        
-                        <div className="pt-4 border-t border-secondary/20 space-y-2">
-                          {artwork.artistName && (
-                            <div className="flex items-center gap-2">
-                              <User className="w-4 h-4 text-secondary" />
-                              <p className="font-paragraph text-sm text-foreground/70">
-                                {artwork.artistName}
-                              </p>
-                            </div>
-                          )}
-                          
-                          {artwork.dateCreated && (
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-secondary" />
-                              <p className="font-paragraph text-sm text-foreground/70">
-                                {formatDate(artwork.dateCreated)}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+            </motion.div>
+          </section>
+        </div>
+
+        {/* TRANSAÇÃO */}
+        <AnimatePresence>
+          {transactionOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/84 px-4 backdrop-blur-sm"
+            >
+              <div className="w-full max-w-[950px] grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 items-center">
+                <motion.div
+                  initial={{ opacity: 0, x: -60, filter: 'blur(8px)' }}
+                  animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                  transition={{ duration: 0.55 }}
+                  className="rounded-[30px] border border-white/12 bg-black/62 p-6 md:p-8 backdrop-blur-xl"
+                >
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-white/42">Transação privada</p>
+                  <h2 className="mt-3 text-3xl md:text-4xl font-black text-white">
+                    Máquina de cartão
+                  </h2>
+                  <p className="mt-4 text-base text-white/74 leading-relaxed">
+                    Confirme a compra de <span style={{ color: visual.accent }}>{currentItem.name}</span>.
+                  </p>
+
+                  <div className="mt-6 rounded-[28px] border border-white/12 bg-white/5 p-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.28em] text-white/45">Portador do cartão</p>
+                        <p className="mt-2 text-2xl font-black uppercase tracking-[0.16em] text-white">
+                          {playerName}
+                        </p>
+                      </div>
+
+                      <div
+                        className="h-14 w-20 rounded-2xl"
+                        style={{
+                          background: visual.cardMetal,
+                          boxShadow: `0 0 20px ${visual.accentSoft}`,
+                        }}
+                      />
+                    </div>
+
+                    <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-white/42">Item</p>
+                        <p className="mt-2 text-xl font-black text-white">{currentItem.name}</p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-white/42">Valor</p>
+                        <p className="mt-2 text-xl font-black" style={{ color: visual.accent }}>
+                          {money(currentItem.price)} Commands
+                        </p>
                       </div>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-24">
-                <p className="font-paragraph text-xl text-foreground/60">
-                  Nova arte conceitual em breve
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
 
-      {/* Horizontal Carousel Section - Inspired by the image */}
-      {artworks.length > 0 && (
-        <section className="py-16 bg-custom4/20">
-          <div className="max-w-[120rem] mx-auto px-6 lg:px-12">
-            <motion.h2
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="font-heading text-4xl uppercase tracking-wider text-foreground mb-8"
-            >
-              Destaques da <span className="text-primary">Galeria</span>
-            </motion.h2>
+ <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-5 text-center">
+                      {transactionStage === 'idle' && (
+                        <p className="text-lg font-black uppercase tracking-[0.18em] text-white">
+                          Aproxime o cartão
+                        </p>
+                      )}
+
             
-            <div className="overflow-x-auto pb-4">
-              <div className="flex gap-6" style={{ width: 'max-content' }}>
-                {artworks.slice(0, 6).map((artwork, index) => (
-                  <motion.div
-                    key={artwork._id}
-                    initial={{ opacity: 0, x: 50 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
-                    className="w-80 flex-shrink-0"
-                  >
-                    {artwork.artworkImage && (
-                      <div className="relative h-64 overflow-hidden rounded-lg border-2 border-secondary/30 hover:border-primary/50 transition-all">
-                        <Image
-                          src={artwork.artworkImage}
-                          alt={artwork.artworkTitle || 'Concept art'}
-                          width={400}
-                          className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                        />
-                        {artwork.artworkTitle && (
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background to-transparent p-4">
-                            <p className="font-heading text-lg uppercase tracking-wider text-foreground">
-                              {artwork.artworkTitle}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <Footer />
-    </div>
-  );
-}
