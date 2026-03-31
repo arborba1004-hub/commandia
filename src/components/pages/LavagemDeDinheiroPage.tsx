@@ -100,7 +100,7 @@ export default function LavagemDeDinheiroPage() {
   const { addCleanMoney, removeDirtyMoney, player } = usePlayerStore();
   
   // Calculate level multiplier (1.1 per level)
-  const barracoLevel = player.niveis.barracoLevel || 1;
+  const barracoLevel = player?.niveis?.barracoLevel || 1;
   const levelMultiplier = Math.pow(1.1, barracoLevel - 1);
 
   // Carrega operações diárias do localStorage
