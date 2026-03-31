@@ -56,3 +56,28 @@ export async function gameRequest(action: string, payload?: Record<string, any>)
 export async function executeSpinSlot(multiplier?: number): Promise<GameActionResponse> {
   return gameRequest('spin_slot', { multiplier });
 }
+
+export async function syncPlayerUpdate(player: Record<string, any>): Promise<any> {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${BACKEND_URL}/player/update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(player),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Erro ao sincronizar player.');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Player sync error:', error);
+    throw error;
+  }
+}

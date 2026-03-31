@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { gameRequest } from '@/api/game';
+import { syncPlayerUpdate } from '@/api/game';
 
 const STORAGE_KEY = 'playerData';
 
@@ -315,7 +315,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         syncError: null,
       });
 
-      const data = await gameRequest('player_update', player);
+      const data = await syncPlayerUpdate(player);
 
       const merged = mergePlayer(data.player);
 
