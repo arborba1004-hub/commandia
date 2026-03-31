@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -6,6 +6,7 @@ import { Image } from '@/components/ui/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { usePlayerStore } from '@/store/playerStore';
+import SoapBubbleAnimation from '@/components/SoapBubbleAnimation';
 
 interface Business {
   id: number;
@@ -94,6 +95,8 @@ export default function LavagemDeDinheiroPage() {
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [operationState, setOperationState] = useState<Record<number, OperationState>>({});
   const [dailyOperations, setDailyOperations] = useState<DailyOperation[]>([]);
+  const [animatingBusinessId, setAnimatingBusinessId] = useState<number | null>(null);
+  const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const { addCleanMoney, player } = usePlayerStore();
   
   // Calculate level multiplier (1.1 per level)
@@ -172,6 +175,10 @@ export default function LavagemDeDinheiroPage() {
     const business = businesses.find(b => b.id === businessId);
     if (!business) return;
 
+    // Trigger animation
+    setAnimatingBusinessId(businessId);
+    setTimeout(() => setAnimatingBusinessId(null), 2000);
+
     // Apply level multiplier to values
     const scaledMoney = business.initialMoney * levelMultiplier;
     const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
@@ -201,6 +208,12 @@ export default function LavagemDeDinheiroPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <Header />
+      
+      {/* Soap Bubble Animation */}
+      <SoapBubbleAnimation 
+        isAnimating={animatingBusinessId !== null} 
+        buttonRef={buttonRefs.current[animatingBusinessId || 0] ? { current: buttonRefs.current[animatingBusinessId || 0] } : { current: null }}
+      />
       
       <main className="w-full max-w-[100rem] mx-auto px-4 py-16">
         {/* Hero Section */}
@@ -320,6 +333,9 @@ export default function LavagemDeDinheiroPage() {
 
                       {/* Action Button */}
                       <Button
+                        ref={(el) => {
+                          if (el) buttonRefs.current[business.id] = el;
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleLaunder(business.id);
@@ -457,6 +473,9 @@ export default function LavagemDeDinheiroPage() {
                   {/* Action Buttons */}
                   <div className="flex gap-4">
                     <Button
+                      ref={(el) => {
+                        if (el) buttonRefs.current[selectedBusiness.id] = el;
+                      }}
                       onClick={() => {
                         handleLaunder(selectedBusiness.id);
                       }}
