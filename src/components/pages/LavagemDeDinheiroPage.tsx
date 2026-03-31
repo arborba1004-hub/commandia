@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -14,6 +14,8 @@ interface Business {
   level: number;
   image: string;
   description: string;
+  operationTimeSeconds: number; // Tempo da operação em segundos
+  feePercentage: number; // Taxa em percentual (inversamente proporcional ao tempo)
 }
 
 const businesses: Business[] = [
@@ -24,7 +26,9 @@ const businesses: Business[] = [
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_f42d528276564481a42597abd5b44820~mv2.png",
-    description: "Lava tudo que é carro, moto, bicicleta... até reputação!"
+    description: "Lava tudo que é carro, moto, bicicleta... até reputação!",
+    operationTimeSeconds: 15,
+    feePercentage: 20 // Taxa alta, tempo curto
   },
   {
     id: 2,
@@ -33,7 +37,9 @@ const businesses: Business[] = [
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_333f49de4e3c4276a53d8b3c425f8c1d~mv2.png",
-    description: "Corte, barba e muito sigilo. Discrição garantida!"
+    description: "Corte, barba e muito sigilo. Discrição garantida!",
+    operationTimeSeconds: 25,
+    feePercentage: 12 // Taxa média
   },
   {
     id: 3,
@@ -42,7 +48,9 @@ const businesses: Business[] = [
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_5aa149b5e2c34efd89ee1abf55b13f3d~mv2.png",
-    description: "Pizza quentinha, dinheiro frio. Receita secreta!"
+    description: "Pizza quentinha, dinheiro frio. Receita secreta!",
+    operationTimeSeconds: 30,
+    feePercentage: 10 // Taxa média-baixa
   },
   {
     id: 4,
@@ -51,7 +59,9 @@ const businesses: Business[] = [
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_2b009cc726f84c459f799b591a61dea7~mv2.png",
-    description: "Suco natural, negócio artificial. Fresco demais!"
+    description: "Suco natural, negócio artificial. Fresco demais!",
+    operationTimeSeconds: 40,
+    feePercentage: 8 // Taxa baixa, tempo mais longo
   },
   {
     id: 5,
@@ -60,18 +70,73 @@ const businesses: Business[] = [
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_0f1c29477d6344de97650e9485372983~mv2.png",
-    description: "Roupa limpa, dinheiro mais limpo ainda. Confiável!"
+    description: "Roupa limpa, dinheiro mais limpo ainda. Confiável!",
+    operationTimeSeconds: 50,
+    feePercentage: 5 // Taxa muito baixa, tempo longo
   }
 ];
+
+interface OperationState {
+  isProcessing: boolean;
+  timeRemaining: number;
+  fee: number;
+  netAmount: number;
+}
 
 export default function LavagemDeDinheiroPage() {
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [moneyLaundered, setMoneyLaundered] = useState<Record<number, number>>({});
+  const [operationState, setOperationState] = useState<Record<number, OperationState>>({});
+
+  // Efeito para processar operações em andamento
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setOperationState(prev => {
+        const updated = { ...prev };
+        let hasChanges = false;
+
+        Object.keys(updated).forEach(businessIdStr => {
+          const businessId = parseInt(businessIdStr);
+          const state = updated[businessId];
+
+          if (state.isProcessing && state.timeRemaining > 0) {
+            state.timeRemaining -= 1;
+            hasChanges = true;
+
+            // Quando a operação termina
+            if (state.timeRemaining === 0) {
+              state.isProcessing = false;
+              // Adiciona o dinheiro lavado (valor inicial menos a taxa)
+              setMoneyLaundered(prev => ({
+                ...prev,
+                [businessId]: (prev[businessId] || 0) + state.netAmount
+              }));
+            }
+          }
+        });
+
+        return hasChanges ? updated : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLaunder = (businessId: number) => {
-    setMoneyLaundered(prev => ({
+    const business = businesses.find(b => b.id === businessId);
+    if (!business) return;
+
+    const fee = (business.initialMoney * business.feePercentage) / 100;
+    const netAmount = business.initialMoney - fee;
+
+    setOperationState(prev => ({
       ...prev,
-      [businessId]: (prev[businessId] || 0) + 500
+      [businessId]: {
+        isProcessing: true,
+        timeRemaining: business.operationTimeSeconds,
+        fee,
+        netAmount
+      }
     }));
   };
 
@@ -93,7 +158,7 @@ export default function LavagemDeDinheiroPage() {
             </h1>
             <p className="font-paragraph text-xl text-gray-300 max-w-2xl mx-auto">
               Escolha seu comércio favorito e comece a lavar dinheiro sujo. 
-              Cada negócio lava R$ 500,00 por operação no nível 1.
+              Cada operação começa com R$ 500,00, mas a taxa varia conforme o tempo de processamento.
             </p>
           </motion.div>
         </section>
@@ -137,15 +202,15 @@ export default function LavagemDeDinheiroPage() {
                     {/* Stats */}
                     <div className="grid grid-cols-2 gap-4 mb-6 py-4 border-t border-gray-700">
                       <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">Nível</p>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider">Tempo</p>
                         <p className="font-heading text-2xl font-bold text-primary">
-                          {business.level}
+                          {business.operationTimeSeconds}s
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">Por Operação</p>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider">Taxa</p>
                         <p className="font-heading text-2xl font-bold text-primary">
-                          R$ {business.initialMoney}
+                          {business.feePercentage}%
                         </p>
                       </div>
                     </div>
@@ -155,8 +220,27 @@ export default function LavagemDeDinheiroPage() {
                       <div className="mb-4 p-3 bg-primary/10 border border-primary/30 rounded">
                         <p className="text-xs text-gray-400 uppercase tracking-wider">Total Lavado</p>
                         <p className="font-heading text-xl font-bold text-primary">
-                          R$ {moneyLaundered[business.id].toLocaleString('pt-BR')}
+                          R$ {moneyLaundered[business.id].toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
+                      </div>
+                    )}
+
+                    {/* Operation Status */}
+                    {operationState[business.id]?.isProcessing && (
+                      <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded">
+                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Operação em Andamento</p>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm text-yellow-400">Tempo restante: {operationState[business.id].timeRemaining}s</span>
+                          <span className="text-sm text-yellow-400">Taxa: R$ {operationState[business.id].fee.toFixed(2)}</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <motion.div
+                            className="bg-yellow-500 h-2 rounded-full"
+                            initial={{ width: '100%' }}
+                            animate={{ width: `${(operationState[business.id].timeRemaining / business.operationTimeSeconds) * 100}%` }}
+                            transition={{ duration: 1, ease: 'linear' }}
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -166,9 +250,13 @@ export default function LavagemDeDinheiroPage() {
                         e.stopPropagation();
                         handleLaunder(business.id);
                       }}
-                      className="w-full bg-primary hover:bg-primary/80 text-black font-bold py-2 rounded"
+                      disabled={operationState[business.id]?.isProcessing}
+                      className="w-full bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-2 rounded"
                     >
-                      Lavar R$ 500,00
+                      {operationState[business.id]?.isProcessing 
+                        ? `Processando... (${operationState[business.id].timeRemaining}s)`
+                        : `Lavar R$ ${business.initialMoney.toFixed(2)}`
+                      }
                     </Button>
                   </div>
                 </Card>
@@ -225,26 +313,67 @@ export default function LavagemDeDinheiroPage() {
                 </p>
 
                 {/* Details Grid */}
-                <div className="grid grid-cols-3 gap-4 mb-8 p-6 bg-primary/10 border border-primary/30 rounded">
+                <div className="grid grid-cols-4 gap-4 mb-8 p-6 bg-primary/10 border border-primary/30 rounded">
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Nível</p>
-                    <p className="font-heading text-3xl font-bold text-primary">
-                      {selectedBusiness.level}
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Valor Inicial</p>
+                    <p className="font-heading text-2xl font-bold text-primary">
+                      R$ {selectedBusiness.initialMoney.toFixed(2)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Por Operação</p>
-                    <p className="font-heading text-3xl font-bold text-primary">
-                      R$ {selectedBusiness.initialMoney}
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Taxa</p>
+                    <p className="font-heading text-2xl font-bold text-primary">
+                      {selectedBusiness.feePercentage}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Tempo</p>
+                    <p className="font-heading text-2xl font-bold text-primary">
+                      {selectedBusiness.operationTimeSeconds}s
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Total Lavado</p>
-                    <p className="font-heading text-3xl font-bold text-primary">
-                      R$ {(moneyLaundered[selectedBusiness.id] || 0).toLocaleString('pt-BR')}
+                    <p className="font-heading text-2xl font-bold text-primary">
+                      R$ {(moneyLaundered[selectedBusiness.id] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
+
+                {/* Operation Status */}
+                {operationState[selectedBusiness.id]?.isProcessing && (
+                  <div className="mb-8 p-6 bg-yellow-500/10 border border-yellow-500/30 rounded">
+                    <p className="text-sm text-yellow-400 mb-4 font-bold">OPERAÇÃO EM ANDAMENTO</p>
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Tempo Restante</p>
+                        <p className="font-heading text-3xl font-bold text-yellow-400">
+                          {operationState[selectedBusiness.id].timeRemaining}s
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Taxa Cobrada</p>
+                        <p className="font-heading text-3xl font-bold text-yellow-400">
+                          R$ {operationState[selectedBusiness.id].fee.toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Valor Líquido</p>
+                        <p className="font-heading text-3xl font-bold text-green-400">
+                          R$ {operationState[selectedBusiness.id].netAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3">
+                      <motion.div
+                        className="bg-yellow-500 h-3 rounded-full"
+                        initial={{ width: '100%' }}
+                        animate={{ width: `${(operationState[selectedBusiness.id].timeRemaining / selectedBusiness.operationTimeSeconds) * 100}%` }}
+                        transition={{ duration: 1, ease: 'linear' }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex gap-4">
@@ -252,9 +381,13 @@ export default function LavagemDeDinheiroPage() {
                     onClick={() => {
                       handleLaunder(selectedBusiness.id);
                     }}
-                    className="flex-1 bg-primary hover:bg-primary/80 text-black font-bold py-3 rounded text-lg"
+                    disabled={operationState[selectedBusiness.id]?.isProcessing}
+                    className="flex-1 bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-3 rounded text-lg"
                   >
-                    Lavar R$ 500,00
+                    {operationState[selectedBusiness.id]?.isProcessing 
+                      ? `Processando... (${operationState[selectedBusiness.id].timeRemaining}s)`
+                      : `Lavar R$ ${selectedBusiness.initialMoney.toFixed(2)}`
+                    }
                   </Button>
                   <Button
                     onClick={() => setSelectedBusiness(null)}
