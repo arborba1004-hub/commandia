@@ -177,7 +177,7 @@ export default function LuxuryshowroomPage() {
       "
     >
       <button
-        onClick={() => navigate('/luxo-items')}
+        onClick={() => navigate('/galeria')}
         className="
           px-8 py-4
           sm:px-9 sm:py-4
