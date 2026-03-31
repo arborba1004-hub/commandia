@@ -156,57 +156,57 @@ export default function LuxuryshowroomPage() {
         </AnimatePresence>
 
         <AnimatePresence>
-          {showButton && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.82, y: 6, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-              className="
-                absolute
-                left-[28%]
-                top-[55%]
-                sm:left-[27%]
-                sm:top-[54%]
-                md:left-[26%]
-                md:top-[53%]
-                lg:left-[24%]
-                lg:top-[51%]
-                -translate-x-1/2
-                -translate-y-1/2
-                z-30
-              "
-            >
-              <button
-                onClick={() => navigate('/luxo-items')}
-                className="
-                  px-8 py-4
-                  sm:px-9 sm:py-4
-                  md:px-10 md:py-5
-                  rounded-2xl
-                  text-white
-                  font-bold
-                  text-base sm:text-lg md:text-xl
-                  tracking-[0.08em]
-                  bg-gradient-to-r from-red-500 via-rose-500 to-pink-500
-                  shadow-[0_0_26px_rgba(255,0,80,0.45)]
-                  transition
-                  hover:scale-105
-                  active:scale-95
-                  whitespace-nowrap
-                "
-                style={{
-                  boxShadow: `
-                    0 0 18px rgba(255,70,110,0.40),
-                    0 0 34px rgba(255,0,90,0.25),
-                    0 10px 30px rgba(0,0,0,0.32)
-                  `,
-                }}
-              >
-                VER COLEÇÃO
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+  {showButton && (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.82, y: 6, filter: 'blur(4px)' }}
+      animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      className="
+        absolute
+        left-[21%]
+        top-[46%]
+        sm:left-[20%]
+        sm:top-[45%]
+        md:left-[19%]
+        md:top-[44%]
+        lg:left-[18%]
+        lg:top-[43%]
+        -translate-x-1/2
+        -translate-y-1/2
+        z-30
+      "
+    >
+      <button
+        onClick={() => navigate('/luxo-items')}
+        className="
+          px-8 py-4
+          sm:px-9 sm:py-4
+          md:px-10 md:py-5
+          rounded-2xl
+          text-white
+          font-bold
+          text-base sm:text-lg md:text-xl
+          tracking-[0.08em]
+          bg-gradient-to-r from-red-500 via-rose-500 to-pink-500
+          shadow-[0_0_26px_rgba(255,0,80,0.45)]
+          transition
+          hover:scale-105
+          active:scale-95
+          whitespace-nowrap
+        "
+        style={{
+          boxShadow: `
+            0 0 18px rgba(255,70,110,0.40),
+            0 0 34px rgba(255,0,90,0.25),
+            0 10px 30px rgba(0,0,0,0.32)
+          `,
+        }}
+      >
+        VER COLEÇÃO
+      </button>
+    </motion.div>
+  )}
+</AnimatePresence>
       </div>
     </div>
   );
