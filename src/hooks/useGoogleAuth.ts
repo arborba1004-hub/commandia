@@ -29,7 +29,7 @@ export function useGoogleAuth() {
     error: null,
   });
 
-  const setPlayer = usePlayerStore((state) => state.setPlayer);
+  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const clearPlayer = usePlayerStore((state) => state.clearPlayer);
 
   useEffect(() => {
@@ -47,8 +47,8 @@ export function useGoogleAuth() {
           error: null,
         });
 
-        // abastece a playerStore com o mesmo player salvo no login
-        setPlayer(player);
+        // carrega a playerStore do localStorage
+        loadPlayer();
       } catch (e) {
         console.error('Error parsing stored player data:', e);
 
@@ -64,7 +64,7 @@ export function useGoogleAuth() {
         isLoading: false,
       }));
     }
-  }, [setPlayer]);
+  }, [loadPlayer]);
 
   const handleGoogleResponse = async (response: any) => {
     try {
