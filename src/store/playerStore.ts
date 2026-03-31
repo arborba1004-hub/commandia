@@ -60,6 +60,7 @@ type BarracoPosition = {
 };
 
 type ActiveOperation = {
+  id: string;
   businessId: number;
   businessName: string;
   startedAt: string;
@@ -767,9 +768,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     // Debita o dinheiro sujo
     const newDirtyMoney = dirtyMoney - operation.grossAmount;
 
-    // Cria a operação com status 'processing'
+    // Cria a operação com status 'processing' e ID único
     const newOperation: ActiveOperation = {
       ...operation,
+      id: crypto.randomUUID(),
       status: 'processing',
     };
 
