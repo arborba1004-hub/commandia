@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
-import LuxuryNPC from '@/components/LuxuryNPC';
+import LuxuryNPC, { type NPCState } from '@/components/LuxuryNPC';
 import LuxuryNPCDialog from '@/components/LuxuryNPCDialog';
 import { getLuxurySystem } from '@/data/luxoItems';
 
@@ -93,6 +93,7 @@ export default function LuxuryShowroomPage() {
   const { player, setPlayer, isLoaded, loadPlayer } = usePlayerStore();
 
   const [npcLoaded, setNpcLoaded] = useState(false);
+  const [npcState, setNpcState] = useState<NPCState>('IDLE');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showCollection, setShowCollection] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -126,6 +127,7 @@ export default function LuxuryShowroomPage() {
   useEffect(() => {
     if (!npcLoaded) return;
     const timer = window.setTimeout(() => {
+      setNpcState('TALKING');
       setDialogOpen(true);
     }, 1200);
     return () => window.clearTimeout(timer);
@@ -157,6 +159,7 @@ export default function LuxuryShowroomPage() {
   const dialogMessage = `Bem-vindo, ${playerName}. A coleção ${collectionName} já está separada pra você. Aqui não se compra só peça. Aqui se compra presença.`;
 
   const closeIntroAndShowCollection = () => {
+    setNpcState('IDLE');
     setDialogOpen(false);
     window.setTimeout(() => {
       setShowCollection(true);
@@ -164,6 +167,7 @@ export default function LuxuryShowroomPage() {
   };
 
   const openTransaction = (index: number) => {
+    setNpcState('TALKING');
     setSelectedIndex(index);
     setShowCard(true);
   };
@@ -226,6 +230,7 @@ const newItem = {
 
     setPlayer(updatedPlayer);
     setShowCard(false);
+    setNpcState('SUCCESS');
     setFlash(true);
 
     const emoji = Math.random() > 0.5 ? '😘' : '👍';
@@ -246,7 +251,9 @@ const newItem = {
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
       <Header />
 
-      <main className="relative min-h-screen pt-24">
+      {/* GUIDED SCENE - 100vh container */}
+      <main className="relative h-screen pt-24 flex flex-col">
+        {/* Background layers */}
         <div
           className="absolute inset-0 z-0"
           style={{
@@ -268,6 +275,7 @@ const newItem = {
           }}
         />
 
+        {/* Flash effect */}
         <AnimatePresence>
           {flash && (
             <motion.div
@@ -283,7 +291,8 @@ const newItem = {
           )}
         </AnimatePresence>
 
-        <div className="relative z-10 max-w-[1600px] mx-auto px-4 md:px-8 pb-20">
+        {/* Title section */}
+        <div className="relative z-10 max-w-[1600px] mx-auto px-4 md:px-8 w-full">
           <motion.div
             initial={{ opacity: 0, y: -18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -307,182 +316,132 @@ const newItem = {
               Barraco nível {barracoLevel} • Commands Limpo {money(cleanMoney)}
             </p>
           </motion.div>
-
-          {!showCollection && (
-            <div className="absolute left-1/2 bottom-[60px] -translate-x-1/2 z-30">
-              <LuxuryNPC onNPCLoaded={() => setNpcLoaded(true)} />
-            </div>
-          )}
-
-          <LuxuryNPCDialog
-            isOpen={dialogOpen}
-            playerName={playerName}
-            collectionName={collectionName}
-            onClose={() => setDialogOpen(false)}
-            onViewCollection={closeIntroAndShowCollection}
-          />
-
-<AnimatePresence>
-            {showCollection && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.55 }}
-                className="mt-8"
-              >
-                <div className="hidden xl:grid xl:grid-cols-[1fr_380px_1fr] gap-10 items-start min-h-[760px]">
-                  {/* LEFT */}
-                  <div className="grid gap-6 pt-6">
-                    {leftItems.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, x: -120, scale: 0.92, filter: 'blur(8px)' }}
-                        animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
-                        transition={{ delay: index * 0.12, duration: 0.65, ease: 'easeOut' }}
-                        whileHover={{ y: -8, scale: 1.02 }}
-                        className="relative rounded-[28px] overflow-hidden border border-white/12 bg-black/45 shadow-[0_18px_50px_rgba(0,0,0,.35)]"
-                        style={{ boxShadow: `0 0 30px ${visual.accentSoft}` }}
-                      >
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            backgroundImage: `url(${SHOWCASE_BG})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.58))]" />
-                        <div className="relative z-10 p-5">
-                          <CardContent
-                            item={item}
-                            visual={visual}
-                            onBuy={() => openTransaction(index)}
-                            alreadyOwned={inventoryItems.some((inv: any) => inv?.id === item.id)}
-                          />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-
-                  {/* CENTER NPC */}
-                  <div className="relative flex flex-col items-center pt-10">
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.92, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      transition={{ duration: 0.8 }}
-                      className="relative"
-                    >
-                      <div
-                        className="absolute -inset-10 rounded-full blur-3xl opacity-40"
-                        style={{ background: visual.halo }}
-                      />
-                      <div className="relative h-[540px] w-[360px]">
-                        <LuxuryNPC />
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, y: 18 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4, duration: 0.55 }}
-                      className="mt-4 rounded-[28px] border border-white/12 bg-black/60 px-6 py-5 text-center backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,.45)]"
-                    >
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-white/40">
-                        Atendimento privado
-                      </p>
-                      <p className="mt-3 text-sm leading-relaxed text-white/88">
-                        Cada peça da <span style={{ color: visual.accent }}>{collectionName}</span> puxa
-                        presença, ego e porcentagem real. Fecha a coleção e vira referência.
-                      </p>
-                    </motion.div>
-                  </div>
-
-                  {/* RIGHT */}
-                  <div className="grid gap-6 pt-6">
-                    {rightItems.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, x: 120, scale: 0.92, filter: 'blur(8px)' }}
-                        animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
-                        transition={{ delay: index * 0.12, duration: 0.65, ease: 'easeOut' }}
-                        whileHover={{ y: -8, scale: 1.02 }}
-                        className="relative rounded-[28px] overflow-hidden border border-white/12 bg-black/45 shadow-[0_18px_50px_rgba(0,0,0,.35)]"
-                        style={{ boxShadow: `0 0 30px ${visual.accentSoft}` }}
-                      >
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            backgroundImage: `url(${SHOWCASE_BG})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.58))]" />
-                        <div className="relative z-10 p-5">
-                          <CardContent
-                            item={item}
-                            visual={visual}
-                            onBuy={() => openTransaction(index + 3)}
-                            alreadyOwned={inventoryItems.some((inv: any) => inv?.id === item.id)}
-                          />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* MOBILE / TABLET */}
-                <div className="xl:hidden">
-                  <div className="relative flex flex-col items-center pt-2">
-                    <div className="relative h-[320px] w-[240px] md:h-[420px] md:w-[300px]">
-                      <LuxuryNPC />
-                    </div>
-
-                    <div className="mt-3 rounded-[24px] border border-white/12 bg-black/60 px-5 py-4 text-center backdrop-blur-xl">
-                      <p className="text-sm text-white/90">
-                        Coleção <span style={{ color: visual.accent }}>{collectionName}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    {items.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, y: 30, scale: 0.94 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ delay: index * 0.08, duration: 0.45 }}
-                        className="relative rounded-[26px] overflow-hidden border border-white/12 bg-black/45"
-                        style={{ boxShadow: `0 0 24px ${visual.accentSoft}` }}
-                      >
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            backgroundImage: `url(${SHOWCASE_BG})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.58))]" />
-                        <div className="relative z-10 p-5">
-                          <CardContent
-                            item={item}
-                            visual={visual}
-                            onBuy={() => openTransaction(index)}
-                            alreadyOwned={inventoryItems.some((inv: any) => inv?.id === item.id)}
-                          />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
+        {/* Scene container - NPC left, Showroom right */}
+        <div className="relative z-10 flex-1 flex items-center justify-between max-w-[1600px] mx-auto px-4 md:px-8 w-full gap-8">
+          {/* NPC - Left side (absolute positioning) */}
+          <motion.div
+            initial={{ opacity: 0, x: -60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="absolute left-0 bottom-0 h-[500px] w-[280px] md:w-[360px] flex items-end"
+          >
+            <div className="relative w-full">
+              {/* Dialog bubble above NPC */}
+              <AnimatePresence>
+                {dialogOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.4 }}
+                    className="absolute -top-32 left-1/2 -translate-x-1/2 w-[280px] z-20 rounded-[20px] border border-white/15 bg-black/80 px-5 py-4 text-center backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                  >
+                    <p className="text-sm leading-relaxed text-white/90">
+                      Bem-vinda, {playerName}. O que vamos adquirir para a família hoje?
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-{/* TRANSACTION CARD */}
+              {/* NPC with halo */}
+              <div
+                className="absolute -inset-8 rounded-full blur-3xl opacity-40"
+                style={{ background: visual.halo }}
+              />
+              <div className="relative h-[500px] w-full">
+                <LuxuryNPC state={npcState} onNPCLoaded={() => setNpcLoaded(true)} />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Showroom panel - Right side (semitransparent) */}
+          {!showCollection ? (
+            <motion.div
+              initial={{ opacity: 0, x: 60 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
+              className="ml-auto w-full md:w-[420px] h-full flex flex-col items-center justify-center"
+            >
+              <div className="rounded-[28px] border border-white/12 bg-black/60 px-6 py-8 text-center backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,.45)]">
+                <p className="text-[10px] uppercase tracking-[0.28em] text-white/40">
+                  Atendimento privado
+                </p>
+                <p className="mt-4 text-sm leading-relaxed text-white/88">
+                  Cada peça da <span style={{ color: visual.accent }}>{collectionName}</span> puxa
+                  presença, ego e porcentagem real. Fecha a coleção e vira referência.
+                </p>
+                <button
+                  onClick={() => {
+                    setNpcState('IDLE');
+                    setShowCollection(true);
+                  }}
+                  className="mt-6 rounded-2xl px-6 py-3 text-sm font-black uppercase tracking-[0.2em] text-black"
+                  style={{
+                    background: visual.cardMetal,
+                    boxShadow: `0 12px 30px ${visual.accentSoft}`,
+                  }}
+                >
+                  Ver Coleção
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, x: 60 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              className="ml-auto w-full md:w-[420px] h-full overflow-y-auto"
+            >
+              <div className="grid gap-4 pb-8">
+                {items.map((item, index) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, x: 40, scale: 0.95 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    transition={{ delay: index * 0.08, duration: 0.5 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    className="relative rounded-[24px] overflow-hidden border border-white/12 bg-black/45 shadow-[0_12px_40px_rgba(0,0,0,.35)]"
+                    style={{ boxShadow: `0 0 24px ${visual.accentSoft}` }}
+                  >
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        backgroundImage: `url(${SHOWCASE_BG})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.58))]" />
+                    <div className="relative z-10 p-4">
+                      <CardContent
+                        item={item}
+                        visual={visual}
+                        onBuy={() => openTransaction(index)}
+                        alreadyOwned={inventoryItems.some((inv: any) => inv?.id === item.id)}
+                      />
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Dialog modal (for intro) */}
+        <LuxuryNPCDialog
+          isOpen={dialogOpen && !showCollection}
+          playerName={playerName}
+          collectionName={collectionName}
+          onClose={() => {
+            setNpcState('IDLE');
+            setDialogOpen(false);
+          }}
+          onViewCollection={closeIntroAndShowCollection}
+        />
+
+        {/* TRANSACTION CARD */}
         <AnimatePresence>
           {showCard && selectedItem && (
             <motion.div
