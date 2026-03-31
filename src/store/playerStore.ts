@@ -57,6 +57,29 @@ type BarracoPosition = {
   z: number;
 };
 
+type ActiveOperation = {
+  businessId: number;
+  businessName: string;
+  startedAt: string;
+  endsAt: string;
+  grossAmount: number;
+  feePercentage: number;
+  feeAmount: number;
+  netAmount: number;
+  status: 'processing' | 'completed';
+};
+
+type DailyOperation = {
+  businessId: number;
+  date: string;
+  amount: number;
+};
+
+type LaundryProgress = {
+  activeOperations: ActiveOperation[];
+  dailyOperations: DailyOperation[];
+};
+
 export type PlayerState = {
   _id?: string;
   googleId?: string;
@@ -78,6 +101,8 @@ export type PlayerState = {
   hierarchyBadge: string;
 
   barracoPosition: BarracoPosition;
+
+  laundryProgress: LaundryProgress;
 };
 
 type PlayerStore = {
@@ -187,6 +212,11 @@ const initialPlayer: PlayerState = {
     y: 0,
     z: 0,
   },
+
+  laundryProgress: {
+    activeOperations: [],
+    dailyOperations: [],
+  },
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
@@ -225,6 +255,11 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     barracoPosition: {
       ...initialPlayer.barracoPosition,
       ...(incoming?.barracoPosition || {}),
+    },
+
+    laundryProgress: {
+      activeOperations: incoming?.laundryProgress?.activeOperations || initialPlayer.laundryProgress.activeOperations,
+      dailyOperations: incoming?.laundryProgress?.dailyOperations || initialPlayer.laundryProgress.dailyOperations,
     },
   };
 }
