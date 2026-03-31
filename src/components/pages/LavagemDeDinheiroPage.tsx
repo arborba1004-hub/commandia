@@ -83,7 +83,7 @@ export default function LavagemDeDinheiroPage() {
   const [animatingBusinessId, setAnimatingBusinessId] = useState<number | null>(null);
   const [timerStates, setTimerStates] = useState<Record<number, number>>({});
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
-  const { player, isLoaded, loadPlayer, startLaundryOperation, completeLaundryOperation, canOperateLaundryToday } = usePlayerStore();
+  const { player, isLoaded, loadPlayer, startLaundryOperation, completeLaundryOperation, canOperateLaundryToday, hydrateLaundryProgress } = usePlayerStore();
   
   // Calculate level multiplier (1.1 per level)
   const barracoLevel = player?.niveis?.barracoLevel || 1;
@@ -92,10 +92,15 @@ export default function LavagemDeDinheiroPage() {
   const activeOperations = player?.laundryProgress?.activeOperations || [];
 
   useEffect(() => {
-    if (!isLoaded) loadPlayer();
-  }, [isLoaded, loadPlayer]);
+    if (!isLoaded) {
+      loadPlayer();
+    } else {
+      // Hidrata operações ao carregar a página (restaura operações expiradas)
+      hydrateLaundryProgress();
+    }
+  }, [isLoaded, loadPlayer, hydrateLaundryProgress]);
 
-  // Timer para processar operações ativas
+  // Timer para processar operações ativas - calcula baseado em startedAt e endsAt persistidos
   useEffect(() => {
     if (activeOperations.length === 0) return;
 
@@ -140,7 +145,7 @@ export default function LavagemDeDinheiroPage() {
     // Apply level multiplier to values
     const scaledMoney = business.initialMoney * levelMultiplier;
     
-    // Check if player has enough dirty money
+    // Validação: verifica se o jogador possui dirtyMoney suficiente ANTES de iniciar
     if (dirtyMoney < scaledMoney) {
       alert('Você não tem dinheiro sujo suficiente.');
       return;
@@ -156,6 +161,9 @@ export default function LavagemDeDinheiroPage() {
     setTimeout(() => setAnimatingBusinessId(null), 2000);
 
     // Inicia a operação na store
+    // Ao iniciar, debita imediatamente o valor bruto de dirtyMoney
+    // Ao concluir, credita apenas o netAmount em cleanMoney
+    // O valor bruto, a taxa e o líquido ficam salvos dentro da operação persistente
     const now = new Date();
     const endsAt = new Date(now.getTime() + scaledTime * 1000);
 
