@@ -28,8 +28,7 @@ export function useGoogleAuth() {
   });
 
   // 🔥 STORE (CORREÇÃO)
-  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
-  const setPlayer = usePlayerStore((state) => state.setPlayer);
+  const hydratePlayerFromServer = usePlayerStore((state) => state.hydratePlayerFromServer);
   const clearPlayer = usePlayerStore((state) => state.clearPlayer);
 
   // ==========================================
@@ -50,8 +49,8 @@ export function useGoogleAuth() {
           error: null,
         });
 
-        // 🔥 IMPORTANTE: hidrata store
-        setPlayer(player);
+        // 🔥 IMPORTANTE: hidrata store com dados existentes (não dispara sync)
+        hydratePlayerFromServer(player);
 
       } catch (e) {
         console.error('Erro ao carregar player local:', e);
@@ -60,10 +59,7 @@ export function useGoogleAuth() {
     } else {
       setAuthState((prev) => ({ ...prev, isLoading: false }));
     }
-
-    // garante fallback da store
-    loadPlayer();
-  }, []);
+  }, [hydratePlayerFromServer]);
 
   // ==========================================
   // GOOGLE LOGIN
@@ -98,8 +94,8 @@ export function useGoogleAuth() {
       localStorage.setItem(STORAGE_KEY_TOKEN, data.token);
       localStorage.setItem(STORAGE_KEY_PLAYER, JSON.stringify(data.player));
 
-      // atualiza store global
-      setPlayer(data.player);
+      // hidrata store com dados do servidor (não dispara sync)
+      hydratePlayerFromServer(data.player);
 
       setAuthState({
         authToken: data.token,
