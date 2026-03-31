@@ -86,7 +86,7 @@ export default function LuxuryshowroomPage() {
                 opacity: { duration: 0.35, ease: 'easeOut' },
                 scale: { duration: 0.35, ease: 'easeOut' },
               }}
-              className={`absolute ${getDialogTopClass()} left-1/2 -translate-x-1/2 z-20 w-[92%] sm:w-[88%] md:w-[82%] max-w-[820px] px-2 sm:px-4 text-center`}
+              className={`absolute ${getDialogTopClass()} left-[28%], left-[26%] -translate-x-1/2 z-20 w-[92%] sm:w-[88%] md:w-[82%] max-w-[820px] px-2 sm:px-4 text-center`}
               style={{ transformOrigin: 'center top' }}
             >
               <div className="flex flex-wrap justify-center gap-x-[1px] sm:gap-x-[2px] md:gap-x-[3px] leading-[1.12]">
