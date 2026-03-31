@@ -242,7 +242,7 @@ export default function LavagemDeDinheiroPage() {
                     </p>
 
                     {/* Stats */}
-                    <div className="grid grid-cols-2 gap-4 mb-6 py-4 border-t border-gray-700">
+                    <div className="grid grid-cols-2 gap-4 mb-4 py-4 border-t border-gray-700">
                       <div>
                         <p className="text-xs text-gray-500 uppercase tracking-wider">Tempo</p>
                         <p className="font-heading text-2xl font-bold text-primary">
@@ -250,17 +250,25 @@ export default function LavagemDeDinheiroPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">Taxa</p>
-                        <p className="font-heading text-2xl font-bold text-primary">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider">Taxa Descontada</p>
+                        <p className="font-heading text-lg font-bold text-destructive">
                           {business.feePercentage}%
                         </p>
                       </div>
                     </div>
 
+                    {/* Net Amount Info */}
+                    <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded">
+                      <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Você Recebe</p>
+                      <p className="font-heading text-xl font-bold text-green-400">
+                        R$ {(business.initialMoney - (business.initialMoney * business.feePercentage) / 100).toFixed(2)}
+                      </p>
+                    </div>
+
                     {/* Daily Operation Status */}
                     {canOperateToday(business.id) ? (
-                      <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded">
-                        <p className="text-xs text-green-400 uppercase tracking-wider font-bold">✓ Disponível Hoje</p>
+                      <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
+                        <p className="text-xs text-blue-400 uppercase tracking-wider font-bold">✓ Disponível Hoje</p>
                       </div>
                     ) : (
                       <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded">
@@ -358,7 +366,7 @@ export default function LavagemDeDinheiroPage() {
                 </p>
 
                 {/* Details Grid */}
-                <div className="grid grid-cols-4 gap-4 mb-8 p-6 bg-primary/10 border border-primary/30 rounded">
+                <div className="grid grid-cols-2 gap-4 mb-8 p-6 bg-primary/10 border border-primary/30 rounded">
                   <div>
                     <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Valor Inicial</p>
                     <p className="font-heading text-2xl font-bold text-primary">
@@ -366,21 +374,21 @@ export default function LavagemDeDinheiroPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Taxa</p>
-                    <p className="font-heading text-2xl font-bold text-primary">
-                      {selectedBusiness.feePercentage}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Tempo</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Tempo de Processamento</p>
                     <p className="font-heading text-2xl font-bold text-primary">
                       {selectedBusiness.operationTimeSeconds}s
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Status</p>
-                    <p className={`font-heading text-2xl font-bold ${canOperateToday(selectedBusiness.id) ? 'text-green-400' : 'text-red-400'}`}>
-                      {canOperateToday(selectedBusiness.id) ? '✓ Disponível' : '✗ Operado'}
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Taxa Descontada</p>
+                    <p className="font-heading text-2xl font-bold text-destructive">
+                      {selectedBusiness.feePercentage}% (R$ {((selectedBusiness.initialMoney * selectedBusiness.feePercentage) / 100).toFixed(2)})
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Você Recebe</p>
+                    <p className="font-heading text-2xl font-bold text-green-400">
+                      R$ {(selectedBusiness.initialMoney - (selectedBusiness.initialMoney * selectedBusiness.feePercentage) / 100).toFixed(2)}
                     </p>
                   </div>
                 </div>
