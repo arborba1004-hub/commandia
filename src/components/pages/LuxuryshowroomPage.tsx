@@ -245,7 +245,7 @@ const newItem = {
 
       <main className="relative min-h-screen pt-24">
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 z-0"
           style={{
             backgroundImage: `url(${SHOWROOM_BG})`,
             backgroundSize: 'cover',
@@ -254,10 +254,10 @@ const newItem = {
           }}
         />
 
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.40)_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.36)_52%,rgba(0,0,0,0.72)_100%)]" />
+        <div className="absolute inset-0 z-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.40)_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.36)_52%,rgba(0,0,0,0.72)_100%)]" />
 
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none z-0"
           style={{
             background: visual.overlay,
             filter: 'blur(80px)',
@@ -478,7 +478,7 @@ const newItem = {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/82 px-4 backdrop-blur-sm"
+              className="fixed inset-0 z-40 flex items-center justify-center bg-black/82 px-4 backdrop-blur-sm"
             >
               <div className="relative flex w-full max-w-[1100px] flex-col items-center justify-center gap-10 lg:flex-row">
                 <motion.div
