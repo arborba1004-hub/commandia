@@ -1,40 +1,20 @@
 import { Link } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LogOut, User } from 'lucide-react';
-import { useEffect } from 'react';
 
 export default function Header() {
-  const { player, loadPlayer, isLoaded, startPolling, stopPolling } = usePlayerStore();
-
-  useEffect(() => {
-    if (!isLoaded) loadPlayer();
-  }, [isLoaded, loadPlayer]);
-
-  // Inicia polling quando autenticado
-  useEffect(() => {
-    const isAuthenticated = !!player?._id;
-    if (isAuthenticated) {
-      startPolling();
-    } else {
-      stopPolling();
-    }
-
-    return () => {
-      stopPolling();
-    };
-  }, [player?._id, startPolling, stopPolling]);
+  const { player } = usePlayerStore();
+  const { playerData, logout } = useGoogleAuth();
 
   const isAuthenticated = !!player?._id;
   const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
   const cleanMoney = player?.balances?.cleanMoney ?? 0;
   const corre = player?.balances?.corre ?? 0;
-  const playerName = player?.name || 'Jogador';
+  const playerName = playerData?.name || 'Jogador';
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('playerData');
-    stopPolling();
-    loadPlayer();
+    logout();
     window.location.href = '/';
   };
 
