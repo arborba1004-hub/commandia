@@ -1,9 +1,11 @@
 import { create } from 'zustand';
-import { syncPlayerUpdate } from '@/api/game';
+import { syncPlayerUpdate, hydratePlayerFromBackend } from '@/api/game';
 
 const STORAGE_KEY = 'playerData';
+const POLLING_INTERVAL = 3000; // 3 segundos
 
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
 type Balances = {
   dirtyMoney: number;
@@ -110,6 +112,7 @@ type PlayerStore = {
   isLoaded: boolean;
   isSyncing: boolean;
   syncError: string | null;
+  isPolling: boolean;
 
   loadPlayer: () => void;
   setPlayer: (incoming: Partial<PlayerState>) => void;
@@ -119,6 +122,11 @@ type PlayerStore = {
   saveLocal: () => void;
   scheduleSync: () => void;
   syncPlayerToBackend: () => Promise<void>;
+  
+  // POLLING
+  startPolling: () => void;
+  stopPolling: () => void;
+  pollPlayerFromBackend: () => Promise<void>;
 
   // BALANCES
   addDirtyMoney: (amount: number) => void;
@@ -277,6 +285,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   isLoaded: false,
   isSyncing: false,
   syncError: null,
+  isPolling: false,
 
   loadPlayer: () => {
     try {
@@ -388,6 +397,60 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         isSyncing: false,
         syncError: error instanceof Error ? error.message : 'Erro ao sincronizar',
       });
+    }
+  },
+
+  // ==========================================
+  // POLLING - HIDRATAÇÃO QUASE EM TEMPO REAL
+  // ==========================================
+  startPolling: () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    // Evita múltiplas instâncias de polling
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+
+    set({ isPolling: true });
+
+    // Faz a primeira hidratação imediatamente
+    get().pollPlayerFromBackend();
+
+    // Depois, a cada 3 segundos
+    pollingInterval = setInterval(() => {
+      get().pollPlayerFromBackend();
+    }, POLLING_INTERVAL);
+  },
+
+  stopPolling: () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+    set({ isPolling: false });
+  },
+
+  pollPlayerFromBackend: async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    try {
+      const serverPlayer = await hydratePlayerFromBackend();
+
+      if (serverPlayer) {
+        // Hidrata sem disparar sync (evita loop)
+        const merged = mergePlayer(serverPlayer);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+
+        set({
+          player: merged,
+          syncError: null,
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao fazer polling do player:', error);
+      // Não atualiza syncError aqui para não poluir a UI com erros de polling
     }
   },
 

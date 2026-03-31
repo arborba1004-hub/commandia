@@ -52,3 +52,28 @@ export async function syncPlayerUpdate(player: any) {
 
   return data;
 }
+
+// ==========================================
+// PLAYER HYDRATION (POLLING - QUASE TEMPO REAL)
+// ==========================================
+export async function hydratePlayerFromBackend() {
+  const token = localStorage.getItem('authToken');
+
+  if (!token) return null;
+
+  const response = await fetch(`${BACKEND_URL}/player/me`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.error || 'Erro ao hidratar player');
+  }
+
+  return data.player;
+}

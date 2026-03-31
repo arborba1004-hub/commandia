@@ -4,11 +4,25 @@ import { LogOut, User } from 'lucide-react';
 import { useEffect } from 'react';
 
 export default function Header() {
-  const { player, loadPlayer, isLoaded } = usePlayerStore();
+  const { player, loadPlayer, isLoaded, startPolling, stopPolling } = usePlayerStore();
 
   useEffect(() => {
     if (!isLoaded) loadPlayer();
   }, [isLoaded, loadPlayer]);
+
+  // Inicia polling quando autenticado
+  useEffect(() => {
+    const isAuthenticated = !!player?._id;
+    if (isAuthenticated) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+
+    return () => {
+      stopPolling();
+    };
+  }, [player?._id, startPolling, stopPolling]);
 
   const isAuthenticated = !!player?._id;
   const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
@@ -19,6 +33,7 @@ export default function Header() {
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('playerData');
+    stopPolling();
     loadPlayer();
     window.location.href = '/';
   };
