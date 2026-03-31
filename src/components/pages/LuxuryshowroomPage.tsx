@@ -41,43 +41,143 @@ function getBonusByLevel(level: number) {
   return Number((1 + (level - 50) * 0.1).toFixed(1));
 }
 
-function getVisualByLevel(level: number) {
-  const colors = [
-    '#ff3b3b','#cc2f2f','#ff6b3b','#cc552f','#ff9b3b','#cc7a2f','#ffc93b','#cca32f',
-    '#f5ff3b','#c3cc2f','#baff3b','#94cc2f','#7dff3b','#64cc2f','#3bff57','#2fcc45',
-    '#3bff8c','#2fcc70','#3bffc2','#2fcc9a','#3bfff5','#2fccc3','#3bc7ff','#2fa0cc',
-    '#3b8fff','#2f73cc','#3b57ff','#2f45cc','#6b3bff','#552fcc','#9b3bff','#7a2fcc',
-    '#c93bff','#a32fcc','#ff3bf5','#cc2fc3','#ff3bc2','#cc2f9a','#ff3b8c','#cc2f70',
-    '#ff3b57','#cc2f45','#ff5e3b','#cc4b2f','#ff7a3b','#cc612f','#ff963b','#cc772f',
-    '#ffb23b','#cc8f2f','#ffce3b','#cca62f','#ffe93b','#ccb92f','#e1ff3b','#b5cc2f',
-    '#c5ff3b','#9dcc2f','#a9ff3b','#85cc2f','#8dff3b','#6dcc2f','#71ff3b','#56cc2f',
-    '#55ff3b','#42cc2f','#3bff49','#2fcc3a','#3bff66','#2fcc52','#3bff82','#2fcc69',
-    '#3bff9e','#2fcc80','#3bffba','#2fcc97','#3bffd6','#2fccae','#3bfff2','#2fccc6',
-    '#3be0ff','#2fb3cc','#3bc4ff','#2f9ecc','#3ba8ff','#2f88cc','#3b8cff','#2f73cc',
-    '#3b70ff','#2f5dcc','#3b54ff','#2f47cc','#4f3bff','#3f2fcc','#6b3bff','#552fcc',
-    '#873bff','#6a2fcc','#a33bff','#802fcc','#bf3bff','#962fcc','#db3bff','#ac2fcc',
-    '#f73bff','#c22fcc','#ff3be7','#cc2fb9','#ff3bcb','#cc2fa3','#ff3baf','#cc2f8c',
-    '#ff3b93','#cc2f76','#ff3b77','#cc2f60',
+function getFilterByLevel(level: number) {
+  const filters = [
+    'none',
+    'saturate(2) brightness(1.1) contrast(1.3)',
+    'saturate(2.2) brightness(1.05) contrast(1.4)',
+    'saturate(2.5) brightness(1.2) contrast(1.3)',
+    'saturate(2.3) brightness(1.08) contrast(1.35)',
+    'saturate(2.4) brightness(1.1) contrast(1.3)',
+    'saturate(2.2) brightness(1.12) contrast(1.32)',
+    'saturate(2.3) brightness(1.15) contrast(1.28)',
+    'saturate(2.4) brightness(1.08) contrast(1.35)',
+    'saturate(2.5) brightness(1.06) contrast(1.38)',
+    'saturate(2.3) brightness(1.1) contrast(1.36)',
   ];
 
-  const color = colors[(Math.max(1, level) - 1) % colors.length];
+  const filterIndex = level % filters.length;
+  return filters[filterIndex];
+}
+
+function getVisualByLevel(level: number) {
+  const colors = [
+    '#ff3b3b','#cc2f2f',
+    '#ff6b3b','#cc552f',
+    '#ff9b3b','#cc7a2f',
+    '#ffc93b','#cca32f',
+    '#f5ff3b','#c3cc2f',
+    '#baff3b','#94cc2f',
+    '#7dff3b','#64cc2f',
+    '#3bff57','#2fcc45',
+    '#3bff8c','#2fcc70',
+    '#3bffc2','#2fcc9a',
+    '#3bfff5','#2fccc3',
+    '#3bc7ff','#2fa0cc',
+    '#3b8fff','#2f73cc',
+    '#3b57ff','#2f45cc',
+    '#6b3bff','#552fcc',
+    '#9b3bff','#7a2fcc',
+    '#c93bff','#a32fcc',
+    '#ff3bf5','#cc2fc3',
+    '#ff3bc2','#cc2f9a',
+    '#ff3b8c','#cc2f70',
+    '#ff3b57','#cc2f45',
+    '#ff5e3b','#cc4b2f',
+    '#ff7a3b','#cc612f',
+    '#ff963b','#cc772f',
+    '#ffb23b','#cc8f2f',
+    '#ffce3b','#cca62f',
+    '#ffe93b','#ccb92f',
+    '#e1ff3b','#b5cc2f',
+    '#c5ff3b','#9dcc2f',
+    '#a9ff3b','#85cc2f',
+    '#8dff3b','#6dcc2f',
+    '#71ff3b','#56cc2f',
+    '#55ff3b','#42cc2f',
+    '#3bff49','#2fcc3a',
+    '#3bff66','#2fcc52',
+    '#3bff82','#2fcc69',
+    '#3bff9e','#2fcc80',
+    '#3bffba','#2fcc97',
+    '#3bffd6','#2fccae',
+    '#3bfff2','#2fccc6',
+    '#3be0ff','#2fb3cc',
+    '#3bc4ff','#2f9ecc',
+    '#3ba8ff','#2f88cc',
+    '#3b8cff','#2f73cc',
+    '#3b70ff','#2f5dcc',
+    '#3b54ff','#2f47cc',
+    '#4f3bff','#3f2fcc',
+    '#6b3bff','#552fcc',
+    '#873bff','#6a2fcc',
+    '#a33bff','#802fcc',
+    '#bf3bff','#962fcc',
+    '#db3bff','#ac2fcc',
+    '#f73bff','#c22fcc',
+    '#ff3be7','#cc2fb9',
+    '#ff3bcb','#cc2fa3',
+    '#ff3baf','#cc2f8c',
+    '#ff3b93','#cc2f76',
+    '#ff3b77','#cc2f60',
+    '#ff3b5b','#cc2f4a',
+    '#ff3b3f','#cc2f34',
+    '#ff4a3b','#cc3b2f',
+    '#ff5e3b','#cc4b2f',
+    '#ff723b','#cc5b2f',
+    '#ff863b','#cc6c2f',
+    '#ff9a3b','#cc7c2f',
+    '#ffae3b','#cc8d2f',
+    '#ffc23b','#cc9d2f',
+    '#ffd63b','#ccae2f',
+    '#ffea3b','#ccbe2f',
+    '#e9ff3b','#bacc2f',
+    '#d5ff3b','#aacc2f',
+    '#c1ff3b','#9acc2f',
+    '#adff3b','#8acc2f',
+    '#99ff3b','#7acc2f',
+    '#85ff3b','#6acc2f',
+    '#71ff3b','#5acc2f',
+    '#5dff3b','#4acc2f',
+    '#49ff3b','#3acc2f',
+    '#3bff45','#2fcc38',
+    '#3bff5a','#2fcc49',
+    '#3bff6f','#2fcc59',
+    '#3bff84','#2fcc6a',
+    '#3bff99','#2fcc7a',
+    '#3bffae','#2fcc8b',
+    '#3bffc3','#2fcc9c',
+    '#3bffd8','#2fccac',
+    '#3bffed','#2fccbd',
+    '#3bf5ff','#2fc3cc',
+    '#3be1ff','#2fb4cc',
+    '#3bcdff','#2fa4cc'
+  ];
+
+  if (level <= 0) {
+    return {
+      glow: 'none',
+      halo: 'none',
+      overlay: 'none',
+      accent: '#ffffff',
+      accentSoft: 'rgba(255,255,255,0.18)',
+      cardMetal: 'linear-gradient(135deg, #ffffff, #f2f2f2, #fff7d3)',
+    };
+  }
+
+  const color = colors[(level - 1) % 100];
 
   return {
-    accent: color,
-    filter: `
-      brightness(1.22)
-      contrast(1.32)
-      saturate(1.7)
-    `,
     glow: `
-      drop-shadow(0 0 8px rgba(255,255,255,0.55))
+      drop-shadow(0 0 6px rgba(255,255,255,0.6))
       drop-shadow(0 0 18px ${color})
-      drop-shadow(0 0 42px ${color})
+      drop-shadow(0 0 40px ${color})
     `,
-    halo: `radial-gradient(circle, ${color}55 0%, ${color}20 40%, transparent 75%)`,
-    overlay: `radial-gradient(circle, ${color}35 0%, transparent 65%)`,
-    cardMetal: `linear-gradient(135deg, #ffffff, ${color}, #fff7d3)`,
+    halo: `radial-gradient(circle, ${color}66 0%, transparent 70%)`,
+    overlay: `radial-gradient(circle, ${color}55 0%, transparent 60%)`,
+    accent: color,
     accentSoft: `${color}55`,
+    cardMetal: `linear-gradient(135deg, #ffffff, ${color}, #fff7d3)`,
   };
 }
 
