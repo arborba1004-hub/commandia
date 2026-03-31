@@ -138,7 +138,7 @@ export default function GamePage() {
                 Level
               </h3>
               <p className="font-heading text-5xl text-primary">
-                {playerData.level || 1}
+                {player.niveis?.playerLevel || 1}
               </p>
             </motion.div>
 
@@ -153,10 +153,10 @@ export default function GamePage() {
                 <Trophy className="w-12 h-12 text-secondary" />
               </div>
               <h3 className="font-heading text-2xl uppercase tracking-wider text-foreground">
-                HP
+                Power
               </h3>
               <p className="font-heading text-5xl text-secondary">
-                {playerData.hp || 100}
+                {player.power || 0}
               </p>
             </motion.div>
 
@@ -174,7 +174,7 @@ export default function GamePage() {
                 Moedas
               </h3>
               <p className="font-heading text-5xl text-primary">
-                {playerData.money || 0}
+                {(player.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}
               </p>
             </motion.div>
           </div>

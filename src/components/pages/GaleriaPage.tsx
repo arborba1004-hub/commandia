@@ -3,8 +3,6 @@ import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Image } from '@/components/ui/image';
-import SkyEffects from '@/components/SkyEffects';
-import StarAnimation from '@/components/StarAnimation';
 
 const textVariants = {
   hidden: {
@@ -221,8 +219,7 @@ export default function Item1Page() {
       <Header />
 
       <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden">
-        <StarAnimation count={40} className="z-[5]" />
-        <SkyEffects />
+
 
         <div className="flex-1 flex flex-col relative h-[calc(100vh-160px)] scale-50 origin-top">
           <div className="flex justify-center items-start pt-4 relative z-30">
