@@ -15,7 +15,7 @@ const SHOWCASE_BG =
   'https://static.wixstatic.com/media/50f4bf_bc5d38e571e7424f8ad8a566beb55dc1~mv2.png';
 
 const ITEM_IMAGES = {
-  ring: 'https://static.wixstatic.com/media/50f4bf_651d1089b4f94751b866a45cbd902243~mv2.png',
+  ring: 'https://static.wixstatic.com/media/50f4bf_b374f34ed72447d39d20ee85634b9bbb~mv2.png',
   bracelet: 'https://static.wixstatic.com/media/50f4bf_44c2d719e7974529b9e0eea26dc937fa~mv2.png',
   chain: 'https://static.wixstatic.com/media/50f4bf_95112066aaa34deba75e3955a7a9198b~mv2.png',
   watch: 'https://static.wixstatic.com/media/50f4bf_9589a22c92ea41d0a4d64f480b077d89~mv2.png',
