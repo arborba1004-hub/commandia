@@ -151,6 +151,13 @@ type PlayerStore = {
   setPower: (value: number) => void;
   setHierarchyBadge: (badge: string) => void;
   setBarracoPosition: (position: Partial<BarracoPosition>) => void;
+
+  // LAVAGEM DE DINHEIRO
+  startLaundryOperation: (operation: Omit<ActiveOperation, 'status'>) => boolean;
+  completeLaundryOperation: (businessId: number) => boolean;
+  hydrateLaundryProgress: () => void;
+  clearFinishedLaundryOperations: () => void;
+  canOperateLaundryToday: (businessId: number, maxPerDay: number) => boolean;
 };
 
 const initialPlayer: PlayerState = {
@@ -669,5 +676,178 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     set({ player: updated });
     get().saveLocal();
     get().scheduleSync();
+  },
+
+  startLaundryOperation: (operation) => {
+    const current = get().player;
+    const { dirtyMoney } = current.balances;
+
+    // Verifica se tem dinheiro sujo suficiente
+    if (dirtyMoney < operation.grossAmount) {
+      return false;
+    }
+
+    // Debita o dinheiro sujo
+    const newDirtyMoney = dirtyMoney - operation.grossAmount;
+
+    // Cria a operação com status 'processing'
+    const newOperation: ActiveOperation = {
+      ...operation,
+      status: 'processing',
+    };
+
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        dirtyMoney: newDirtyMoney,
+      },
+      laundryProgress: {
+        ...current.laundryProgress,
+        activeOperations: [...current.laundryProgress.activeOperations, newOperation],
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+
+    return true;
+  },
+
+  completeLaundryOperation: (businessId) => {
+    const current = get().player;
+    const operationIndex = current.laundryProgress.activeOperations.findIndex(
+      (op) => op.businessId === businessId && op.status === 'processing'
+    );
+
+    if (operationIndex === -1) {
+      return false;
+    }
+
+    const operation = current.laundryProgress.activeOperations[operationIndex];
+    const today = new Date().toISOString().split('T')[0];
+
+    // Marca como completa
+    const completedOperation: ActiveOperation = {
+      ...operation,
+      status: 'completed',
+    };
+
+    // Registra na operação diária
+    const dailyOp: DailyOperation = {
+      businessId: operation.businessId,
+      date: today,
+      amount: operation.netAmount,
+    };
+
+    // Remove da lista de ativas e adiciona à diária
+    const activeOps = current.laundryProgress.activeOperations.filter(
+      (_, idx) => idx !== operationIndex
+    );
+
+    // Credita o dinheiro limpo
+    const newCleanMoney = current.balances.cleanMoney + operation.netAmount;
+
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        cleanMoney: newCleanMoney,
+      },
+      laundryProgress: {
+        activeOperations: activeOps,
+        dailyOperations: [...current.laundryProgress.dailyOperations, dailyOp],
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+
+    return true;
+  },
+
+  hydrateLaundryProgress: () => {
+    const current = get().player;
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    // Limpa operações ativas que expiraram
+    const activeOps = current.laundryProgress.activeOperations.filter((op) => {
+      const endsAt = new Date(op.endsAt);
+      return endsAt > now;
+    });
+
+    // Completa automaticamente operações que chegaram ao tempo
+    const completedOps: DailyOperation[] = [];
+    const newActiveOps: ActiveOperation[] = [];
+
+    current.laundryProgress.activeOperations.forEach((op) => {
+      const endsAt = new Date(op.endsAt);
+      if (endsAt <= now && op.status === 'processing') {
+        // Completa a operação
+        completedOps.push({
+          businessId: op.businessId,
+          date: today,
+          amount: op.netAmount,
+        });
+      } else if (endsAt > now) {
+        newActiveOps.push(op);
+      }
+    });
+
+    // Soma o dinheiro limpo das operações completadas
+    const totalCleanMoneyFromCompleted = completedOps.reduce((sum, op) => sum + op.amount, 0);
+
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        cleanMoney: current.balances.cleanMoney + totalCleanMoneyFromCompleted,
+      },
+      laundryProgress: {
+        activeOperations: newActiveOps,
+        dailyOperations: [...current.laundryProgress.dailyOperations, ...completedOps],
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  clearFinishedLaundryOperations: () => {
+    const current = get().player;
+    const today = new Date().toISOString().split('T')[0];
+
+    // Remove operações diárias de dias anteriores
+    const recentDailyOps = current.laundryProgress.dailyOperations.filter(
+      (op) => op.date === today
+    );
+
+    const updated = mergePlayer({
+      ...current,
+      laundryProgress: {
+        ...current.laundryProgress,
+        dailyOperations: recentDailyOps,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  canOperateLaundryToday: (businessId, maxPerDay) => {
+    const current = get().player;
+    const today = new Date().toISOString().split('T')[0];
+
+    // Conta quantas operações foram completadas hoje para este negócio
+    const operationsToday = current.laundryProgress.dailyOperations.filter(
+      (op) => op.businessId === businessId && op.date === today
+    ).length;
+
+    return operationsToday < maxPerDay;
   },
 }));
