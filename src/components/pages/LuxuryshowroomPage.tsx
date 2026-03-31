@@ -111,11 +111,11 @@ export default function LuxuryshowroomPage() {
                       ease: [0.22, 1, 0.36, 1],
                     }}
                     className="
-                      text-[20px]
-                      xs:text-[22px]
-                      sm:text-[26px]
-                      md:text-[34px]
-                      lg:text-[42px]
+                      text-[30px]
+                      xs:text-[32px]
+                      sm:text-[36px]
+                      md:text-[44px]
+                      lg:text-[52px]
                       font-bold
                       tracking-[0.03em]
                     "
