@@ -1,15 +1,11 @@
+import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Image } from '@/components/ui/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { usePlayerStore } from '@/store/playerStore';
-import { getLuxurySystem } from '@/data/luxoItems';
+import SkyEffects from '@/components/SkyEffects';
+import StarAnimation from '@/components/StarAnimation';
 
-
-  
-    
 const textVariants = {
   hidden: {
     opacity: 0,
@@ -114,38 +110,36 @@ const haloRevealVariants = {
 };
 
 function getFilterByLevel(level: number) {
-  // Array de filtros fortes e contrastantes para cada cor
   const filters = [
-    'none', // 0 - sem filtro
-    'hue-rotate(0deg) saturate(2) brightness(1.1) contrast(1.3)', // 1 - vermelho
-    'hue-rotate(240deg) saturate(2.2) brightness(1.05) contrast(1.4)', // 2 - azul
-    'hue-rotate(60deg) saturate(2.5) brightness(1.2) contrast(1.3)', // 3 - amarelo
-    'hue-rotate(270deg) saturate(2.3) brightness(1.08) contrast(1.35)', // 4 - roxo
-    'hue-rotate(120deg) saturate(2.4) brightness(1.1) contrast(1.3)', // 5 - verde
-    'hue-rotate(330deg) saturate(2.2) brightness(1.12) contrast(1.32)', // 6 - rosa
-    'hue-rotate(180deg) saturate(2.3) brightness(1.15) contrast(1.28)', // 7 - ciano
-    'hue-rotate(30deg) saturate(2.4) brightness(1.08) contrast(1.35)', // 8 - laranja
-    'hue-rotate(140deg) saturate(2.5) brightness(1.06) contrast(1.38)', // 9 - esmeralda
-    'hue-rotate(300deg) saturate(2.3) brightness(1.1) contrast(1.36)', // 10 - magenta
+    'none',
+    'hue-rotate(0deg) saturate(2) brightness(1.1) contrast(1.3)',
+    'hue-rotate(240deg) saturate(2.2) brightness(1.05) contrast(1.4)',
+    'hue-rotate(60deg) saturate(2.5) brightness(1.2) contrast(1.3)',
+    'hue-rotate(270deg) saturate(2.3) brightness(1.08) contrast(1.35)',
+    'hue-rotate(120deg) saturate(2.4) brightness(1.1) contrast(1.3)',
+    'hue-rotate(330deg) saturate(2.2) brightness(1.12) contrast(1.32)',
+    'hue-rotate(180deg) saturate(2.3) brightness(1.15) contrast(1.28)',
+    'hue-rotate(30deg) saturate(2.4) brightness(1.08) contrast(1.35)',
+    'hue-rotate(140deg) saturate(2.5) brightness(1.06) contrast(1.38)',
+    'hue-rotate(300deg) saturate(2.3) brightness(1.1) contrast(1.36)',
   ];
 
-  // Cicla entre os filtros (0-10)
   const filterIndex = level % filters.length;
   return filters[filterIndex];
 }
 
 function getVisualByLevel(level: number) {
   const colors = [
-    0,0,7,7,14,14,21,21,28,28,
-    36,36,43,43,50,50,57,57,64,64,
-    72,72,79,79,86,86,93,93,100,100,
-    108,108,115,115,122,122,129,129,136,136,
-    144,144,151,151,158,158,165,165,172,172,
-    180,180,187,187,194,194,201,201,208,208,
-    216,216,223,223,230,230,237,237,244,244,
-    252,252,259,259,266,266,273,273,280,280,
-    288,288,295,295,302,302,309,309,316,316,
-    324,324,331,331,338,338,345,345,352,352
+    0, 0, 7, 7, 14, 14, 21, 21, 28, 28,
+    36, 36, 43, 43, 50, 50, 57, 57, 64, 64,
+    72, 72, 79, 79, 86, 86, 93, 93, 100, 100,
+    108, 108, 115, 115, 122, 122, 129, 129, 136, 136,
+    144, 144, 151, 151, 158, 158, 165, 165, 172, 172,
+    180, 180, 187, 187, 194, 194, 201, 201, 208, 208,
+    216, 216, 223, 223, 230, 230, 237, 237, 244, 244,
+    252, 252, 259, 259, 266, 266, 273, 273, 280, 280,
+    288, 288, 295, 295, 302, 302, 309, 309, 316, 316,
+    324, 324, 331, 331, 338, 338, 345, 345, 352, 352,
   ];
 
   if (level <= 0) {
@@ -158,9 +152,7 @@ function getVisualByLevel(level: number) {
   }
 
   const hue = colors[(level - 1) % 100];
-
   const isEven = level % 2 === 0;
-
   const brightness = isEven ? 1.25 : 1.1;
   const contrast = isEven ? 1.3 : 1.2;
   const lightness = isEven ? 65 : 45;
@@ -219,8 +211,10 @@ export default function Item1Page() {
   }, []);
 
   const handleBuy = () => {
-    setLevel((prev) => (prev < 100 ? prev + 1 : 0)); // Volta ao início ao atingir 100
+    setLevel((prev) => (prev < 100 ? prev + 1 : 0));
   };
+
+  const visual = getVisualByLevel(level);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -322,12 +316,17 @@ export default function Item1Page() {
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
-              filter: getFilterByLevel(level),
-              transition: 'filter 0.4s ease',
             }}
           />
 
-          {/* foco principal da nebulosa */}
+          <div
+            className="absolute inset-0 z-15 pointer-events-none"
+            style={{
+              background: visual.overlay,
+              transition: 'background 0.4s ease',
+            }}
+          />
+
           <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
             <div
               className="absolute"
@@ -345,7 +344,6 @@ export default function Item1Page() {
             />
           </div>
 
-          {/* coluna de energia */}
           {textAnimationDone && (
             <>
               <motion.div
@@ -417,7 +415,6 @@ export default function Item1Page() {
             </>
           )}
 
-          {/* item revelado */}
           {imageRevealStarted && (
             <motion.div
               className="absolute z-40"
@@ -439,8 +436,7 @@ export default function Item1Page() {
                 <div
                   className="w-[18rem] h-[18rem] rounded-full"
                   style={{
-                    background:
-                      'radial-gradient(circle, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.14) 35%, rgba(255,255,255,0.03) 60%, rgba(255,255,255,0) 78%)',
+                    background: visual.halo,
                     filter: 'blur(22px)',
                   }}
                 />
@@ -452,8 +448,8 @@ export default function Item1Page() {
                 width={320}
                 className="object-contain"
                 style={{
-                  filter: getFilterByLevel(level),
-                  transition: 'filter 0s', // Sem transição suave - mudança imediata
+                  filter: `${getFilterByLevel(level)} ${visual.glow}`,
+                  transition: 'filter 0s',
                 }}
               />
 
