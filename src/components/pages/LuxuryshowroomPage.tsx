@@ -10,80 +10,123 @@ export default function LuxuryshowroomPage() {
 
   useEffect(() => {
     const video = videoRef.current;
-
     if (!video) return;
 
-    const handleTimeUpdate = () => {
-      const currentTime = video.currentTime;
+    const handleTime = () => {
+      const t = video.currentTime;
 
-      // ⏱️ 1 SEGUNDO → MOSTRA DIÁLOGO
-      if (currentTime >= 1 && !showDialog) {
-        setShowDialog(true);
-      }
+      // ⏱️ DIÁLOGO (1s)
+      if (t >= 1 && !showDialog) setShowDialog(true);
 
-      // ⏱️ 7 SEGUNDOS → MOSTRA BOTÃO
-      if (currentTime >= 7 && !showButton) {
-        setShowButton(true);
-      }
+      // ⏱️ BOTÃO (7s)
+      if (t >= 7 && !showButton) setShowButton(true);
     };
 
-    video.addEventListener('timeupdate', handleTimeUpdate);
-
-    return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-    };
+    video.addEventListener('timeupdate', handleTime);
+    return () => video.removeEventListener('timeupdate', handleTime);
   }, [showDialog, showButton]);
 
   return (
-    <div className="w-full h-screen bg-black overflow-hidden relative">
+    <div className="w-full h-screen bg-black overflow-hidden flex flex-col">
+
+      {/* HEADER */}
       <Header />
 
-      {/* 🎬 VÍDEO FULLSCREEN */}
-      <video
-        ref={videoRef}
-        src="https://video.wixstatic.com/video/50f4bf_01db91a09f984c8fb0dd332626b5fb37/720p/mp4/file.mp4"
-        autoPlay
-        muted
-        playsInline
-        className="absolute top-0 left-0 w-full h-full object-cover"
-      />
+      {/* ÁREA DO VÍDEO */}
+      <div className="relative flex-1 w-full overflow-hidden">
 
-      {/* 🔥 OVERLAY ESCURO LEVE */}
-      <div className="absolute inset-0 bg-black/30 z-10" />
+        {/* 🎬 VÍDEO */}
+        <video
+          ref={videoRef}
+          src="https://video.wixstatic.com/video/50f4bf_01db91a09f984c8fb0dd332626b5fb37/720p/mp4/file.mp4"
+          autoPlay
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+        />
 
-      {/* 💬 DIÁLOGO */}
-      {showDialog && (
-        <div className="absolute top-[15%] left-1/2 -translate-x-1/2 z-20 w-[90%] max-w-md">
-          <div className="bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl p-6 text-white shadow-2xl">
+        {/* 💎 DIÁLOGO LUXO */}
+        {showDialog && (
+          <div className="
+            absolute
+            top-[12%]
+            left-1/2
+            -translate-x-1/2
+            w-[92%]
+            max-w-[520px]
+            z-20
+          ">
             
-            <p className="text-xs text-white/60 mb-2 tracking-widest">
-              ATENDIMENTO PRIVADO
-            </p>
+            {/* BORDA LUXUOSA */}
+            <div
+              className="relative p-[2px] rounded-2xl"
+              style={{
+                backgroundImage: `url(https://static.wixstatic.com/media/50f4bf_651d1089b4f94751b866a45cbd902243~mv2.png)`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              <div className="
+                bg-black/60
+                backdrop-blur-md
+                rounded-2xl
+                px-6
+                py-5
+                text-white
+              ">
 
-            <h2 className="text-xl font-bold mb-3">
-              Boa noite, Comandante.
-            </h2>
+                <p className="text-xs tracking-widest text-white/60 mb-2">
+                  ATENDIMENTO PRIVADO
+                </p>
 
-            <p className="text-sm text-white/70 leading-relaxed">
-              Sua coleção atual está disponível. Aqui você transforma Commands
-              em presença... e presença em poder.
-            </p>
+                <h2 className="text-xl md:text-2xl font-semibold mb-2">
+                  Boa noite, Comandante.
+                </h2>
 
+                <p className="text-sm md:text-base text-white/80 leading-relaxed">
+                  Sua coleção atual está disponível. Aqui você transforma Commands
+                  em presença... e presença em poder.
+                </p>
+
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 🔴 BOTÃO FINAL */}
-      {showButton && (
-        <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 z-30 w-[80%] max-w-sm">
-          <button
-            onClick={() => navigate('/luxo-items')}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold text-lg shadow-[0_0_25px_rgba(255,0,0,0.4)] hover:scale-105 transition-all"
-          >
-            VER COLEÇÃO
-          </button>
-        </div>
-      )}
+        {/* 🔴 BOTÃO */}
+        {showButton && (
+          <div className="
+            absolute
+            bottom-[6%]
+            left-1/2
+            -translate-x-1/2
+            w-[80%]
+            max-w-[360px]
+            z-30
+          ">
+            <button
+              onClick={() => navigate('/luxo-items')}
+              className="
+                w-full
+                py-4
+                rounded-xl
+                text-white
+                font-semibold
+                text-base
+                md:text-lg
+                bg-gradient-to-r from-red-500 to-pink-500
+                shadow-[0_0_20px_rgba(255,0,80,0.4)]
+                transition
+                hover:scale-105
+                active:scale-95
+              "
+            >
+              VER COLEÇÃO
+            </button>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
