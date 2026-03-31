@@ -1,13 +1,23 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Link } from 'react-router-dom';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { Link, useNavigate } from 'react-router-dom';
+import { usePlayerStore } from '@/store/playerStore';
 import { Image } from '@/components/ui/image';
+import { useEffect } from 'react';
 
 export default function ProfilePage() {
-  const { playerData, isAuthenticated, logout } = useGoogleAuth();
+  const navigate = useNavigate();
+  const { player, isLoaded, loadPlayer } = usePlayerStore();
 
-  if (!isAuthenticated || !playerData) {
+  useEffect(() => {
+    if (!isLoaded) {
+      loadPlayer();
+    } else if (!player?._id) {
+      navigate('/');
+    }
+  }, [isLoaded, player?._id, navigate, loadPlayer]);
+
+  if (!player?._id) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -32,6 +42,13 @@ export default function ProfilePage() {
     );
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('playerData');
+    loadPlayer();
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -44,22 +61,24 @@ export default function ProfilePage() {
             </h1>
 
             <div className="space-y-3">
-              <p><strong>Nome:</strong> {playerData.name || 'Jogador'}</p>
-              <p><strong>Email:</strong> {playerData.email || 'Não disponível'}</p>
-              <p><strong>ID:</strong> {playerData._id || 'Não disponível'}</p>
-              <p><strong>Level:</strong> {playerData.level ?? 1}</p>
-              <p><strong>HP:</strong> {playerData.hp ?? 100}</p>
-              <p><strong>Moedas:</strong> {playerData.money ?? 0}</p>
+              <p><strong>Nome:</strong> {player.name || 'Jogador'}</p>
+              <p><strong>Email:</strong> {player.email || 'Não disponível'}</p>
+              <p><strong>ID:</strong> {player._id || 'Não disponível'}</p>
+              <p><strong>Level:</strong> {player.niveis?.playerLevel ?? 1}</p>
+              <p><strong>Power:</strong> {player.power ?? 0}</p>
+              <p><strong>Commands Sujo:</strong> {(player.balances?.dirtyMoney ?? 0).toLocaleString('pt-BR')}</p>
+              <p><strong>Commands Limpo:</strong> {(player.balances?.cleanMoney ?? 0).toLocaleString('pt-BR')}</p>
+              <p><strong>Corre:</strong> {(player.balances?.corre ?? 0).toLocaleString('pt-BR')}</p>
             </div>
 
-            {playerData.avatar && (
+            {player.avatar && (
               <div>
-                <Image src={playerData.avatar} alt={playerData.name || 'Perfil'} className="w-24 h-24 rounded-full object-cover border-2 border-primary" />
+                <Image src={player.avatar} alt={player.name || 'Perfil'} className="w-24 h-24 rounded-full object-cover border-2 border-primary" />
               </div>
             )}
 
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="w-full px-6 py-4 bg-red-600 text-white rounded-lg"
             >
               Sair da conta

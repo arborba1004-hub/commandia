@@ -4,7 +4,7 @@ import { Crown, Shield, Flame, Play, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { usePlayerStore } from '@/store/playerStore';
 import { Image } from '@/components/ui/image';
 
 async function gameRequest(action: string, payload: any) {
@@ -71,11 +71,17 @@ export default function HomePage() {
   const navigate = useNavigate();
   const manifestoRef = useRef<HTMLElement | null>(null);
 
-  const { isAuthenticated, playerData, logout, authToken, isLoading } = useGoogleAuth();
+  const { player, isLoaded, loadPlayer } = usePlayerStore();
 
   const [googleReady, setGoogleReady] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+
+  const isAuthenticated = !!player?._id;
+
+  useEffect(() => {
+    if (!isLoaded) loadPlayer();
+  }, [isLoaded, loadPlayer]);
 
   useEffect(() => {
     const scriptId = 'google-gsi-script';
@@ -105,7 +111,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (!googleReady || isAuthenticated || isLoading || !window.google) return;
+    if (!googleReady || isAuthenticated || !window.google) return;
 
     const handleGoogleLogin = async (response: any) => {
       try {
@@ -144,7 +150,8 @@ export default function HomePage() {
 
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('playerData', JSON.stringify(data.player));
-window.location.href = '/giro';
+        loadPlayer();
+        window.location.href = '/giro';
 
       } catch (error) {
         const message =
@@ -189,7 +196,7 @@ window.location.href = '/giro';
         width: 280,
       });
     }
-  }, [googleReady, isAuthenticated, isLoading]);
+  }, [googleReady, isAuthenticated]);
 
   const scrollToManifesto = () => {
     manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -280,7 +287,7 @@ window.location.href = '/giro';
               transition={{ delay: 0.35, duration: 0.95 }}
               className="hidden lg:block"
             >
-              {isAuthenticated && playerData ? (
+              {isAuthenticated && player ? (
                 <div className="relative">
                   <div className="absolute inset-0 rounded-[30px] bg-red-900/15 blur-2xl" />
                   <div className="relative rounded-[30px] border border-white/10 bg-black/35 p-6 backdrop-blur-xl shadow-[0_25px_90px_rgba(0,0,0,0.45)]">
@@ -289,28 +296,28 @@ window.location.href = '/giro';
                         acesso liberado
                       </p>
                       <h2 className="mt-2 text-3xl font-black uppercase tracking-[0.12em] text-amber-100">
-                        {playerData.name}
+                        {player.name}
                       </h2>
-                      <p className="mt-2 text-sm text-zinc-400 break-all">{playerData.email}</p>
+                      <p className="mt-2 text-sm text-zinc-400 break-all">{player.email}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">LEVEL</p>
                         <p className="mt-2 text-2xl font-bold text-white">
-                          {playerData.level || 1}
+                          {player.niveis?.playerLevel || 1}
                         </p>
                       </div>
                       <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">HP</p>
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">POWER</p>
                         <p className="mt-2 text-2xl font-bold text-white">
-                          {playerData.hp || 100}
+                          {player.power || 0}
                         </p>
                       </div>
                       <div className="col-span-2 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">MONEY</p>
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">COMMANDS SUJO</p>
                         <p className="mt-2 text-3xl font-bold text-red-300">
-                          {playerData.money || 0}
+                          {(player.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}
                         </p>
                       </div>
                     </div>
@@ -324,7 +331,12 @@ window.location.href = '/giro';
                       </button>
 
                       <button
-                        onClick={logout}
+                        onClick={() => {
+                          localStorage.removeItem('authToken');
+                          localStorage.removeItem('playerData');
+                          loadPlayer();
+                          window.location.href = '/';
+                        }}
                         className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-950/35 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-red-200 transition hover:bg-red-900/35"
                       >
                         <LogOut className="h-4 w-4" />
@@ -404,29 +416,29 @@ window.location.href = '/giro';
           </div>
         )}
 
-        {isAuthenticated && playerData && (
+        {isAuthenticated && player && (
           <div className="relative z-20 px-6 pb-12 lg:hidden">
             <div className="mx-auto max-w-md rounded-[28px] border border-white/10 bg-black/35 p-5 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
               <p className="text-center text-[10px] uppercase tracking-[0.32em] text-zinc-500">
                 acesso liberado
               </p>
               <h2 className="mt-2 text-center text-2xl font-black uppercase tracking-[0.12em] text-amber-100">
-                {playerData.name}
+                {player.name}
               </h2>
-              <p className="mt-2 text-center text-sm text-zinc-400 break-all">{playerData.email}</p>
+              <p className="mt-2 text-center text-sm text-zinc-400 break-all">{player.email}</p>
 
               <div className="mt-5 grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
                   <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">LEVEL</p>
-                  <p className="mt-2 text-lg font-bold text-white">{playerData.level || 1}</p>
+                  <p className="mt-2 text-lg font-bold text-white">{player.niveis?.playerLevel || 1}</p>
                 </div>
                 <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">HP</p>
-                  <p className="mt-2 text-lg font-bold text-white">{playerData.hp || 100}</p>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">POWER</p>
+                  <p className="mt-2 text-lg font-bold text-white">{player.power || 0}</p>
                 </div>
                 <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">MONEY</p>
-                  <p className="mt-2 text-lg font-bold text-red-300">{playerData.money || 0}</p>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">SUJO</p>
+                  <p className="mt-2 text-lg font-bold text-red-300">{(player.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}</p>
                 </div>
               </div>
 
@@ -438,7 +450,12 @@ window.location.href = '/giro';
                   CONTINUAR
                 </button>
                 <button
-                  onClick={logout}
+                  onClick={() => {
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('playerData');
+                    loadPlayer();
+                    window.location.href = '/';
+                  }}
                   className="w-full rounded-2xl border border-red-500/25 bg-red-950/35 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-red-200"
                 >
                   SAIR

@@ -90,8 +90,7 @@ function money(value: number) {
 
 export default function LuxuryShowroomPage() {
   const navigate = useNavigate();
-  const player = usePlayerStore((s) => s.player);
-  const setPlayer = usePlayerStore((s) => s.setPlayer);
+  const { player, setPlayer, isLoaded, loadPlayer } = usePlayerStore();
 
   const [npcLoaded, setNpcLoaded] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -102,6 +101,10 @@ export default function LuxuryShowroomPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [farewell, setFarewell] = useState(false);
   const [farewellEmoji, setFarewellEmoji] = useState<'😘' | '👍' | null>(null);
+
+  useEffect(() => {
+    if (!isLoaded) loadPlayer();
+  }, [isLoaded, loadPlayer]);
 
   const playerName = player?.name || 'COMANDANTE';
   const barracoLevel = player?.niveis?.barracoLevel || 1;

@@ -97,11 +97,16 @@ export default function LavagemDeDinheiroPage() {
   const [dailyOperations, setDailyOperations] = useState<DailyOperation[]>([]);
   const [animatingBusinessId, setAnimatingBusinessId] = useState<number | null>(null);
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
-  const { addCleanMoney, removeDirtyMoney, player } = usePlayerStore();
+  const { addCleanMoney, removeDirtyMoney, player, isLoaded, loadPlayer } = usePlayerStore();
   
   // Calculate level multiplier (1.1 per level)
   const barracoLevel = player?.niveis?.barracoLevel || 1;
   const levelMultiplier = Math.pow(1.1, barracoLevel - 1);
+  const dirtyMoney = player?.balances?.dirtyMoney || 0;
+
+  useEffect(() => {
+    if (!isLoaded) loadPlayer();
+  }, [isLoaded, loadPlayer]);
 
   // Carrega operações diárias do localStorage
   useEffect(() => {
@@ -179,7 +184,7 @@ export default function LavagemDeDinheiroPage() {
     const scaledMoney = business.initialMoney * levelMultiplier;
     
     // Check if player has enough dirty money
-    if (player.balances.dirtyMoney < scaledMoney) {
+    if (dirtyMoney < scaledMoney) {
       alert('Você não tem dinheiro sujo suficiente.');
       return;
     }

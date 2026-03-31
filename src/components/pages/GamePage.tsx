@@ -4,47 +4,47 @@ import { LogOut, Zap, Target, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { usePlayerStore } from '@/store/playerStore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function GamePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isAuthenticated, playerData, logout } = useGoogleAuth();
+  const { player, isLoaded, loadPlayer, addDirtyMoney } = usePlayerStore();
   const [isUpdating, setIsUpdating] = useState(false);
 
   // 🔐 Verifica autenticação - redireciona para Home se não autenticado
   useEffect(() => {
-    if (!isAuthenticated || !playerData) {
+    if (!isLoaded) {
+      loadPlayer();
+    } else if (!player?._id) {
       navigate('/');
     }
-  }, [isAuthenticated, playerData, navigate]);
+  }, [isLoaded, player?._id, navigate, loadPlayer]);
 
   const handleEarnCoins = () => {
-    if (!playerData) return;
+    if (!player) return;
 
     setIsUpdating(true);
 
-    const updated = { ...playerData };
-    updated.money = (updated.money || 0) + 100;
-
-    localStorage.setItem('playerData', JSON.stringify(updated));
+    addDirtyMoney(100);
 
     toast({
       title: 'Sucesso!',
-      description: 'Saldo atualizado: +100 moedas',
+      description: 'Saldo atualizado: +100 Commands Sujo',
     });
 
-    // Recarrega os dados
-    window.location.reload();
+    setIsUpdating(false);
   };
 
   const handleLogout = () => {
-    logout();
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('playerData');
+    loadPlayer();
     navigate('/');
   };
 
-  if (!isAuthenticated || !playerData) return null;
+  if (!player?._id) return null;
 
   return (
     <div className="min-h-screen bg-background pb-[40vh]">
@@ -60,26 +60,26 @@ export default function GamePage() {
             className="text-center space-y-8"
           >
             <h1 className="font-heading text-5xl lg:text-7xl uppercase tracking-wider text-foreground">
-              Bem-vindo, <span className="text-primary">{playerData.name}</span>
+              Bem-vindo, <span className="text-primary">{player.name}</span>
             </h1>
 
             <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 max-w-2xl mx-auto space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <p className="font-paragraph text-sm text-foreground/60">Email</p>
-                  <p className="font-heading text-lg text-foreground">{playerData.email}</p>
+                  <p className="font-heading text-lg text-foreground">{player.email}</p>
                 </div>
                 <div className="space-y-2">
                   <p className="font-paragraph text-sm text-foreground/60">Level</p>
-                  <p className="font-heading text-lg text-primary">{playerData.level || 1}</p>
+                  <p className="font-heading text-lg text-primary">{player.niveis?.playerLevel || 1}</p>
                 </div>
                 <div className="space-y-2">
-                  <p className="font-paragraph text-sm text-foreground/60">HP</p>
-                  <p className="font-heading text-lg text-foreground">{playerData.hp || 100}</p>
+                  <p className="font-paragraph text-sm text-foreground/60">Power</p>
+                  <p className="font-heading text-lg text-foreground">{player.power || 0}</p>
                 </div>
                 <div className="space-y-2">
-                  <p className="font-paragraph text-sm text-foreground/60">Moedas</p>
-                  <p className="font-heading text-lg text-secondary">{playerData.money || 0}</p>
+                  <p className="font-paragraph text-sm text-foreground/60">Commands Sujo</p>
+                  <p className="font-heading text-lg text-secondary">{(player.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}</p>
                 </div>
               </div>
             </div>
