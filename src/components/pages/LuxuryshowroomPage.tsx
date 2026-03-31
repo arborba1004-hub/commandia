@@ -306,54 +306,8 @@ const newItem = {
           </motion.div>
 
           {!showCollection && (
-        <div className="relative h-[600px] md:h-[720px] lg:h-[780px]">
-  <motion.div
-    initial={{
-      opacity: 0,
-      scale: 0.42,
-      x: '-50%',
-      y: 260,
-      filter: 'blur(10px)',
-    }}
-    animate={{
-      opacity: 1,
-      scale: 1,
-      x: '-50%',
-      y: 0,
-      filter: 'blur(0px)',
-    }}
-    transition={{
-      duration: 1.9,
-      ease: [0.22, 1, 0.36, 1],
-    }}
-    className="absolute left-1/2 bottom-[90px] md:bottom-[70px] lg:bottom-[40px] z-30"
-  >
-    <div className="relative flex flex-col items-center">
-      <div
-        className="absolute bottom-[-8px] h-10 w-[180px] rounded-full blur-2xl"
-        style={{
-          background: 'radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%)',
-        }}
-      />
-
-      <div
-        className="absolute -inset-10 rounded-full blur-3xl opacity-40"
-        style={{ background: visual.halo }}
-      />
-
-      <div className="relative h-[320px] w-[240px] md:h-[420px] md:w-[300px] lg:h-[520px] lg:w-[360px] flex items-end justify-center">
-        <LuxuryNPC onNPCLoaded={() => setNpcLoaded(true)} />
-      </div>
-    </div>
-  </motion.div>
-
-              <LuxuryNPCDialog
-                isOpen={dialogOpen}
-                onClose={() => setDialogOpen(false)}
-                onViewCollection={closeIntroAndShowCollection}
-                title={`Boa noite, ${playerName}`}
-                message={dialogMessage}
-              />
+            <div className="absolute left-1/2 bottom-[60px] -translate-x-1/2 z-30">
+              <LuxuryNPC onNPCLoaded={() => setNpcLoaded(true)} />
             </div>
           )}
 
