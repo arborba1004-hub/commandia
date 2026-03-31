@@ -97,7 +97,7 @@ export default function LavagemDeDinheiroPage() {
   const [dailyOperations, setDailyOperations] = useState<DailyOperation[]>([]);
   const [animatingBusinessId, setAnimatingBusinessId] = useState<number | null>(null);
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
-  const { addCleanMoney, player } = usePlayerStore();
+  const { addCleanMoney, removeDirtyMoney, player } = usePlayerStore();
   
   // Calculate level multiplier (1.1 per level)
   const barracoLevel = player.niveis.barracoLevel || 1;
@@ -175,12 +175,23 @@ export default function LavagemDeDinheiroPage() {
     const business = businesses.find(b => b.id === businessId);
     if (!business) return;
 
+    // Apply level multiplier to values
+    const scaledMoney = business.initialMoney * levelMultiplier;
+    
+    // Check if player has enough dirty money
+    if (player.balances.dirtyMoney < scaledMoney) {
+      alert('Você não tem dinheiro sujo suficiente.');
+      return;
+    }
+
+    // Debit the dirty money before starting the operation
+    removeDirtyMoney(scaledMoney);
+
     // Trigger animation
     setAnimatingBusinessId(businessId);
     setTimeout(() => setAnimatingBusinessId(null), 2000);
 
-    // Apply level multiplier to values
-    const scaledMoney = business.initialMoney * levelMultiplier;
+    // Calculate remaining values
     const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
     const fee = (scaledMoney * business.feePercentage) / 100;
     const netAmount = scaledMoney - fee;
