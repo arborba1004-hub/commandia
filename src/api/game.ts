@@ -1,83 +1,54 @@
-// src/api/game.ts
+const BACKEND_URL = 'https://comando-backend.onrender.com';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://comando-backend.onrender.com';
-
-interface GameActionPayload {
-  action: string;
-  payload?: Record<string, any>;
-}
-
-interface GameActionResponse {
-  success: boolean;
-  action: string;
-  player: any;
-  result: any;
-  message: string;
-  reels?: number[];
-  resultType?: string;
-}
-
-async function getAuthToken(): Promise<string> {
-  // Get token from localStorage
+// ==========================================
+// GAME ACTION (FUTURO MULTIPLAYER)
+// ==========================================
+export async function gameRequest(action: string, payload: any) {
   const token = localStorage.getItem('authToken');
-  
-  if (!token) {
-    throw new Error('Token de autenticação não encontrado. Por favor, faça login.');
+
+  const response = await fetch(`${BACKEND_URL}/game/action`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      action,
+      payload,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.error || 'Erro no gameRequest');
   }
-  
-  return token;
+
+  return data;
 }
 
-export async function gameRequest(action: string, payload?: Record<string, any>): Promise<GameActionResponse> {
-  try {
-    const token = await getAuthToken();
+// ==========================================
+// PLAYER SYNC (CRÍTICO)
+// ==========================================
+export async function syncPlayerUpdate(player: any) {
+  const token = localStorage.getItem('authToken');
 
-    const response = await fetch(`${BACKEND_URL}/game/action`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ action, payload }),
-    });
+  if (!token) return;
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Erro na requisição do jogo.');
-    }
+  const response = await fetch(`${BACKEND_URL}/player/update`, {
+    method: 'PATCH', // 🔥 CORREÇÃO
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(player),
+  });
 
-    return response.json();
-  } catch (error) {
-    console.error('Game request error:', error);
-    throw error;
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.error || 'Erro ao sincronizar player');
   }
-}
 
-export async function executeSpinSlot(multiplier?: number): Promise<GameActionResponse> {
-  return gameRequest('spin_slot', { multiplier });
-}
-
-export async function syncPlayerUpdate(player: Record<string, any>): Promise<any> {
-  try {
-    const token = await getAuthToken();
-
-    const response = await fetch(`${BACKEND_URL}/player/update`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(player),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Erro ao sincronizar player.');
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error('Player sync error:', error);
-    throw error;
-  }
+  return data;
 }
