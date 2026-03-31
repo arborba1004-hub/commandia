@@ -106,12 +106,13 @@ textShadow: `
               transition={{ delay: 1.2 }}
               className="
                 mt-4
-                text-[14px] md:text-[18px]
-                text-[#9a3b3b]
+                text-[32px] md:text-[44px]
+                text-[#3a1a1a]
+
                 tracking-wide
               "
               style={{
-                textShadow: '0 0 10px rgba(150,50,50,0.4)',
+                textShadow: '0 2px 4px rgba(0,0,0,0.5)'
               }}
             >
               Sua coleção está pronta para você.
