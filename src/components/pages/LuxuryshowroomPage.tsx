@@ -346,25 +346,6 @@ const newItem = {
       </div>
     </div>
   </motion.div>
-              >
-                <div className="relative flex flex-col items-center">
-                  <div
-                    className="absolute bottom-10 h-16 w-[70%] rounded-full blur-3xl"
-                    style={{
-                      background: 'radial-gradient(ellipse, rgba(0,0,0,.6), transparent 70%)',
-                    }}
-                  />
-
-                  <div
-                    className="absolute -inset-10 rounded-full blur-3xl opacity-40"
-                    style={{ background: visual.halo }}
-                  />
-
-                  <div className="relative h-[320px] w-[240px] md:h-[420px] md:w-[320px] lg:h-[520px] lg:w-[380px]">
-                    <LuxuryNPC onNPCLoaded={() => setNpcLoaded(true)} />
-                  </div>
-                </div>
-              </motion.div>
 
               <LuxuryNPCDialog
                 isOpen={dialogOpen}
