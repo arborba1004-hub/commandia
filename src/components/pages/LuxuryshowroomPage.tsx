@@ -95,36 +95,37 @@ export default function LuxuryshowroomPage() {
 
         {/* 🔴 BOTÃO */}
         {showButton && (
-          <div className="
-            absolute
-            bottom-[6%]
-            left-1/2
-            -translate-x-1/2
-            w-[80%]
-            max-w-[360px]
-            z-30
-          ">
-            <button
-              onClick={() => navigate('/luxo-items')}
-              className="
-                w-full
-                py-4
-                rounded-xl
-                text-white
-                font-semibold
-                text-base
-                md:text-lg
-                bg-gradient-to-r from-red-500 to-pink-500
-                shadow-[0_0_20px_rgba(255,0,80,0.4)]
-                transition
-                hover:scale-105
-                active:scale-95
-              "
-            >
-              VER COLEÇÃO
-            </button>
-          </div>
-        )}
+  <div
+    className="
+      absolute
+      left-[68%]
+      top-[58%]
+      -translate-x-1/2
+      -translate-y-1/2
+      z-30
+    "
+  >
+    <button
+      onClick={() => navigate('/luxo-items')}
+      className="
+        px-6 py-3
+        md:px-8 md:py-4
+        rounded-xl
+        text-white
+        font-semibold
+        text-sm md:text-base
+        bg-gradient-to-r from-red-500 to-pink-500
+        shadow-[0_0_25px_rgba(255,0,80,0.5)]
+        transition
+        hover:scale-105
+        active:scale-95
+        backdrop-blur-sm
+      "
+    >
+      VER COLEÇÃO
+    </button>
+  </div>
+)}
 
       </div>
     </div>
