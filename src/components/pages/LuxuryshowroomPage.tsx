@@ -38,43 +38,27 @@ export default function LuxuryshowroomPage() {
     };
   }, [showDialog, showButton]);
 
-  const getDialogTop = () => {
-    if (currentTime < 1.2) return '11%';
-    if (currentTime < 2.8) return '12.5%';
-    if (currentTime < 4.8) return '13.5%';
-    if (currentTime < 6.3) return '14.5%';
-    return '13%';
+  const getDialogTopClass = () => {
+    if (currentTime < 1.2) return 'top-[9%] md:top-[10%]';
+    if (currentTime < 2.8) return 'top-[10%] md:top-[11%]';
+    if (currentTime < 4.8) return 'top-[11%] md:top-[12%]';
+    if (currentTime < 6.3) return 'top-[12%] md:top-[13%]';
+    return 'top-[11%] md:top-[12%]';
   };
 
   const getDialogScale = () => {
-    if (currentTime < 1.2) return 1.03;
+    if (currentTime < 1.2) return 1.02;
     if (currentTime < 2.8) return 1;
-    if (currentTime < 4.8) return 0.985;
-    if (currentTime < 6.3) return 0.97;
-    return 0.96;
+    if (currentTime < 4.8) return 0.99;
+    if (currentTime < 6.3) return 0.98;
+    return 0.98;
   };
 
   const getDialogOpacity = () => {
     if (currentTime < 6.6) return 1;
-    if (currentTime < 6.9) return 0.88;
-    return 0.72;
+    if (currentTime < 6.9) return 0.9;
+    return 0.78;
   };
-
-  const getButtonPosition = () => {
-    if (window.innerWidth < 768) {
-      return {
-        left: '22%',
-        top: '51%',
-      };
-    }
-
-    return {
-      left: '25%',
-      top: '53%',
-    };
-  };
-
-  const buttonPosition = getButtonPosition();
 
   return (
     <div className="w-full h-screen bg-black overflow-hidden flex flex-col">
@@ -96,27 +80,23 @@ export default function LuxuryshowroomPage() {
               initial={{ opacity: 0 }}
               animate={{
                 opacity: getDialogOpacity(),
-                top: getDialogTop(),
                 scale: getDialogScale(),
               }}
               transition={{
-                opacity: { duration: 0.4, ease: 'easeOut' },
-                top: { duration: 0.45, ease: 'easeOut' },
-                scale: { duration: 0.45, ease: 'easeOut' },
+                opacity: { duration: 0.35, ease: 'easeOut' },
+                scale: { duration: 0.35, ease: 'easeOut' },
               }}
-              className="absolute left-1/2 -translate-x-1/2 z-20 w-[94%] max-w-[900px] px-3 text-center pointer-events-none"
-              style={{
-                transformOrigin: 'center top',
-              }}
+              className={`absolute ${getDialogTopClass()} left-1/2 -translate-x-1/2 z-20 w-[92%] sm:w-[88%] md:w-[82%] max-w-[820px] px-2 sm:px-4 text-center`}
+              style={{ transformOrigin: 'center top' }}
             >
-              <div className="flex flex-wrap justify-center gap-x-[2px] md:gap-x-[3px] leading-[1.15]">
+              <div className="flex flex-wrap justify-center gap-x-[1px] sm:gap-x-[2px] md:gap-x-[3px] leading-[1.12]">
                 {fullText.split('').map((char, i) => (
                   <motion.span
                     key={`${char}-${i}`}
                     initial={{
                       opacity: 0,
-                      y: 28,
-                      scale: 1.28,
+                      y: 26,
+                      scale: 1.22,
                       filter: 'blur(7px)',
                     }}
                     animate={{
@@ -126,17 +106,18 @@ export default function LuxuryshowroomPage() {
                       filter: 'blur(0px)',
                     }}
                     transition={{
-                      delay: i * 0.032,
-                      duration: 0.42,
+                      delay: i * 0.03,
+                      duration: 0.38,
                       ease: [0.22, 1, 0.36, 1],
                     }}
                     className="
-                      text-[26px]
-                      sm:text-[30px]
-                      md:text-[40px]
-                      lg:text-[48px]
+                      text-[20px]
+                      xs:text-[22px]
+                      sm:text-[26px]
+                      md:text-[34px]
+                      lg:text-[42px]
                       font-bold
-                      tracking-[0.04em]
+                      tracking-[0.03em]
                     "
                     style={{
                       color: '#341414',
@@ -159,31 +140,41 @@ export default function LuxuryshowroomPage() {
         <AnimatePresence>
           {showButton && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.72, y: 10, filter: 'blur(6px)' }}
+              initial={{ opacity: 0, scale: 0.78, y: 8, filter: 'blur(6px)' }}
               animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute z-30"
-              style={{
-                left: buttonPosition.left,
-                top: buttonPosition.top,
-                transform: 'translate(-50%, -50%)',
-              }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="
+                absolute
+                z-30
+                left-[26%]
+                top-[56%]
+                sm:left-[24%]
+                sm:top-[55%]
+                md:left-[23%]
+                md:top-[53%]
+                lg:left-[21%]
+                lg:top-[50%]
+                -translate-x-1/2
+                -translate-y-1/2
+              "
             >
               <button
                 onClick={() => navigate('/luxo-items')}
                 className="
-                  px-8 py-4
-                  md:px-10 md:py-5
+                  px-6 py-3
+                  sm:px-7 sm:py-3.5
+                  md:px-9 md:py-4.5
                   rounded-2xl
                   text-white
                   font-bold
-                  text-base md:text-lg
-                  tracking-[0.14em]
+                  text-sm sm:text-base md:text-lg
+                  tracking-[0.12em]
                   bg-gradient-to-r from-red-500 via-rose-500 to-pink-500
                   shadow-[0_0_30px_rgba(255,0,80,0.45)]
                   transition
                   hover:scale-105
                   active:scale-95
+                  whitespace-nowrap
                 "
                 style={{
                   boxShadow: `
