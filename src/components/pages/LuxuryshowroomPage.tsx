@@ -220,6 +220,7 @@ export default function LuxuryShowroomPage() {
 
   const system = useMemo(() => getLuxurySystem(barracoLevel), [barracoLevel]);
   const visual = useMemo(() => getVisualByLevel(barracoLevel), [barracoLevel]);
+  const levelFilter = useMemo(() => getFilterByLevel(barracoLevel), [barracoLevel]);
   const collectionName = system?.collectionName || `Nível ${barracoLevel}`;
 
   useEffect(() => {
@@ -905,7 +906,8 @@ function CardContent({
           width={230}
           className="relative object-contain max-h-[210px]"
           style={{
-            filter: `${visual.filter} ${visual.glow}`,
+            filter: `${getFilterByLevel(item.level)} ${visual.glow}`,
+            transition: 'filter 0s',
           }}
         />
       </div>
