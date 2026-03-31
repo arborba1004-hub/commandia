@@ -1,9 +1,26 @@
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
-import { usePlayerStore } from '@/store/playerStore'
-import { Image } from '@/components/ui/image'
-import { motion } from 'framer-motion'
-import { useMemo } from 'react'
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { usePlayerStore } from '@/store/playerStore';
+import LuxuryNPC from '@/components/LuxuryNPC';
+import LuxuryDialogFrame from '@/components/LuxuryDialogFrame';
+
+const SHOWROOM_BG =
+  'https://static.wixstatic.com/media/50f4bf_58cda01923cf4acda15fa4b54cebc965~mv2.png';
+
+const SHOWCASE_BG =
+  'https://static.wixstatic.com/media/50f4bf_bc5d38e571e7424f8ad8a566beb55dc1~mv2.png';
+
+const ITEM_IMAGES = {
+  ring: 'https://static.wixstatic.com/media/50f4bf_651d1089b4f94751b866a45cbd902243~mv2.png',
+  bracelet: 'https://static.wixstatic.com/media/50f4bf_44c2d719e7974529b9e0eea26dc937fa~mv2.png',
+  chain: 'https://static.wixstatic.com/media/50f4bf_95112066aaa34deba75e3955a7a9198b~mv2.png',
+  watch: 'https://static.wixstatic.com/media/50f4bf_9589a22c92ea41d0a4d64f480b077d89~mv2.png',
+  bag: 'https://static.wixstatic.com/media/50f4bf_0ed2c4ee08714e1b923b1e2def99fce9~mv2.png',
+  sunglasses: 'https://static.wixstatic.com/media/50f4bf_34b7f97d84b44ab7868db573ab58e00a~mv2.png',
+};
 
 const ITEMS = [
   { key: 'ring', name: 'Anel' },
@@ -11,169 +28,174 @@ const ITEMS = [
   { key: 'chain', name: 'Corrente' },
   { key: 'watch', name: 'Relógio' },
   { key: 'bag', name: 'Bolsa' },
-  { key: 'sunglasses', name: 'Óculos' }
-]
+  { key: 'sunglasses', name: 'Óculos' },
+];
 
 function getBonus(level: number) {
-  if (level < 50) return 1
-  return 1 + (level - 50) * 0.1
+  if (level < 50) return 1;
+  return Number((1 + (level - 50) * 0.1).toFixed(1));
 }
 
-function getVisualByLevel(level: number) {
-  const colors = [/* mantém seu array aqui */]
-  const color = colors[(level - 1) % colors.length]
-
+function getVisual(level: number) {
+  const hue = level * 3.6;
   return {
-    filter: 'brightness(1.3) contrast(1.4) saturate(1.6)',
-    glow: `
-      drop-shadow(0 0 10px rgba(255,255,255,0.6))
-      drop-shadow(0 0 25px ${color})
-      drop-shadow(0 0 50px ${color})
-    `,
-    halo: `radial-gradient(circle, ${color}55 0%, transparent 70%)`
-  }
+    filter: `brightness(1.1) contrast(1.3) saturate(2) hue-rotate(${hue}deg)`,
+    glow: `drop-shadow(0 0 20px hsl(${hue},100%,60%))`,
+    color: `hsl(${hue},100%,60%)`,
+  };
 }
 
 export default function LuxuryShowroomPage() {
-  const { player, setPlayer } = usePlayerStore()
+  const navigate = useNavigate();
+  const { player, setPlayer } = usePlayerStore();
 
-  const level = player?.barracoLevel || 1
-  const cleanMoney = player?.balances?.cleanMoney || 0
-  const inventory = player?.inventory?.luxuryItems || []
+  const [introDone, setIntroDone] = useState(false);
+  const [transactionOpen, setTransactionOpen] = useState(false);
+  const [pending, setPending] = useState<any>(null);
+  const [npcAction, setNpcAction] = useState<'kiss' | 'bye' | null>(null);
 
-  const visual = useMemo(() => getVisualByLevel(level), [level])
+  const level = player?.niveis?.barracoLevel || 1;
+  const cleanMoney = player?.balances?.cleanMoney || 0;
+  const inventory = player?.inventory?.items || [];
+  const playerName = player?.name || 'Chefe';
 
-  const handleBuy = (itemKey: string, insured: boolean) => {
-    const alreadyOwned = inventory.some(
-      (i: any) => i.id === `${itemKey}-${level}`
-    )
+  const visual = useMemo(() => getVisual(level), [level]);
 
-    if (alreadyOwned) return
+  const handleBuy = (item) => {
+    setPending(item);
+    setTransactionOpen(true);
+  };
 
-    const price = level * 1000
-    const finalPrice = insured ? price * 1.1 : price
+  const confirmBuy = () => {
+    const item = pending;
+    if (!item) return;
 
-    if (cleanMoney < finalPrice) return
+    const id = `${item.key}-${level}`;
+    if (inventory.some((i) => i.id === id)) return;
 
-    const newItem = {
-      id: `${itemKey}-${level}`,
-      type: itemKey,
-      level,
-      bonus: getBonus(level),
-      insured
-    }
+    const price = level * 1000;
 
-    setPlayer({
+    if (cleanMoney < price) return;
+
+    const updated = {
       ...player,
       balances: {
         ...player.balances,
-        cleanMoney: cleanMoney - finalPrice
+        cleanMoney: cleanMoney - price,
       },
       inventory: {
         ...player.inventory,
-        luxuryItems: [...inventory, newItem]
-      }
-    })
-  }
+        items: [...inventory, { id, ...item, level }],
+      },
+    };
+
+    setPlayer(updated);
+
+    setNpcAction(Math.random() > 0.5 ? 'kiss' : 'bye');
+
+    setTimeout(() => {
+      navigate('/game');
+    }, 2000);
+
+    setTransactionOpen(false);
+  };
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen text-white">
       <Header />
 
-      <main className="pt-24 px-6 max-w-7xl mx-auto">
+      <main
+        className="min-h-screen pt-24"
+        style={{
+          backgroundImage: `url(${SHOWROOM_BG})`,
+          backgroundSize: 'cover',
+        }}
+      >
+        {/* NPC INTRO */}
+        <AnimatePresence>
+          {!introDone && (
+            <motion.div
+              initial={{ y: 300, scale: 0.4 }}
+              animate={{ y: 0, scale: 1 }}
+              transition={{ duration: 1.8 }}
+              className="flex flex-col items-center"
+            >
+              <LuxuryNPC />
 
-        {/* TÍTULO */}
-        <motion.h1
-          className="text-5xl font-black text-center mb-12"
-          style={{
-            textShadow: '0 0 20px rgba(255,255,255,0.4)'
-          }}
-        >
-          LUXURY SHOWROOM
-        </motion.h1>
+              <div className="bg-black/70 p-6 rounded-xl mt-4 text-center max-w-xl">
+                <p>
+                  Bem-vindo, <b>{playerName}</b>.
+                </p>
+                <p>
+                  Essa é a coleção nível <b>{level}</b>.
+                </p>
 
-        {/* GRID */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+                <button
+                  onClick={() => setIntroDone(true)}
+                  className="mt-4 px-6 py-2 bg-white text-black rounded"
+                >
+                  Ver coleção
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-          {ITEMS.map(item => {
-            const owned = inventory.some(
-              (i: any) => i.id === `${item.key}-${level}`
-            )
-
-            const price = level * 1000
-
-            return (
+        {/* VITRINES */}
+        {introDone && (
+          <div className="grid grid-cols-3 gap-6 max-w-6xl mx-auto mt-10">
+            {ITEMS.map((item, i) => (
               <motion.div
                 key={item.key}
-                className="relative p-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl"
-                whileHover={{ scale: 1.05 }}
+                initial={{ opacity: 0, x: i < 3 ? -100 : 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="p-4 rounded-xl"
+                style={{
+                  backgroundImage: `url(${SHOWCASE_BG})`,
+                }}
               >
-
-                {/* HALO */}
-                <div
-                  className="absolute inset-0 rounded-2xl blur-2xl"
-                  style={{ background: visual.halo }}
+                <img
+                  src={ITEM_IMAGES[item.key]}
+                  style={{
+                    filter: `${visual.filter} ${visual.glow}`,
+                  }}
                 />
 
-                {/* IMAGEM */}
-                <div className="relative flex justify-center mb-4">
-                  <Image
-                    src={`/luxury/${item.key}.png`}
-                    width={200}
-                    style={{
-                      filter: `${visual.filter} ${visual.glow}`,
-                      mixBlendMode: 'screen'
-                    }}
-                  />
-                </div>
+                <p>{item.name}</p>
+                <p>+{getBonus(level)}%</p>
 
-                {/* NOME */}
-                <h2 className="text-xl font-bold text-center mb-2">
-                  {item.name}
-                </h2>
-
-                {/* BONUS */}
-                <p className="text-center text-sm mb-2">
-                  +{getBonus(level)}%
-                </p>
-
-                {/* PREÇO */}
-                <p className="text-center text-xs opacity-70 mb-4">
-                  {price} Commands
-                </p>
-
-                {/* BOTÕES */}
-                {owned ? (
-                  <div className="text-center text-green-400">
-                    Comprado
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-
-                    <button
-                      onClick={() => handleBuy(item.key, false)}
-                      className="bg-white/10 hover:bg-white/20 py-2 rounded-xl"
-                    >
-                      Comprar
-                    </button>
-
-                    <button
-                      onClick={() => handleBuy(item.key, true)}
-                      className="bg-yellow-500/20 hover:bg-yellow-500/30 py-2 rounded-xl"
-                    >
-                      Comprar + Seguro
-                    </button>
-
-                  </div>
-                )}
-
+                <button onClick={() => handleBuy(item)}>
+                  Comprar
+                </button>
               </motion.div>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {/* TRANSAÇÃO */}
+        <AnimatePresence>
+          {transactionOpen && (
+            <LuxuryDialogFrame
+              onConfirm={confirmBuy}
+              onCancel={() => setTransactionOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* NPC REAÇÃO */}
+        {npcAction && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="fixed center"
+          >
+            {npcAction === 'kiss' ? '😘' : '💋'}
+          </motion.div>
+        )}
       </main>
 
       <Footer />
     </div>
-  )
+  );
 }
