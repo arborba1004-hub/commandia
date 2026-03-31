@@ -1,147 +1,179 @@
-import { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { usePlayerStore } from '@/store/playerStore';
-import { getLuxurySystem } from '@/data/luxoItems';
+import Header from '@/components/Header'
+import Footer from '@/components/Footer'
+import { usePlayerStore } from '@/store/playerStore'
+import { Image } from '@/components/ui/image'
+import { motion } from 'framer-motion'
+import { useMemo } from 'react'
 
-export default function LuxuryShowroom() {
-  const player = usePlayerStore((s) => s.player);
-  const removeCleanMoney = usePlayerStore((s) => s.removeCleanMoney);
+const ITEMS = [
+  { key: 'ring', name: 'Anel' },
+  { key: 'bracelet', name: 'Pulseira' },
+  { key: 'chain', name: 'Corrente' },
+  { key: 'watch', name: 'Relógio' },
+  { key: 'bag', name: 'Bolsa' },
+  { key: 'sunglasses', name: 'Óculos' }
+]
 
-  const barracoLevel = player?.niveis?.barracoLevel || 1;
-  const cleanMoney = player?.balances?.cleanMoney || 0;
+function getBonus(level: number) {
+  if (level < 50) return 1
+  return 1 + (level - 50) * 0.1
+}
 
-  const { items, background, collectionName } = useMemo(() => {
-    return getLuxurySystem(barracoLevel);
-  }, [barracoLevel]);
+function getVisualByLevel(level: number) {
+  const colors = [/* mantém seu array aqui */]
+  const color = colors[(level - 1) % colors.length]
 
-  // 🎨 TEMA DINÂMICO POR NÍVEL (OSTENTAÇÃO)
-  const theme = useMemo(() => {
-    if (barracoLevel <= 10) {
-      return { color: '#b91c1c', glow: 'rgba(185,28,28,0.4)' };
-    }
-    if (barracoLevel <= 25) {
-      return { color: '#2563eb', glow: 'rgba(37,99,235,0.4)' };
-    }
-    if (barracoLevel <= 50) {
-      return { color: '#7c3aed', glow: 'rgba(124,58,237,0.4)' };
-    }
-    if (barracoLevel <= 75) {
-      return { color: '#d4af37', glow: 'rgba(212,175,55,0.5)' };
-    }
-    if (barracoLevel <= 90) {
-      return { color: '#facc15', glow: 'rgba(250,204,21,0.5)' };
-    }
-    return { color: '#ffffff', glow: 'rgba(255,255,255,0.7)' };
-  }, [barracoLevel]);
+  return {
+    filter: 'brightness(1.3) contrast(1.4) saturate(1.6)',
+    glow: `
+      drop-shadow(0 0 10px rgba(255,255,255,0.6))
+      drop-shadow(0 0 25px ${color})
+      drop-shadow(0 0 50px ${color})
+    `,
+    halo: `radial-gradient(circle, ${color}55 0%, transparent 70%)`
+  }
+}
 
-  const handleBuy = (price: number) => {
-    if (cleanMoney < price) return;
-    removeCleanMoney(price);
-  };
+export default function LuxuryShowroomPage() {
+  const { player, setPlayer } = usePlayerStore()
+
+  const level = player?.barracoLevel || 1
+  const cleanMoney = player?.balances?.cleanMoney || 0
+  const inventory = player?.inventory?.luxuryItems || []
+
+  const visual = useMemo(() => getVisualByLevel(level), [level])
+
+  const handleBuy = (itemKey: string, insured: boolean) => {
+    const alreadyOwned = inventory.some(
+      (i: any) => i.id === `${itemKey}-${level}`
+    )
+
+    if (alreadyOwned) return
+
+    const price = level * 1000
+    const finalPrice = insured ? price * 1.1 : price
+
+    if (cleanMoney < finalPrice) return
+
+    const newItem = {
+      id: `${itemKey}-${level}`,
+      type: itemKey,
+      level,
+      bonus: getBonus(level),
+      insured
+    }
+
+    setPlayer({
+      ...player,
+      balances: {
+        ...player.balances,
+        cleanMoney: cleanMoney - finalPrice
+      },
+      inventory: {
+        ...player.inventory,
+        luxuryItems: [...inventory, newItem]
+      }
+    })
+  }
 
   return (
-    <div
-      className="min-h-screen text-white relative overflow-hidden"
-      style={{ background }}
-    >
+    <div className="min-h-screen bg-black text-white">
       <Header />
 
-      {/* 🔥 OVERLAY CINEMATOGRÁFICO */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <main className="pt-24 px-6 max-w-7xl mx-auto">
 
-      <div className="relative z-10 pt-32 px-6 lg:px-12 max-w-[120rem] mx-auto">
-
-        {/* 💣 HEADER PREMIUM */}
-        <motion.div
-          initial={{ opacity: 0, y: -30 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-16 text-center"
+        {/* TÍTULO */}
+        <motion.h1
+          className="text-5xl font-black text-center mb-12"
+          style={{
+            textShadow: '0 0 20px rgba(255,255,255,0.4)'
+          }}
         >
-          <h1
-            className="text-4xl lg:text-6xl font-black tracking-widest"
-            style={{ color: theme.color }}
-          >
-            SHOWROOM DE LUXO
-          </h1>
+          LUXURY SHOWROOM
+        </motion.h1>
 
-          <p className="mt-4 text-lg opacity-80">
-            Coleção: <span style={{ color: theme.color }}>{collectionName}</span>
-          </p>
+        {/* GRID */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
 
-          <p className="opacity-50 text-sm mt-1">
-            Nível do Barraco: {barracoLevel}
-          </p>
-        </motion.div>
+          {ITEMS.map(item => {
+            const owned = inventory.some(
+              (i: any) => i.id === `${item.key}-${level}`
+            )
 
-        {/* 💰 COFRE */}
-        <div className="flex justify-center mb-12">
-          <div className="px-6 py-3 rounded-2xl bg-black/40 border border-white/10 text-yellow-400 font-bold text-lg shadow-xl">
-            💰 {cleanMoney.toLocaleString()} Commands Limpo
-          </div>
-        </div>
+            const price = level * 1000
 
-        {/* 💎 GRID DE ITENS */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
+            return (
+              <motion.div
+                key={item.key}
+                className="relative p-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl"
+                whileHover={{ scale: 1.05 }}
+              >
 
-          {items.map((item, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              whileHover={{ scale: 1.08 }}
-              className="relative group"
-            >
-              {/* 🔥 GLOW */}
-              <div
-                className="absolute inset-0 blur-2xl opacity-30 group-hover:opacity-60 transition"
-                style={{ background: theme.glow }}
-              />
-
-              {/* 💣 CARD */}
-              <div className="relative bg-black/50 backdrop-blur-xl border border-white/10 rounded-3xl p-5 text-center shadow-2xl">
-
-                {/* 💎 ITEM */}
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-full h-32 object-contain mb-4 drop-shadow-[0_0_10px_rgba(0,0,0,0.8)]"
+                {/* HALO */}
+                <div
+                  className="absolute inset-0 rounded-2xl blur-2xl"
+                  style={{ background: visual.halo }}
                 />
 
-                <h3 className="text-sm font-semibold uppercase tracking-wide">
-                  {item.name}
-                </h3>
+                {/* IMAGEM */}
+                <div className="relative flex justify-center mb-4">
+                  <Image
+                    src={`/luxury/${item.key}.png`}
+                    width={200}
+                    style={{
+                      filter: `${visual.filter} ${visual.glow}`,
+                      mixBlendMode: 'screen'
+                    }}
+                  />
+                </div>
 
-                <p
-                  className="font-bold mt-2 text-lg"
-                  style={{ color: theme.color }}
-                >
-                  ${item.price.toLocaleString()}
+                {/* NOME */}
+                <h2 className="text-xl font-bold text-center mb-2">
+                  {item.name}
+                </h2>
+
+                {/* BONUS */}
+                <p className="text-center text-sm mb-2">
+                  +{getBonus(level)}%
                 </p>
 
-                {/* 💣 BOTÃO */}
-                <button
-                  onClick={() => handleBuy(item.price)}
-                  className="mt-4 w-full py-2 rounded-xl text-sm font-bold uppercase tracking-wider transition-all"
-                  style={{
-                    background: theme.color,
-                    color: '#000',
-                  }}
-                >
-                  Comprar
-                </button>
+                {/* PREÇO */}
+                <p className="text-center text-xs opacity-70 mb-4">
+                  {price} Commands
+                </p>
 
-              </div>
-            </motion.div>
-          ))}
+                {/* BOTÕES */}
+                {owned ? (
+                  <div className="text-center text-green-400">
+                    Comprado
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
 
+                    <button
+                      onClick={() => handleBuy(item.key, false)}
+                      className="bg-white/10 hover:bg-white/20 py-2 rounded-xl"
+                    >
+                      Comprar
+                    </button>
+
+                    <button
+                      onClick={() => handleBuy(item.key, true)}
+                      className="bg-yellow-500/20 hover:bg-yellow-500/30 py-2 rounded-xl"
+                    >
+                      Comprar + Seguro
+                    </button>
+
+                  </div>
+                )}
+
+              </motion.div>
+            )
+          })}
         </div>
-
-      </div>
+      </main>
 
       <Footer />
     </div>
-  );
+  )
 }
