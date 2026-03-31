@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Header from '@/components/Header';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 export default function LuxuryshowroomPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -15,10 +16,7 @@ export default function LuxuryshowroomPage() {
     const handleTime = () => {
       const t = video.currentTime;
 
-      // ⏱️ DIÁLOGO (1s)
       if (t >= 1 && !showDialog) setShowDialog(true);
-
-      // ⏱️ BOTÃO (7s)
       if (t >= 7 && !showButton) setShowButton(true);
     };
 
@@ -26,13 +24,14 @@ export default function LuxuryshowroomPage() {
     return () => video.removeEventListener('timeupdate', handleTime);
   }, [showDialog, showButton]);
 
+  // 🔥 TEXTO LETRA POR LETRA
+  const text = "Boa noite, Comandante.";
+
   return (
     <div className="w-full h-screen bg-black overflow-hidden flex flex-col">
 
-      {/* HEADER */}
       <Header />
 
-      {/* ÁREA DO VÍDEO */}
       <div className="relative flex-1 w-full overflow-hidden">
 
         {/* 🎬 VÍDEO */}
@@ -45,87 +44,111 @@ export default function LuxuryshowroomPage() {
           className="w-full h-full object-cover"
         />
 
-        {/* 💎 DIÁLOGO LUXO */}
+        {/* 💎 DIÁLOGO NOVO (SEM FUNDO) */}
         {showDialog && (
           <div className="
             absolute
-            top-[12%]
+            top-[14%]
             left-1/2
             -translate-x-1/2
-            w-[92%]
-            max-w-[520px]
+            w-[90%]
+            max-w-[600px]
             z-20
+            text-center
           ">
-            
-            {/* BORDA LUXUOSA */}
-            <div
-              className="relative p-[2px] rounded-2xl"
+
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              className="flex flex-wrap justify-center gap-[2px]"
+            >
+              {text.split('').map((char, i) => (
+                <motion.span
+                  key={i}
+                  initial={{
+                    opacity: 0,
+                    y: 20,
+                    scale: 1.2,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                  }}
+                  transition={{
+                    delay: i * 0.04,
+                    duration: 0.4,
+                    ease: 'easeOut',
+                  }}
+                  style={{
+                    color: '#7a2f2f',
+                    textShadow: '0 0 12px rgba(122,47,47,0.5)',
+                  }}
+                  className="
+                    text-[28px]
+                    md:text-[38px]
+                    font-semibold
+                    tracking-wide
+                  "
+                >
+                  {char === ' ' ? '\u00A0' : char}
+                </motion.span>
+              ))}
+            </motion.div>
+
+            {/* TEXTO SECUNDÁRIO */}
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.2 }}
+              className="
+                mt-4
+                text-[14px] md:text-[18px]
+                text-[#9a3b3b]
+                tracking-wide
+              "
               style={{
-                backgroundImage: `url(https://static.wixstatic.com/media/50f4bf_651d1089b4f94751b866a45cbd902243~mv2.png)`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
+                textShadow: '0 0 10px rgba(150,50,50,0.4)',
               }}
             >
-              <div className="
-                bg-black/60
-                backdrop-blur-md
-                rounded-2xl
-                px-6
-                py-5
-                text-white
-              ">
+              Sua coleção está pronta para você.
+            </motion.p>
 
-                <p className="text-xs tracking-widest text-white/60 mb-2">
-                  ATENDIMENTO PRIVADO
-                </p>
-
-                <h2 className="text-xl md:text-2xl font-semibold mb-2">
-                  Boa noite, Comandante.
-                </h2>
-
-                <p className="text-sm md:text-base text-white/80 leading-relaxed">
-                  Sua coleção atual está disponível. Aqui você transforma Commands
-                  em presença... e presença em poder.
-                </p>
-
-              </div>
-            </div>
           </div>
         )}
 
-        {/* 🔴 BOTÃO */}
+        {/* 🔴 BOTÃO (MÃO DELA) */}
         {showButton && (
-  <div
-    className="
-      absolute
-      left-[21%]
-      top-[50%]
-      -translate-x-1/2
-      -translate-y-1/2
-      z-30
-    "
-  >
-    <button
-      onClick={() => navigate('/luxo-items')}
-      className="
-        px-6 py-3
-        md:px-8 md:py-4
-        rounded-xl
-        text-white
-        font-semibold
-        text-sm md:text-base
-        bg-gradient-to-r from-red-500 to-pink-500
-        shadow-[0_0_25px_rgba(255,0,80,0.5)]
-        transition
-        hover:scale-105
-        active:scale-95
-        backdrop-blur-sm
-      "
-    >
-      VER COLEÇÃO
-    </button>
-  </div>
-)}
+          <div
+            className="
+              absolute
+              left-[21%]
+              top-[50%]
+              -translate-x-1/2
+              -translate-y-1/2
+              z-30
+            "
+          >
+            <button
+              onClick={() => navigate('/luxo-items')}
+              className="
+                px-6 py-3
+                md:px-8 md:py-4
+                rounded-xl
+                text-white
+                font-semibold
+                text-sm md:text-base
+                bg-gradient-to-r from-red-500 to-pink-500
+                shadow-[0_0_25px_rgba(255,0,80,0.5)]
+                transition
+                hover:scale-105
+                active:scale-95
+              "
+            >
+              VER COLEÇÃO
+            </button>
+          </div>
+        )}
 
       </div>
     </div>
