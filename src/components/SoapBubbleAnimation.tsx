@@ -32,21 +32,21 @@ export default function SoapBubbleAnimation({ isAnimating, buttonRef }: SoapBubb
       return;
     }
 
-    // Generate bubbles
-    const newBubbles: Bubble[] = Array.from({ length: 12 }, (_, i) => ({
+    // Generate bubbles - MUCH MORE DENSE
+    const newBubbles: Bubble[] = Array.from({ length: 80 }, (_, i) => ({
       id: i,
-      left: Math.random() * 80 - 40, // -40% to 40% from center
-      delay: Math.random() * 0.3,
-      duration: 2 + Math.random() * 0.5,
-      size: 8 + Math.random() * 16, // 8px to 24px
+      left: Math.random() * 200 - 100, // -100% to 100% from center for wider spread
+      delay: Math.random() * 0.8,
+      duration: 5 + Math.random() * 1.5, // 5-6.5 seconds
+      size: 4 + Math.random() * 32, // 4px to 36px - more variety
     }));
 
-    // Generate foam particles
-    const newFoamParticles: FoamParticle[] = Array.from({ length: 20 }, (_, i) => ({
+    // Generate foam particles - MUCH MORE DENSE
+    const newFoamParticles: FoamParticle[] = Array.from({ length: 150 }, (_, i) => ({
       id: i,
-      left: Math.random() * 100 - 50,
-      delay: Math.random() * 0.2,
-      duration: 2 + Math.random() * 0.3,
+      left: Math.random() * 150 - 75,
+      delay: Math.random() * 0.5,
+      duration: 5 + Math.random() * 1, // 5-6 seconds
     }));
 
     setBubbles(newBubbles);
@@ -97,7 +97,7 @@ export default function SoapBubbleAnimation({ isAnimating, buttonRef }: SoapBubb
               duration: bubble.duration,
               delay: bubble.delay,
               ease: 'easeOut',
-              times: [0, 0.1, 0.8, 1],
+              times: [0, 0.05, 0.85, 1],
             }}
           />
         ))}
@@ -133,7 +133,7 @@ export default function SoapBubbleAnimation({ isAnimating, buttonRef }: SoapBubb
               duration: particle.duration,
               delay: particle.delay,
               ease: 'easeIn',
-              times: [0, 0.1, 0.8, 1],
+              times: [0, 0.05, 0.85, 1],
             }}
           />
         ))}
@@ -143,32 +143,35 @@ export default function SoapBubbleAnimation({ isAnimating, buttonRef }: SoapBubb
       <motion.div
         className="fixed pointer-events-none"
         style={{
-          left: `${buttonCenterX - 60}px`,
+          left: `${buttonCenterX - 150}px`,
           top: `${buttonCenterY}px`,
-          width: '120px',
-          height: '200px',
+          width: '300px',
+          height: '400px',
           background: `linear-gradient(to bottom, 
-            rgba(255, 255, 255, 0.6) 0%,
-            rgba(255, 255, 255, 0.4) 30%,
-            rgba(255, 255, 255, 0.2) 60%,
+            rgba(255, 255, 255, 0.8) 0%,
+            rgba(255, 255, 255, 0.6) 25%,
+            rgba(255, 255, 255, 0.4) 50%,
+            rgba(255, 255, 255, 0.2) 75%,
             rgba(255, 255, 255, 0) 100%)`,
           borderRadius: '50% 50% 40% 40%',
-          filter: 'blur(2px)',
+          filter: 'blur(3px)',
         }}
         initial={{
           opacity: 0,
           y: 0,
-          scaleY: 0.5,
+          scaleY: 0.3,
+          scaleX: 0.5,
         }}
         animate={{
-          opacity: [0, 0.7, 0.5, 0],
-          y: window.innerHeight + 200,
-          scaleY: [0.5, 1, 1, 0.8],
+          opacity: [0, 0.9, 0.7, 0],
+          y: window.innerHeight + 300,
+          scaleY: [0.3, 1.2, 1, 0.9],
+          scaleX: [0.5, 1, 1, 0.8],
         }}
         transition={{
-          duration: 2,
+          duration: 5,
           ease: 'easeIn',
-          times: [0, 0.1, 0.7, 1],
+          times: [0, 0.08, 0.75, 1],
         }}
       />
 
@@ -176,13 +179,13 @@ export default function SoapBubbleAnimation({ isAnimating, buttonRef }: SoapBubb
       <motion.div
         className="fixed pointer-events-none"
         style={{
-          left: `${buttonCenterX - 50}px`,
+          left: `${buttonCenterX - 120}px`,
           top: `${buttonCenterY}px`,
-          width: '100px',
-          height: '150px',
+          width: '240px',
+          height: '300px',
           background: `linear-gradient(90deg,
             transparent 0%,
-            rgba(255, 255, 255, 0.3) 50%,
+            rgba(255, 255, 255, 0.4) 50%,
             transparent 100%)`,
           borderRadius: '50%',
         }}
@@ -191,11 +194,11 @@ export default function SoapBubbleAnimation({ isAnimating, buttonRef }: SoapBubb
           y: 0,
         }}
         animate={{
-          opacity: [0, 0.6, 0],
-          y: window.innerHeight + 150,
+          opacity: [0, 0.7, 0],
+          y: window.innerHeight + 250,
         }}
         transition={{
-          duration: 2,
+          duration: 5,
           delay: 0.1,
           ease: 'easeIn',
         }}
