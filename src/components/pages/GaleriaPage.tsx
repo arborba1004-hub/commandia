@@ -179,7 +179,8 @@ export default function LuxoItemPage() {
         setTransactionStage('insufficient');
         return;
       }
-const newItem = {
+
+      const newItem = {
         id: currentItem.id,
         category: 'luxury',
         itemType: currentItem.key,
