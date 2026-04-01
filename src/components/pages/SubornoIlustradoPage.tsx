@@ -353,11 +353,21 @@ function SubornoIlustradoPage() {
                   {isProcessing ? 'Processando...' : 'Pagar Suborno'}
                 </Button>
                 <Button
-                  onClick={handleDenounce}
+                  onClick={() => {
+                    if (barrackLevel === 100) {
+                      navigate('/delacao-premiada');
+                    } else {
+                      handleDenounce();
+                    }
+                  }}
                   className="flex-1 bg-destructive hover:bg-destructive/80 text-white font-heading text-lg py-6"
                   disabled={isProcessing}
                 >
-                  {isProcessing ? 'Processando...' : 'Denunciar'}
+                  {isProcessing
+                    ? 'Processando...'
+                    : barrackLevel === 100
+                    ? 'Delação Premiada'
+                    : 'Denunciar'}
                 </Button>
               </div>
             </div>
