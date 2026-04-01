@@ -1,401 +1,358 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Image } from '@/components/ui/image';
-import SafeVaultModal from '@/components/SafeVaultModal';
 
-interface Authority {
-  id: number;
-  name: string;
-  levelRange: string;
-  dialog: string;
-  image: string;
+function addHours(hours: number) {
+  return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
 }
 
-interface Punishment {
-  id: string;
-  name: string;
-  description: string;
-  duration: number;
-}
-
-const AUTHORITIES: Authority[] = [
-  {
-    id: 1,
-    name: 'Policial de Rua',
-    levelRange: 'Nível 1-9',
-    dialog: 'Ó, ó... Vejo que você está crescendo no negócio. Que tal a gente fazer um acordo? Uns trocadinhos por mês e você fica tranquilo na rua.',
-    image: 'https://static.wixstatic.com/media/50f4bf_00a9833753ba439e9ce44a240849e58c~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 2,
-    name: 'Investigador',
-    levelRange: 'Nível 10-19',
-    dialog: 'Tenho uns arquivos interessantes sobre você aqui... Mas podemos resolver isso de forma amigável, não é?',
-    image: 'https://static.wixstatic.com/media/50f4bf_b6d2cbc82982409e8bee2bde3e903d05~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 3,
-    name: 'Delegado',
-    levelRange: 'Nível 20-29',
-    dialog: 'Ouvi falar que você está ficando importante por aqui. Seria uma pena se algo acontecesse... Vamos conversar?',
-    image: 'https://static.wixstatic.com/media/50f4bf_9eedab2008d440bea7e846e4edf63343~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 4,
-    name: 'Prefeito',
-    levelRange: 'Nível 30-39',
-    dialog: 'Você é um empreendedor, eu respeito isso. Mas aqui na cidade, todo negócio precisa de... uma contribuição política.',
-    image: 'https://static.wixstatic.com/media/50f4bf_f133ddeab16e496da0edb91ba54ffa73~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 5,
-    name: 'Capitão da Polícia',
-    levelRange: 'Nível 40-49',
-    dialog: 'Você chegou longe. Muito longe. Mas sabe como é, na corporação temos despesas... Você entende.',
-    image: 'https://static.wixstatic.com/media/50f4bf_1369046e82774cd98f5d50ad9dfbdb0a~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 6,
-    name: 'Secretário de Segurança',
-    levelRange: 'Nível 50-59',
-    dialog: 'Sua operação é impressionante. Seria uma pena perder tudo por falta de... proteção adequada.',
-    image: 'https://static.wixstatic.com/media/50f4bf_ee97ae291e714517bfe2bb404998ea6a~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 7,
-    name: 'Delegado Federal',
-    levelRange: 'Nível 60-69',
-    dialog: 'Você chamou atenção de gente importante. Muito importante. Vamos resolver isso discretamente?',
-    image: 'https://static.wixstatic.com/media/50f4bf_2e11993941944c70a5d8464b1c6418b9~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 8,
-    name: 'Governador',
-    levelRange: 'Nível 70-79',
-    dialog: 'Você é praticamente um rei nessa região. Mas até reis precisam de... acordos com a coroa.',
-    image: 'https://static.wixstatic.com/media/50f4bf_e0e6b8cb4bf541bbbdfda06b834313a5~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 9,
-    name: 'Juiz Federal',
-    levelRange: 'Nível 80-89',
-    dialog: 'Seus crimes estão documentados. Todos eles. Mas a justiça pode ser... flexível, dependendo da situação.',
-    image: 'https://static.wixstatic.com/media/50f4bf_915574f5d1ca42c9b7f81066d054bf53~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 10,
-    name: 'Ministro',
-    levelRange: 'Nível 90-99',
-    dialog: 'Você se tornou uma lenda. Mas até lendas precisam de proteção no topo. E eu sou o topo.',
-    image: 'https://static.wixstatic.com/media/50f4bf_c92fe851d34a4d4498e852ae17d90858~mv2.png?originWidth=384&originHeight=384',
-  },
-  {
-    id: 11,
-    name: 'Presidente',
-    levelRange: 'Nível 100',
-    dialog: 'Você chegou ao topo. Impressionante. Agora, vamos fazer grandes coisas juntos... ou você quer tentar me derrotar? Que ingenuidade.',
-    image: 'https://static.wixstatic.com/media/50f4bf_402259b701d545678f7a5cd11d47c2a4~mv2.png?originWidth=384&originHeight=384',
-  },
-];
-
-const PUNISHMENTS: Punishment[] = [
-  {
-    id: 'fiscal',
-    name: 'Operação Fiscal',
-    description: 'Operação fiscal no centro comercial do Complexo. Você não pode lavar dinheiro por 24 horas.',
-    duration: 24,
-  },
-  {
-    id: 'arsenal',
-    name: 'Invasão no Arsenal',
-    description: 'Invasão surpresa no Arsenal! 5 armas aleatórias foram danificadas. Você perde os bônus delas por 24 horas.',
-    duration: 24,
-  },
-  {
-    id: 'militia',
-    name: 'Visita da Milícia',
-    description: 'Visita surpresa da milícia! 5 itens de luxo foram confiscados. Você perde os bônus deles por 24 horas (mesmo com seguro).',
-    duration: 24,
-  },
-  {
-    id: 'blitz',
-    name: 'Blitz Surpresa',
-    description: 'Blitz "surpresa"! Seu último veículo de fuga foi rebocado. Você perdeu o veículo e precisa comprar outro.',
-    duration: 0,
-  },
-  {
-    id: 'threat',
-    name: 'Ameaça de Morte',
-    description: 'Ameaça de morte! Você não pode fazer giro no asfalto por 24 horas. Não é seguro sair de casa.',
-    duration: 24,
-  },
-];
-
-function SubornoIlustradoPage() {
+export default function DelacaoPremiadaPage() {
   const navigate = useNavigate();
   const { player, setPlayer } = usePlayerStore();
-  const [showVaultModal, setShowVaultModal] = useState(false);
-  const [showResult, setShowResult] = useState(false);
-  const [selectedAuthority, setSelectedAuthority] = useState<Authority | null>(null);
-  const [subornoValue, setSubornoValue] = useState(0);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [resultMessage, setResultMessage] = useState('');
 
-  const barrackLevel = player?.niveis?.barracoLevel || 1;
+  const [showConfirmStep, setShowConfirmStep] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [finished, setFinished] = useState(false);
 
-  // Determinar autoridade baseado no nível do barraco
-  useEffect(() => {
-    const authority = getAuthorityByLevel(barrackLevel);
-    setSelectedAuthority(authority);
-    setSubornoValue(calculateSubornoValue(barrackLevel));
-  }, [barrackLevel]);
-
-  const getAuthorityByLevel = (level: number): Authority => {
-    if (level <= 9) return AUTHORITIES[0];
-    if (level <= 19) return AUTHORITIES[1];
-    if (level <= 29) return AUTHORITIES[2];
-    if (level <= 39) return AUTHORITIES[3];
-    if (level <= 49) return AUTHORITIES[4];
-    if (level <= 59) return AUTHORITIES[5];
-    if (level <= 69) return AUTHORITIES[6];
-    if (level <= 79) return AUTHORITIES[7];
-    if (level <= 89) return AUTHORITIES[8];
-    if (level <= 99) return AUTHORITIES[9];
-
-    if (level >= 100 && level < 109) {
-      return {
-        ...AUTHORITIES[10],
-        dialog: 'Você ainda não tem poder suficiente para falar comigo. Volte quando dominar tudo.',
-      };
-    }
-
-    return AUTHORITIES[10]; // Presidente
+  const handleGoToConfirm = () => {
+    setShowConfirmStep(true);
   };
 
-  const calculateSubornoValue = (level: number): number => {
-    return Math.floor(220 * Math.pow(1.1, level - 1));
+  const handleConfirmDelacao = () => {
+    if (!player) return;
+
+    setProcessing(true);
+
+    setTimeout(() => {
+      const until = addHours(72);
+
+      const baseSkills = { ...(player.skills || {}) };
+
+      const boostedSkills = { ...baseSkills };
+      Object.keys(boostedSkills).forEach((key) => {
+        boostedSkills[key] = (boostedSkills[key] || 0) + 100;
+      });
+
+      setPlayer({
+        ...player,
+        punishments: {
+          ...player.punishments,
+          delacaoPremiadaUntil: until,
+          assetLockdownActive: true,
+          inventoryBlocked: true,
+          dirtyMoneyBlocked: true,
+          cleanMoneyBlocked: true,
+          levelProgressionBlocked: true,
+          inventoryBonusReductionPercent: 100,
+          pvpProtectionUntil: until,
+          delacaoRewardPending: true,
+          delacaoRewardUnlockAt: until,
+          pendingSkillBoost: 100,
+        },
+      });
+
+      setProcessing(false);
+      setFinished(true);
+    }, 1800);
   };
 
-  const handlePaySuborno = async () => {
-    setIsProcessing(true);
-
-    try {
-      if (player.balances.dirtyMoney < subornoValue) {
-        setResultMessage('Você não tem dinheiro sujo suficiente!');
-        setShowResult(true);
-        return;
-      }
-
-      // Debita dinheiro sujo
-      const newDirtyMoney = player.balances.dirtyMoney - subornoValue;
-
-      // Se for presidente, atinge nível máximo
-      if (barrackLevel === 100) {
-        setResultMessage('Você atingiu o nível máximo do jogo! Parabéns, você é agora o rei do crime!');
-        setPlayer({
-          balances: {
-            ...player.balances,
-            dirtyMoney: newDirtyMoney,
-          },
-          niveis: {
-            ...player.niveis,
-            barracoLevel: 100,
-          },
-        });
-      } else {
-        // Avança para próximo nível e adiciona 1% em habilidade aleatória
-        const newLevel = barrackLevel + 1;
-        const skills = { ...(player.skills || {}) };
-        
-        const SKILLS = ['attack', 'defense', 'agility', 'intelligence', 'respect', 'vigor'];
-        const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
-        skills[randomSkill] = (skills[randomSkill] || 0) + 1;
-
-        setResultMessage(`Suborno pago! Você avançou para o nível ${newLevel}. Sua habilidade aumentou em 1%.`);
-        setPlayer({
-          balances: {
-            ...player.balances,
-            dirtyMoney: newDirtyMoney,
-          },
-          niveis: {
-            ...player.niveis,
-            barracoLevel: newLevel,
-          },
-          skills,
-        });
-      }
-
-      setShowVaultModal(false);
-      setShowResult(true);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleDenounce = async () => {
-    setIsProcessing(true);
-
-    try {
-      if (barrackLevel === 100) {
-        // Delação premiada - reseta tudo
-        setResultMessage(
-          'DELAÇÃO PREMIADA ACEITA!\n\nVocê fez a coisa certa... mas o preço a pagar é perder o que nunca foi seu.\n\nSeu status, progresso e itens foram completamente resetados.'
-        );
-        setPlayer({
-          niveis: {
-            ...player.niveis,
-            barracoLevel: 1,
-          },
-          balances: {
-            ...player.balances,
-            dirtyMoney: 0,
-          },
-          skills: {},
-          inventory: {
-            items: [],
-            gifts: [],
-            rewards: [],
-          },
-        });
-      } else {
-        // Punição aleatória
-        const randomPunishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
-        setResultMessage(
-          `Então você pensou que podia me denunciar e ficar por isso mesmo? \n\n${randomPunishment.name}\n${randomPunishment.description}\n\nMas você avançou para o nível ${barrackLevel + 1}!`
-        );
-
-        // Avança nível mesmo assim
-        const newLevel = barrackLevel + 1;
-        const skills = { ...(player.skills || {}) };
-        
-        const SKILLS = ['attack', 'defense', 'agility', 'intelligence', 'respect', 'vigor'];
-        const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
-        skills[randomSkill] = (skills[randomSkill] || 0) + 1;
-
-        setPlayer({
-          niveis: {
-            ...player.niveis,
-            barracoLevel: newLevel,
-          },
-          skills,
-        });
-      }
-
-      setShowVaultModal(false);
-      setShowResult(true);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleCloseResult = () => {
-    setShowResult(false);
+  const handleFinish = () => {
     navigate('/game');
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="w-full min-h-screen bg-black overflow-hidden relative">
       <Header />
 
-      <main className="flex-1 max-w-[100rem] mx-auto w-full px-4 py-12">
-        <div className="mb-12">
-          <h1 className="font-heading text-6xl mb-4">Suborno Ilustrado</h1>
-          <p className="font-paragraph text-xl text-gray-300">
-            Nível do Barraco: <span className="text-green-400 font-bold">{barrackLevel}</span>
-          </p>
-          <p className="font-paragraph text-lg text-gray-400">
-            Dinheiro Sujo: <span className="text-green-400 font-bold">R$ {player.balances.dirtyMoney?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-          </p>
-        </div>
-
-        {selectedAuthority && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Imagem da Autoridade */}
-            <div className="flex justify-center">
-              <div className="w-full max-w-md aspect-square bg-gray-900 rounded-lg overflow-hidden border-2 border-green-800">
-                <Image
-                  src={selectedAuthority.image}
-                  alt={selectedAuthority.name}
-                  width={400}
-                  height={400}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-
-            {/* Informações da Autoridade */}
-            <div className="space-y-8">
-              <div>
-                <h2 className="font-heading text-4xl mb-2">{selectedAuthority.name}</h2>
-                <p className="text-green-400 text-lg">{selectedAuthority.levelRange}</p>
-              </div>
-
-              <div className="bg-gray-900 p-6 rounded-lg border border-green-800/30">
-                <p className="font-paragraph text-lg italic text-gray-200">"{selectedAuthority.dialog}"</p>
-              </div>
-
-              <div className="bg-gray-900 p-6 rounded-lg border border-green-800/30">
-                <p className="text-gray-400 mb-2">Valor do Suborno:</p>
-                <p className="font-heading text-3xl text-green-400">R$ {subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setShowVaultModal(true)}
-                  className="flex-1 bg-primary hover:bg-primary/80 text-black font-heading text-lg py-6"
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? 'Processando...' : 'Pagar Suborno'}
-                </Button>
-                <Button
-                  onClick={handleDenounce}
-                  className="flex-1 bg-destructive hover:bg-destructive/80 text-white font-heading text-lg py-6"
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? 'Processando...' : 'Denunciar'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      <Footer />
-
-      {/* Safe Vault Modal */}
-      <SafeVaultModal
-        open={showVaultModal}
-        onOpenChange={setShowVaultModal}
-        subornoValue={subornoValue}
-        playerDirtyMoney={player.balances.dirtyMoney}
-        onConfirm={handlePaySuborno}
-        isProcessing={isProcessing}
+      {/* BACKGROUND */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          backgroundImage:
+            'url(https://static.wixstatic.com/media/50f4bf_b6f29b55ba6b404bbd2a3c37f122f91f~mv2.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
       />
 
-      {/* Resultado */}
-      <Dialog open={showResult} onOpenChange={setShowResult}>
-        <DialogContent className="bg-gray-900 border-green-800">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-2xl">Resultado</DialogTitle>
-          </DialogHeader>
-          <div className="text-center py-6">
-            <p className="font-paragraph text-lg whitespace-pre-line text-gray-200">{resultMessage}</p>
-          </div>
-          <Button
-            onClick={handleCloseResult}
-            className="w-full bg-green-700 hover:bg-green-600 text-white font-heading"
-          >
-            OK
-          </Button>
-        </DialogContent>
-      </Dialog>
+      {/* FLASHES SUTIS */}
+      {[...Array(7)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute z-10 rounded-full pointer-events-none"
+          style={{
+            width: '90px',
+            height: '90px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.18) 35%, transparent 70%)',
+            top: `${18 + (i * 9) % 55}%`,
+            left: `${8 + (i * 13) % 84}%`,
+            filter: 'blur(2px)',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 0.18, 0] }}
+          transition={{
+            duration: 0.35,
+            delay: i * 1.15,
+            repeat: Infinity,
+            repeatDelay: 4.5,
+          }}
+        />
+      ))}
+
+      {/* CAMADA DE LEITURA */}
+      <div className="absolute inset-0 z-10 bg-[linear-gradient(180deg,rgba(0,0,0,0.30)_0%,rgba(0,0,0,0.40)_20%,rgba(0,0,0,0.58)_58%,rgba(0,0,0,0.76)_100%)]" />
+
+      <main className="relative z-20 min-h-screen flex items-center justify-center px-4 py-24">
+        <div className="w-full max-w-[1080px]">
+          <AnimatePresence mode="wait">
+            {!finished && !showConfirmStep && (
+              <motion.div
+                key="intro"
+                initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -16, scale: 0.98 }}
+                transition={{ duration: 0.55, ease: 'easeOut' }}
+                className="rounded-[32px] border border-white/10 bg-black/48 backdrop-blur-md shadow-[0_20px_80px_rgba(0,0,0,0.45)] overflow-hidden"
+              >
+                <div className="px-6 md:px-10 py-8 md:py-10 border-b border-white/10">
+                  <p className="text-[11px] md:text-xs uppercase tracking-[0.35em] text-red-300/80 mb-3">
+                    Decisão de Estado
+                  </p>
+
+                  <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white leading-[1.05]">
+                    Delação Premiada
+                  </h1>
+
+                  <div className="mt-4 h-[2px] w-28 bg-gradient-to-r from-red-500 via-red-300 to-transparent" />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-0">
+                  <div className="px-6 md:px-10 py-8 md:py-10">
+                    <p className="text-lg md:text-2xl text-white/92 leading-relaxed">
+                      Você chegou ao topo de um império construído no medo, na influência e no silêncio.
+                    </p>
+
+                    <p className="mt-6 text-base md:text-xl text-white/78 leading-relaxed">
+                      Agora existe uma escolha que não é sobre lucro.
+                      <br />
+                      Não é sobre poder.
+                      <br />
+                      E nem sobre sobrevivência.
+                    </p>
+
+                    <p className="mt-6 text-base md:text-xl text-white/78 leading-relaxed">
+                      É sobre ter coragem de romper com tudo o que te trouxe até aqui.
+                      Deixar de proteger o sistema.
+                      E aceitar o peso de fazer o que é certo.
+                    </p>
+
+                    <div className="mt-8 rounded-[24px] border border-red-400/20 bg-red-950/20 px-5 py-5">
+                      <p className="text-sm md:text-base text-red-100/90 leading-relaxed">
+                        A delação premiada não é um atalho.
+                        <br />
+                        É uma ruptura.
+                        <br />
+                        E toda ruptura exige um preço.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="px-6 md:px-8 py-8 md:py-10 bg-white/5 border-t lg:border-t-0 lg:border-l border-white/10">
+                    <h2 className="text-xl md:text-2xl font-bold text-white mb-5">
+                      Consequências imediatas
+                    </h2>
+
+                    <div className="space-y-4">
+                      <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4">
+                        <p className="text-sm md:text-base text-white/90 leading-relaxed">
+                          Seus bens ficarão <span className="font-bold text-red-300">bloqueados por 72 horas</span>.
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4">
+                        <p className="text-sm md:text-base text-white/90 leading-relaxed">
+                          Durante esse período, você <span className="font-bold text-red-300">perde os bônus do inventário</span>.
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4">
+                        <p className="text-sm md:text-base text-white/90 leading-relaxed">
+                          Seu <span className="font-bold text-red-300">dinheiro sujo e limpo ficam bloqueados</span>.
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4">
+                        <p className="text-sm md:text-base text-white/90 leading-relaxed">
+                          Você <span className="font-bold text-emerald-300">não poderá ser atacado</span>, pois estará sob proteção da Polícia Federal.
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4">
+                        <p className="text-sm md:text-base text-white/90 leading-relaxed">
+                          Você poderá continuar no corre, <span className="font-bold text-yellow-300">mas sem aplicar progressão de nível</span>.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 rounded-[24px] border border-emerald-400/20 bg-emerald-950/20 px-5 py-5">
+                      <p className="text-sm md:text-base text-emerald-100/90 leading-relaxed">
+                        Após as 72 horas, você receberá <span className="font-bold text-emerald-300">+100% em todas as habilidades</span>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-6 md:px-10 py-6 border-t border-white/10 flex flex-col sm:flex-row gap-4 justify-between items-center">
+                  <p className="text-sm md:text-base text-white/60">
+                    A verdade protege. Mas também cobra.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <button
+                      onClick={() => navigate('/suborno')}
+                      className="px-6 py-3 rounded-2xl border border-white/12 bg-white/5 text-white font-bold tracking-wide hover:bg-white/10 transition"
+                    >
+                      Voltar
+                    </button>
+
+                    <button
+                      onClick={handleGoToConfirm}
+                      className="px-7 py-3 rounded-2xl bg-gradient-to-r from-red-700 via-red-600 to-red-800 text-white font-bold tracking-wide shadow-[0_0_26px_rgba(255,0,0,0.28)] hover:scale-[1.02] transition"
+                    >
+                      Continuar
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {!finished && showConfirmStep && (
+              <motion.div
+                key="confirm"
+                initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -16, scale: 0.98 }}
+                transition={{ duration: 0.55, ease: 'easeOut' }}
+                className="max-w-[760px] mx-auto rounded-[32px] border border-white/10 bg-black/58 backdrop-blur-md shadow-[0_20px_80px_rgba(0,0,0,0.45)] overflow-hidden"
+              >
+                <div className="px-6 md:px-10 py-8 md:py-10 text-center">
+                  <p className="text-[11px] md:text-xs uppercase tracking-[0.35em] text-red-300/80 mb-3">
+                    Confirmação Final
+                  </p>
+
+                  <h2 className="text-3xl md:text-5xl font-black text-white leading-[1.05]">
+                    Você vai romper com tudo.
+                  </h2>
+
+                  <p className="mt-8 text-base md:text-xl text-white/82 leading-relaxed">
+                    Ao confirmar a delação premiada, você escolhe o caminho moralmente correto —
+                    <br />
+                    mas aceita sofrer, por 72 horas, o peso dessa escolha.
+                  </p>
+
+                  <div className="mt-8 rounded-[24px] border border-red-400/20 bg-red-950/20 px-5 py-5 text-left">
+                    <p className="text-sm md:text-base text-white/90 leading-relaxed">
+                      • Bloqueio de bens por 72 horas
+                      <br />
+                      • Perda temporária dos bônus do inventário
+                      <br />
+                      • Bloqueio de dirtyMoney e cleanMoney
+                      <br />
+                      • Sem progressão de nível no corre
+                      <br />
+                      • Proteção da Polícia Federal contra ataques
+                      <br />
+                      • Após 72 horas: +100% em todas as habilidades
+                    </p>
+                  </div>
+
+                  <p className="mt-8 text-sm md:text-base text-white/62">
+                    Algumas escolhas não aumentam seu império.
+                    <br />
+                    Elas revelam quem você é.
+                  </p>
+                </div>
+
+                <div className="px-6 md:px-10 py-6 border-t border-white/10 flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={() => setShowConfirmStep(false)}
+                    disabled={processing}
+                    className="px-6 py-3 rounded-2xl border border-white/12 bg-white/5 text-white font-bold tracking-wide hover:bg-white/10 transition disabled:opacity-50"
+                  >
+                    Ainda não
+                  </button>
+
+                  <button
+                    onClick={handleConfirmDelacao}
+                    disabled={processing}
+                    className="px-7 py-3 rounded-2xl bg-gradient-to-r from-red-700 via-red-600 to-red-800 text-white font-bold tracking-wide shadow-[0_0_26px_rgba(255,0,0,0.28)] hover:scale-[1.02] transition disabled:opacity-60"
+                  >
+                    {processing ? 'Confirmando delação...' : 'Confirmar delação premiada'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {finished && (
+              <motion.div
+                key="result"
+                initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.55, ease: 'easeOut' }}
+                className="max-w-[760px] mx-auto rounded-[32px] border border-white/10 bg-black/62 backdrop-blur-md shadow-[0_20px_80px_rgba(0,0,0,0.45)] overflow-hidden"
+              >
+                <div className="px-6 md:px-10 py-10 md:py-12 text-center">
+                  <p className="text-[11px] md:text-xs uppercase tracking-[0.35em] text-emerald-300/80 mb-3">
+                    Decisão selada
+                  </p>
+
+                  <h2 className="text-3xl md:text-5xl font-black text-white leading-[1.05]">
+                    Você fez a coisa certa.
+                  </h2>
+
+                  <p className="mt-8 text-base md:text-xl text-white/84 leading-relaxed">
+                    E fazer a coisa certa, neste mundo, nunca sai barato.
+                  </p>
+
+                  <p className="mt-6 text-base md:text-xl text-white/74 leading-relaxed">
+                    Seus bens foram bloqueados por 72 horas.
+                    <br />
+                    Seu inventário perdeu os bônus temporariamente.
+                    <br />
+                    Seu dinheiro foi congelado.
+                  </p>
+
+                  <div className="mt-8 rounded-[24px] border border-emerald-400/20 bg-emerald-950/20 px-5 py-5">
+                    <p className="text-sm md:text-base text-emerald-100/90 leading-relaxed">
+                      Ao fim desse período, você emergirá mais forte:
+                      <br />
+                      <span className="font-bold text-emerald-300">+100% em todas as habilidades.</span>
+                    </p>
+                  </div>
+
+                  <p className="mt-8 text-sm md:text-base text-white/62">
+                    A verdade te custou o presente.
+                    <br />
+                    Mas preparou o seu retorno.
+                  </p>
+                </div>
+
+                <div className="px-6 md:px-10 py-6 border-t border-white/10 flex justify-center">
+                  <button
+                    onClick={handleFinish}
+                    className="px-7 py-3 rounded-2xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-800 text-white font-bold tracking-wide shadow-[0_0_26px_rgba(16,185,129,0.22)] hover:scale-[1.02] transition"
+                  >
+                    Voltar ao jogo
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
     </div>
   );
 }
-
-export default SubornoIlustradoPage;
