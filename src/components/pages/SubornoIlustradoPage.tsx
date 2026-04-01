@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Image } from '@/components/ui/image';
+import SafeVaultModal from '@/components/SafeVaultModal';
 
 interface Authority {
   id: number;
@@ -136,14 +137,14 @@ const PUNISHMENTS: Punishment[] = [
 
 function SubornoIlustradoPage() {
   const { player, updatePlayer } = usePlayerStore();
-  const [showDialog, setShowDialog] = useState(false);
+  const [showVaultModal, setShowVaultModal] = useState(false);
+  const [showResult, setShowResult] = useState(false);
   const [selectedAuthority, setSelectedAuthority] = useState<Authority | null>(null);
   const [subornoValue, setSubornoValue] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultMessage, setResultMessage] = useState('');
-  const [showResult, setShowResult] = useState(false);
 
-  const barrackLevel = player?.barrackLevel || 1;
+  const barrackLevel = player?.niveis?.barracoLevel || 1;
 
   // Determinar autoridade baseado no nível do barraco
   useEffect(() => {
@@ -173,7 +174,7 @@ function SubornoIlustradoPage() {
   const handlePaySuborno = async () => {
     setIsProcessing(true);
 
-    if (player.dirtyMoney < subornoValue) {
+    if (player.balances.dirtyMoney < subornoValue) {
       setResultMessage('Você não tem dinheiro sujo suficiente!');
       setShowResult(true);
       setIsProcessing(false);
@@ -181,14 +182,20 @@ function SubornoIlustradoPage() {
     }
 
     // Debita dinheiro sujo
-    const newDirtyMoney = player.dirtyMoney - subornoValue;
+    const newDirtyMoney = player.balances.dirtyMoney - subornoValue;
 
     // Se for presidente, atinge nível máximo
     if (barrackLevel === 100) {
       setResultMessage('Você atingiu o nível máximo do jogo! Parabéns, você é agora o rei do crime!');
       updatePlayer({
-        dirtyMoney: newDirtyMoney,
-        barrackLevel: 100,
+        balances: {
+          ...player.balances,
+          dirtyMoney: newDirtyMoney,
+        },
+        niveis: {
+          ...player.niveis,
+          barracoLevel: 100,
+        },
       });
     } else {
       // Avança para próximo nível e adiciona 1% em habilidade aleatória
@@ -202,13 +209,19 @@ function SubornoIlustradoPage() {
 
       setResultMessage(`Suborno pago! Você avançou para o nível ${newLevel}. Sua habilidade aumentou em 1%.`);
       updatePlayer({
-        dirtyMoney: newDirtyMoney,
-        barrackLevel: newLevel,
+        balances: {
+          ...player.balances,
+          dirtyMoney: newDirtyMoney,
+        },
+        niveis: {
+          ...player.niveis,
+          barracoLevel: newLevel,
+        },
         skills,
       });
     }
 
-    setShowDialog(false);
+    setShowVaultModal(false);
     setShowResult(true);
     setIsProcessing(false);
   };
@@ -222,11 +235,20 @@ function SubornoIlustradoPage() {
         'DELAÇÃO PREMIADA ACEITA!\n\nVocê fez a coisa certa... mas o preço a pagar é perder o que nunca foi seu.\n\nSeu status, progresso e itens foram completamente resetados.'
       );
       updatePlayer({
-        barrackLevel: 1,
-        dirtyMoney: 0,
+        niveis: {
+          ...player.niveis,
+          barracoLevel: 1,
+        },
+        balances: {
+          ...player.balances,
+          dirtyMoney: 0,
+        },
         skills: {},
-        inventory: [],
-        vehicles: [],
+        inventory: {
+          items: [],
+          gifts: [],
+          rewards: [],
+        },
       });
     } else {
       // Punição aleatória
@@ -245,12 +267,15 @@ function SubornoIlustradoPage() {
       }
 
       updatePlayer({
-        barrackLevel: newLevel,
+        niveis: {
+          ...player.niveis,
+          barracoLevel: newLevel,
+        },
         skills,
       });
     }
 
-    setShowDialog(false);
+    setShowVaultModal(false);
     setShowResult(true);
     setIsProcessing(false);
   };
@@ -266,7 +291,7 @@ function SubornoIlustradoPage() {
             Nível do Barraco: <span className="text-primary font-bold">{barrackLevel}</span>
           </p>
           <p className="font-paragraph text-lg text-gray-400">
-            Dinheiro Sujo: <span className="text-primary font-bold">R$ {player.dirtyMoney?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            Dinheiro Sujo: <span className="text-primary font-bold">R$ {player.balances.dirtyMoney?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
           </p>
         </div>
 
@@ -303,7 +328,7 @@ function SubornoIlustradoPage() {
 
               <div className="flex gap-4">
                 <Button
-                  onClick={() => setShowDialog(true)}
+                  onClick={() => setShowVaultModal(true)}
                   className="flex-1 bg-primary hover:bg-primary/80 text-black font-heading text-lg py-6"
                   disabled={isProcessing}
                 >
@@ -324,32 +349,15 @@ function SubornoIlustradoPage() {
 
       <Footer />
 
-      {/* Confirmação de Pagamento */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="bg-gray-900 border-primary">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-2xl">Confirmar Pagamento</DialogTitle>
-            <DialogDescription className="text-gray-300">
-              Você está prestes a pagar R$ {subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para {selectedAuthority?.name}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-4 mt-6">
-            <Button
-              onClick={() => setShowDialog(false)}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white"
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handlePaySuborno}
-              className="flex-1 bg-primary hover:bg-primary/80 text-black font-heading"
-              disabled={isProcessing}
-            >
-              {isProcessing ? 'Processando...' : 'Confirmar Pagamento'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Safe Vault Modal */}
+      <SafeVaultModal
+        open={showVaultModal}
+        onOpenChange={setShowVaultModal}
+        subornoValue={subornoValue}
+        playerDirtyMoney={player.balances.dirtyMoney}
+        onConfirm={handlePaySuborno}
+        isProcessing={isProcessing}
+      />
 
       {/* Resultado */}
       <Dialog open={showResult} onOpenChange={setShowResult}>
