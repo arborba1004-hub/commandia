@@ -52,12 +52,12 @@ export default function SafeVaultModal({
                   className="flex flex-col items-center gap-6"
                 >
                   {/* Money Image - Official Complexo Coin */}
-                  <div className="w-48 h-48 rounded-lg overflow-hidden border-4 border-primary shadow-2xl">
+                  <div className="w-full h-full rounded-lg overflow-hidden border-4 border-primary shadow-2xl">
                     <Image
-                      src="https://static.wixstatic.com/media/50f4bf_a8f9513ac27746dbb867c866c456cbe4~mv2.png?originWidth=256&originHeight=256"
+                      src="https://static.wixstatic.com/media/50f4bf_5868d04681cb49d1a58d89dc4493574f~mv2.png"
                       alt="Moeda Oficial do Complexo"
-                      width={192}
-                      height={192}
+                      width={500}
+                      height={500}
                       className="w-full h-full object-cover"
                     />
                   </div>
