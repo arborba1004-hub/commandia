@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Image } from '@/components/ui/image';
 import SafeVaultModal from '@/components/SafeVaultModal';
+import { getRandomPunishment, applyPunishment, applyDelacaoPremiada } from '@/Services/punishmentService';
 
 interface Authority {
   id: number;
@@ -29,77 +30,77 @@ const AUTHORITIES: Authority[] = [
     name: 'Policial de Rua',
     levelRange: 'Nível 1-9',
     dialog: 'Ó, ó... Vejo que você está crescendo no negócio. Que tal a gente fazer um acordo? Uns trocadinhos por mês e você fica tranquilo na rua.',
-    image: 'https://static.wixstatic.com/media/50f4bf_00a9833753ba439e9ce44a240849e58c\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_00a9833753ba439e9ce44a240849e58c\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 2,
     name: 'Investigador',
     levelRange: 'Nível 10-19',
     dialog: 'Tenho uns arquivos interessantes sobre você aqui... Mas podemos resolver isso de forma amigável, não é?',
-    image: 'https://static.wixstatic.com/media/50f4bf_b6d2cbc82982409e8bee2bde3e903d05\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_b6d2cbc82982409e8bee2bde3e903d05\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 3,
     name: 'Delegado',
     levelRange: 'Nível 20-29',
     dialog: 'Ouvi falar que você está ficando importante por aqui. Seria uma pena se algo acontecesse... Vamos conversar?',
-    image: 'https://static.wixstatic.com/media/50f4bf_9eedab2008d440bea7e846e4edf63343\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_9eedab2008d440bea7e846e4edf63343\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 4,
     name: 'Prefeito',
     levelRange: 'Nível 30-39',
     dialog: 'Você é um empreendedor, eu respeito isso. Mas aqui na cidade, todo negócio precisa de... uma contribuição política.',
-    image: 'https://static.wixstatic.com/media/50f4bf_f133ddeab16e496da0edb91ba54ffa73\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_f133ddeab16e496da0edb91ba54ffa73\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 5,
     name: 'Capitão da Polícia',
     levelRange: 'Nível 40-49',
     dialog: 'Você chegou longe. Muito longe. Mas sabe como é, na corporação temos despesas... Você entende.',
-    image: 'https://static.wixstatic.com/media/50f4bf_1369046e82774cd98f5d50ad9dfbdb0a\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_1369046e82774cd98f5d50ad9dfbdb0a\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 6,
     name: 'Secretário de Segurança',
     levelRange: 'Nível 50-59',
     dialog: 'Sua operação é impressionante. Seria uma pena perder tudo por falta de... proteção adequada.',
-    image: 'https://static.wixstatic.com/media/50f4bf_ee97ae291e714517bfe2bb404998ea6a\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_ee97ae291e714517bfe2bb404998ea6a\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 7,
     name: 'Delegado Federal',
     levelRange: 'Nível 60-69',
     dialog: 'Você chamou atenção de gente importante. Muito importante. Vamos resolver isso discretamente?',
-    image: 'https://static.wixstatic.com/media/50f4bf_2e11993941944c70a5d8464b1c6418b9\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_2e11993941944c70a5d8464b1c6418b9\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 8,
     name: 'Governador',
     levelRange: 'Nível 70-79',
     dialog: 'Você é praticamente um rei nessa região. Mas até reis precisam de... acordos com a coroa.',
-    image: 'https://static.wixstatic.com/media/50f4bf_e0e6b8cb4bf541bbbdfda06b834313a5\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_e0e6b8cb4bf541bbbdfda06b834313a5\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 9,
     name: 'Juiz Federal',
     levelRange: 'Nível 80-89',
     dialog: 'Seus crimes estão documentados. Todos eles. Mas a justiça pode ser... flexível, dependendo da situação.',
-    image: 'https://static.wixstatic.com/media/50f4bf_915574f5d1ca42c9b7f81066d054bf53\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_915574f5d1ca42c9b7f81066d054bf53\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 10,
     name: 'Ministro',
     levelRange: 'Nível 90-99',
     dialog: 'Você se tornou uma lenda. Mas até lendas precisam de proteção no topo. E eu sou o topo.',
-    image: 'https://static.wixstatic.com/media/50f4bf_c92fe851d34a4d4498e852ae17d90858\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_c92fe851d34a4d4498e852ae17d90858\\~mv2.png?originWidth=384&originHeight=384',
   },
   {
     id: 11,
     name: 'Presidente',
     levelRange: 'Nível 100',
     dialog: 'Você chegou ao topo. Impressionante. Agora, vamos fazer grandes coisas juntos... ou você quer tentar me derrotar? Que ingenuidade.',
-    image: 'https://static.wixstatic.com/media/50f4bf_402259b701d545678f7a5cd11d47c2a4\~mv2.png?originWidth=384&originHeight=384',
+    image: 'https://static.wixstatic.com/media/50f4bf_402259b701d545678f7a5cd11d47c2a4\\~mv2.png?originWidth=384&originHeight=384',
   },
 ];
 
@@ -242,44 +243,33 @@ function SubornoIlustradoPage() {
 
     try {
       if (barrackLevel === 100) {
-        // Delação premiada - reseta tudo
+        // Delação premiada - aplica bloqueio de 72h
+        const updated = applyDelacaoPremiada(player);
         setResultMessage(
-          'DELAÇÃO PREMIADA ACEITA!\n\nVocê fez a coisa certa... mas o preço a pagar é perder o que nunca foi seu.\n\nSeu status, progresso e itens foram completamente resetados.'
+          'DELAÇÃO PREMIADA ACEITA!\n\nVocê fez a coisa certa... mas o preço a pagar é perder o que nunca foi seu.\n\nSeu status, progresso e itens foram completamente resetados por 72 horas.'
         );
-        setPlayer({
-          niveis: {
-            ...player.niveis,
-            barracoLevel: 1,
-          },
-          balances: {
-            ...player.balances,
-            dirtyMoney: 0,
-          },
-          skills: {},
-          inventory: {
-            items: [],
-            gifts: [],
-            rewards: [],
-          },
-        });
+        setPlayer(updated);
       } else {
-        // Punição aleatória
-        const randomPunishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
+        // Punição aleatória - aplica punição de 24h
+        const type = getRandomPunishment();
+        const updated = applyPunishment(player, type);
+        
         setResultMessage(
-          `Então você pensou que podia me denunciar e ficar por isso mesmo? \n\n\( {randomPunishment.name}\n \){randomPunishment.description}\n\nMas você avançou para o nível ${barrackLevel + 1}!`
+          `Então você pensou que podia me denunciar e ficar por isso mesmo?\n\nPunição aplicada por 24 horas!\n\nMas você avançou para o nível ${barrackLevel + 1}!`
         );
 
         // Avança nível mesmo assim
         const newLevel = barrackLevel + 1;
-        const skills = { ...(player.skills || {}) };
+        const skills = { ...(updated.skills || {}) };
 
         const SKILLS = ['attack', 'defense', 'agility', 'intelligence', 'respect', 'vigor'];
         const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
         skills[randomSkill] = (skills[randomSkill] || 0) + 1;
 
         setPlayer({
+          ...updated,
           niveis: {
-            ...player.niveis,
+            ...updated.niveis,
             barracoLevel: newLevel,
           },
           skills,
@@ -369,11 +359,11 @@ function SubornoIlustradoPage() {
 
               {/* QUOTE PREMIUM */}
               <div className="relative bg-black/80 border border-emerald-400/30 rounded-3xl p-8 shadow-inner">
-                <div className="absolute -left-1 -top-4 text-8xl text-emerald-400/20 leading-none">“</div>
+                <div className="absolute -left-1 -top-4 text-8xl text-emerald-400/20 leading-none">"</div>
                 <p className="font-paragraph text-2xl italic text-gray-200 leading-relaxed pl-8">
                   {selectedAuthority.dialog}
                 </p>
-                <div className="absolute -right-1 -bottom-6 text-8xl text-emerald-400/20 leading-none rotate-180">”</div>
+                <div className="absolute -right-1 -bottom-6 text-8xl text-emerald-400/20 leading-none rotate-180">"</div>
               </div>
 
               {/* VALOR DO SUBORNO - DISPLAY COFRE AAA */}
