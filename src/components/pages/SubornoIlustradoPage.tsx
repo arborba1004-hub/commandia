@@ -226,10 +226,6 @@ function SubornoIlustradoPage() {
 
       setShowVaultModal(false);
       setShowResult(true);
-      // Redireciona para game após 2 segundos
-      setTimeout(() => {
-        navigate('/game');
-      }, 2000);
     } finally {
       setIsProcessing(false);
     }
@@ -288,13 +284,14 @@ function SubornoIlustradoPage() {
 
       setShowVaultModal(false);
       setShowResult(true);
-      // Redireciona para game após 2 segundos
-      setTimeout(() => {
-        navigate('/game');
-      }, 2000);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleCloseResult = () => {
+    setShowResult(false);
+    navigate('/game');
   };
 
   return (
@@ -386,10 +383,10 @@ function SubornoIlustradoPage() {
             <p className="font-paragraph text-lg whitespace-pre-line text-gray-200">{resultMessage}</p>
           </div>
           <Button
-            onClick={() => setShowResult(false)}
+            onClick={handleCloseResult}
             className="w-full bg-green-700 hover:bg-green-600 text-white font-heading"
           >
-            Fechar
+            OK
           </Button>
         </DialogContent>
       </Dialog>
