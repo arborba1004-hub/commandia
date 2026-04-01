@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
-import { getCollectionNameByLevel, getLuxuryPrice } from '@/data/luxoItems';
+import { getCollectionNameByLevel, getLuxuryPrice, getSkillByItemId } from '@/data/luxoItems';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PurchaseInsuranceModal from '@/components/PurchaseInsuranceModal';
@@ -47,10 +47,16 @@ export default function GaleriaPage() {
   };
 
   const handleInsuranceSelect = (type: 'with' | 'without') => {
+    if (!selectedItem) return;
+    
+    // Get the skill associated with this item (1% per level)
+    const skillType = getSkillByItemId(selectedItem.id);
+    const skillBonus = 1; // Fixed 1% per level
+    
     const bonus: SkillBonus = {
       type,
-      skillType: type === 'with' ? 'defense' : 'attack',
-      skillBonus: type === 'with' ? 15 : 10,
+      skillType,
+      skillBonus,
     };
     setSkillBonus(bonus);
     setShowInsuranceModal(false);
