@@ -32,33 +32,46 @@ export default function GaleriaPage() {
           {/* Grid de Containers */}
           <div className="grid grid-cols-2 gap-8 justify-items-center mt-12">
             {[1, 2, 3, 4, 5, 6].map((item) => (
-              <motion.div
-                key={item}
-                className={`w-full max-w-sm h-96 rounded-lg border border-white/20 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-primary hover:shadow-[0_0_20px_rgba(255,0,127,0.3)] ${item === 1 ? 'relative overflow-hidden p-0' : ''}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: item * 0.1, duration: 0.5 }}
-                whileHover={{ scale: 1.02 }}
-              >
-                {item === 1 ? (
-                  <video
-                    src="https://video.wixstatic.com/video/50f4bf_5c5ff0aa73984169aee6006f54c6643a/480p/mp4/file.mp4"
-                    controls
-                    loop
-                    autoPlay
-                    muted
-                    className="absolute inset-0 w-full h-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <>
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mb-4">
-                      <span className="text-3xl font-bold text-primary">{item}</span>
-                    </div>
-                    <h3 className="text-xl font-heading text-white mb-2">Item {item}</h3>
-                    <p className="text-sm font-paragraph text-white/60 text-center">Descrição do item {item}</p>
-                  </>
-                )}
-              </motion.div>
+              <div key={item} className="w-full max-w-sm flex flex-col items-center">
+                <motion.div
+                  className={`w-full h-96 rounded-lg border border-white/20 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-primary hover:shadow-[0_0_20px_rgba(255,0,127,0.3)] ${item === 1 ? 'relative overflow-hidden p-0' : ''}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: item * 0.1, duration: 0.5 }}
+                  whileHover={{ scale: 1.02 }}
+                >
+                  {item === 1 ? (
+                    <video
+                      src="https://video.wixstatic.com/video/50f4bf_5c5ff0aa73984169aee6006f54c6643a/480p/mp4/file.mp4"
+                      controls
+                      loop
+                      autoPlay
+                      muted
+                      className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                    />
+                  ) : (
+                    <>
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mb-4">
+                        <span className="text-3xl font-bold text-primary">{item}</span>
+                      </div>
+                      <h3 className="text-xl font-heading text-white mb-2">Item {item}</h3>
+                      <p className="text-sm font-paragraph text-white/60 text-center">Descrição do item {item}</p>
+                    </>
+                  )}
+                </motion.div>
+                
+                {/* Espaço simétrico e botão comprar */}
+                <motion.div
+                  className="mt-6 w-full flex justify-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: item * 0.1 + 0.2, duration: 0.5 }}
+                >
+                  <button className="px-8 py-3 bg-primary text-black font-heading text-lg rounded-lg hover:bg-primary/90 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,0,127,0.5)] active:scale-95">
+                    Comprar Item {item}
+                  </button>
+                </motion.div>
+              </div>
             ))}
           </div>
         </div>
