@@ -3,7 +3,7 @@ import { CheckCircle, AlertCircle } from 'lucide-react';
 
 interface PurchaseResultModalProps {
   isOpen: boolean;
-  success: boolean;
+  error: 'insufficient' | 'duplicate' | null;
   itemName?: string;
   skillBonus?: number;
   skillType?: string;
@@ -13,13 +13,14 @@ interface PurchaseResultModalProps {
 
 export default function PurchaseResultModal({
   isOpen,
-  success,
+  error,
   itemName,
   skillBonus,
   skillType,
   skillBonusPercent,
   onClose,
 }: PurchaseResultModalProps) {
+  const success = error === null;
   return (
     <AnimatePresence>
       {isOpen && (
@@ -49,8 +50,10 @@ export default function PurchaseResultModal({
             <h2 className="text-3xl font-heading mb-4">
               {success ? (
                 <span className="text-green-500">Compra Concluída!</span>
-              ) : (
+              ) : error === 'insufficient' ? (
                 <span className="text-red-500">Saldo Insuficiente</span>
+              ) : (
+                <span className="text-red-500">Item Já Comprado</span>
               )}
             </h2>
 
@@ -79,9 +82,15 @@ export default function PurchaseResultModal({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <p className="text-white/80 font-paragraph">
-                  Você não possui Clean Money suficiente para esta compra.
-                </p>
+                {error === 'insufficient' ? (
+                  <p className="text-white/80 font-paragraph">
+                    Você não possui Clean Money suficiente para esta compra.
+                  </p>
+                ) : (
+                  <p className="text-white/80 font-paragraph">
+                    Você já possui este item neste nível. Não é possível comprar duplicatas.
+                  </p>
+                )}
               </motion.div>
             )}
 

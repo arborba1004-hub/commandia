@@ -33,7 +33,7 @@ export default function GaleriaPage() {
   const [showCardModal, setShowCardModal] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<'insufficient' | 'duplicate' | null>(null);
   const [skillBonus, setSkillBonus] = useState<SkillBonus | null>(null);
   const [insuranceType, setInsuranceType] = useState<'with' | 'without'>('without');
 
@@ -81,7 +81,7 @@ export default function GaleriaPage() {
     if (cleanMoneyBalance < finalPrice) {
       setIsProcessing(false);
       setShowCardModal(false);
-      setPurchaseSuccess(false);
+      setPurchaseError('insufficient');
       setShowResultModal(true);
       return;
     }
@@ -94,14 +94,14 @@ export default function GaleriaPage() {
     if (alreadyOwned) {
       setIsProcessing(false);
       setShowCardModal(false);
-      setPurchaseSuccess(false);
+      setPurchaseError('duplicate');
       setShowResultModal(true);
       return;
     }
 
-    // Create new item
+    // Create new item with unique ID combining itemId, level, and timestamp
     const newItem = {
-      id: selectedItem.id,
+      id: `${selectedItem.id}-${barracoLevel}-${Date.now()}`,
       itemId: selectedItem.id,
       name: selectedItem.name,
       price: finalPrice,
@@ -123,14 +123,14 @@ export default function GaleriaPage() {
       },
       skills: {
         ...player.skills,
-        [bonus.skillType]: (player.skills?.[bonus.skillType] || 0) + bonus.skillBonusPercent,
+        [bonus.skillType]: Number(((player.skills?.[bonus.skillType] || 0) + bonus.skillBonusPercent).toFixed(2)),
       },
     };
 
     setPlayer(updatedPlayer);
     setIsProcessing(false);
     setShowCardModal(false);
-    setPurchaseSuccess(true);
+    setPurchaseError(null);
     setShowResultModal(true);
   };
 
@@ -138,6 +138,7 @@ export default function GaleriaPage() {
     setShowResultModal(false);
     setSelectedItem(null);
     setSkillBonus(null);
+    setPurchaseError(null);
   };
 
   const handleCardConfirm = () => {
@@ -245,7 +246,7 @@ export default function GaleriaPage() {
 
       <PurchaseResultModal
         isOpen={showResultModal}
-        success={purchaseSuccess}
+        error={purchaseError}
         itemName={selectedItem?.name}
         skillBonus={skillBonus?.skillBonus}
         skillType={skillBonus?.skillType}
