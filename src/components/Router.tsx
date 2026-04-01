@@ -8,6 +8,7 @@ import GamePage from '@/components/pages/GamePage';
 import GiroPage from '@/components/pages/GiroPage';
 import LuxuryshowroomPage from '@/components/pages/LuxuryshowroomPage';
 import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
+import SubornoIlustradoPage from '@/components/pages/SubornoIlustradoPage';
 
 function Layout() {
   return (
@@ -71,6 +72,13 @@ const router = createBrowserRouter([
         element: <LavagemDeDinheiroPage />,
         routeMetadata: {
           pageIdentifier: 'lavagem-de-dinheiro',
+        },
+      },
+      {
+        path: "suborno-ilustrado",
+        element: <SubornoIlustradoPage />,
+        routeMetadata: {
+          pageIdentifier: 'suborno-ilustrado',
         },
       },
       {
