@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { LogOut, Zap, Target, Trophy } from 'lucide-react';
+import { LogOut, Zap, Target, Trophy, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -92,6 +92,13 @@ export default function GamePage() {
               >
                 <Zap className="w-4 h-4" />
                 {isUpdating ? 'Atualizando...' : 'Ganhar 100 Moedas'}
+              </button>
+              <button
+                onClick={() => navigate('/luxuryshowroom')}
+                className="px-8 py-4 bg-secondary text-secondary-foreground font-heading uppercase tracking-wider rounded-lg hover:bg-secondary/90 transition-all flex items-center gap-2"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                Luxury Showroom
               </button>
               <button
                 onClick={handleLogout}
