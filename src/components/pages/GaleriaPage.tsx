@@ -35,6 +35,8 @@ export default function GaleriaPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [skillBonus, setSkillBonus] = useState<SkillBonus | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
 
   const itemPrice = selectedItem ? getLuxuryPrice(barracoLevel) : 0;
 
@@ -129,6 +131,24 @@ export default function GaleriaPage() {
     setShowResultModal(false);
     setSelectedItem(null);
     setSkillBonus(null);
+  };
+
+  const handlePayment = (hasBalance: boolean) => {
+    setShowPayment(true);
+    setStatus('processing');
+
+    setTimeout(() => {
+      if (hasBalance) {
+        setStatus('success');
+      } else {
+        setStatus('error');
+      }
+
+      setTimeout(() => {
+        setShowPayment(false);
+        setStatus('idle');
+      }, 1200);
+    }, 1200);
   };
 
   return (
