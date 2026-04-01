@@ -406,14 +406,14 @@ function SubornoIlustradoPage() {
                       handleDenounce();
                     }
                   }}
-                  className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-heading text-2xl py-8 rounded-3xl shadow-[0_0_60px_rgba(255,60,60,0.7)] hover:shadow-[0_0_90px_rgba(255,60,60,1)] transition-all duration-300 active:scale-[0.97]"
+                  className="flex-1 bg-destructive hover:bg-destructive/80 text-white font-heading text-lg py-6"
                   disabled={isProcessing}
                 >
                   {isProcessing
-                    ? 'PROCESSANDO...'
+                    ? 'Processando...'
                     : barrackLevel === 100
-                    ? 'DELAÇÃO PREMIADA'
-                    : 'DENUNCIAR'}
+                    ? 'Delação Premiada'
+                    : 'Denunciar'}
                 </Button>
               </div>
             </div>
