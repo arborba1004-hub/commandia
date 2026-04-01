@@ -136,7 +136,7 @@ const PUNISHMENTS: Punishment[] = [
 ];
 
 function SubornoIlustradoPage() {
-  const { player, updatePlayer } = usePlayerStore();
+  const { player, setPlayer } = usePlayerStore();
   const [showVaultModal, setShowVaultModal] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [selectedAuthority, setSelectedAuthority] = useState<Authority | null>(null);
@@ -174,110 +174,117 @@ function SubornoIlustradoPage() {
   const handlePaySuborno = async () => {
     setIsProcessing(true);
 
-    if (player.balances.dirtyMoney < subornoValue) {
-      setResultMessage('Você não tem dinheiro sujo suficiente!');
-      setShowResult(true);
-      setIsProcessing(false);
-      return;
-    }
-
-    // Debita dinheiro sujo
-    const newDirtyMoney = player.balances.dirtyMoney - subornoValue;
-
-    // Se for presidente, atinge nível máximo
-    if (barrackLevel === 100) {
-      setResultMessage('Você atingiu o nível máximo do jogo! Parabéns, você é agora o rei do crime!');
-      updatePlayer({
-        balances: {
-          ...player.balances,
-          dirtyMoney: newDirtyMoney,
-        },
-        niveis: {
-          ...player.niveis,
-          barracoLevel: 100,
-        },
-      });
-    } else {
-      // Avança para próximo nível e adiciona 1% em habilidade aleatória
-      const newLevel = barrackLevel + 1;
-      const skills = player.skills || {};
-      const randomSkill = Object.keys(skills)[Math.floor(Math.random() * Object.keys(skills).length)];
-
-      if (randomSkill) {
-        skills[randomSkill] = (skills[randomSkill] || 0) + 1;
+    try {
+      if (player.balances.dirtyMoney < subornoValue) {
+        setResultMessage('Você não tem dinheiro sujo suficiente!');
+        setShowResult(true);
+        return;
       }
 
-      setResultMessage(`Suborno pago! Você avançou para o nível ${newLevel}. Sua habilidade aumentou em 1%.`);
-      updatePlayer({
-        balances: {
-          ...player.balances,
-          dirtyMoney: newDirtyMoney,
-        },
-        niveis: {
-          ...player.niveis,
-          barracoLevel: newLevel,
-        },
-        skills,
-      });
-    }
+      // Debita dinheiro sujo
+      const newDirtyMoney = player.balances.dirtyMoney - subornoValue;
 
-    setShowVaultModal(false);
-    setShowResult(true);
-    setIsProcessing(false);
+      // Se for presidente, atinge nível máximo
+      if (barrackLevel === 100) {
+        setResultMessage('Você atingiu o nível máximo do jogo! Parabéns, você é agora o rei do crime!');
+        setPlayer({
+          balances: {
+            ...player.balances,
+            dirtyMoney: newDirtyMoney,
+          },
+          niveis: {
+            ...player.niveis,
+            barracoLevel: 100,
+          },
+        });
+      } else {
+        // Avança para próximo nível e adiciona 1% em habilidade aleatória
+        const newLevel = barrackLevel + 1;
+        const skills = { ...player.skills } || {};
+        const skillKeys = Object.keys(skills);
+        const randomSkill = skillKeys[Math.floor(Math.random() * skillKeys.length)];
+
+        if (randomSkill) {
+          skills[randomSkill] = (skills[randomSkill] || 0) + 1;
+        }
+
+        setResultMessage(`Suborno pago! Você avançou para o nível ${newLevel}. Sua habilidade aumentou em 1%.`);
+        setPlayer({
+          balances: {
+            ...player.balances,
+            dirtyMoney: newDirtyMoney,
+          },
+          niveis: {
+            ...player.niveis,
+            barracoLevel: newLevel,
+          },
+          skills,
+        });
+      }
+
+      setShowVaultModal(false);
+      setShowResult(true);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleDenounce = async () => {
     setIsProcessing(true);
 
-    if (barrackLevel === 100) {
-      // Delação premiada - reseta tudo
-      setResultMessage(
-        'DELAÇÃO PREMIADA ACEITA!\n\nVocê fez a coisa certa... mas o preço a pagar é perder o que nunca foi seu.\n\nSeu status, progresso e itens foram completamente resetados.'
-      );
-      updatePlayer({
-        niveis: {
-          ...player.niveis,
-          barracoLevel: 1,
-        },
-        balances: {
-          ...player.balances,
-          dirtyMoney: 0,
-        },
-        skills: {},
-        inventory: {
-          items: [],
-          gifts: [],
-          rewards: [],
-        },
-      });
-    } else {
-      // Punição aleatória
-      const randomPunishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
-      setResultMessage(
-        `DENÚNCIA ACEITA!\n\n${randomPunishment.name}\n${randomPunishment.description}\n\nMas você avançou para o nível ${barrackLevel + 1}!`
-      );
+    try {
+      if (barrackLevel === 100) {
+        // Delação premiada - reseta tudo
+        setResultMessage(
+          'DELAÇÃO PREMIADA ACEITA!\n\nVocê fez a coisa certa... mas o preço a pagar é perder o que nunca foi seu.\n\nSeu status, progresso e itens foram completamente resetados.'
+        );
+        setPlayer({
+          niveis: {
+            ...player.niveis,
+            barracoLevel: 1,
+          },
+          balances: {
+            ...player.balances,
+            dirtyMoney: 0,
+          },
+          skills: {},
+          inventory: {
+            items: [],
+            gifts: [],
+            rewards: [],
+          },
+        });
+      } else {
+        // Punição aleatória
+        const randomPunishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
+        setResultMessage(
+          `DENÚNCIA ACEITA!\n\n${randomPunishment.name}\n${randomPunishment.description}\n\nMas você avançou para o nível ${barrackLevel + 1}!`
+        );
 
-      // Avança nível mesmo assim
-      const newLevel = barrackLevel + 1;
-      const skills = player.skills || {};
-      const randomSkill = Object.keys(skills)[Math.floor(Math.random() * Object.keys(skills).length)];
+        // Avança nível mesmo assim
+        const newLevel = barrackLevel + 1;
+        const skills = { ...player.skills } || {};
+        const skillKeys = Object.keys(skills);
+        const randomSkill = skillKeys[Math.floor(Math.random() * skillKeys.length)];
 
-      if (randomSkill) {
-        skills[randomSkill] = (skills[randomSkill] || 0) + 1;
+        if (randomSkill) {
+          skills[randomSkill] = (skills[randomSkill] || 0) + 1;
+        }
+
+        setPlayer({
+          niveis: {
+            ...player.niveis,
+            barracoLevel: newLevel,
+          },
+          skills,
+        });
       }
 
-      updatePlayer({
-        niveis: {
-          ...player.niveis,
-          barracoLevel: newLevel,
-        },
-        skills,
-      });
+      setShowVaultModal(false);
+      setShowResult(true);
+    } finally {
+      setIsProcessing(false);
     }
-
-    setShowVaultModal(false);
-    setShowResult(true);
-    setIsProcessing(false);
   };
 
   return (
