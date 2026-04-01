@@ -260,7 +260,7 @@ function SubornoIlustradoPage() {
         // Punição aleatória
         const randomPunishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
         setResultMessage(
-          `Então você pensou que podia me denunciar e ficar por isso mesmo? (punição)\n\n${randomPunishment.name}\n${randomPunishment.description}\n\nMas você avançou para o nível ${barrackLevel + 1}!`
+          `Então você pensou que podia me denunciar e ficar por isso mesmo? \n\n${randomPunishment.name}\n${randomPunishment.description}\n\nMas você avançou para o nível ${barrackLevel + 1}!`
         );
 
         // Avança nível mesmo assim
