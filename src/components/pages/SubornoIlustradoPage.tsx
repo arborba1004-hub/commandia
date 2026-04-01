@@ -166,6 +166,14 @@ function SubornoIlustradoPage() {
     if (level <= 79) return AUTHORITIES[7];
     if (level <= 89) return AUTHORITIES[8];
     if (level <= 99) return AUTHORITIES[9];
+
+    if (level >= 100 && level < 109) {
+      return {
+        ...AUTHORITIES[10],
+        dialog: 'Você ainda não tem poder suficiente para falar comigo. Volte quando dominar tudo.',
+      };
+    }
+
     return AUTHORITIES[10]; // Presidente
   };
 
@@ -202,13 +210,11 @@ function SubornoIlustradoPage() {
       } else {
         // Avança para próximo nível e adiciona 1% em habilidade aleatória
         const newLevel = barrackLevel + 1;
-        const skills = { ...player.skills } || {};
-        const skillKeys = Object.keys(skills);
-        const randomSkill = skillKeys[Math.floor(Math.random() * skillKeys.length)];
-
-        if (randomSkill) {
-          skills[randomSkill] = (skills[randomSkill] || 0) + 1;
-        }
+        const skills = { ...(player.skills || {}) };
+        
+        const SKILLS = ['attack', 'defense', 'agility', 'intelligence', 'respect', 'vigor'];
+        const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
+        skills[randomSkill] = (skills[randomSkill] || 0) + 1;
 
         setResultMessage(`Suborno pago! Você avançou para o nível ${newLevel}. Sua habilidade aumentou em 1%.`);
         setPlayer({
@@ -265,13 +271,11 @@ function SubornoIlustradoPage() {
 
         // Avança nível mesmo assim
         const newLevel = barrackLevel + 1;
-        const skills = { ...player.skills } || {};
-        const skillKeys = Object.keys(skills);
-        const randomSkill = skillKeys[Math.floor(Math.random() * skillKeys.length)];
-
-        if (randomSkill) {
-          skills[randomSkill] = (skills[randomSkill] || 0) + 1;
-        }
+        const skills = { ...(player.skills || {}) };
+        
+        const SKILLS = ['attack', 'defense', 'agility', 'intelligence', 'respect', 'vigor'];
+        const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
+        skills[randomSkill] = (skills[randomSkill] || 0) + 1;
 
         setPlayer({
           niveis: {
