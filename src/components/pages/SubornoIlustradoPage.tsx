@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -136,6 +137,7 @@ const PUNISHMENTS: Punishment[] = [
 ];
 
 function SubornoIlustradoPage() {
+  const navigate = useNavigate();
   const { player, setPlayer } = usePlayerStore();
   const [showVaultModal, setShowVaultModal] = useState(false);
   const [showResult, setShowResult] = useState(false);
@@ -224,6 +226,10 @@ function SubornoIlustradoPage() {
 
       setShowVaultModal(false);
       setShowResult(true);
+      // Redireciona para game após 2 segundos
+      setTimeout(() => {
+        navigate('/game');
+      }, 2000);
     } finally {
       setIsProcessing(false);
     }
@@ -258,7 +264,7 @@ function SubornoIlustradoPage() {
         // Punição aleatória
         const randomPunishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
         setResultMessage(
-          `DENÚNCIA ACEITA!\n\n${randomPunishment.name}\n${randomPunishment.description}\n\nMas você avançou para o nível ${barrackLevel + 1}!`
+          `Então você pensou que podia me denunciar e ficar por isso mesmo? (punição)\n\n${randomPunishment.name}\n${randomPunishment.description}\n\nMas você avançou para o nível ${barrackLevel + 1}!`
         );
 
         // Avança nível mesmo assim
@@ -282,6 +288,10 @@ function SubornoIlustradoPage() {
 
       setShowVaultModal(false);
       setShowResult(true);
+      // Redireciona para game após 2 segundos
+      setTimeout(() => {
+        navigate('/game');
+      }, 2000);
     } finally {
       setIsProcessing(false);
     }
