@@ -36,7 +36,7 @@ export default function SafeVaultModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-900 border-primary max-w-3xl h-[600px] flex items-center justify-center p-0 overflow-hidden">
+      <DialogContent className="bg-gray-900 border-8 border-green-800 max-w-3xl h-[600px] flex items-center justify-center p-0 overflow-hidden">
         <div className="w-full h-full flex flex-col items-center justify-center relative" style={{ perspective: '1500px' }}>
           {/* Vault Container - Full Modal Size */}
           <div 
