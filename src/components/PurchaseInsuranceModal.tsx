@@ -1,13 +1,22 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { getLuxuryPriceWithInsurance } from '@/data/luxoItems';
+import { getLuxuryPriceWithInsurance, SkillType } from '@/data/luxoItems';
+
+const skillNames: Record<SkillType, string> = {
+  attack: 'Ataque',
+  defense: 'Defesa',
+  intelligence: 'Inteligência',
+  agility: 'Agilidade',
+  respect: 'Respeito',
+  vigor: 'Vigor',
+};
 
 interface InsuranceOption {
   type: 'with' | 'without';
   label: string;
   description: string;
   skillBonus: number;
-  skillType: string;
+  skillType: SkillType;
   finalPrice: number;
 }
 
@@ -15,7 +24,7 @@ interface PurchaseInsuranceModalProps {
   isOpen: boolean;
   itemName: string;
   itemPrice: number;
-  skillType: string;
+  skillType: SkillType;
   playerLevel: number;
   onSelect: (type: 'with' | 'without') => void;
   onClose: () => void;
@@ -109,7 +118,7 @@ export default function PurchaseInsuranceModal({
                       Preço: <span className="text-primary font-heading">{option.finalPrice} Clean Money</span>
                     </p>
                     <p className="text-sm text-white/70 font-paragraph">
-                      Bônus: <span className="text-green-400 font-heading">+{option.skillBonus}% {option.skillType}</span>
+                      Bônus: <span className="text-green-400 font-heading">+{option.skillBonus}% {skillNames[option.skillType]}</span>
                     </p>
                   </div>
                 </motion.button>
