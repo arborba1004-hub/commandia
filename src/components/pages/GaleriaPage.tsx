@@ -6,7 +6,7 @@ import Footer from '@/components/Footer';
 
 export default function GaleriaPage() {
   const player = usePlayerStore((state) => state.player);
-  const barracoLevel = player.niveis.barracoLevel;
+  const barracoLevel = player?.niveis?.barracoLevel || 1;
   const collectionName = getCollectionNameByLevel(barracoLevel);
 
   return (
