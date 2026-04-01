@@ -1,14 +1,129 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
-import { getCollectionNameByLevel } from '@/data/luxoItems';
+import { getCollectionNameByLevel, getLuxuryPrice } from '@/data/luxoItems';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import PurchaseInsuranceModal from '@/components/PurchaseInsuranceModal';
+import CardTransactionModal from '@/components/CardTransactionModal';
+import PurchaseResultModal from '@/components/PurchaseResultModal';
+
+interface SelectedItem {
+  id: number;
+  name: string;
+  price: number;
+}
+
+interface SkillBonus {
+  type: 'with' | 'without';
+  skillType: string;
+  skillBonus: number;
+}
 
 export default function GaleriaPage() {
   const player = usePlayerStore((state) => state.player);
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
   const barracoLevel = player?.niveis?.barracoLevel || 1;
   const collectionName = getCollectionNameByLevel(barracoLevel);
+
+  const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
+  const [showInsuranceModal, setShowInsuranceModal] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+  const [skillBonus, setSkillBonus] = useState<SkillBonus | null>(null);
+
+  const itemPrice = selectedItem ? getLuxuryPrice(barracoLevel) : 0;
+
+  const handleBuyClick = (itemId: number) => {
+    const itemName = `Item ${itemId}`;
+    setSelectedItem({
+      id: itemId,
+      name: itemName,
+      price: getLuxuryPrice(barracoLevel),
+    });
+    setShowInsuranceModal(true);
+  };
+
+  const handleInsuranceSelect = (type: 'with' | 'without') => {
+    const bonus: SkillBonus = {
+      type,
+      skillType: type === 'with' ? 'defense' : 'attack',
+      skillBonus: type === 'with' ? 15 : 10,
+    };
+    setSkillBonus(bonus);
+    setShowInsuranceModal(false);
+    setShowCardModal(true);
+    
+    // Simulate card transaction
+    setTimeout(() => {
+      setIsProcessing(true);
+      setTimeout(() => {
+        processTransaction(bonus);
+      }, 2000);
+    }, 500);
+  };
+
+  const processTransaction = (bonus: SkillBonus) => {
+    if (!selectedItem) return;
+
+    const cleanMoneyBalance = player?.balances?.cleanMoney || 0;
+    const itemPrice = selectedItem.price;
+
+    // Check if player already has the item
+    const hasItem = player?.inventory?.items?.some(
+      (item: any) => item?.id === selectedItem.id || item?.itemId === selectedItem.id
+    );
+
+    // Check if player has enough clean money
+    if (cleanMoneyBalance < itemPrice) {
+      setIsProcessing(false);
+      setShowCardModal(false);
+      setPurchaseSuccess(false);
+      setShowResultModal(true);
+      return;
+    }
+
+    // Create new item
+    const newItem = {
+      id: selectedItem.id,
+      itemId: selectedItem.id,
+      name: selectedItem.name,
+      price: itemPrice,
+      purchasedAt: new Date().toISOString(),
+      insurance: bonus.type === 'with',
+    };
+
+    // Update player state
+    const updatedPlayer = {
+      ...player,
+      balances: {
+        ...player.balances,
+        cleanMoney: cleanMoneyBalance - itemPrice,
+      },
+      inventory: {
+        ...player.inventory,
+        items: [...(player.inventory?.items || []), newItem],
+      },
+      skills: {
+        ...player.skills,
+        [bonus.skillType]: (player.skills?.[bonus.skillType] || 0) + bonus.skillBonus,
+      },
+    };
+
+    setPlayer(updatedPlayer);
+    setIsProcessing(false);
+    setShowCardModal(false);
+    setPurchaseSuccess(true);
+    setShowResultModal(true);
+  };
+
+  const handleCloseResult = () => {
+    setShowResultModal(false);
+    setSelectedItem(null);
+    setSkillBonus(null);
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -67,7 +182,10 @@ export default function GaleriaPage() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: item * 0.1 + 0.2, duration: 0.5 }}
                 >
-                  <button className="px-8 py-3 bg-primary text-black font-heading text-lg rounded-lg hover:bg-primary/90 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,0,127,0.5)] active:scale-95">
+                  <button
+                    onClick={() => handleBuyClick(item)}
+                    className="px-8 py-3 bg-primary text-black font-heading text-lg rounded-lg hover:bg-primary/90 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,0,127,0.5)] active:scale-95"
+                  >
                     Comprar Item {item}
                   </button>
                 </motion.div>
@@ -76,6 +194,36 @@ export default function GaleriaPage() {
           </div>
         </div>
       </main>
+
+      {/* Modals */}
+      <PurchaseInsuranceModal
+        isOpen={showInsuranceModal}
+        itemName={selectedItem?.name || ''}
+        itemPrice={itemPrice}
+        onSelect={handleInsuranceSelect}
+        onClose={() => setShowInsuranceModal(false)}
+      />
+
+      <CardTransactionModal
+        isOpen={showCardModal}
+        isProcessing={isProcessing}
+        onClose={() => {
+          if (!isProcessing) {
+            setShowCardModal(false);
+            setSelectedItem(null);
+            setSkillBonus(null);
+          }
+        }}
+      />
+
+      <PurchaseResultModal
+        isOpen={showResultModal}
+        success={purchaseSuccess}
+        itemName={selectedItem?.name}
+        skillBonus={skillBonus?.skillBonus}
+        skillType={skillBonus?.skillType}
+        onClose={handleCloseResult}
+      />
 
       <Footer />
     </div>
