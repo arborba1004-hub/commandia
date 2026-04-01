@@ -189,6 +189,15 @@ export default function GaleriaPage() {
                       muted
                       className="absolute inset-0 w-full h-full object-cover rounded-lg"
                     />
+                  ) : item === 2 ? (
+                    <video
+                      src="https://video.wixstatic.com/video/50f4bf_250b2ec2185b4a9f9ee60ee62867b785/720p/mp4/file.mp4"
+                      controls
+                      loop
+                      autoPlay
+                      muted
+                      className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                    />
                   ) : item === 3 ? (
                     <video
                       src="https://video.wixstatic.com/video/50f4bf_9b3fc97f452e45a7a1bde3afb5825aef/720p/mp4/file.mp4"
