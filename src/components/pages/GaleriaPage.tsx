@@ -35,8 +35,7 @@ export default function GaleriaPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [skillBonus, setSkillBonus] = useState<SkillBonus | null>(null);
-  const [showPayment, setShowPayment] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [insuranceType, setInsuranceType] = useState<'with' | 'without'>('without');
 
   const itemPrice = selectedItem ? getLuxuryPrice(barracoLevel) : 0;
 
@@ -66,26 +65,33 @@ export default function GaleriaPage() {
       skillBonusPercent,
     };
     setSkillBonus(bonus);
+    setInsuranceType(type);
     setShowInsuranceModal(false);
     setShowCardModal(true);
-    
-    // Simulate card transaction
-    setTimeout(() => {
-      setIsProcessing(true);
-      setTimeout(() => {
-        processTransaction(bonus, type);
-      }, 2000);
-    }, 500);
   };
 
   const processTransaction = (bonus: SkillBonus, insuranceType: 'with' | 'without') => {
-    if (!selectedItem) return;
+    // Validate player and item exist
+    if (!player || !selectedItem) return;
 
     const cleanMoneyBalance = player?.balances?.cleanMoney || 0;
     const finalPrice = getLuxuryPriceWithInsurance(barracoLevel, insuranceType === 'with');
 
     // Check if player has enough clean money
     if (cleanMoneyBalance < finalPrice) {
+      setIsProcessing(false);
+      setShowCardModal(false);
+      setPurchaseSuccess(false);
+      setShowResultModal(true);
+      return;
+    }
+
+    // Check if item already owned (prevent duplicate purchase)
+    const alreadyOwned = (player?.inventory?.items || []).some(
+      (item) => item.itemId === selectedItem.id && item.level === barracoLevel
+    );
+    
+    if (alreadyOwned) {
       setIsProcessing(false);
       setShowCardModal(false);
       setPurchaseSuccess(false);
@@ -101,6 +107,7 @@ export default function GaleriaPage() {
       price: finalPrice,
       purchasedAt: new Date().toISOString(),
       insurance: insuranceType === 'with',
+      level: barracoLevel,
     };
 
     // Update player state
@@ -133,22 +140,13 @@ export default function GaleriaPage() {
     setSkillBonus(null);
   };
 
-  const handlePayment = (hasBalance: boolean) => {
-    setShowPayment(true);
-    setStatus('processing');
-
+  const handleCardConfirm = () => {
+    if (!skillBonus) return;
+    setIsProcessing(true);
+    // Process transaction immediately when card is tapped
     setTimeout(() => {
-      if (hasBalance) {
-        setStatus('success');
-      } else {
-        setStatus('error');
-      }
-
-      setTimeout(() => {
-        setShowPayment(false);
-        setStatus('idle');
-      }, 1200);
-    }, 1200);
+      processTransaction(skillBonus, insuranceType);
+    }, 1500);
   };
 
   return (
@@ -235,6 +233,7 @@ export default function GaleriaPage() {
       <CardTransactionModal
         isOpen={showCardModal}
         isProcessing={isProcessing}
+        onConfirm={handleCardConfirm}
         onClose={() => {
           if (!isProcessing) {
             setShowCardModal(false);

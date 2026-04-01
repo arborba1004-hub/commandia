@@ -7,12 +7,14 @@ interface CardTransactionModalProps {
   isOpen: boolean;
   isProcessing: boolean;
   onClose: () => void;
+  onConfirm: () => void;
 }
 
 export default function CardTransactionModal({
   isOpen,
   isProcessing,
   onClose,
+  onConfirm,
 }: CardTransactionModalProps) {
   const player = usePlayerStore((state) => state.player);
   
@@ -22,6 +24,12 @@ export default function CardTransactionModal({
   };
   
   const status = getStatus();
+  
+  const handleCardTap = () => {
+    if (status === 'idle' && !isProcessing) {
+      onConfirm();
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -62,7 +70,8 @@ export default function CardTransactionModal({
                   : { y: -120, opacity: 0 }
               }
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className="absolute top-[90px] w-[240px] h-[140px] rounded-2xl bg-gradient-to-br from-neutral-800 via-neutral-700 to-black shadow-[0_0_25px_rgba(255,255,255,0.15)] flex flex-col justify-between p-4"
+              onClick={handleCardTap}
+              className="absolute top-[90px] w-[240px] h-[140px] rounded-2xl bg-gradient-to-br from-neutral-800 via-neutral-700 to-black shadow-[0_0_25px_rgba(255,255,255,0.15)] flex flex-col justify-between p-4 cursor-pointer hover:shadow-[0_0_35px_rgba(255,0,127,0.3)] transition-shadow"
             >
               {/* CHIP */}
               <div className="w-10 h-7 bg-yellow-500 rounded-sm" />
