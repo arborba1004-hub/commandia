@@ -52,7 +52,7 @@ export default function SafeVaultModal({
                   className="flex flex-col items-center gap-6"
                 >
                   {/* Money Image - Official Complexo Coin */}
-                  <div className="w-full h-full rounded-lg overflow-hidden border-4 border-primary shadow-2xl">
+                  <div className="w-full h-full rounded-lg overflow-hidden border-4 border-green-800 shadow-2xl">
                     <Image
                       src="https://static.wixstatic.com/media/50f4bf_5868d04681cb49d1a58d89dc4493574f~mv2.png"
                       alt="Moeda Oficial do Complexo"
@@ -61,7 +61,7 @@ export default function SafeVaultModal({
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <p className="text-primary font-heading text-2xl text-center">
+                  <p className="text-green-400 font-heading text-2xl text-center">
                     R$ {subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                 </motion.div>

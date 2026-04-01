@@ -295,10 +295,10 @@ function SubornoIlustradoPage() {
         <div className="mb-12">
           <h1 className="font-heading text-6xl mb-4">Suborno Ilustrado</h1>
           <p className="font-paragraph text-xl text-gray-300">
-            Nível do Barraco: <span className="text-primary font-bold">{barrackLevel}</span>
+            Nível do Barraco: <span className="text-green-400 font-bold">{barrackLevel}</span>
           </p>
           <p className="font-paragraph text-lg text-gray-400">
-            Dinheiro Sujo: <span className="text-primary font-bold">R$ {player.balances.dirtyMoney?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            Dinheiro Sujo: <span className="text-green-400 font-bold">R$ {player.balances.dirtyMoney?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
           </p>
         </div>
 
@@ -306,7 +306,7 @@ function SubornoIlustradoPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Imagem da Autoridade */}
             <div className="flex justify-center">
-              <div className="w-full max-w-md aspect-square bg-gray-900 rounded-lg overflow-hidden border-2 border-primary">
+              <div className="w-full max-w-md aspect-square bg-gray-900 rounded-lg overflow-hidden border-2 border-green-800">
                 <Image
                   src={selectedAuthority.image}
                   alt={selectedAuthority.name}
@@ -321,16 +321,16 @@ function SubornoIlustradoPage() {
             <div className="space-y-8">
               <div>
                 <h2 className="font-heading text-4xl mb-2">{selectedAuthority.name}</h2>
-                <p className="text-primary text-lg">{selectedAuthority.levelRange}</p>
+                <p className="text-green-400 text-lg">{selectedAuthority.levelRange}</p>
               </div>
 
-              <div className="bg-gray-900 p-6 rounded-lg border border-primary/30">
+              <div className="bg-gray-900 p-6 rounded-lg border border-green-800/30">
                 <p className="font-paragraph text-lg italic text-gray-200">"{selectedAuthority.dialog}"</p>
               </div>
 
-              <div className="bg-gray-900 p-6 rounded-lg border border-primary/30">
+              <div className="bg-gray-900 p-6 rounded-lg border border-green-800/30">
                 <p className="text-gray-400 mb-2">Valor do Suborno:</p>
-                <p className="font-heading text-3xl text-primary">R$ {subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="font-heading text-3xl text-green-400">R$ {subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
 
               <div className="flex gap-4">
@@ -368,7 +368,7 @@ function SubornoIlustradoPage() {
 
       {/* Resultado */}
       <Dialog open={showResult} onOpenChange={setShowResult}>
-        <DialogContent className="bg-gray-900 border-primary">
+        <DialogContent className="bg-gray-900 border-green-800">
           <DialogHeader>
             <DialogTitle className="font-heading text-2xl">Resultado</DialogTitle>
           </DialogHeader>
@@ -377,7 +377,7 @@ function SubornoIlustradoPage() {
           </div>
           <Button
             onClick={() => setShowResult(false)}
-            className="w-full bg-primary hover:bg-primary/80 text-black font-heading"
+            className="w-full bg-green-700 hover:bg-green-600 text-white font-heading"
           >
             Fechar
           </Button>
