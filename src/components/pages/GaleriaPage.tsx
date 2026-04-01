@@ -43,6 +43,9 @@ export default function GaleriaPage() {
                   <video
                     src="https://video.wixstatic.com/video/50f4bf_5c5ff0aa73984169aee6006f54c6643a/480p/mp4/file.mp4"
                     controls
+                    loop
+                    autoPlay
+                    muted
                     className="absolute inset-0 w-full h-full object-cover rounded-lg"
                   />
                 ) : (
