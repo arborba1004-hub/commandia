@@ -1,205 +1,199 @@
 // src/services/punishmentService.ts
 
-// ================= TYPES =================
-
 export type PunishmentType =
   | 'fiscal'
-    | 'arsenal'
-      | 'militia'
-        | 'blitz'
-          | 'threat';
+  | 'arsenal'
+  | 'militia'
+  | 'blitz'
+  | 'threat';
 
-          export interface ActivePunishment {
-            type: PunishmentType;
-              expiresAt: string;
-              }
+export interface ActivePunishment {
+  type: PunishmentType;
+  expiresAt: string;
+}
 
-              // ================= HELPERS =================
+function addHours(hours: number) {
+  return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+}
 
-              function addHours(hours: number) {
-                return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
-                }
+function now() {
+  return new Date();
+}
 
-                function now() {
-                  return new Date();
-                  }
+const ALL_PUNISHMENTS: PunishmentType[] = [
+  'fiscal',
+  'arsenal',
+  'militia',
+  'blitz',
+  'threat',
+];
 
-                  // ================= PUNIÇÕES =================
+export function getRandomPunishment(): PunishmentType {
+  return ALL_PUNISHMENTS[Math.floor(Math.random() * ALL_PUNISHMENTS.length)];
+}
 
-                  export const PUNISHMENT_EFFECTS = {
-                    fiscal: {
-                        name: 'Operação Fiscal',
-                            blocks: ['moneyLaundering'],
-                              },
-                                arsenal: {
-                                    name: 'Invasão no Arsenal',
-                                        blocks: ['arsenalBonus'],
-                                          },
-                                            militia: {
-                                                name: 'Confisco de Luxo',
-                                                    blocks: ['luxuryBonus'],
-                                                      },
-                                                        blitz: {
-                                                            name: 'Reboque de Veículo',
-                                                                blocks: ['lastVehicleLost'],
-                                                                  },
-                                                                    threat: {
-                                                                        name: 'Ameaça de Morte',
-                                                                            blocks: ['slotBlocked'],
-                                                                              },
-                                                                              };
+export function isPunishmentActive(player: any, type: PunishmentType): boolean {
+  const list = player?.punishments?.active || [];
+  return list.some(
+    (p: ActivePunishment) =>
+      p.type === type && new Date(p.expiresAt).getTime() > now().getTime()
+  );
+}
 
-                                                                              // ================= CORE =================
+export function isDelacaoActive(player: any): boolean {
+  const delacao = player?.punishments?.delacao;
+  if (!delacao?.active || !delacao?.expiresAt) return false;
+  return new Date(delacao.expiresAt).getTime() > now().getTime();
+}
 
-                                                                              const ALL_PUNISHMENTS: PunishmentType[] = [
-                                                                                'fiscal',
-                                                                                  'arsenal',
-                                                                                    'militia',
-                                                                                      'blitz',
-                                                                                        'threat',
-                                                                                        ];
+export function isMoneyLaunderingBlocked(player: any): boolean {
+  return isPunishmentActive(player, 'fiscal') || !!player?.punishments?.dirtyMoneyBlocked || isDelacaoActive(player);
+}
 
-                                                                                        // pega punição aleatória
-                                                                                        export function getRandomPunishment(): PunishmentType {
-                                                                                          return ALL_PUNISHMENTS[Math.floor(Math.random() * ALL_PUNISHMENTS.length)];
-                                                                                          }
+export function isArsenalBonusBlocked(player: any): boolean {
+  return isPunishmentActive(player, 'arsenal') || isDelacaoActive(player);
+}
 
-                                                                                          // aplica punição (24h)
-                                                                                          export function applyPunishment(player: any, type: PunishmentType) {
-                                                                                            const expiresAt = addHours(24);
+export function isLuxuryBonusBlocked(player: any): boolean {
+  return isPunishmentActive(player, 'militia') || isDelacaoActive(player);
+}
 
-                                                                                              const current = player?.punishments?.active || [];
+export function isSlotBlocked(player: any): boolean {
+  return isPunishmentActive(player, 'threat') || isDelacaoActive(player);
+}
 
-                                                                                                const newPunishment: ActivePunishment = {
-                                                                                                    type,
-                                                                                                        expiresAt,
-                                                                                                          };
+export function isPvpProtected(player: any): boolean {
+  const until = player?.punishments?.pvpProtectionUntil;
+  if (!until) return false;
+  return new Date(until).getTime() > now().getTime();
+}
 
-                                                                                                            return {
-                                                                                                                ...player,
-                                                                                                                    punishments: {
-                                                                                                                          ...player.punishments,
-                                                                                                                                active: [...current, newPunishment],
-                                                                                                                                    },
-                                                                                                                                      };
-                                                                                                                                      }
+export function isDirtyMoneyBlocked(player: any): boolean {
+  return !!player?.punishments?.dirtyMoneyBlocked && isDelacaoActive(player);
+}
 
-                                                                                                                                      // verifica se punição está ativa
-                                                                                                                                      export function isPunishmentActive(player: any, type: PunishmentType): boolean {
-                                                                                                                                        const list = player?.punishments?.active || [];
+export function isCleanMoneyBlocked(player: any): boolean {
+  return !!player?.punishments?.cleanMoneyBlocked && isDelacaoActive(player);
+}
 
-                                                                                                                                          return list.some((p: ActivePunishment) => {
-                                                                                                                                              return p.type === type && new Date(p.expiresAt) > now();
-                                                                                                                                                });
-                                                                                                                                                }
+export function isInventoryBlocked(player: any): boolean {
+  return !!player?.punishments?.inventoryBlocked && isDelacaoActive(player);
+}
 
-                                                                                                                                                // ================= DELAÇÃO PREMIADA =================
+export function isLevelProgressionBlocked(player: any): boolean {
+  return !!player?.punishments?.levelProgressionBlocked && isDelacaoActive(player);
+}
 
-                                                                                                                                                // aplica delação (72h)
-                                                                                                                                                export function applyDelacaoPremiada(player: any) {
-                                                                                                                                                  const expiresAt = addHours(72);
+export function getInventoryBonusReductionPercent(player: any): number {
+  if (!isDelacaoActive(player)) return 0;
+  return player?.punishments?.inventoryBonusReductionPercent || 0;
+}
 
-                                                                                                                                                    return {
-                                                                                                                                                        ...player,
-                                                                                                                                                            punishments: {
-                                                                                                                                                                  ...player.punishments,
+export function applyPunishment(player: any, type: PunishmentType) {
+  const expiresAt = addHours(24);
+  const current = player?.punishments?.active || [];
 
-                                                                                                                                                                        // bloqueios globais
-                                                                                                                                                                              delacao: {
-                                                                                                                                                                                      active: true,
-                                                                                                                                                                                              expiresAt,
-                                                                                                                                                                                                    },
+  const updated = {
+    ...player,
+    punishments: {
+      ...player.punishments,
+      active: [
+        ...current,
+        {
+          type,
+          expiresAt,
+        },
+      ],
+    },
+  };
 
-                                                                                                                                                                                                          // flags de bloqueio (tudo temporário)
-                                                                                                                                                                                                                inventoryBlocked: true,
-                                                                                                                                                                                                                      dirtyMoneyBlocked: true,
-                                                                                                                                                                                                                            cleanMoneyBlocked: true,
-                                                                                                                                                                                                                                  levelProgressionBlocked: true,
-                                                                                                                                                                                                                                        inventoryBonusReductionPercent: 100,
-                                                                                                                                                                                                                                              pvpProtectionUntil: expiresAt,
+  // Blitz é instantânea: perde o último veículo já na aplicação
+  if (type === 'blitz') {
+    const fugaVehicles = [...(updated?.fugaVehicles || [])];
+    if (fugaVehicles.length > 0) {
+      fugaVehicles.pop();
 
-                                                                                                                                                                                                                                                    // recompensa futura
-                                                                                                                                                                                                                                                          delacaoRewardPending: true,
-                                                                                                                                                                                                                                                                delacaoRewardUnlockAt: expiresAt,
-                                                                                                                                                                                                                                                                      pendingSkillBoost: 100,
-                                                                                                                                                                                                                                                                          },
-                                                                                                                                                                                                                                                                            };
-                                                                                                                                                                                                                                                                            }
+      return {
+        ...updated,
+        fugaVehicles,
+        punishments: {
+          ...updated.punishments,
+          lastVehicleLost: true,
+        },
+      };
+    }
+  }
 
-                                                                                                                                                                                                                                                                            // verifica se delação está ativa
-                                                                                                                                                                                                                                                                            export function isDelacaoActive(player: any): boolean {
-                                                                                                                                                                                                                                                                              const d = player?.punishments?.delacao;
+  return updated;
+}
 
-                                                                                                                                                                                                                                                                                if (!d) return false;
+export function applyDelacaoPremiada(player: any) {
+  const expiresAt = addHours(72);
 
-                                                                                                                                                                                                                                                                                  return new Date(d.expiresAt) > now();
-                                                                                                                                                                                                                                                                                  }
+  return {
+    ...player,
+    punishments: {
+      ...player.punishments,
+      delacao: {
+        active: true,
+        expiresAt,
+      },
+      inventoryBlocked: true,
+      dirtyMoneyBlocked: true,
+      cleanMoneyBlocked: true,
+      levelProgressionBlocked: true,
+      inventoryBonusReductionPercent: 100,
+      pvpProtectionUntil: expiresAt,
+      delacaoRewardPending: true,
+      delacaoRewardUnlockAt: expiresAt,
+      pendingSkillBoost: 100,
+    },
+  };
+}
 
-                                                                                                                                                                                                                                                                                  // ================= LIMPEZA AUTOMÁTICA =================
+export function clearExpiredPunishments(player: any) {
+  const updated = {
+    ...player,
+    punishments: {
+      ...(player?.punishments || {}),
+    },
+  };
 
-                                                                                                                                                                                                                                                                                  export function clearExpiredPunishments(player: any) {
-                                                                                                                                                                                                                                                                                    let updated = { ...player };
+  const activeList = updated?.punishments?.active || [];
+  updated.punishments.active = activeList.filter(
+    (p: ActivePunishment) => new Date(p.expiresAt).getTime() > now().getTime()
+  );
 
-                                                                                                                                                                                                                                                                                      const list = player?.punishments?.active || [];
+  const delacao = updated?.punishments?.delacao;
 
-                                                                                                                                                                                                                                                                                        // limpa punições normais
-                                                                                                                                                                                                                                                                                          const filtered = list.filter(
-                                                                                                                                                                                                                                                                                              (p: ActivePunishment) => new Date(p.expiresAt) > now()
-                                                                                                                                                                                                                                                                                                );
+  if (delacao?.active && delacao?.expiresAt) {
+    const expired = new Date(delacao.expiresAt).getTime() <= now().getTime();
 
-                                                                                                                                                                                                                                                                                                  updated.punishments = {
-                                                                                                                                                                                                                                                                                                      ...updated.punishments,
-                                                                                                                                                                                                                                                                                                          active: filtered,
-                                                                                                                                                                                                                                                                                                            };
+    if (expired) {
+      const skills = { ...(updated.skills || {}) };
 
-                                                                                                                                                                                                                                                                                                              // ================= DELAÇÃO =================
-                                                                                                                                                                                                                                                                                                                const delacao = updated?.punishments?.delacao;
+      Object.keys(skills).forEach((key) => {
+        skills[key] = (skills[key] || 0) + (updated?.punishments?.pendingSkillBoost || 0);
+      });
 
-                                                                                                                                                                                                                                                                                                                  if (delacao && new Date(delacao.expiresAt) <= now()) {
-                                                                                                                                                                                                                                                                                                                      // remove bloqueios
-                                                                                                                                                                                                                                                                                                                          updated.punishments.delacao.active = false;
+      updated.skills = skills;
 
-                                                                                                                                                                                                                                                                                                                              updated.punishments.inventoryBlocked = false;
-                                                                                                                                                                                                                                                                                                                                  updated.punishments.dirtyMoneyBlocked = false;
-                                                                                                                                                                                                                                                                                                                                      updated.punishments.cleanMoneyBlocked = false;
-                                                                                                                                                                                                                                                                                                                                          updated.punishments.levelProgressionBlocked = false;
-                                                                                                                                                                                                                                                                                                                                              updated.punishments.inventoryBonusReductionPercent = 0;
+      updated.punishments.delacao = {
+        active: false,
+        expiresAt: null,
+      };
 
-                                                                                                                                                                                                                                                                                                                                                  // aplica bônus de 100% nas skills
-                                                                                                                                                                                                                                                                                                                                                      if (updated.punishments.delacaoRewardPending) {
-                                                                                                                                                                                                                                                                                                                                                            const skills = { ...(updated.skills || {}) };
+      updated.punishments.inventoryBlocked = false;
+      updated.punishments.dirtyMoneyBlocked = false;
+      updated.punishments.cleanMoneyBlocked = false;
+      updated.punishments.levelProgressionBlocked = false;
+      updated.punishments.inventoryBonusReductionPercent = 0;
+      updated.punishments.pvpProtectionUntil = null;
+      updated.punishments.delacaoRewardPending = false;
+      updated.punishments.delacaoRewardUnlockAt = null;
+      updated.punishments.pendingSkillBoost = 0;
+    }
+  }
 
-                                                                                                                                                                                                                                                                                                                                                                  Object.keys(skills).forEach((key) => {
-                                                                                                                                                                                                                                                                                                                                                                          skills[key] = (skills[key] || 0) + 100;
-                                                                                                                                                                                                                                                                                                                                                                                });
-
-                                                                                                                                                                                                                                                                                                                                                                                      updated.skills = skills;
-
-                                                                                                                                                                                                                                                                                                                                                                                            updated.punishments.delacaoRewardPending = false;
-                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                  }
-
-                                                                                                                                                                                                                                                                                                                                                                                                    return updated;
-                                                                                                                                                                                                                                                                                                                                                                                                    }
-
-                                                                                                                                                                                                                                                                                                                                                                                                    // ================= HELPERS DE BLOQUEIO =================
-
-                                                                                                                                                                                                                                                                                                                                                                                                    export function isMoneyLaunderingBlocked(player: any) {
-                                                                                                                                                                                                                                                                                                                                                                                                      return isPunishmentActive(player, 'fiscal') || isDelacaoActive(player);
-                                                                                                                                                                                                                                                                                                                                                                                                      }
-
-                                                                                                                                                                                                                                                                                                                                                                                                      export function isArsenalBlocked(player: any) {
-                                                                                                                                                                                                                                                                                                                                                                                                        return isPunishmentActive(player, 'arsenal') || isDelacaoActive(player);
-                                                                                                                                                                                                                                                                                                                                                                                                        }
-
-                                                                                                                                                                                                                                                                                                                                                                                                        export function isLuxuryBlocked(player: any) {
-                                                                                                                                                                                                                                                                                                                                                                                                          return isPunishmentActive(player, 'militia') || isDelacaoActive(player);
-                                                                                                                                                                                                                                                                                                                                                                                                          }
-
-                                                                                                                                                                                                                                                                                                                                                                                                          export function isVehicleLost(player: any) {
-                                                                                                                                                                                                                                                                                                                                                                                                            return isPunishmentActive(player, 'blitz');
-                                                                                                                                                                                                                                                                                                                                                                                                            }
-
-                                                                                                                                                                                                                                                                                                                                                                                                            export function isSlotBlocked(player: any) {
-                                                                                                                                                                                                                                                                                                                                                                                                              return isPunishmentActive(player, 'threat') || isDelacaoActive(player);
-                                                                                                                                                                                                                                                                                                                                                                                                              }
+  return updated;
+}
