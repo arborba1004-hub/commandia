@@ -13,7 +13,7 @@ export default function GaleriaPage() {
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <motion.div
                 key={item}
-                className="w-full max-w-sm h-96 rounded-lg border border-white/20 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-primary hover:shadow-[0_0_20px_rgba(255,0,127,0.3)]"
+                className={`w-full max-w-sm h-96 rounded-lg border border-white/20 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-primary hover:shadow-[0_0_20px_rgba(255,0,127,0.3)] ${item === 1 ? 'relative overflow-hidden p-0' : ''}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: item * 0.1, duration: 0.5 }}
@@ -23,7 +23,7 @@ export default function GaleriaPage() {
                   <video
                     src="https://video.wixstatic.com/video/50f4bf_5c5ff0aa73984169aee6006f54c6643a/480p/mp4/file.mp4"
                     controls
-                    className="w-full h-full object-cover rounded-lg"
+                    className="absolute inset-0 w-full h-full object-cover rounded-lg"
                   />
                 ) : (
                   <>
