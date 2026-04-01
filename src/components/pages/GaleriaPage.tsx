@@ -19,11 +19,21 @@ export default function GaleriaPage() {
                 transition={{ delay: item * 0.1, duration: 0.5 }}
                 whileHover={{ scale: 1.02 }}
               >
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mb-4">
-                  <span className="text-3xl font-bold text-primary">{item}</span>
-                </div>
-                <h3 className="text-xl font-heading text-white mb-2">Item {item}</h3>
-                <p className="text-sm font-paragraph text-white/60 text-center">Descrição do item {item}</p>
+                {item === 1 ? (
+                  <video
+                    src="https://video.wixstatic.com/video/50f4bf_5c5ff0aa73984169aee6006f54c6643a/480p/mp4/file.mp4"
+                    controls
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                ) : (
+                  <>
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mb-4">
+                      <span className="text-3xl font-bold text-primary">{item}</span>
+                    </div>
+                    <h3 className="text-xl font-heading text-white mb-2">Item {item}</h3>
+                    <p className="text-sm font-paragraph text-white/60 text-center">Descrição do item {item}</p>
+                  </>
+                )}
               </motion.div>
             ))}
           </div>
