@@ -1,5 +1,11 @@
 import { create } from 'zustand';
 import { fetchCurrentPlayer, syncPlayerUpdate, hydratePlayerFromBackend } from '@/api/playerApi';
+import {
+  clearExpiredPunishments,
+  isMoneyLaunderingBlocked,
+  isDirtyMoneyBlocked,
+  isCleanMoneyBlocked,
+} from '@/services/punishmentService';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
@@ -83,6 +89,27 @@ type LaundryProgress = {
   dailyOperations: DailyOperation[];
 };
 
+type PunishmentsState = {
+  active: {
+    type: 'fiscal' | 'arsenal' | 'militia' | 'blitz' | 'threat';
+    expiresAt: string;
+  }[];
+  delacao: {
+    active: boolean;
+    expiresAt: string | null;
+  } | null;
+  inventoryBlocked: boolean;
+  dirtyMoneyBlocked: boolean;
+  cleanMoneyBlocked: boolean;
+  levelProgressionBlocked: boolean;
+  inventoryBonusReductionPercent: number;
+  pvpProtectionUntil: string | null;
+  delacaoRewardPending: boolean;
+  delacaoRewardUnlockAt: string | null;
+  pendingSkillBoost: number;
+  lastVehicleLost?: boolean;
+};
+
 export type PlayerState = {
   _id?: string;
   googleId?: string;
@@ -106,6 +133,8 @@ export type PlayerState = {
   barracoPosition: BarracoPosition;
 
   laundryProgress: LaundryProgress;
+
+  punishments: PunishmentsState;
 };
 
 type PlayerStore = {
@@ -234,6 +263,24 @@ const initialPlayer: PlayerState = {
     activeOperations: [],
     dailyOperations: [],
   },
+
+  punishments: {
+    active: [],
+    delacao: {
+      active: false,
+      expiresAt: null,
+    },
+    inventoryBlocked: false,
+    dirtyMoneyBlocked: false,
+    cleanMoneyBlocked: false,
+    levelProgressionBlocked: false,
+    inventoryBonusReductionPercent: 0,
+    pvpProtectionUntil: null,
+    delacaoRewardPending: false,
+    delacaoRewardUnlockAt: null,
+    pendingSkillBoost: 0,
+    lastVehicleLost: false,
+  },
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
@@ -278,6 +325,31 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
       activeOperations: incoming?.laundryProgress?.activeOperations || initialPlayer.laundryProgress.activeOperations,
       dailyOperations: incoming?.laundryProgress?.dailyOperations || initialPlayer.laundryProgress.dailyOperations,
     },
+
+    punishments: {
+      active: incoming?.punishments?.active || initialPlayer.punishments.active,
+      delacao: incoming?.punishments?.delacao || initialPlayer.punishments.delacao,
+      inventoryBlocked:
+        incoming?.punishments?.inventoryBlocked ?? initialPlayer.punishments.inventoryBlocked,
+      dirtyMoneyBlocked:
+        incoming?.punishments?.dirtyMoneyBlocked ?? initialPlayer.punishments.dirtyMoneyBlocked,
+      cleanMoneyBlocked:
+        incoming?.punishments?.cleanMoneyBlocked ?? initialPlayer.punishments.cleanMoneyBlocked,
+      levelProgressionBlocked:
+        incoming?.punishments?.levelProgressionBlocked ?? initialPlayer.punishments.levelProgressionBlocked,
+      inventoryBonusReductionPercent:
+        incoming?.punishments?.inventoryBonusReductionPercent ?? initialPlayer.punishments.inventoryBonusReductionPercent,
+      pvpProtectionUntil:
+        incoming?.punishments?.pvpProtectionUntil ?? initialPlayer.punishments.pvpProtectionUntil,
+      delacaoRewardPending:
+        incoming?.punishments?.delacaoRewardPending ?? initialPlayer.punishments.delacaoRewardPending,
+      delacaoRewardUnlockAt:
+        incoming?.punishments?.delacaoRewardUnlockAt ?? initialPlayer.punishments.delacaoRewardUnlockAt,
+      pendingSkillBoost:
+        incoming?.punishments?.pendingSkillBoost ?? initialPlayer.punishments.pendingSkillBoost,
+      lastVehicleLost:
+        incoming?.punishments?.lastVehicleLost ?? initialPlayer.punishments.lastVehicleLost,
+    },
   };
 }
 
@@ -302,7 +374,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       }
 
       const parsed = JSON.parse(stored);
-      const merged = mergePlayer(parsed);
+      const merged = clearExpiredPunishments(mergePlayer(parsed));
 
       set({
         player: merged,
@@ -458,6 +530,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   addDirtyMoney: (amount) => {
     const current = get().player;
 
+    if (isDirtyMoneyBlocked(current)) return;
+
     const updated = mergePlayer({
       ...current,
       balances: {
@@ -474,6 +548,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   removeDirtyMoney: (amount) => {
     const current = get().player;
 
+    if (isDirtyMoneyBlocked(current)) return;
+
     const updated = mergePlayer({
       ...current,
       balances: {
@@ -489,6 +565,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   removeDirtyMoneyPercent: (percent) => {
     const current = get().player;
+
+    if (isDirtyMoneyBlocked(current)) return;
+
     const loss = current.balances.dirtyMoney * (percent / 100);
 
     const updated = mergePlayer({
@@ -507,6 +586,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   addCleanMoney: (amount) => {
     const current = get().player;
 
+    if (isCleanMoneyBlocked(current)) return;
+
     const updated = mergePlayer({
       ...current,
       balances: {
@@ -522,6 +603,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   removeCleanMoney: (amount) => {
     const current = get().player;
+
+    if (isCleanMoneyBlocked(current)) return;
 
     const updated = mergePlayer({
       ...current,
@@ -758,6 +841,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   startLaundryOperation: (operation) => {
     const current = get().player;
+
+    if (isMoneyLaunderingBlocked(current)) {
+      return false;
+    }
+
     const { dirtyMoney } = current.balances;
 
     // Verifica se tem dinheiro sujo suficiente

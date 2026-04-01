@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Image } from '@/components/ui/image';
 import SafeVaultModal from '@/components/SafeVaultModal';
-import { getRandomPunishment, applyPunishment, applyDelacaoPremiada } from '@/Services/punishmentService';
+import { getRandomPunishment, applyPunishment, applyDelacaoPremiada } from '@/services/punishmentService';
 
 interface Authority {
   id: number;
@@ -246,7 +246,7 @@ function SubornoIlustradoPage() {
         // Delação premiada - aplica bloqueio de 72h
         const updated = applyDelacaoPremiada(player);
         setResultMessage(
-          'DELAÇÃO PREMIADA ACEITA!\n\nVocê fez a coisa certa... mas o preço a pagar é perder o que nunca foi seu.\n\nSeu status, progresso e itens foram completamente resetados por 72 horas.'
+          'DELAÇÃO PREMIADA ACEITA!\n\nVocê fez a coisa certa.\n\nSeus bens foram bloqueados por 72 horas, seu inventário perdeu os bônus temporariamente e seu dinheiro ficou indisponível.\n\nDurante esse período, você ficará sob proteção da Polícia Federal.\n\nAo final, receberá +100% em todas as habilidades.'
         );
         setPlayer(updated);
       } else {
