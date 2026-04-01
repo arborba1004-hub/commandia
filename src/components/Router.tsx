@@ -20,85 +20,86 @@ function Layout() {
   );
 }
 
-const router = createBrowserRouter([
+const router = createBrowserRouter(
+  [
+    {
+      path: "/",
+      element: <Layout />,
+      errorElement: <ErrorPage />,
+      children: [
+        {
+          index: true,
+          element: <HomePage />,
+          routeMetadata: {
+            pageIdentifier: 'home',
+          },
+        },
+        {
+          path: "galeria",
+          element: <GaleriaPage />,
+          routeMetadata: {
+            pageIdentifier: 'galeria',
+          },
+        },
+        {
+          path: "profile",
+          element: <ProfilePage />,
+          routeMetadata: {
+            pageIdentifier: 'profile',
+          },
+        },
+        {
+          path: "game",
+          element: <GamePage />,
+          routeMetadata: {
+            pageIdentifier: 'game',
+          },
+        },
+        {
+          path: "giro",
+          element: <GiroPage />,
+          routeMetadata: {
+            pageIdentifier: 'giro',
+          },
+        },
+        {
+          path: "luxuryshowroom",
+          element: <LuxuryshowroomPage />,
+          routeMetadata: {
+            pageIdentifier: 'luxuryshowroom',
+          },
+        },
+        {
+          path: "lavagem-de-dinheiro",
+          element: <LavagemDeDinheiroPage />,
+          routeMetadata: {
+            pageIdentifier: 'lavagem-de-dinheiro',
+          },
+        },
+        {
+          path: "suborno-ilustrado",
+          element: <SubornoIlustradoPage />,
+          routeMetadata: {
+            pageIdentifier: 'suborno-ilustrado',
+          },
+        },
+        {
+          path: "delacao-premiada",
+          element: <DelacaoPremiadaPage />,
+          routeMetadata: {
+            pageIdentifier: 'delacao-premiada',
+          },
+        },
+        {
+          path: "*",
+          element: <Navigate to="/" replace />,
+        },
+      ],
+    },
+  ],
   {
-    path: "/",
-    element: <Layout />,
-    errorElement: <ErrorPage />,
-    children: [
-      {
-        index: true,
-        element: <HomePage />,
-        routeMetadata: {
-          pageIdentifier: 'home',
-        },
-      },
-      {
-        path: "galeria",
-        element: <GaleriaPage />,
-        routeMetadata: {
-          pageIdentifier: 'galeria',
-        },
-      },
-      {
-        path: "profile",
-        element: <ProfilePage />,
-        routeMetadata: {
-          pageIdentifier: 'profile',
-        },
-      },
-      {
-        path: "game",
-        element: <GamePage />,
-        routeMetadata: {
-          pageIdentifier: 'game',
-        },
-      },
-      {
-        path: "giro",
-        element: <GiroPage />,
-        routeMetadata: {
-          pageIdentifier: 'giro',
-        },
-      },
-      {
-        path: "luxuryshowroom",
-        element: <LuxuryshowroomPage />,
-        routeMetadata: {
-          pageIdentifier: 'luxuryshowroom',
-        },
-      },
-      {
-        path: "lavagem-de-dinheiro",
-        element: <LavagemDeDinheiroPage />,
-        routeMetadata: {
-          pageIdentifier: 'lavagem-de-dinheiro',
-        },
-      },
-      {
-        path: "suborno-ilustrado",
-        element: <SubornoIlustradoPage />,
-        routeMetadata: {
-          pageIdentifier: 'suborno-ilustrado',
-        },
-      },
-      {
-        path: "delacao-premiada",
-        element: <DelacaoPremiadaPage />,
-        routeMetadata: {
-          pageIdentifier: 'delacao-premiada',
-        },
-      },
-      {
-        path: "*",
-        element: <Navigate to="/" replace />,
-      },
-    ],
-  },
-],
-{
-  basename: import.meta.env.BASE_NAME,
-}
+    basename: import.meta.env.BASE_NAME,
+  }
 );
 
 export default function AppRouter() {
