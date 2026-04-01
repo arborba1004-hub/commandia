@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
-import { getCollectionNameByLevel, getLuxuryPrice, getSkillByItemId } from '@/data/luxoItems';
+import { getCollectionNameByLevel, getLuxuryPrice, getLuxuryPriceWithInsurance, getSkillByItemId } from '@/data/luxoItems';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PurchaseInsuranceModal from '@/components/PurchaseInsuranceModal';
@@ -12,12 +12,14 @@ interface SelectedItem {
   id: number;
   name: string;
   price: number;
+  skillType?: string;
 }
 
 interface SkillBonus {
   type: 'with' | 'without';
   skillType: string;
   skillBonus: number;
+  skillBonusPercent: number;
 }
 
 export default function GaleriaPage() {
@@ -38,10 +40,12 @@ export default function GaleriaPage() {
 
   const handleBuyClick = (itemId: number) => {
     const itemName = `Item ${itemId}`;
+    const skillType = getSkillByItemId(itemId);
     setSelectedItem({
       id: itemId,
       name: itemName,
       price: getLuxuryPrice(barracoLevel),
+      skillType,
     });
     setShowInsuranceModal(true);
   };
@@ -50,13 +54,14 @@ export default function GaleriaPage() {
     if (!selectedItem) return;
     
     // Get the skill associated with this item (1% per level)
-    const skillType = getSkillByItemId(selectedItem.id);
-    const skillBonus = 1; // Fixed 1% per level
+    const skillType = selectedItem.skillType || getSkillByItemId(selectedItem.id);
+    const skillBonusPercent = 1; // Fixed 1% per level
     
     const bonus: SkillBonus = {
       type,
       skillType,
-      skillBonus,
+      skillBonus: skillBonusPercent,
+      skillBonusPercent,
     };
     setSkillBonus(bonus);
     setShowInsuranceModal(false);
@@ -66,24 +71,19 @@ export default function GaleriaPage() {
     setTimeout(() => {
       setIsProcessing(true);
       setTimeout(() => {
-        processTransaction(bonus);
+        processTransaction(bonus, type);
       }, 2000);
     }, 500);
   };
 
-  const processTransaction = (bonus: SkillBonus) => {
+  const processTransaction = (bonus: SkillBonus, insuranceType: 'with' | 'without') => {
     if (!selectedItem) return;
 
     const cleanMoneyBalance = player?.balances?.cleanMoney || 0;
-    const itemPrice = selectedItem.price;
-
-    // Check if player already has the item
-    const hasItem = player?.inventory?.items?.some(
-      (item: any) => item?.id === selectedItem.id || item?.itemId === selectedItem.id
-    );
+    const finalPrice = getLuxuryPriceWithInsurance(barracoLevel, insuranceType === 'with');
 
     // Check if player has enough clean money
-    if (cleanMoneyBalance < itemPrice) {
+    if (cleanMoneyBalance < finalPrice) {
       setIsProcessing(false);
       setShowCardModal(false);
       setPurchaseSuccess(false);
@@ -96,9 +96,9 @@ export default function GaleriaPage() {
       id: selectedItem.id,
       itemId: selectedItem.id,
       name: selectedItem.name,
-      price: itemPrice,
+      price: finalPrice,
       purchasedAt: new Date().toISOString(),
-      insurance: bonus.type === 'with',
+      insurance: insuranceType === 'with',
     };
 
     // Update player state
@@ -106,7 +106,7 @@ export default function GaleriaPage() {
       ...player,
       balances: {
         ...player.balances,
-        cleanMoney: cleanMoneyBalance - itemPrice,
+        cleanMoney: cleanMoneyBalance - finalPrice,
       },
       inventory: {
         ...player.inventory,
@@ -114,7 +114,7 @@ export default function GaleriaPage() {
       },
       skills: {
         ...player.skills,
-        [bonus.skillType]: (player.skills?.[bonus.skillType] || 0) + bonus.skillBonus,
+        [bonus.skillType]: (player.skills?.[bonus.skillType] || 0) + bonus.skillBonusPercent,
       },
     };
 
@@ -206,6 +206,8 @@ export default function GaleriaPage() {
         isOpen={showInsuranceModal}
         itemName={selectedItem?.name || ''}
         itemPrice={itemPrice}
+        skillType={selectedItem?.skillType || 'attack'}
+        playerLevel={barracoLevel}
         onSelect={handleInsuranceSelect}
         onClose={() => setShowInsuranceModal(false)}
       />
@@ -228,6 +230,7 @@ export default function GaleriaPage() {
         itemName={selectedItem?.name}
         skillBonus={skillBonus?.skillBonus}
         skillType={skillBonus?.skillType}
+        skillBonusPercent={skillBonus?.skillBonusPercent}
         onClose={handleCloseResult}
       />
 

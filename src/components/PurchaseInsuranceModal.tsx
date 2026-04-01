@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { getLuxuryPriceWithInsurance } from '@/data/luxoItems';
 
 interface InsuranceOption {
   type: 'with' | 'without';
@@ -7,12 +8,15 @@ interface InsuranceOption {
   description: string;
   skillBonus: number;
   skillType: string;
+  finalPrice: number;
 }
 
 interface PurchaseInsuranceModalProps {
   isOpen: boolean;
   itemName: string;
   itemPrice: number;
+  skillType: string;
+  playerLevel: number;
   onSelect: (type: 'with' | 'without') => void;
   onClose: () => void;
 }
@@ -21,23 +25,30 @@ export default function PurchaseInsuranceModal({
   isOpen,
   itemName,
   itemPrice,
+  skillType,
+  playerLevel,
   onSelect,
   onClose,
 }: PurchaseInsuranceModalProps) {
+  const priceWithInsurance = getLuxuryPriceWithInsurance(playerLevel, true);
+  const priceWithoutInsurance = getLuxuryPriceWithInsurance(playerLevel, false);
+  
   const insuranceOptions: InsuranceOption[] = [
     {
       type: 'with',
       label: 'Com Seguro',
-      description: 'Proteção contra perda do item',
-      skillBonus: 15,
-      skillType: 'defense',
+      description: 'Proteção contra perda do item (+10% no preço)',
+      skillBonus: 1,
+      skillType: skillType,
+      finalPrice: priceWithInsurance,
     },
     {
       type: 'without',
       label: 'Sem Seguro',
       description: 'Sem proteção adicional',
-      skillBonus: 10,
-      skillType: 'attack',
+      skillBonus: 1,
+      skillType: skillType,
+      finalPrice: priceWithoutInsurance,
     },
   ];
 
@@ -73,7 +84,7 @@ export default function PurchaseInsuranceModal({
             {/* Item Info */}
             <div className="mb-8 p-4 bg-white/5 border border-white/10 rounded-lg">
               <p className="text-white/80 font-paragraph">
-                Preço: <span className="text-primary font-heading text-lg">{itemPrice} Clean Money</span>
+                Preço Base: <span className="text-primary font-heading text-lg">{priceWithoutInsurance} Clean Money</span>
               </p>
             </div>
 
@@ -94,11 +105,11 @@ export default function PurchaseInsuranceModal({
                     {option.description}
                   </p>
                   <div className="pt-4 border-t border-white/10">
-                    <p className="text-sm text-white/70 font-paragraph">
-                      Bônus de Habilidade:
+                    <p className="text-sm text-white/70 font-paragraph mb-2">
+                      Preço: <span className="text-primary font-heading">{option.finalPrice} Clean Money</span>
                     </p>
-                    <p className="text-lg font-heading text-primary">
-                      +{option.skillBonus} {option.skillType}
+                    <p className="text-sm text-white/70 font-paragraph">
+                      Bônus: <span className="text-green-400 font-heading">+{option.skillBonus}% {option.skillType}</span>
                     </p>
                   </div>
                 </motion.button>

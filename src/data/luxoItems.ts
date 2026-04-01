@@ -190,11 +190,22 @@ export function getCollectionNameByLevel(level: number): string {
 export function getLuxuryPrice(level: number, _itemKey?: LuxuryItemKey): number {
   const safeLevel = Math.min(100, Math.max(1, Number(level) || 1));
 
-  // fórmula atual do arquivo original
+  // Level 1 = 120, subsequent levels = previous * 1.1
   const basePrice = 120;
   const price = basePrice * Math.pow(1.1, safeLevel - 1);
 
   return Number(price.toFixed(2));
+}
+
+export function getLuxuryPriceWithInsurance(level: number, withInsurance: boolean, _itemKey?: LuxuryItemKey): number {
+  const basePrice = getLuxuryPrice(level, _itemKey);
+  
+  if (withInsurance) {
+    // Add 10% for insurance
+    return Number((basePrice * 1.1).toFixed(2));
+  }
+  
+  return basePrice;
 }
 
 export function getSkillByItemId(itemId: number): SkillType {

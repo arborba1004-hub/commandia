@@ -7,6 +7,7 @@ interface PurchaseResultModalProps {
   itemName?: string;
   skillBonus?: number;
   skillType?: string;
+  skillBonusPercent?: number;
   onClose: () => void;
 }
 
@@ -16,6 +17,7 @@ export default function PurchaseResultModal({
   itemName,
   skillBonus,
   skillType,
+  skillBonusPercent,
   onClose,
 }: PurchaseResultModalProps) {
   return (
@@ -64,7 +66,7 @@ export default function PurchaseResultModal({
                   Você adquiriu <span className="text-primary font-heading">{itemName}</span>
                 </p>
                 <p className="text-white/70 font-paragraph text-sm">
-                  Bônus: <span className="text-green-400">+{skillBonus} {skillType}</span>
+                  Bônus: <span className="text-green-400">+{skillBonusPercent || skillBonus}% {skillType}</span>
                 </p>
               </motion.div>
             )}
