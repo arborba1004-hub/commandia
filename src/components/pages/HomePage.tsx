@@ -128,8 +128,8 @@ export default function HomePage() {
 
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('playerData', JSON.stringify(data.player));
-        loadPlayer();
-        window.location.href = '/giro';
+        await loadPlayer();
+        window.location.href = '/game';
 
       } catch (error) {
         const message =
