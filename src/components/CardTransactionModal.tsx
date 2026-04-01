@@ -1,5 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard } from 'lucide-react';
+import { usePlayerStore } from '@/store/playerStore';
+
+type TransactionStatus = 'idle' | 'processing' | 'success' | 'error';
 
 interface CardTransactionModalProps {
   isOpen: boolean;
@@ -12,94 +14,86 @@ export default function CardTransactionModal({
   isProcessing,
   onClose,
 }: CardTransactionModalProps) {
+  const player = usePlayerStore((state) => state.player);
+  
+  const getStatus = (): TransactionStatus => {
+    if (!isProcessing) return 'idle';
+    return 'processing';
+  };
+  
+  const status = getStatus();
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          {/* MAQUININHA */}
           <motion.div
-            className="relative w-full max-w-md mx-4 bg-gradient-to-br from-white/10 to-white/5 border border-primary/30 rounded-lg p-8 shadow-2xl"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.3 }}
+            initial={{ y: 80, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            className="relative w-[320px] h-[420px] bg-[#111] rounded-3xl border border-white/10 shadow-2xl flex flex-col items-center justify-start pt-6"
           >
-            {/* Header */}
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-heading text-primary mb-2">
-                Transação de Cartão
-              </h2>
-              <p className="text-white/70 font-paragraph">
-                Aproxime seu cartão para continuar
+            {/* TELA */}
+            <div className="w-[85%] h-[140px] bg-black rounded-xl border border-white/10 flex items-center justify-center text-center px-4">
+              <p className="text-white text-sm tracking-widest">
+                {status === 'idle' && 'APROXIME O CARTÃO'}
+                {status === 'processing' && 'PROCESSANDO...'}
+                {status === 'success' && 'TRANSAÇÃO APROVADA'}
+                {status === 'error' && 'SALDO INSUFICIENTE'}
               </p>
             </div>
 
-            {/* Card Animation */}
-            <div className="flex justify-center mb-12">
-              <motion.div
-                className="relative w-64 h-40 bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary rounded-xl flex items-center justify-center"
-                animate={{
-                  y: isProcessing ? [0, -10, 0] : 0,
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: isProcessing ? Infinity : 0,
-                }}
-              >
-                <motion.div
-                  animate={{
-                    scale: isProcessing ? [1, 1.1, 1] : 1,
-                    opacity: isProcessing ? [0.5, 1, 0.5] : 1,
-                  }}
-                  transition={{
-                    duration: 1.5,
-                    repeat: isProcessing ? Infinity : 0,
-                  }}
-                >
-                  <CreditCard size={64} className="text-primary" />
-                </motion.div>
-              </motion.div>
-            </div>
+            {/* SLOT DO CARTÃO */}
+            <div className="mt-8 w-[70%] h-[10px] bg-black rounded-full border border-white/10" />
 
-            {/* Processing Indicator */}
-            {isProcessing && (
-              <div className="flex justify-center mb-8">
-                <div className="flex gap-2">
-                  {[0, 1, 2].map((i) => (
-                    <motion.div
-                      key={i}
-                      className="w-2 h-2 bg-primary rounded-full"
-                      animate={{ scale: [1, 1.5, 1] }}
-                      transition={{
-                        duration: 0.8,
-                        delay: i * 0.2,
-                        repeat: Infinity,
-                      }}
-                    />
-                  ))}
-                </div>
+            {/* CARTÃO */}
+            <motion.div
+              initial={{ y: -120, opacity: 0, rotate: -8 }}
+              animate={
+                status === 'processing' || status === 'success' || status === 'error'
+                  ? { y: 40, opacity: 1, rotate: 0 }
+                  : { y: -120, opacity: 0 }
+              }
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="absolute top-[90px] w-[240px] h-[140px] rounded-2xl bg-gradient-to-br from-neutral-800 via-neutral-700 to-black shadow-[0_0_25px_rgba(255,255,255,0.15)] flex flex-col justify-between p-4"
+            >
+              {/* CHIP */}
+              <div className="w-10 h-7 bg-yellow-500 rounded-sm" />
+
+              {/* NOME PLAYER */}
+              <div className="text-white text-sm tracking-widest uppercase">
+                {player?.name || 'PLAYER'}
               </div>
-            )}
+            </motion.div>
 
-            {/* Status Text */}
-            <div className="text-center">
-              <p className="text-white/80 font-paragraph">
-                {isProcessing ? 'Processando transação...' : 'Aguardando cartão...'}
-              </p>
-            </div>
-
-            {/* Cancel Button */}
-            {!isProcessing && (
-              <motion.button
-                onClick={onClose}
-                className="mt-8 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-heading transition-all duration-300"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Cancelar
-              </motion.button>
-            )}
+            {/* LUZ DE FEEDBACK */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={
+                status === 'success'
+                  ? { opacity: 1, scale: 1 }
+                  : status === 'error'
+                  ? { opacity: 1, scale: 1 }
+                  : { opacity: 0 }
+              }
+              transition={{ duration: 0.3 }}
+              className={`absolute bottom-6 w-6 h-6 rounded-full ${
+                status === 'success'
+                  ? 'bg-green-500 shadow-[0_0_15px_rgba(0,255,120,0.8)]'
+                  : status === 'error'
+                  ? 'bg-red-500 shadow-[0_0_15px_rgba(255,0,0,0.8)]'
+                  : ''
+              }`}
+            />
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );
