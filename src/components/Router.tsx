@@ -9,6 +9,7 @@ import GiroPage from '@/components/pages/GiroPage';
 import LuxuryshowroomPage from '@/components/pages/LuxuryshowroomPage';
 import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
 import SubornoIlustradoPage from '@/components/pages/SubornoIlustradoPage';
+import DelacaoPremiadaPage from '@/components/pages/DelacaoPremiadaPage';
 
 function Layout() {
   return (
@@ -79,6 +80,13 @@ const router = createBrowserRouter([
         element: <SubornoIlustradoPage />,
         routeMetadata: {
           pageIdentifier: 'suborno-ilustrado',
+        },
+      },
+      {
+        path: "delacao-premiada",
+        element: <DelacaoPremiadaPage />,
+        routeMetadata: {
+          pageIdentifier: 'delacao-premiada',
         },
       },
       {
