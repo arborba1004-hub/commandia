@@ -173,7 +173,7 @@ export default function GaleriaPage() {
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <div key={item} className="w-full max-w-sm flex flex-col items-center">
                 <motion.div
-                  className={`w-full h-96 rounded-lg border border-white/20 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-primary hover:shadow-[0_0_20px_rgba(255,0,127,0.3)] ${item === 1 ? 'relative overflow-hidden p-0' : ''}`}
+                  className="w-full h-96 rounded-lg border border-white/20 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-primary hover:shadow-[0_0_20px_rgba(255,0,127,0.3)] relative overflow-hidden"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: item * 0.1, duration: 0.5 }}
