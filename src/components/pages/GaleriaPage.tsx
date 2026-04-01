@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import PurchaseInsuranceModal from '@/components/PurchaseInsuranceModal';
 import CardTransactionModal from '@/components/CardTransactionModal';
 import PurchaseResultModal from '@/components/PurchaseResultModal';
+import { getReducedInventoryBonus } from '@/utils/inventoryBonus';
 
 interface SelectedItem {
   id: number;
@@ -123,7 +124,7 @@ export default function GaleriaPage() {
       },
       skills: {
         ...player.skills,
-        [bonus.skillType]: Number(((player.skills?.[bonus.skillType] || 0) + bonus.skillBonusPercent).toFixed(2)),
+        [bonus.skillType]: Number(((player.skills?.[bonus.skillType] || 0) + getReducedInventoryBonus(bonus.skillBonusPercent, player)).toFixed(2)),
       },
     };
 

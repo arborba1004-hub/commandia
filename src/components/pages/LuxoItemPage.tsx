@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { getLuxurySystem } from '@/data/luxoItems';
+import { getReducedInventoryBonus } from '@/utils/inventoryBonus';
 
 const SHOWROOM_BG =
   'https://static.wixstatic.com/media/50f4bf_58cda01923cf4acda15fa4b54cebc965~mv2.png';
@@ -149,16 +150,19 @@ export default function LuxoItemPage() {
       sunglasses: 'Óculos',
     };
 
+    const baseBonus = getBonusByLevel(barracoLevel);
+    const reducedBonus = getReducedInventoryBonus(baseBonus, player);
+
     return {
       key: itemKey,
       name: itemNameFromQuery || found?.name || fallbackNameMap[itemKey] || 'Item',
       image: ITEM_IMAGE_BY_KEY[itemKey],
       price: getItemPrice(barracoLevel),
       bonusSkill: ITEM_SKILL_BY_KEY[itemKey] || 'respect',
-      bonusValue: getBonusByLevel(barracoLevel),
+      bonusValue: reducedBonus,
       id: `luxury-${itemKey}-${barracoLevel}`,
     };
-  }, [itemKey, itemNameFromQuery, luxurySystem, barracoLevel]);
+  }, [itemKey, itemNameFromQuery, luxurySystem, barracoLevel, player]);
 
   const alreadyOwned = inventoryItems.some((item: any) => item?.id === currentItem.id);
 
