@@ -17,7 +17,7 @@ export default function GaleriaPage() {
         <div className="max-w-[100rem] mx-auto w-full">
           {/* Letreiro da Coleção */}
           <motion.div
-            className="text-center mb-40"
+            className="text-center mb-40 mt-20"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
