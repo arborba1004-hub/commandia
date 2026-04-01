@@ -1,15 +1,35 @@
 import { motion } from 'framer-motion';
+import { usePlayerStore } from '@/store/playerStore';
+import { getCollectionNameByLevel } from '@/data/luxoItems';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
 export default function GaleriaPage() {
+  const player = usePlayerStore((state) => state.player);
+  const barracoLevel = player.niveis.barracoLevel;
+  const collectionName = getCollectionNameByLevel(barracoLevel);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden py-12 px-4">
+      <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden py-20 px-4">
         <div className="max-w-[100rem] mx-auto w-full">
-          <div className="grid grid-cols-2 gap-8 justify-items-center">
+          {/* Letreiro da Coleção */}
+          <motion.div
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="text-4xl font-heading text-primary tracking-widest">
+              Coleção {collectionName}
+            </h2>
+            <div className="w-24 h-1 bg-gradient-to-r from-transparent via-primary to-transparent mx-auto mt-4" />
+          </motion.div>
+
+          {/* Grid de Containers */}
+          <div className="grid grid-cols-2 gap-8 justify-items-center mt-12">
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <motion.div
                 key={item}
