@@ -60,8 +60,11 @@ export default function ArsenalPage() {
   const handleBuyWeapon = async () => {
     if (!selectedWeapon) return;
 
+    // Ensure inventory exists
+    const inventory = player?.inventory?.items || [];
+
     // Check if player already owns this weapon
-    const alreadyOwned = player?.inventory?.items?.some(
+    const alreadyOwned = inventory.some(
       (item: any) => item.level === selectedWeapon.level
     );
 
@@ -109,7 +112,7 @@ export default function ArsenalPage() {
   const handleNextWeapon = () => {
     if (!selectedWeapon) return;
     const currentIndex = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
-    if (currentIndex < availableWeapons.length - 1) {
+    if (currentIndex !== -1 && currentIndex < availableWeapons.length - 1) {
       setSelectedWeapon(availableWeapons[currentIndex + 1]);
     }
   };
@@ -117,7 +120,7 @@ export default function ArsenalPage() {
   const handlePrevWeapon = () => {
     if (!selectedWeapon) return;
     const currentIndex = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
-    if (currentIndex > 0) {
+    if (currentIndex > 0 && currentIndex !== -1) {
       setSelectedWeapon(availableWeapons[currentIndex - 1]);
     }
   };
