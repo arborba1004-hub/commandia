@@ -11,6 +11,7 @@ import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
 import SubornoIlustradoPage from '@/components/pages/SubornoIlustradoPage';
 import DelacaoPremiadaPage from '@/components/pages/DelacaoPremiadaPage';
 import ArsenalPage from '@/components/pages/ArsenalPage';
+import ArmasPage from '@/components/pages/ArmasPage';
 
 function Layout() {
   return (
@@ -67,6 +68,10 @@ const router = createBrowserRouter(
         {
           path: "arsenal",
           element: <ArsenalPage />,
+        },
+        {
+          path: "armas",
+          element: <ArmasPage />,
         },
         {
           path: "*",
