@@ -11,8 +11,7 @@ import { isDelacaoActive } from '@/services/punishmentService';
 export default function ArsenalPage() {
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
-  
-  // Show loading state while player is being loaded
+
   if (!isLoaded) {
     return (
       <div className="w-full min-h-screen bg-black flex flex-col">
@@ -43,7 +42,6 @@ export default function ArsenalPage() {
   const playerLevel = player.niveis?.barracoLevel || 1;
   const dirtyMoney = player.balances?.dirtyMoney || 0;
 
-  // Filter weapons by player level
   const availableWeapons = WEAPONS.filter((w) => w.level === playerLevel);
 
   useEffect(() => {
@@ -62,7 +60,6 @@ export default function ArsenalPage() {
 
   const handleShowWeapon = () => {
     if (!availableWeapons.length) return;
-
     setSelectedWeapon(availableWeapons[0]);
     setShowWeaponModal(true);
     setTransactionError(null);
@@ -71,20 +68,14 @@ export default function ArsenalPage() {
   const handleBuyWeapon = async () => {
     if (!selectedWeapon) return;
 
-    // Ensure inventory exists
     const inventory = player?.inventory?.items || [];
-
-    // Check if player already owns this weapon
-    const alreadyOwned = inventory.some(
-      (item: any) => item.level === selectedWeapon.level
-    );
+    const alreadyOwned = inventory.some((item: any) => item.level === selectedWeapon.level);
 
     if (alreadyOwned) {
       setTransactionError('Você já possui essa arma');
       return;
     }
 
-    // Check if player is blocked by delação
     if (isDelacaoActive(player)) {
       setTransactionError('Você está bloqueado pela delação');
       return;
@@ -96,11 +87,8 @@ export default function ArsenalPage() {
     }
 
     setIsProcessing(true);
-
-    // Simulate transaction processing
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Update player state with all changes in a single call
     const updated = {
       ...player,
       balances: {
@@ -130,7 +118,6 @@ export default function ArsenalPage() {
     };
 
     setPlayer(updated);
-
     setIsProcessing(false);
     setShowTransactionModal(false);
     setShowWeaponModal(false);
@@ -157,162 +144,163 @@ export default function ArsenalPage() {
     <div className="w-full min-h-screen bg-black overflow-hidden flex flex-col">
       <Header />
 
-      <div className="relative flex-1 w-full overflow-hidden">
-        {/* VIDEO */}
-        <video
-          ref={videoRef}
-          src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
-          autoPlay
-          muted
-          playsInline
-          className="w-[80%] h-full object-cover mx-auto"
-        />
+      {/* CONTAINER PRINCIPAL - VÍDEO CENTRALIZADO */}
+      <div className="relative flex-1 w-full flex items-center justify-center overflow-hidden bg-black">
+        <div className="relative w-[80%] max-w-[1200px] aspect-video mx-auto">
+          {/* VIDEO */}
+          <video
+            ref={videoRef}
+            src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-cover rounded-2xl shadow-2xl"
+          />
 
-        {/* DIALOG - RIGHT SIDE */}
-        <AnimatePresence>
-          {showDialog && (
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 max-w-xs"
-            >
-              <div className="bg-black border-2 border-black p-6 rounded-lg">
-                <p className="text-white font-paragraph text-base md:text-lg leading-relaxed">
-                  Olá {playerName}
+          {/* OVERLAY GRADIENT PARA MELHORAR LEGIBILIDADE */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-black/30 rounded-2xl pointer-events-none" />
+
+          {/* DIALOG - SEM BACKGROUND */}
+          <AnimatePresence>
+            {showDialog && (
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="absolute top-8 left-8 max-w-[320px] md:max-w-md z-20"
+              >
+                <div className="text-white font-paragraph text-base md:text-lg leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                  Olá <span className="text-primary font-bold">{playerName}</span>,
                   <br />
                   Vamos ver o que eu tenho pra você hoje...
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {/* BUTTON */}
-        <AnimatePresence>
-          {showButton && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4 }}
-              className="absolute right-4 bottom-8 z-30"
-            >
-              <button
-                onClick={handleShowWeapon}
-                disabled={!availableWeapons.length}
-                className="px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          {/* BOTÃO "EXIBIR ARMA" - DENTRO DO VÍDEO */}
+          <AnimatePresence>
+            {showButton && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="absolute bottom-8 right-8 z-30"
               >
-                Exibir Arma
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <button
+                  onClick={handleShowWeapon}
+                  disabled={!availableWeapons.length}
+                  className="px-10 py-4 bg-primary hover:bg-pink-600 text-white font-bold text-lg rounded-2xl transition-all duration-300 shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                >
+                  <span>EXIBIR ARMA</span>
+                  <span className="text-xl">→</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* WEAPON MODAL */}
+      {/* WEAPON MODAL - Mantido igual (só visual melhorado levemente) */}
       <AnimatePresence>
         {showWeaponModal && selectedWeapon && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.92, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-black border-2 border-white w-full max-w-2xl rounded-lg p-8 max-h-[90vh] overflow-y-auto"
+              exit={{ scale: 0.92, opacity: 0 }}
+              className="bg-black border border-white/30 w-full max-w-2xl rounded-3xl p-8 max-h-[92vh] overflow-y-auto shadow-2xl"
             >
-              {/* HEADER */}
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-white font-heading text-3xl">{selectedWeapon.name}</h2>
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-white font-heading text-4xl tracking-tight">{selectedWeapon.name}</h2>
                 <button
                   onClick={() => setShowWeaponModal(false)}
-                  className="text-white text-2xl hover:text-primary transition"
+                  className="text-white text-3xl hover:text-primary transition-colors"
                 >
                   ✕
                 </button>
               </div>
 
-              {/* 3D MODEL */}
-              <div className="w-full h-80 bg-gray-900 rounded-lg mb-6 flex items-center justify-center">
+              <div className="w-full h-80 bg-zinc-950 rounded-2xl mb-8 flex items-center justify-center overflow-hidden border border-white/10">
                 <Model3D modelUrl={selectedWeapon.glb} />
               </div>
 
-              {/* WEAPON INFO */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-gray-900 p-4 rounded-lg">
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-zinc-950 p-5 rounded-2xl border border-white/10">
                   <p className="text-gray-400 text-sm">Categoria</p>
-                  <p className="text-white font-bold text-lg capitalize">{selectedWeapon.category}</p>
+                  <p className="text-white font-bold text-xl capitalize mt-1">{selectedWeapon.category}</p>
                 </div>
-                <div className="bg-gray-900 p-4 rounded-lg">
+                <div className="bg-zinc-950 p-5 rounded-2xl border border-white/10">
                   <p className="text-gray-400 text-sm">Filtro</p>
-                  <p className="text-white font-bold text-lg">{selectedWeapon.filter}</p>
+                  <p className="text-white font-bold text-xl mt-1">{selectedWeapon.filter}</p>
                 </div>
               </div>
 
-              {/* BONUSES */}
-              <div className="bg-gray-900 p-4 rounded-lg mb-6">
-                <h3 className="text-white font-bold mb-3">Bônus de Habilidade</h3>
-                <div className="grid grid-cols-2 gap-4">
+              <div className="bg-zinc-950 p-6 rounded-2xl mb-8 border border-white/10">
+                <h3 className="text-white font-bold text-xl mb-4">Bônus de Habilidade</h3>
+                <div className="grid grid-cols-2 gap-6">
                   <div>
                     <p className="text-gray-400 text-sm">Ataque</p>
-                    <p className="text-primary font-bold text-xl">+{selectedWeapon.attackBonus}</p>
+                    <p className="text-primary font-bold text-3xl">+{selectedWeapon.attackBonus}</p>
                   </div>
                   <div>
                     <p className="text-gray-400 text-sm">Defesa</p>
-                    <p className="text-primary font-bold text-xl">+{selectedWeapon.defenseBonus}</p>
+                    <p className="text-primary font-bold text-3xl">+{selectedWeapon.defenseBonus}</p>
                   </div>
                 </div>
               </div>
 
-              {/* PRICE */}
-              <div className="bg-primary/20 border border-primary p-4 rounded-lg mb-6">
+              <div className="bg-gradient-to-br from-primary/10 to-transparent border border-primary/30 p-6 rounded-2xl mb-8">
                 <p className="text-gray-400 text-sm">Preço</p>
-                <p className="text-primary font-bold text-3xl">R$ {selectedWeapon.price.toLocaleString('pt-BR')}</p>
-                <p className="text-gray-400 text-xs mt-2">
-                  Saldo: R$ {dirtyMoney.toLocaleString('pt-BR')} {dirtyMoney < selectedWeapon.price && '(Insuficiente)'}
+                <p className="text-primary font-bold text-4xl mt-1">
+                  R$ {selectedWeapon.price.toLocaleString('pt-BR')}
+                </p>
+                <p className="text-gray-400 text-sm mt-3">
+                  Saldo atual: R$ {dirtyMoney.toLocaleString('pt-BR')}
+                  {dirtyMoney < selectedWeapon.price && ' • Insuficiente'}
                 </p>
               </div>
 
-              {/* NAVIGATION */}
               <div className="flex gap-4 mb-6">
                 <button
                   onClick={handlePrevWeapon}
-                  disabled={availableWeapons[0].level === selectedWeapon.level}
-                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  disabled={availableWeapons[0]?.level === selectedWeapon.level}
+                  className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-2xl transition disabled:opacity-50"
                 >
                   ← Anterior
                 </button>
                 <button
                   onClick={handleNextWeapon}
-                  disabled={availableWeapons[availableWeapons.length - 1].level === selectedWeapon.level}
-                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  disabled={availableWeapons[availableWeapons.length - 1]?.level === selectedWeapon.level}
+                  className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-2xl transition disabled:opacity-50"
                 >
                   Próxima →
                 </button>
               </div>
 
-              {/* BUTTONS */}
               <div className="flex gap-4">
                 <button
                   onClick={() => setShowWeaponModal(false)}
-                  className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition font-bold"
+                  className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-2xl transition"
                 >
                   Fechar
                 </button>
                 <button
                   onClick={() => setShowTransactionModal(true)}
                   disabled={dirtyMoney < selectedWeapon.price}
-                  className="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition font-bold"
+                  className="flex-1 py-4 bg-primary hover:bg-pink-600 text-white font-bold rounded-2xl transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Comprar
+                  COMPRAR ARMA
                 </button>
               </div>
 
               {transactionError && (
-                <div className="mt-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-400 text-sm">
+                <div className="mt-6 p-4 bg-red-500/10 border border-red-500/50 rounded-2xl text-red-400 text-center">
                   {transactionError}
                 </div>
               )}
@@ -321,7 +309,6 @@ export default function ArsenalPage() {
         )}
       </AnimatePresence>
 
-      {/* CARD TRANSACTION MODAL */}
       <CardTransactionModal
         isOpen={showTransactionModal}
         isProcessing={isProcessing}
@@ -332,11 +319,11 @@ export default function ArsenalPage() {
         onConfirm={handleBuyWeapon}
       />
 
-      {/* BACK TO GAME BUTTON */}
+      {/* BOTÃO VOLTAR */}
       <div className="fixed bottom-8 left-8 z-40">
         <button
           onClick={() => navigate('/game')}
-          className="px-6 py-3 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-600 transition"
+          className="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-2xl transition-all flex items-center gap-3 shadow-lg"
         >
           ← Voltar ao Game
         </button>
