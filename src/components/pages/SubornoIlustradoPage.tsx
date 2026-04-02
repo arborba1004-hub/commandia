@@ -137,7 +137,7 @@ const PUNISHMENTS: Punishment[] = [
   },
 ];
 
-function SubornoIlustradoPage() {
+export default function SubornoIlustradoPage() {
   const navigate = useNavigate();
   const { player, setPlayer } = usePlayerStore();
   const [showVaultModal, setShowVaultModal] = useState(false);
@@ -443,5 +443,3 @@ function SubornoIlustradoPage() {
     </div>
   );
 }
-
-export default SubornoIlustradoPage;
