@@ -318,7 +318,6 @@ export default function GiroPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {doublePoliceOpen && (
           <motion.div
@@ -339,7 +338,6 @@ export default function GiroPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {prisonOpen && (
           <motion.div
@@ -374,7 +372,6 @@ export default function GiroPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {jackpotOpen && (
           <motion.div
@@ -401,7 +398,6 @@ export default function GiroPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
       <div className="absolute top-24 left-4 md:left-6 z-20 flex gap-3">
         <button
           onClick={() => navigate('/')}
@@ -418,7 +414,6 @@ export default function GiroPage() {
           Voltar
         </button>
       </div>
-
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-28 pb-14 px-4 md:px-6">
         <Image src={MACHINE_BG} alt="Máquina Giro no Asfalto" className="absolute inset-0 h-full w-full object-cover brightness-105 contrast-110" />
         <div className="absolute inset-0 bg-black/35" />
@@ -467,6 +462,13 @@ export default function GiroPage() {
               </div>
               <div className="absolute left-1/2 top-[71.5%] w-[72%] -translate-x-1/2">
                 <div className="rounded-[28px] border border-yellow-500/35 bg-black/72 p-4 shadow-[0_0_35px_rgba(255,200,0,0.15)] backdrop-blur-md">
+                  <button
+                    onClick={handleSpin}
+                    disabled={!canSpin}
+                    className="w-full rounded-2xl bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-500 px-4 py-3 text-sm md:text-base font-black uppercase tracking-[0.24em] text-black transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {spinning ? `RODANDO x${multiplier}` : `GIRAR x${multiplier}`}
+                  </button>
                   <div className="mb-3 grid grid-cols-3 gap-2">
                     <div className="rounded-2xl border border-red-500/20 bg-red-900/25 p-2 text-center">
                       <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Sujo</p>
@@ -481,7 +483,13 @@ export default function GiroPage() {
                       <p className="mt-1 text-xs md:text-sm font-bold text-cyan-200">{corre.toLocaleString('pt-BR')}</p>
                     </div>
                   </div>
-                  <div className="mb-3 flex flex-wrap justify-center gap-2">
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-center">
+                    <div className="inline-flex items-center gap-2 text-yellow-300">
+                      <Coins className="h-4 w-4" />
+                      <span className="text-[11px] md:text-sm font-semibold leading-relaxed">{message}</span>
+                    </div>
+                  </div>
+                <div className="mb-3 flex flex-wrap justify-center gap-2">
                     {MULTIPLIERS.map((value) => (
                       <button
                         key={value}
@@ -497,20 +505,7 @@ export default function GiroPage() {
                       </button>
                     ))}
                   </div>
-                  <button
-                    onClick={handleSpin}
-                    disabled={!canSpin}
-                    className="w-full rounded-2xl bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-500 px-4 py-3 text-sm md:text-base font-black uppercase tracking-[0.24em] text-black transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    {spinning ? `RODANDO x${multiplier}` : `GIRAR x${multiplier}`}
-                  </button>
-                  <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-center">
-                    <div className="inline-flex items-center gap-2 text-yellow-300">
-                      <Coins className="h-4 w-4" />
-                      <span className="text-[11px] md:text-sm font-semibold leading-relaxed">{message}</span>
-                    </div>
                   </div>
-                </div>
               </div>
             </div>
           </div>
