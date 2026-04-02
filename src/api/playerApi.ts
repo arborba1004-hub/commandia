@@ -132,6 +132,19 @@ export async function laundryComplete(operationId: string): Promise<{ player: Pl
   });
 }
 
+/**
+ * Verifica se o jogador pode realizar uma operação de lavagem hoje
+ * Endpoint: GET /laundry/can-operate/{businessId}
+ * 
+ * Backend consulta lastOperationDate e número de operações por dia (UTC).
+ * Retorna se o jogador pode operar neste negócio hoje.
+ */
+export async function canOperateLaundry(businessId: number): Promise<{ allowed: boolean }> {
+  return makeRequest<{ allowed: boolean }>(`/laundry/can-operate/${businessId}`, {
+    method: 'GET',
+  });
+}
+
 // ==========================================
 // ARSENAL ENDPOINTS (ESPECÍFICOS - FUTUROS)
 // ==========================================

@@ -138,34 +138,38 @@ export default function LavagemDeDinheiroPage() {
     const business = businesses.find(b => b.id === businessId);
     if (!business) return;
 
-    // Verifica se pode operar hoje (máximo 1 operação por dia por negócio)
-    if (!canOperateLaundryToday(businessId, 1)) {
-      alert('Você já realizou uma operação neste comércio hoje. Volte amanhã!');
-      return;
-    }
-
-    // Apply level multiplier to values
-    const scaledMoney = business.initialMoney * levelMultiplier;
-    
-    // Validação: verifica se o jogador possui dirtyMoney suficiente ANTES de iniciar
-    if (dirtyMoney < scaledMoney) {
-      alert('Você não tem dinheiro sujo suficiente.');
-      return;
-    }
-
-    // Calculate values
-    const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
-    const fee = (scaledMoney * business.feePercentage) / 100;
-    const netAmount = scaledMoney - fee;
-
-    // Trigger animation
-    setAnimatingBusinessId(businessId);
-    setTimeout(() => setAnimatingBusinessId(null), 2000);
-
     // Marca como processando
     setIsProcessing(business.id.toString());
 
     try {
+      // Verifica se pode operar hoje (máximo 1 operação por dia por negócio)
+      // Chamada assíncrona ao backend para validar limite diário
+      const canOperate = await canOperateLaundryToday(businessId);
+      if (!canOperate) {
+        alert('Você já realizou uma operação neste comércio hoje. Volte amanhã!');
+        setIsProcessing(null);
+        return;
+      }
+
+      // Apply level multiplier to values
+      const scaledMoney = business.initialMoney * levelMultiplier;
+      
+      // Validação: verifica se o jogador possui dirtyMoney suficiente ANTES de iniciar
+      if (dirtyMoney < scaledMoney) {
+        alert('Você não tem dinheiro sujo suficiente.');
+        setIsProcessing(null);
+        return;
+      }
+
+      // Calculate values
+      const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
+      const fee = (scaledMoney * business.feePercentage) / 100;
+      const netAmount = scaledMoney - fee;
+
+      // Trigger animation
+      setAnimatingBusinessId(businessId);
+      setTimeout(() => setAnimatingBusinessId(null), 2000);
+
       // Inicia a operação no backend
       // Backend valida saldo, calcula tempo, retorna operationId e endsAt
       const now = new Date();
@@ -248,7 +252,7 @@ export default function LavagemDeDinheiroPage() {
               const { scaledMoney, scaledTime, fee, netAmount } = getScaledValues(business);
               const activeOp = getActiveOperation(business.id);
               const timeRemaining = timerStates[business.id] ?? 0;
-              const canOperate = canOperateLaundryToday(business.id, 1);
+              const hasActiveOp = !!activeOp;
               
               return (
                 <motion.div
@@ -307,14 +311,10 @@ export default function LavagemDeDinheiroPage() {
                         </p>
                       </div>
 
-                      {/* Daily Operation Status */}
-                      {canOperate ? (
+                      {/* Daily Operation Status - Validado no backend */}
+                      {!hasActiveOp && (
                         <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
                           <p className="text-xs text-blue-400 uppercase tracking-wider font-bold">✓ Disponível Hoje</p>
-                        </div>
-                      ) : (
-                        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded">
-                          <p className="text-xs text-red-400 uppercase tracking-wider font-bold">✗ Já Operou Hoje</p>
                         </div>
                       )}
 
@@ -346,16 +346,14 @@ export default function LavagemDeDinheiroPage() {
                           e.stopPropagation();
                           handleLaunder(business.id);
                         }}
-                        disabled={!!activeOp || !canOperate || isProcessing === business.id.toString()}
+                        disabled={!!activeOp || isProcessing === business.id.toString()}
                         className="w-full bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-2 rounded"
                       >
                         {isProcessing === business.id.toString()
                           ? 'Iniciando...'
                           : activeOp 
                           ? `Processando... (${timeRemaining}s)`
-                          : canOperate
-                          ? `Lavar R$ ${scaledMoney.toFixed(2)}`
-                          : 'Já Operou Hoje'
+                          : `Lavar R$ ${scaledMoney.toFixed(2)}`
                         }
                       </Button>
                     </div>
@@ -371,7 +369,6 @@ export default function LavagemDeDinheiroPage() {
           const { scaledMoney, scaledTime, fee, netAmount } = getScaledValues(selectedBusiness);
           const activeOp = getActiveOperation(selectedBusiness.id);
           const timeRemaining = timerStates[selectedBusiness.id] ?? 0;
-          const canOperate = canOperateLaundryToday(selectedBusiness.id, 1);
           
           return (
             <motion.div
@@ -491,16 +488,14 @@ export default function LavagemDeDinheiroPage() {
                       onClick={() => {
                         handleLaunder(selectedBusiness.id);
                       }}
-                      disabled={!!activeOp || !canOperate || isProcessing === selectedBusiness.id.toString()}
+                      disabled={!!activeOp || isProcessing === selectedBusiness.id.toString()}
                       className="flex-1 bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-3 rounded text-lg"
                     >
                       {isProcessing === selectedBusiness.id.toString()
                         ? 'Iniciando...'
                         : activeOp 
                         ? `Processando... (${timeRemaining}s)`
-                        : canOperate
-                        ? `Lavar R$ ${scaledMoney.toFixed(2)}`
-                        : 'Já Operou Hoje'
+                        : `Lavar R$ ${scaledMoney.toFixed(2)}`
                       }
                     </Button>
                     <Button

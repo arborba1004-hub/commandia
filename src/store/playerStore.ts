@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { fetchCurrentPlayer, syncPlayerUpdate, hydratePlayerFromBackend, laundryStart, laundryComplete } from '@/api/playerApi';
+import { fetchCurrentPlayer, syncPlayerUpdate, hydratePlayerFromBackend, laundryStart, laundryComplete, canOperateLaundry } from '@/api/playerApi';
 import {
   clearExpiredPunishments,
   isMoneyLaunderingBlocked,
@@ -201,7 +201,7 @@ type PlayerStore = {
   completeLaundryOperation: (operationId: string) => Promise<boolean>;
   hydrateLaundryProgress: () => void;
   clearFinishedLaundryOperations: () => void;
-  canOperateLaundryToday: (businessId: number, maxPerDay: number) => boolean;
+  canOperateLaundryToday: (businessId: number) => Promise<boolean>;
 };
 
 const initialPlayer: PlayerState = {
@@ -983,15 +983,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     get().scheduleSync();
   },
 
-  canOperateLaundryToday: (businessId, maxPerDay) => {
-    const current = get().player;
-    const today = new Date().toISOString().split('T')[0];
-
-    // Conta quantas operações foram completadas hoje para este negócio
-    const operationsToday = current.laundryProgress.dailyOperations.filter(
-      (op) => op.businessId === businessId && op.date === today
-    ).length;
-
-    return operationsToday < maxPerDay;
+  canOperateLaundryToday: async (businessId) => {
+    try {
+      // Consulta o backend para verificar se pode operar hoje
+      // Backend valida lastOperationDate e número de operações por dia (UTC)
+      const result = await canOperateLaundry(businessId);
+      return result.allowed;
+    } catch (error) {
+      console.error('Erro ao verificar limite diário de lavagem:', error);
+      // Em caso de erro, assume que pode operar (fallback seguro)
+      return true;
+    }
   },
 }));
