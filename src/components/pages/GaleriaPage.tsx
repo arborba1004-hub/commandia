@@ -26,8 +26,8 @@ interface SkillBonus {
 export default function GaleriaPage() {
   const player = usePlayerStore((state) => state.player);
   const setPlayer = usePlayerStore((state) => state.setPlayer);
-  const barracoLevel = player?.niveis?.barracoLevel || 1;
-  const collectionName = getCollectionNameByLevel(barracoLevel);
+  const playerLevel = player?.niveis?.playerLevel || 1;
+  const collectionName = getCollectionNameByLevel(playerLevel);
 
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
   const [showInsuranceModal, setShowInsuranceModal] = useState(false);
@@ -38,7 +38,7 @@ export default function GaleriaPage() {
   const [skillBonus, setSkillBonus] = useState<SkillBonus | null>(null);
   const [insuranceType, setInsuranceType] = useState<'with' | 'without'>('without');
 
-  const itemPrice = selectedItem ? getLuxuryPrice(barracoLevel) : 0;
+  const itemPrice = selectedItem ? getLuxuryPrice(playerLevel) : 0;
 
   const handleBuyClick = (itemId: number) => {
     const itemName = `Item ${itemId}`;
@@ -46,7 +46,7 @@ export default function GaleriaPage() {
     setSelectedItem({
       id: itemId,
       name: itemName,
-      price: getLuxuryPrice(barracoLevel),
+      price: getLuxuryPrice(playerLevel),
       skillType,
     });
     setShowInsuranceModal(true);
@@ -55,7 +55,6 @@ export default function GaleriaPage() {
   const handleInsuranceSelect = (type: 'with' | 'without') => {
     if (!selectedItem) return;
     
-    // Get the skill associated with this item (1% per level)
     const skillType = selectedItem.skillType || getSkillByItemId(selectedItem.id);
     const skillBonusPercent = 1; // Fixed 1% per level
     
@@ -72,13 +71,11 @@ export default function GaleriaPage() {
   };
 
   const processTransaction = (bonus: SkillBonus, insuranceType: 'with' | 'without') => {
-    // Validate player and item exist
     if (!player || !selectedItem) return;
 
     const cleanMoneyBalance = player?.balances?.cleanMoney || 0;
-    const finalPrice = getLuxuryPriceWithInsurance(barracoLevel, insuranceType === 'with');
+    const finalPrice = getLuxuryPriceWithInsurance(playerLevel, insuranceType === 'with');
 
-    // Check if player has enough clean money
     if (cleanMoneyBalance < finalPrice) {
       setIsProcessing(false);
       setShowCardModal(false);
@@ -87,9 +84,8 @@ export default function GaleriaPage() {
       return;
     }
 
-    // Check if item already owned (prevent duplicate purchase)
     const alreadyOwned = (player?.inventory?.items || []).some(
-      (item) => item.itemId === selectedItem.id && item.level === barracoLevel
+      (item) => item.itemId === selectedItem.id && item.level === playerLevel
     );
     
     if (alreadyOwned) {
@@ -100,18 +96,16 @@ export default function GaleriaPage() {
       return;
     }
 
-    // Create new item with unique ID combining itemId, level, and timestamp
     const newItem = {
-      id: `${selectedItem.id}-${barracoLevel}-${Date.now()}`,
+      id: `${selectedItem.id}-${playerLevel}-${Date.now()}`,
       itemId: selectedItem.id,
       name: selectedItem.name,
       price: finalPrice,
       purchasedAt: new Date().toISOString(),
       insurance: insuranceType === 'with',
-      level: barracoLevel,
+      level: playerLevel,
     };
 
-    // Update player state
     const updatedPlayer = {
       ...player,
       balances: {
@@ -145,7 +139,6 @@ export default function GaleriaPage() {
   const handleCardConfirm = () => {
     if (!skillBonus) return;
     setIsProcessing(true);
-    // Process transaction immediately when card is tapped
     setTimeout(() => {
       processTransaction(skillBonus, insuranceType);
     }, 1500);
@@ -157,7 +150,6 @@ export default function GaleriaPage() {
 
       <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden py-20 px-4">
         <div className="max-w-[100rem] mx-auto w-full">
-          {/* Letreiro da Coleção */}
           <motion.div
             className="text-center mb-40 mt-20"
             initial={{ opacity: 0, y: -20 }}
@@ -170,7 +162,6 @@ export default function GaleriaPage() {
             <div className="w-24 h-1 bg-gradient-to-r from-transparent via-primary to-transparent mx-auto mt-4" />
           </motion.div>
 
-          {/* Grid de Containers */}
           <div className="grid grid-cols-2 gap-8 justify-items-center mt-12">
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <div key={item} className="w-full max-w-sm flex flex-col items-center">
@@ -219,7 +210,6 @@ export default function GaleriaPage() {
                   )}
                 </motion.div>
                 
-                {/* Espaço simétrico e botão comprar */}
                 <motion.div
                   className="mt-6 w-full flex justify-center"
                   initial={{ opacity: 0 }}
@@ -239,13 +229,12 @@ export default function GaleriaPage() {
         </div>
       </main>
 
-      {/* Modals */}
       <PurchaseInsuranceModal
         isOpen={showInsuranceModal}
         itemName={selectedItem?.name || ''}
         itemPrice={itemPrice}
         skillType={selectedItem?.skillType || 'attack'}
-        playerLevel={barracoLevel}
+        playerLevel={playerLevel}
         onSelect={handleInsuranceSelect}
         onClose={() => setShowInsuranceModal(false)}
       />
