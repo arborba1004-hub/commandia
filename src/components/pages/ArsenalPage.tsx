@@ -29,7 +29,6 @@ export default function ArsenalPage() {
     .filter((w) => w.level <= playerLevel)
     .sort((a, b) => a.level - b.level);
 
-  // Vídeo simples
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -53,13 +52,73 @@ export default function ArsenalPage() {
     }
     setSelectedWeapon(availableWeapons[0]);
     setShowWeaponModal(true);
+    setTransactionError(null);
   };
 
   const handleBuyWeapon = async () => {
     if (!selectedWeapon) return;
-    alert("Compra simulada - arma comprada!"); // teste rápido
+
+    const inventory = player?.inventory?.items || [];
+    const alreadyOwned = inventory.some((item: any) => item.level === selectedWeapon.level);
+
+    if (alreadyOwned) {
+      setTransactionError('Você já possui essa arma');
+      return;
+    }
+
+    if (isDelacaoActive(player)) {
+      setTransactionError('Você está bloqueado pela delação');
+      return;
+    }
+
+    if (dirtyMoney < selectedWeapon.price) {
+      setTransactionError('Saldo insuficiente');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    // Simula processamento (2 segundos)
+    await new Promise(resolve => setTimeout(resolve, 1800));
+
+    const updated = {
+      ...player,
+      balances: {
+        ...player.balances,
+        dirtyMoney: player.balances.dirtyMoney - selectedWeapon.price,
+      },
+      inventory: {
+        ...player.inventory,
+        items: [
+          ...(player.inventory?.items || []),
+          {
+            id: crypto.randomUUID(),
+            name: selectedWeapon.name,
+            level: selectedWeapon.level,
+            category: selectedWeapon.category,
+            price: selectedWeapon.price,
+            attackBonus: selectedWeapon.attackBonus,
+            defenseBonus: selectedWeapon.defenseBonus,
+          },
+        ],
+      },
+      skills: {
+        ...player.skills,
+        attack: (player.skills?.attack || 0) + selectedWeapon.attackBonus,
+        defense: (player.skills?.defense || 0) + selectedWeapon.defenseBonus,
+      },
+    };
+
+    setPlayer(updated);
+
+    // Fecha tudo
+    setIsProcessing(false);
     setShowTransactionModal(false);
     setShowWeaponModal(false);
+    setTransactionError(null);
+
+    // Feedback de sucesso
+    alert(`✅ Arma ${selectedWeapon.name} comprada com sucesso!`);
   };
 
   return (
@@ -78,7 +137,7 @@ export default function ArsenalPage() {
 
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/90" />
 
-        {/* Diálogo + Botão */}
+        {/* Diálogo + Botão principal */}
         <div className="absolute bottom-12 left-6 right-6 z-50">
           {showDialog && (
             <div className="mb-6 text-white text-2xl drop-shadow-2xl">
@@ -98,32 +157,59 @@ export default function ArsenalPage() {
         </div>
       </div>
 
-      {/* MODAL MAIS SIMPLES POSSÍVEL */}
+      {/* MODAL DA ARMA */}
       {showWeaponModal && selectedWeapon && (
-        <div className="fixed inset-0 z-[99999] bg-black flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center p-6">
           <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-md p-8 text-white">
             <div className="flex justify-between items-start mb-6">
               <h2 className="text-3xl font-bold">{selectedWeapon.name}</h2>
               <button 
                 onClick={() => setShowWeaponModal(false)}
-                className="text-4xl leading-none"
+                className="text-4xl leading-none text-gray-400 hover:text-white"
               >
                 ✕
               </button>
             </div>
 
-            <p className="text-lg mb-8">Preço: R$ {selectedWeapon.price.toLocaleString('pt-BR')}</p>
+            <div className="space-y-6 mb-8">
+              <div>
+                <p className="text-gray-400 text-sm">Preço</p>
+                <p className="text-3xl font-bold text-primary">
+                  R$ {selectedWeapon.price.toLocaleString('pt-BR')}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-gray-400 text-sm">Seu saldo</p>
+                <p className="text-xl">
+                  R$ {dirtyMoney.toLocaleString('pt-BR')}
+                  {dirtyMoney < selectedWeapon.price && (
+                    <span className="text-red-400"> (Insuficiente)</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {transactionError && (
+              <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-2xl text-red-400 text-center">
+                {transactionError}
+              </div>
+            )}
 
             <div className="flex gap-4">
               <button
-                onClick={() => setShowWeaponModal(false)}
-                className="flex-1 py-4 bg-gray-700 rounded-2xl text-lg"
+                onClick={() => {
+                  setShowWeaponModal(false);
+                  setTransactionError(null);
+                }}
+                className="flex-1 py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600"
               >
                 Fechar
               </button>
               <button
                 onClick={() => setShowTransactionModal(true)}
-                className="flex-1 py-4 bg-primary rounded-2xl text-lg font-bold"
+                disabled={dirtyMoney < selectedWeapon.price || isProcessing}
+                className="flex-1 py-4 bg-primary rounded-2xl text-lg font-bold active:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 COMPRAR
               </button>
@@ -132,10 +218,14 @@ export default function ArsenalPage() {
         </div>
       )}
 
+      {/* Modal de Confirmação de Transação */}
       <CardTransactionModal
         isOpen={showTransactionModal}
         isProcessing={isProcessing}
-        onClose={() => setShowTransactionModal(false)}
+        onClose={() => {
+          setShowTransactionModal(false);
+          setTransactionError(null);
+        }}
         onConfirm={handleBuyWeapon}
       />
 
