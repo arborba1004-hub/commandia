@@ -39,7 +39,6 @@ export default function ArsenalPage() {
   const dirtyMoney = player?.balances?.dirtyMoney || 0;
   const costReductionPercent = getArsenalCostReduction();
 
-  // Arma correspondente ao nível do jogador
   const currentWeapon = WEAPONS.find(w => w.level === playerLevel) || WEAPONS[playerLevel - 1];
   const finalPrice = currentWeapon ? Math.floor(currentWeapon.price * (1 - costReductionPercent / 100)) : 0;
 
@@ -66,23 +65,28 @@ export default function ArsenalPage() {
   const handleBuyWeapon = async () => {
     if (!currentWeapon) return;
 
+    // Verificações antes de abrir o modal (já feitas no modal, mas reforça)
     const inventory = player?.inventory?.items || [];
     const alreadyOwned = inventory.some((item: any) => item.level === currentWeapon.level);
     if (alreadyOwned) {
       setTransactionError('Você já possui essa arma');
+      setShowVaultModal(false);
       return;
     }
     if (isDelacaoActive(player)) {
       setTransactionError('Você está bloqueado pela delação');
+      setShowVaultModal(false);
       return;
     }
-
     if (dirtyMoney < finalPrice) {
       setTransactionError('Saldo insuficiente');
+      setShowVaultModal(false);
       return;
     }
 
     setIsProcessing(true);
+
+    // Simula processamento (substituir por chamada backend depois)
     await new Promise(resolve => setTimeout(resolve, 1800));
 
     const newItem = {
@@ -117,7 +121,11 @@ export default function ArsenalPage() {
     setShowVaultModal(false);
     setShowWeaponModal(false);
     setTransactionError(null);
-    navigate('/game');
+    
+    // Pequeno delay para o modal fechar suavemente
+    setTimeout(() => {
+      navigate('/game');
+    }, 500);
   };
 
   return (
@@ -198,12 +206,22 @@ export default function ArsenalPage() {
 
             <div className="flex gap-4">
               <button onClick={() => setShowWeaponModal(false)} className="flex-1 py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600">Voltar</button>
-              <button onClick={() => setShowVaultModal(true)} disabled={dirtyMoney < finalPrice || isProcessing} className="flex-1 py-4 bg-primary rounded-2xl text-lg font-bold active:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed">COMPRAR</button>
+              <button 
+                onClick={() => {
+                  setTransactionError(null);
+                  setShowVaultModal(true);
+                }} 
+                disabled={dirtyMoney < finalPrice || isProcessing} 
+                className="flex-1 py-4 bg-primary rounded-2xl text-lg font-bold active:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                COMPRAR
+              </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Modal do Cofre para confirmação de saldo */}
       <SafeVaultModal
         open={showVaultModal}
         onOpenChange={setShowVaultModal}
