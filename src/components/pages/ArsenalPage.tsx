@@ -42,11 +42,9 @@ export default function ArsenalPage() {
   const playerLevel = player.niveis?.barracoLevel || 1;
   const dirtyMoney = player.balances?.dirtyMoney || 0;
 
-  const availableWeapons = WEAPONS.filter((w) => w.level === playerLevel);
-
-  const fallbackWeapon = WEAPONS[0];
-
-  const safeWeapons = availableWeapons.length ? availableWeapons : [fallbackWeapon];
+  const safeWeapons = [...WEAPONS]
+    .filter((w) => w.level <= playerLevel)
+    .sort((a, b) => a.level - b.level);
 
   useEffect(() => {
     const video = videoRef.current;
