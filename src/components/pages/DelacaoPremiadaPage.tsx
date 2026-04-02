@@ -29,8 +29,6 @@ export default function DelacaoPremiadaPage() {
         skillBoostMultiplier: 2.0,
         punishments: {
           ...player.punishments,
-          delacaoPremiadaUntil: until,
-          assetLockdownActive: true,
           inventoryBlocked: true,
           dirtyMoneyBlocked: true,
           cleanMoneyBlocked: true,

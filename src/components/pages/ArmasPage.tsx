@@ -28,7 +28,7 @@ export default function ArmasPage() {
 
             <p>Nível: {weapon.level}</p>
 
-            <p>Filtro: {weapon.filterName}</p>
+            <p>Filtro: {weapon.filter}</p>
             <p>Brilho: {weapon.brightness}</p>
             <p>Saturação: {weapon.saturation}</p>
 
