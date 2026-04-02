@@ -21,6 +21,14 @@ export interface Weapon {
   attackBonus: number;
   defenseBonus: number;
   filter: string;
+  skillBonusType?: 'attack' | 'defense';
+  object3d?: string;
+  filterCode?: string;
+  playerStoreLevel?: number;
+  filterName?: string;
+  brightness?: number;
+  saturation?: number;
+  value?: number;
 }
 
 // ================= CONFIG =================
@@ -147,4 +155,34 @@ export const WEAPONS = generateWeapons();
 // Pode comprar arma do nível atual ou inferior
 export function canBuyWeapon(playerLevel: number, weaponLevel: number) {
   return weaponLevel <= playerLevel;
+}
+
+// ================= WEAPON GETTER =================
+
+export function getWeaponByPlayerLevel(playerLevel: number): Weapon | null {
+  if (playerLevel < 1 || playerLevel > 100) {
+    return null;
+  }
+
+  const baseWeapon = WEAPONS[playerLevel - 1];
+  if (!baseWeapon) {
+    return null;
+  }
+
+  const bonus = calculateBonus(playerLevel);
+  const skillBonusType = playerLevel % 2 === 0 ? 'attack' : 'defense';
+  const skillBonusPercent = skillBonusType === 'attack' ? bonus.attack * 10 : bonus.defense * 10;
+
+  return {
+    ...baseWeapon,
+    skillBonusType,
+    skillBonusPercent: Math.round(skillBonusPercent),
+    object3d: baseWeapon.glb,
+    filterCode: baseWeapon.filter,
+    playerStoreLevel: playerLevel,
+    filterName: FILTERS[Math.floor((playerLevel - 1) / 10)],
+    brightness: 100 + (playerLevel % 10) * 5,
+    saturation: 80 + (playerLevel % 10) * 2,
+    value: baseWeapon.price,
+  };
 }
