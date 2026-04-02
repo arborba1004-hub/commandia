@@ -13,6 +13,7 @@ import DelacaoPremiadaPage from '@/components/pages/DelacaoPremiadaPage';
 import ArsenalPage from '@/components/pages/ArsenalPage';
 import ArmasPage from '@/components/pages/ArmasPage';
 import GangPage from '@/components/gang/GangPage';
+import LuxoItemPage from '@/components/pages/LuxoItemPage';
 
 function Layout() {
   return (
@@ -77,6 +78,10 @@ const router = createBrowserRouter(
         {
           path: "gang",
           element: <GangPage />,
+        },
+        {
+          path: "luxo-item",
+          element: <LuxoItemPage />,
         },
         {
           path: "*",
