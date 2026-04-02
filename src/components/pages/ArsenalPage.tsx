@@ -29,6 +29,7 @@ export default function ArsenalPage() {
 
   const [showDialog, setShowDialog] = useState(false);
   const [showButton, setShowButton] = useState(false);
+  const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
   const [showWeaponModal, setShowWeaponModal] = useState(false);
   const [showVaultModal, setShowVaultModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -39,6 +40,7 @@ export default function ArsenalPage() {
   const dirtyMoney = player?.balances?.dirtyMoney || 0;
   const costReductionPercent = getArsenalCostReduction();
 
+  // Arma atual baseada no nível do jogador
   const currentWeapon = WEAPONS.find(w => w.level === playerLevel) || WEAPONS[playerLevel - 1];
   const finalPrice = currentWeapon ? Math.floor(currentWeapon.price * (1 - costReductionPercent / 100)) : 0;
 
@@ -58,16 +60,16 @@ export default function ArsenalPage() {
       alert("Nenhuma arma disponível para seu nível!");
       return;
     }
+    setSelectedWeapon(currentWeapon);
     setShowWeaponModal(true);
     setTransactionError(null);
   };
 
   const handleBuyWeapon = async () => {
-    if (!currentWeapon) return;
+    if (!selectedWeapon) return;
 
-    // Verificações antes de abrir o modal (já feitas no modal, mas reforça)
     const inventory = player?.inventory?.items || [];
-    const alreadyOwned = inventory.some((item: any) => item.level === currentWeapon.level);
+    const alreadyOwned = inventory.some((item: any) => item.level === selectedWeapon.level);
     if (alreadyOwned) {
       setTransactionError('Você já possui essa arma');
       setShowVaultModal(false);
@@ -78,25 +80,18 @@ export default function ArsenalPage() {
       setShowVaultModal(false);
       return;
     }
-    if (dirtyMoney < finalPrice) {
-      setTransactionError('Saldo insuficiente');
-      setShowVaultModal(false);
-      return;
-    }
 
     setIsProcessing(true);
-
-    // Simula processamento (substituir por chamada backend depois)
     await new Promise(resolve => setTimeout(resolve, 1800));
 
     const newItem = {
       id: crypto.randomUUID(),
-      name: currentWeapon.name,
-      level: currentWeapon.level,
-      category: currentWeapon.category,
+      name: selectedWeapon.name,
+      level: selectedWeapon.level,
+      category: selectedWeapon.category,
       price: finalPrice,
-      attackBonus: currentWeapon.attackBonus,
-      defenseBonus: currentWeapon.defenseBonus,
+      attackBonus: selectedWeapon.attackBonus,
+      defenseBonus: selectedWeapon.defenseBonus,
     };
 
     const updated = {
@@ -111,8 +106,8 @@ export default function ArsenalPage() {
       },
       skills: {
         ...player.skills,
-        attack: (player.skills?.attack || 0) + currentWeapon.attackBonus,
-        defense: (player.skills?.defense || 0) + currentWeapon.defenseBonus,
+        attack: (player.skills?.attack || 0) + selectedWeapon.attackBonus,
+        defense: (player.skills?.defense || 0) + selectedWeapon.defenseBonus,
       },
     };
 
@@ -122,7 +117,7 @@ export default function ArsenalPage() {
     setShowWeaponModal(false);
     setTransactionError(null);
     
-    // Pequeno delay para o modal fechar suavemente
+    // Delay para dar tempo de fechar o modal
     setTimeout(() => {
       navigate('/game');
     }, 500);
@@ -161,30 +156,30 @@ export default function ArsenalPage() {
         </div>
       </div>
 
-      {/* MODAL DA ARMA (DIRETO, SEM LISTA) */}
-      {showWeaponModal && currentWeapon && (
+      {/* MODAL DA ARMA */}
+      {showWeaponModal && selectedWeapon && (
         <div className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center p-6">
           <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-2xl p-8 text-white max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-3xl font-bold">{currentWeapon.name}</h2>
-                <p className="text-gray-400 text-sm mt-2">{CATEGORY_LABELS[currentWeapon.category]} • Nível {currentWeapon.level}</p>
+                <h2 className="text-3xl font-bold">{selectedWeapon.name}</h2>
+                <p className="text-gray-400 text-sm mt-2">{CATEGORY_LABELS[selectedWeapon.category]} • Nível {selectedWeapon.level}</p>
               </div>
               <button onClick={() => setShowWeaponModal(false)} className="text-4xl leading-none text-gray-400 hover:text-white">✕</button>
             </div>
 
             <div className="mb-6 bg-black/50 rounded-2xl overflow-hidden" style={{ height: '300px' }}>
-              <Model3D modelUrl={currentWeapon.object3d} />
+              <Model3D modelUrl={selectedWeapon.object3d} />
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="bg-black/40 rounded-xl p-3 text-center">
                 <p className="text-gray-400 text-sm">Ataque</p>
-                <p className="text-2xl font-bold text-green-400">+{currentWeapon.attackBonus}</p>
+                <p className="text-2xl font-bold text-green-400">+{selectedWeapon.attackBonus}</p>
               </div>
               <div className="bg-black/40 rounded-xl p-3 text-center">
                 <p className="text-gray-400 text-sm">Defesa</p>
-                <p className="text-2xl font-bold text-blue-400">+{currentWeapon.defenseBonus}</p>
+                <p className="text-2xl font-bold text-blue-400">+{selectedWeapon.defenseBonus}</p>
               </div>
             </div>
 
@@ -221,7 +216,7 @@ export default function ArsenalPage() {
         </div>
       )}
 
-      {/* Modal do Cofre para confirmação de saldo */}
+      {/* SafeVaultModal – exatamente como no SubornoIlustradoPage */}
       <SafeVaultModal
         open={showVaultModal}
         onOpenChange={setShowVaultModal}
