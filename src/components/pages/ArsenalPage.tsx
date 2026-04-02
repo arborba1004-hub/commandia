@@ -144,8 +144,8 @@ export default function ArsenalPage() {
     <div className="w-full min-h-screen bg-black overflow-hidden flex flex-col">
       <Header />
 
-      {/* ÁREA DO VÍDEO - Ocupa toda a tela abaixo do Header */}
-      <div className="relative flex-1 w-full overflow-hidden">
+      {/* VÍDEO FULL SCREEN ABAIXO DO HEADER */}
+      <div className="relative flex-1 w-full overflow-hidden bg-black">
         <video
           ref={videoRef}
           src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
@@ -155,20 +155,20 @@ export default function ArsenalPage() {
           className="absolute inset-0 w-full h-full object-cover"
         />
 
-        {/* Overlay escuro sutil para melhorar contraste dos textos */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/70" />
+        {/* Gradiente forte para legibilidade em mobile */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
 
-        {/* DIALOG + BOTÃO - Dentro do vídeo, na parte inferior */}
-        <div className="absolute bottom-12 left-8 md:left-12 z-30 max-w-md">
+        {/* DIÁLOGO + BOTÃO - Posicionados na parte inferior esquerda */}
+        <div className="absolute bottom-10 left-6 right-6 md:left-12 md:right-auto z-30 max-w-lg">
           <AnimatePresence>
             {showDialog && (
               <motion.div
-                initial={{ opacity: 0, y: 40 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="mb-6"
+                className="mb-8"
               >
-                <div className="text-white font-paragraph text-lg md:text-xl leading-relaxed drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">
+                <div className="text-white font-paragraph text-xl md:text-2xl leading-tight drop-shadow-[0_4px_15px_rgba(0,0,0,0.95)]">
                   Olá <span className="text-primary font-bold">{playerName}</span>,
                   <br />
                   Vamos ver o que eu tenho pra você hoje...
@@ -180,17 +180,17 @@ export default function ArsenalPage() {
           <AnimatePresence>
             {showButton && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
               >
                 <button
                   onClick={handleShowWeapon}
                   disabled={!availableWeapons.length}
-                  className="px-10 py-4 bg-primary hover:bg-pink-600 text-white font-bold text-lg rounded-2xl transition-all duration-300 shadow-2xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                  className="w-full md:w-auto px-12 py-5 bg-primary hover:bg-pink-600 text-white font-bold text-xl rounded-2xl transition-all duration-300 shadow-2xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                 >
                   EXIBIR ARMA
-                  <span className="text-xl">→</span>
+                  <span className="text-2xl">→</span>
                 </button>
               </motion.div>
             )}
@@ -198,21 +198,22 @@ export default function ArsenalPage() {
         </div>
       </div>
 
-      {/* WEAPON MODAL */}
+      {/* WEAPON MODAL (mantido com visual premium) */}
       <AnimatePresence>
         {showWeaponModal && selectedWeapon && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md p-4"
           >
             <motion.div
-              initial={{ scale: 0.92, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.92, opacity: 0 }}
+              exit={{ scale: 0.95, opacity: 0 }}
               className="bg-black border border-white/30 w-full max-w-2xl rounded-3xl p-8 max-h-[92vh] overflow-y-auto shadow-2xl"
             >
+              {/* conteúdo do modal igual ao anterior */}
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-white font-heading text-4xl tracking-tight">{selectedWeapon.name}</h2>
                 <button
@@ -317,7 +318,7 @@ export default function ArsenalPage() {
       />
 
       {/* BOTÃO VOLTAR */}
-      <div className="fixed bottom-8 left-8 z-40">
+      <div className="fixed bottom-8 left-6 md:left-8 z-40">
         <button
           onClick={() => navigate('/game')}
           className="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-2xl transition-all flex items-center gap-3 shadow-lg"
