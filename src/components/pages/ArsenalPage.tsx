@@ -13,7 +13,7 @@ export default function ArsenalPage() {
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   
   // Show loading state while player is being loaded
-  if (!isLoaded || !player?._id) {
+  if (!isLoaded) {
     return (
       <div className="w-full min-h-screen bg-black flex flex-col">
         <Header />
@@ -29,11 +29,7 @@ export default function ArsenalPage() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const navigate = useNavigate();
-  const { removeDirtyMoney, addInventoryItem, addSkill } = usePlayerStore((state) => ({
-    removeDirtyMoney: state.removeDirtyMoney,
-    addInventoryItem: state.addInventoryItem,
-    addSkill: state.addSkill,
-  }));
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
 
   const [showDialog, setShowDialog] = useState(false);
   const [showButton, setShowButton] = useState(false);
@@ -104,19 +100,36 @@ export default function ArsenalPage() {
     // Simulate transaction processing
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Update player state
-    removeDirtyMoney(selectedWeapon.price);
-    addInventoryItem({
-      id: crypto.randomUUID(),
-      name: selectedWeapon.name,
-      level: selectedWeapon.level,
-      category: selectedWeapon.category,
-      price: selectedWeapon.price,
-      attackBonus: selectedWeapon.attackBonus,
-      defenseBonus: selectedWeapon.defenseBonus,
-    });
-    addSkill('attack', selectedWeapon.attackBonus);
-    addSkill('defense', selectedWeapon.defenseBonus);
+    // Update player state with all changes in a single call
+    const updated = {
+      ...player,
+      balances: {
+        ...player.balances,
+        dirtyMoney: player.balances.dirtyMoney - selectedWeapon.price,
+      },
+      inventory: {
+        ...player.inventory,
+        items: [
+          ...(player.inventory?.items || []),
+          {
+            id: crypto.randomUUID(),
+            name: selectedWeapon.name,
+            level: selectedWeapon.level,
+            category: selectedWeapon.category,
+            price: selectedWeapon.price,
+            attackBonus: selectedWeapon.attackBonus,
+            defenseBonus: selectedWeapon.defenseBonus,
+          },
+        ],
+      },
+      skills: {
+        ...player.skills,
+        attack: (player.skills?.attack || 0) + selectedWeapon.attackBonus,
+        defense: (player.skills?.defense || 0) + selectedWeapon.defenseBonus,
+      },
+    };
+
+    setPlayer(updated);
 
     setIsProcessing(false);
     setShowTransactionModal(false);
