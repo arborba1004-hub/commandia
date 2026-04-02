@@ -170,14 +170,6 @@ export function clearExpiredPunishments(player: any) {
     const expired = new Date(delacao.expiresAt).getTime() <= now().getTime();
 
     if (expired) {
-      const skills = { ...(updated.skills || {}) };
-
-      Object.keys(skills).forEach((key) => {
-        skills[key] = (skills[key] || 0) + (updated?.punishments?.pendingSkillBoost || 0);
-      });
-
-      updated.skills = skills;
-
       updated.punishments.delacao = {
         active: false,
         expiresAt: null,
@@ -192,6 +184,9 @@ export function clearExpiredPunishments(player: any) {
       updated.punishments.delacaoRewardPending = false;
       updated.punishments.delacaoRewardUnlockAt = null;
       updated.punishments.pendingSkillBoost = 0;
+
+      // Reset skill boost multiplier to 1.0 when delação expires
+      updated.skillBoostMultiplier = 1.0;
     }
   }
 

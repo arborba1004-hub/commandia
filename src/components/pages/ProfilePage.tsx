@@ -66,6 +66,7 @@ export default function ProfilePage() {
               <p><strong>ID:</strong> {player._id || 'Não disponível'}</p>
               <p><strong>Level:</strong> {player.niveis?.playerLevel ?? 1}</p>
               <p><strong>Power:</strong> {player.power ?? 0}</p>
+              <p><strong>Skill Boost Multiplier:</strong> {player.skillBoostMultiplier ?? 1.0}x</p>
               <p><strong>Commands Sujo:</strong> {(player.balances?.dirtyMoney ?? 0).toLocaleString('pt-BR')}</p>
               <p><strong>Commands Limpo:</strong> {(player.balances?.cleanMoney ?? 0).toLocaleString('pt-BR')}</p>
               <p><strong>Corre:</strong> {(player.balances?.corre ?? 0).toLocaleString('pt-BR')}</p>

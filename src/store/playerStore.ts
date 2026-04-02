@@ -135,6 +135,8 @@ export type PlayerState = {
   laundryProgress: LaundryProgress;
 
   punishments: PunishmentsState;
+
+  skillBoostMultiplier: number;
 };
 
 type PlayerStore = {
@@ -282,6 +284,8 @@ const initialPlayer: PlayerState = {
     pendingSkillBoost: 0,
     lastVehicleLost: false,
   },
+
+  skillBoostMultiplier: 1.0,
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
@@ -351,6 +355,8 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
       lastVehicleLost:
         incoming?.punishments?.lastVehicleLost ?? initialPlayer.punishments.lastVehicleLost,
     },
+
+    skillBoostMultiplier: incoming?.skillBoostMultiplier ?? initialPlayer.skillBoostMultiplier,
   };
 }
 

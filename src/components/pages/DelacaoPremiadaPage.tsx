@@ -23,15 +23,9 @@ export default function DelacaoPremiadaPage() {
     setTimeout(() => {
       const until = addHours(72);
 
-      const skills = { ...(player.skills || {}) };
-
-      Object.keys(skills).forEach((key) => {
-        skills[key] = (skills[key] || 0) + 100;
-      });
-
       setPlayer({
         ...player,
-        skills,
+        skillBoostMultiplier: 2.0,
         punishments: {
           ...player.punishments,
           delacaoPremiadaUntil: until,
