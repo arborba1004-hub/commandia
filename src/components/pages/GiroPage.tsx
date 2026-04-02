@@ -23,7 +23,7 @@ const MACHINE_BG =
 
 const SLOT_ASSETS: Record<SymbolKey, string> = {
   money: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png',
-  diamond: 'https://cdn-icons-png.flaticon.com/512/616/616494.png',
+  diamond: 'https://cdn-icons-png.flaticon.com/512/616/494.png',
   gun: 'https://cdn-icons-png.flaticon.com/512/833/833472.png',
   police: 'https://cdn-icons-png.flaticon.com/512/2991/2991108.png',
 };
@@ -49,6 +49,7 @@ function countOf(arr: SymbolKey[], key: SymbolKey) {
 
 function generateSpinResult(multiplier: number): SpinResult {
   const reels = randomReels();
+
   const policeCount = countOf(reels, 'police');
   const moneyCount = countOf(reels, 'money');
   const diamondCount = countOf(reels, 'diamond');
@@ -100,8 +101,8 @@ export default function GiroPage() {
   useEffect(() => {
     if (!isLoaded) loadPlayer();
     return () => {
-      reelTimers.current.forEach(clearTimeout);
-      reelIntervals.current.forEach(clearInterval);
+      reelTimers.current.forEach((timer) => window.clearTimeout(timer));
+      reelIntervals.current.forEach((timer) => window.clearInterval(timer));
     };
   }, [isLoaded, loadPlayer]);
 
@@ -112,19 +113,34 @@ export default function GiroPage() {
 
   const addHistory = (entry: string) => setHistory((prev) => [entry, ...prev].slice(0, 8));
   const clearAnimations = () => {
-    reelTimers.current.forEach(clearTimeout);
-    reelIntervals.current.forEach(clearInterval);
+    reelTimers.current.forEach((timer) => window.clearTimeout(timer));
+    reelIntervals.current.forEach((timer) => window.clearInterval(timer));
     reelTimers.current = [];
     reelIntervals.current = [];
   };
-  const flashPolice = () => { setPoliceFlash(true); setTimeout(() => setPoliceFlash(false), 2600); };
-  const triggerPrison = () => { flashPolice(); setPrisonOpen(true); setTimeout(() => setPrisonOpen(false), 3200); };
-  const triggerDoublePolice = () => { setDoublePoliceOpen(true); setTimeout(() => setDoublePoliceOpen(false), 1400); };
-  const triggerJackpot = () => { setJackpotOpen(true); setTimeout(() => setJackpotOpen(false), 2200); };
+
+  const flashPolice = () => {
+    setPoliceFlash(true);
+    window.setTimeout(() => setPoliceFlash(false), 2600);
+  };
+  const triggerPrison = () => {
+    flashPolice();
+    setPrisonOpen(true);
+    window.setTimeout(() => setPrisonOpen(false), 3200);
+  };
+  const triggerDoublePolice = () => {
+    setDoublePoliceOpen(true);
+    window.setTimeout(() => setDoublePoliceOpen(false), 1400);
+  };
+  const triggerJackpot = () => {
+    setJackpotOpen(true);
+    window.setTimeout(() => setJackpotOpen(false), 2200);
+  };
 
   const finalizeSpin = (result: SpinResult) => {
     const prisonLossBase = player?.balances?.dirtyMoney ?? 0;
     const giroBonus = getGiroBonus();
+
     if (result.prison) {
       removeDirtyMoneyPercent(30);
       setMessage(result.label);
@@ -140,7 +156,7 @@ export default function GiroPage() {
     }
     if (countOf(result.reels, 'diamond') === 3) triggerJackpot();
     setMessage(result.label);
-    addHistory(result.label);
+    addHistory(`${result.label}`);
     setSpinning(false);
   };
 
@@ -154,10 +170,14 @@ export default function GiroPage() {
     setSpinning(true);
     setLockedReels([false, false, false]);
     setMessage(`Rodando x${multiplier}... segura o coração.`);
-    if (Math.random() * 100 >= giroBonus.noCostChance) removeCorre(multiplier);
+    if (Math.random() * 100 < giroBonus.noCostChance) {
+      // não consome corre
+    } else {
+      removeCorre(multiplier);
+    }
     const result = generateSpinResult(multiplier);
     for (let i = 0; i < 3; i++) {
-      const interval = setInterval(() => {
+      const interval = window.setInterval(() => {
         setDisplayedReels((prev) => {
           const clone = [...prev];
           clone[i] = randomSymbol();
@@ -165,19 +185,19 @@ export default function GiroPage() {
         });
       }, 90 + i * 40);
       reelIntervals.current.push(interval);
-      const timer = setTimeout(() => {
-        clearInterval(interval);
+      const timer = window.setTimeout(() => {
+        window.clearInterval(interval);
         setDisplayedReels((prev) => {
           const clone = [...prev];
           clone[i] = result.reels[i];
-          return clone;
+          return clone as SymbolKey[];
         });
         setLockedReels((prev) => {
           const clone = [...prev];
           clone[i] = true;
           return clone;
         });
-        if (i === 2) setTimeout(() => finalizeSpin(result), 250);
+        if (i === 2) window.setTimeout(() => finalizeSpin(result), 250);
       }, REEL_STOP_MS[i]);
       reelTimers.current.push(timer);
     }
@@ -189,9 +209,84 @@ export default function GiroPage() {
   return (
     <div className="min-h-screen bg-[#07090d] text-white relative overflow-x-hidden">
       <Header />
-      {/* ... Animações e modais (preservados, omitidos para brevidade, mas você mantém o original) ... */}
-      {/* O JSX a partir daqui é igual ao original, exceto que removemos o grid de saldos dentro do painel. */}
-      {/* Para evitar erros, vou colocar o JSX completo abaixo, com a remoção do grid. */}
+      <AnimatePresence>
+        {policeFlash && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.15, 0.5, 0.15, 0.55, 0.15] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 2.4 }}
+            className="pointer-events-none fixed inset-0 z-[60]"
+          >
+            <div className="absolute inset-0 bg-red-600/40" />
+            <div className="absolute inset-0 bg-blue-600/35 mix-blend-screen" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {doublePoliceOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.88 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.08 }}
+            transition={{ duration: 0.22 }}
+            className="fixed inset-0 z-[65] flex items-center justify-center bg-black/55 px-6"
+          >
+            <div className="rounded-[26px] border border-yellow-400/30 bg-[#11141a] px-8 py-6 shadow-[0_0_50px_rgba(255,220,0,0.22)]">
+              <h2 className="text-center text-3xl md:text-5xl font-black uppercase tracking-[0.16em] text-yellow-300">OLHA OZOMI</h2>
+              <p className="mt-3 text-center text-sm md:text-base uppercase tracking-[0.18em] text-zinc-200">Os homens tão rondando o corre</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {prisonOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, rotate: -1.5 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            exit={{ opacity: 0, scale: 1.1 }}
+            transition={{ duration: 0.16 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/78 px-4"
+          >
+            <div className="w-full max-w-2xl rounded-[30px] border border-red-500/40 bg-[#0b0d12] p-8 md:p-10 shadow-[0_0_80px_rgba(255,0,0,0.38)]">
+              <div className="flex items-center justify-center gap-4 text-red-400">
+                <Siren className="h-10 w-10 animate-pulse" />
+                <ShieldAlert className="h-10 w-10 animate-pulse" />
+                <BadgeAlert className="h-10 w-10 animate-pulse" />
+              </div>
+              <h2 className="mt-6 text-center text-4xl md:text-6xl font-black uppercase tracking-[0.16em] text-red-300">RODOU</h2>
+              <p className="mt-5 text-center text-base md:text-xl leading-relaxed text-zinc-100">Os homem te enquadraram no meio do corre.</p>
+              <p className="mt-3 text-center text-lg md:text-2xl font-bold text-red-300">30% do Commands Sujo foi pro ralo.</p>
+              <div className="mt-6 flex items-center justify-center gap-3 text-zinc-400">
+                <Skull className="h-5 w-5" />
+                <span className="text-xs md:text-sm uppercase tracking-[0.24em]">Respira e volta mais ligeiro</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {jackpotOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: [0.92, 1.08, 1] }}
+            exit={{ opacity: 0, scale: 1.15 }}
+            transition={{ duration: 0.55 }}
+            className="pointer-events-none fixed inset-0 z-[68] flex items-center justify-center overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-yellow-400/12" />
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ repeat: Infinity, duration: 0.5 }}
+              className="absolute h-[260px] w-[260px] md:h-[420px] md:w-[420px] rounded-full bg-yellow-300/20 blur-3xl"
+            />
+            <div className="relative text-center">
+              <h2 className="text-5xl md:text-7xl font-black uppercase tracking-[0.18em] text-yellow-300 drop-shadow-[0_0_18px_rgba(255,230,120,0.7)]">JACKPOT</h2>
+              <p className="mt-4 text-xl md:text-3xl font-bold text-white">💎 O asfalto sorriu pra tu</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="absolute top-24 left-4 md:left-6 z-20 flex gap-3">
         <button onClick={() => navigate('/')} className="inline-flex items-center gap-2 rounded-xl border border-[#FF4500] bg-[#FF4500]/20 px-4 py-2 text-sm font-bold text-white transition hover:bg-[#FF4500]/35"><Home className="h-4 w-4" />Home</button>
         <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/15 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-400/30"><ArrowLeft className="h-4 w-4" />Voltar</button>
@@ -220,15 +315,29 @@ export default function GiroPage() {
               </div>
               <div className="absolute left-1/2 top-[71.5%] w-[72%] -translate-x-1/2">
                 <div className="rounded-[28px] border border-yellow-500/35 bg-black/72 p-4 shadow-[0_0_35px_rgba(255,200,0,0.15)] backdrop-blur-md">
-                  {/* REMOVIDO: grid de saldos (SUJO, LIMPO, CORRE) - agora só multiplicadores e botão */}
+                  {/* REMOVIDO: o bloco grid-cols-3 que exibia SUJO, LIMPO e CORRE (causava duplicação) */}
                   <div className="mb-3 flex flex-wrap justify-center gap-2">
                     {MULTIPLIERS.map((value) => (
-                      <button key={value} onClick={() => setMultiplier(value)} disabled={spinning} className={`rounded-xl px-3 py-2 text-xs md:text-sm font-bold transition ${multiplier === value ? 'bg-yellow-500 text-black' : 'border border-yellow-700/60 bg-zinc-950/90 text-white'} ${spinning ? 'opacity-50' : 'hover:scale-[1.03]'}`}>x{value}</button>
+                      <button
+                        key={value}
+                        onClick={() => setMultiplier(value)}
+                        disabled={spinning}
+                        className={`rounded-xl px-3 py-2 text-xs md:text-sm font-bold transition ${
+                          multiplier === value ? 'bg-yellow-500 text-black' : 'border border-yellow-700/60 bg-zinc-950/90 text-white'
+                        } ${spinning ? 'opacity-50' : 'hover:scale-[1.03]'}`}
+                      >
+                        x{value}
+                      </button>
                     ))}
                   </div>
-                  <button onClick={handleSpin} disabled={!canSpin} className="w-full rounded-2xl bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-500 px-4 py-3 text-sm md:text-base font-black uppercase tracking-[0.24em] text-black transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-45">{spinning ? `RODANDO x${multiplier}` : `GIRAR x${multiplier}`}</button>
+                  <button onClick={handleSpin} disabled={!canSpin} className="w-full rounded-2xl bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-500 px-4 py-3 text-sm md:text-base font-black uppercase tracking-[0.24em] text-black transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-45">
+                    {spinning ? `RODANDO x${multiplier}` : `GIRAR x${multiplier}`}
+                  </button>
                   <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-center">
-                    <div className="inline-flex items-center gap-2 text-yellow-300"><Coins className="h-4 w-4" /><span className="text-[11px] md:text-sm font-semibold leading-relaxed">{message}</span></div>
+                    <div className="inline-flex items-center gap-2 text-yellow-300">
+                      <Coins className="h-4 w-4" />
+                      <span className="text-[11px] md:text-sm font-semibold leading-relaxed">{message}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -237,9 +346,32 @@ export default function GiroPage() {
           <div className="rounded-[28px] border border-cyan-500/20 bg-black/62 p-6 backdrop-blur-md shadow-[0_0_40px_rgba(0,234,255,0.10)]">
             <h2 className="text-2xl font-black uppercase tracking-[0.14em] text-cyan-300">Central do Corre</h2>
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Regras</p><ul className="mt-3 space-y-2 text-sm text-zinc-200"><li>• cada giro consome corre conforme multiplicador</li><li>• prêmio entra no Commands Sujo da playerStore</li><li>• prisão leva 30% do Commands Sujo</li><li>• 2 viaturas ativam “olha ozomi”</li><li>• o Header acompanha o mesmo cofre em tempo real</li></ul></div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Histórico</p><div className="mt-3 space-y-2">{history.length === 0 ? <p className="text-sm text-zinc-500">Nenhum corre rodado ainda.</p> : history.map((entry, idx) => <div key={`${entry}-${idx}`} className="rounded-xl border border-white/8 bg-black/30 px-3 py-2 text-sm text-zinc-200">{entry}</div>)}</div></div>
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4"><p className="text-xs uppercase tracking-[0.22em] text-amber-300">Ligação com o sistema</p><p className="mt-2 text-sm leading-relaxed text-zinc-200">Essa página só manda o corre. O cofre central da playerStore cuida do salvamento local, agenda o sync e empurra tudo pro backend.</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Regras</p>
+                <ul className="mt-3 space-y-2 text-sm text-zinc-200">
+                  <li>• cada giro consome corre conforme multiplicador</li>
+                  <li>• prêmio entra no Commands Sujo da playerStore</li>
+                  <li>• prisão leva 30% do Commands Sujo</li>
+                  <li>• 2 viaturas ativam “olha ozomi”</li>
+                  <li>• o Header acompanha o mesmo cofre em tempo real</li>
+                </ul>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Histórico</p>
+                <div className="mt-3 space-y-2">
+                  {history.length === 0 ? (
+                    <p className="text-sm text-zinc-500">Nenhum corre rodado ainda.</p>
+                  ) : (
+                    history.map((entry, index) => (
+                      <div key={`${entry}-${index}`} className="rounded-xl border border-white/8 bg-black/30 px-3 py-2 text-sm text-zinc-200">{entry}</div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-amber-300">Ligação com o sistema</p>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-200">Essa página só manda o corre. O cofre central da playerStore cuida do salvamento local, agenda o sync e empurra tudo pro backend.</p>
+              </div>
             </div>
           </div>
         </div>
