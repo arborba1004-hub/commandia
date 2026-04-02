@@ -160,7 +160,6 @@ type PlayerStore = {
 
   // BALANCES
   addDirtyMoney: (amount: number) => void;
-  removeDirtyMoney: (amount: number) => void;
   removeDirtyMoneyPercent: (percent: number) => void;
 
   addCleanMoney: (amount: number) => void;
@@ -170,7 +169,6 @@ type PlayerStore = {
   removeCorre: (amount: number) => void;
 
   // INVENTORY
-  addInventoryItem: (item: any) => void;
   removeInventoryItem: (itemId: string) => void;
   addGift: (gift: any) => void;
   addReward: (reward: any) => void;
@@ -183,7 +181,6 @@ type PlayerStore = {
 
   // SKILLS
   setSkills: (incoming: Partial<Skills>) => void;
-  addSkill: (skill: keyof Skills, value: number) => void;
   addSkillPercent: (skill: keyof Skills, percent: number) => void;
 
   // POWER / BADGE / GRID
@@ -545,24 +542,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     get().scheduleSync();
   },
 
-  removeDirtyMoney: (amount) => {
-    const current = get().player;
-
-    if (isDirtyMoneyBlocked(current)) return;
-
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        dirtyMoney: Math.max(0, current.balances.dirtyMoney - amount),
-      },
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
-
   removeDirtyMoneyPercent: (percent) => {
     const current = get().player;
 
@@ -643,22 +622,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       balances: {
         ...current.balances,
         corre: Math.max(0, current.balances.corre - amount),
-      },
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
-
-  addInventoryItem: (item) => {
-    const current = get().player;
-
-    const updated = mergePlayer({
-      ...current,
-      inventory: {
-        ...current.inventory,
-        items: [...current.inventory.items, item],
       },
     });
 
@@ -755,22 +718,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       skills: {
         ...current.skills,
         ...incoming,
-      },
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
-
-  addSkill: (skill, value) => {
-    const current = get().player;
-
-    const updated = mergePlayer({
-      ...current,
-      skills: {
-        ...current.skills,
-        [skill]: (current.skills[skill] || 0) + value,
       },
     });
 

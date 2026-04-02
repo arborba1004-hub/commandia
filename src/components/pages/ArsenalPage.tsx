@@ -11,6 +11,7 @@ import { isDelacaoActive } from '@/services/punishmentService';
 export default function ArsenalPage() {
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
 
   if (!isLoaded) {
     return (
@@ -28,7 +29,6 @@ export default function ArsenalPage() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const navigate = useNavigate();
-  const setPlayer = usePlayerStore((state) => state.setPlayer);
 
   const [showDialog, setShowDialog] = useState(false);
   const [showButton, setShowButton] = useState(false);
@@ -43,6 +43,10 @@ export default function ArsenalPage() {
   const dirtyMoney = player.balances?.dirtyMoney || 0;
 
   const availableWeapons = WEAPONS.filter((w) => w.level === playerLevel);
+
+  const fallbackWeapon = WEAPONS[0];
+
+  const safeWeapons = availableWeapons.length ? availableWeapons : [fallbackWeapon];
 
   useEffect(() => {
     const video = videoRef.current;
@@ -59,8 +63,8 @@ export default function ArsenalPage() {
   }, [showDialog, showButton]);
 
   const handleShowWeapon = () => {
-    if (!availableWeapons.length) return;
-    setSelectedWeapon(availableWeapons[0]);
+    if (!safeWeapons.length) return;
+    setSelectedWeapon(safeWeapons[0]);
     setShowWeaponModal(true);
     setTransactionError(null);
   };
@@ -89,16 +93,18 @@ export default function ArsenalPage() {
     setIsProcessing(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
+    // Agrupa todas as atualizações em uma única chamada
+    const current = player;
     const updated = {
-      ...player,
+      ...current,
       balances: {
-        ...player.balances,
-        dirtyMoney: player.balances.dirtyMoney - selectedWeapon.price,
+        ...current.balances,
+        dirtyMoney: current.balances.dirtyMoney - selectedWeapon.price,
       },
       inventory: {
-        ...player.inventory,
+        ...current.inventory,
         items: [
-          ...(player.inventory?.items || []),
+          ...(current.inventory?.items || []),
           {
             id: crypto.randomUUID(),
             name: selectedWeapon.name,
@@ -111,13 +117,13 @@ export default function ArsenalPage() {
         ],
       },
       skills: {
-        ...player.skills,
-        attack: (player.skills?.attack || 0) + selectedWeapon.attackBonus,
-        defense: (player.skills?.defense || 0) + selectedWeapon.defenseBonus,
+        ...current.skills,
+        attack: (current.skills?.attack || 0) + selectedWeapon.attackBonus,
+        defense: (current.skills?.defense || 0) + selectedWeapon.defenseBonus,
       },
     };
 
-    setPlayer(updated);
+    usePlayerStore.getState().setPlayer(updated);
     setIsProcessing(false);
     setShowTransactionModal(false);
     setShowWeaponModal(false);
@@ -126,17 +132,17 @@ export default function ArsenalPage() {
 
   const handleNextWeapon = () => {
     if (!selectedWeapon) return;
-    const currentIndex = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
-    if (currentIndex !== -1 && currentIndex < availableWeapons.length - 1) {
-      setSelectedWeapon(availableWeapons[currentIndex + 1]);
+    const currentIndex = safeWeapons.findIndex((w) => w.level === selectedWeapon.level);
+    if (currentIndex !== -1 && currentIndex < safeWeapons.length - 1) {
+      setSelectedWeapon(safeWeapons[currentIndex + 1]);
     }
   };
 
   const handlePrevWeapon = () => {
     if (!selectedWeapon) return;
-    const currentIndex = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
+    const currentIndex = safeWeapons.findIndex((w) => w.level === selectedWeapon.level);
     if (currentIndex > 0 && currentIndex !== -1) {
-      setSelectedWeapon(availableWeapons[currentIndex - 1]);
+      setSelectedWeapon(safeWeapons[currentIndex - 1]);
     }
   };
 
@@ -186,7 +192,7 @@ export default function ArsenalPage() {
               >
                 <button
                   onClick={handleShowWeapon}
-                  disabled={!availableWeapons.length}
+                  disabled={!safeWeapons.length}
                   className="w-full md:w-auto px-12 py-5 bg-primary hover:bg-pink-600 text-white font-bold text-xl rounded-2xl transition-all duration-300 shadow-2xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                 >
                   EXIBIR ARMA
@@ -267,14 +273,14 @@ export default function ArsenalPage() {
               <div className="flex gap-4 mb-6">
                 <button
                   onClick={handlePrevWeapon}
-                  disabled={availableWeapons[0]?.level === selectedWeapon.level}
+                  disabled={safeWeapons[0]?.level === selectedWeapon.level}
                   className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-2xl transition disabled:opacity-50"
                 >
                   ← Anterior
                 </button>
                 <button
                   onClick={handleNextWeapon}
-                  disabled={availableWeapons[availableWeapons.length - 1]?.level === selectedWeapon.level}
+                  disabled={safeWeapons[safeWeapons.length - 1]?.level === selectedWeapon.level}
                   className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-2xl transition disabled:opacity-50"
                 >
                   Próxima →
