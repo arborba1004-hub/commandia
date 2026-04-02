@@ -1,286 +1,140 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
-import { WEAPONS, Weapon } from '@/data/armas';
-import CardTransactionModal from '@/components/CardTransactionModal';
+import { getWeaponByPlayerLevel } from '@/data/armas';
 import { Model3D } from '@/components/Model3D';
-import { isDelacaoActive } from '@/services/punishmentService';
 
-export default function ArsenalPage() {
+export default function ArmasPage() {
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
-  const setPlayer = usePlayerStore((state) => state.setPlayer);
 
-  const navigate = useNavigate();
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-lg">Carregando...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-  const [showDialog, setShowDialog] = useState(false);
-  const [showButton, setShowButton] = useState(false);
-  const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
-  const [showWeaponModal, setShowWeaponModal] = useState(false);
-  const [showTransactionModal, setShowTransactionModal] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [transactionError, setTransactionError] = useState<string | null>(null);
+  const playerLevel = player?.niveis?.barracoLevel || 1;
+  const weapon = getWeaponByPlayerLevel(playerLevel);
 
-  const playerName = player.name || 'Guerreiro';
-  const playerLevel = player.niveis?.barracoLevel || 1;
-  const dirtyMoney = player.balances?.dirtyMoney || 0;
+  if (!weapon) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4">
+          <div className="w-full max-w-xl bg-zinc-950 border border-white/10 rounded-3xl p-8 text-center">
+            <h1 className="text-3xl font-bold mb-4">Arsenal</h1>
+            <p className="text-white/70">
+              Nenhuma arma encontrada para o nível {playerLevel}.
+            </p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-  // Armas disponíveis até o nível do jogador
-  const availableWeapons = WEAPONS
-    .filter((w) => w.level <= playerLevel)
-    .sort((a, b) => a.level - b.level);
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handleTime = () => {
-      const t = video.currentTime;
-      if (t >= 0 && !showDialog) setShowDialog(true);
-      if (t >= 8 && !showButton) setShowButton(true);
-    };
-
-    video.addEventListener('timeupdate', handleTime);
-    return () => video.removeEventListener('timeupdate', handleTime);
-  }, [showDialog, showButton]);
-
-  const handleShowWeapon = () => {
-    if (availableWeapons.length === 0) {
-      alert("Nenhuma arma disponível para seu nível!");
-      return;
-    }
-    setSelectedWeapon(availableWeapons[0]);
-    setShowWeaponModal(true);
-    setTransactionError(null);
-  };
-
-  const handleBuyWeapon = async () => {
-    if (!selectedWeapon) return;
-
-    const inventory = player?.inventory?.items || [];
-    const alreadyOwned = inventory.some((item: any) => item.level === selectedWeapon.level);
-
-    if (alreadyOwned) {
-      setTransactionError('Você já possui essa arma');
-      return;
-    }
-
-    if (isDelacaoActive(player)) {
-      setTransactionError('Você está bloqueado pela delação');
-      return;
-    }
-
-    if (dirtyMoney < selectedWeapon.price) {
-      setTransactionError('Saldo insuficiente');
-      return;
-    }
-
-    setIsProcessing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1800));
-
-    const updated = {
-      ...player,
-      balances: {
-        ...player.balances,
-        dirtyMoney: player.balances.dirtyMoney - selectedWeapon.price,
-      },
-      inventory: {
-        ...player.inventory,
-        items: [
-          ...(player.inventory?.items || []),
-          {
-            id: crypto.randomUUID(),
-            name: selectedWeapon.name,
-            level: selectedWeapon.level,
-            category: selectedWeapon.category,
-            price: selectedWeapon.price,
-            attackBonus: selectedWeapon.attackBonus,
-            defenseBonus: selectedWeapon.defenseBonus,
-          },
-        ],
-      },
-      skills: {
-        ...player.skills,
-        attack: (player.skills?.attack || 0) + selectedWeapon.attackBonus,
-        defense: (player.skills?.defense || 0) + selectedWeapon.defenseBonus,
-      },
-    };
-
-    setPlayer(updated);
-
-    setIsProcessing(false);
-    setShowTransactionModal(false);
-    setShowWeaponModal(false);
-    setTransactionError(null);
-
-    alert(`✅ ${selectedWeapon.name} comprada com sucesso!`);
-  };
-
-  const handleNextWeapon = () => {
-    if (!selectedWeapon) return;
-    const index = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
-    if (index !== -1 && index < availableWeapons.length - 1) {
-      setSelectedWeapon(availableWeapons[index + 1]);
-    }
-  };
-
-  const handlePrevWeapon = () => {
-    if (!selectedWeapon) return;
-    const index = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
-    if (index > 0) {
-      setSelectedWeapon(availableWeapons[index - 1]);
-    }
-  };
+  const bonusLabel =
+    weapon.skillBonusType === 'attack' ? 'Ataque' : 'Defesa';
 
   return (
-    <div className="w-full min-h-screen bg-black flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-black text-white flex flex-col">
       <Header />
 
-      <div className="relative flex-1 w-full bg-black">
-        <video
-          ref={videoRef}
-          src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
-          autoPlay
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/90" />
-
-        {/* Diálogo + Botão */}
-        <div className="absolute bottom-12 left-6 right-6 z-50">
-          {showDialog && (
-            <div className="mb-6 text-white text-2xl drop-shadow-2xl">
-              Olá <span className="text-primary font-bold">{playerName}</span>,<br />
-              Vamos ver o que eu tenho pra você hoje...
+      <main className="flex-1 px-4 py-10">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          {/* MODELO 3D */}
+          <div className="bg-zinc-950 border border-white/10 rounded-3xl p-6">
+            <div className="mb-4">
+              <p className="text-sm text-white/50 uppercase tracking-widest">
+                Objeto 3D
+              </p>
+              <p className="text-white/80 break-all text-sm mt-1">
+                {weapon.object3d}
+              </p>
             </div>
-          )}
 
-          {showButton && (
-            <button
-              onClick={handleShowWeapon}
-              className="w-full py-6 bg-primary text-white font-bold text-2xl rounded-3xl active:bg-pink-600 active:scale-95 transition-all"
+            <div
+              className="h-[420px] rounded-2xl bg-black border border-white/10 overflow-hidden"
+              style={{
+                filter: weapon.filterCode,
+              }}
             >
-              EXIBIR ARMA →
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ==================== MODAL DA ARMA ==================== */}
-      {showWeaponModal && selectedWeapon && (
-        <div className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-lg p-8 text-white">
-            
-            {/* Nome da arma */}
-            <div className="flex justify-between items-start mb-6">
-              <h2 className="text-3xl font-bold text-primary">{selectedWeapon.name}</h2>
-              <button 
-                onClick={() => setShowWeaponModal(false)}
-                className="text-4xl leading-none text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
+              <Model3D modelUrl={weapon.object3d} />
             </div>
+          </div>
 
-            {/* Objeto 3D */}
-            <div className="w-full h-72 bg-black rounded-2xl mb-8 flex items-center justify-center overflow-hidden border border-white/20">
-              <Model3D modelUrl={selectedWeapon.glb} />
-            </div>
+          {/* INFORMAÇÕES */}
+          <div className="bg-zinc-950 border border-white/10 rounded-3xl p-6">
+            <p className="text-sm text-white/50 uppercase tracking-widest">
+              Arsenal
+            </p>
 
-            {/* Informações detalhadas */}
-            <div className="space-y-5 mb-8 text-lg">
-              <div>
-                <p className="text-gray-400 text-sm">Filtro</p>
-                <p className="font-medium">{selectedWeapon.filter}</p>
-              </div>
+            <h1 className="text-4xl font-bold mt-2 mb-6">
+              {weapon.name}
+            </h1>
 
-              <div>
-                <p className="text-gray-400 text-sm">Brilho</p>
-                <p className="font-medium">Alto</p>
-              </div>
-
-              <div>
-                <p className="text-gray-400 text-sm">Saturação</p>
-                <p className="font-medium">Média</p>
-              </div>
-
-              <div>
-                <p className="text-gray-400 text-sm">Bônus de Habilidade</p>
-                <p className="font-medium">
-                  +{selectedWeapon.attackBonus}% Ataque / +{selectedWeapon.defenseBonus}% Defesa
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4">
+                <p className="text-sm text-white/50">Nível do jogador</p>
+                <p className="text-2xl font-bold mt-1">
+                  {weapon.playerStoreLevel}
                 </p>
               </div>
 
-              <div>
-                <p className="text-gray-400 text-sm">Valor</p>
-                <p className="text-2xl font-bold text-primary">
-                  R$ {selectedWeapon.price.toLocaleString('pt-BR')}
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-white/20">
-                <p className="text-gray-400 text-sm">Seu saldo atual</p>
-                <p className="text-xl">
-                  R$ {dirtyMoney.toLocaleString('pt-BR')}
-                  {dirtyMoney < selectedWeapon.price && (
-                    <span className="text-red-400 ml-2">(Insuficiente)</span>
-                  )}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4">
+                <p className="text-sm text-white/50">Categoria</p>
+                <p className="text-2xl font-bold mt-1">
+                  {weapon.category}
                 </p>
               </div>
             </div>
 
-            {/* Botões */}
-            <div className="flex gap-4">
-              <button
-                onClick={() => {
-                  setShowWeaponModal(false);
-                  setTransactionError(null);
-                }}
-                className="flex-1 py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600"
-              >
-                Fechar
-              </button>
-              <button
-                onClick={() => setShowTransactionModal(true)}
-                disabled={dirtyMoney < selectedWeapon.price || isProcessing}
-                className="flex-1 py-4 bg-primary rounded-2xl text-lg font-bold active:bg-pink-600 disabled:opacity-50"
-              >
-                COMPRAR
-              </button>
+            <div className="bg-black/40 border border-white/10 rounded-2xl p-4 mb-4">
+              <p className="text-sm text-white/50 mb-2">Filtro</p>
+              <p className="text-lg font-semibold">{weapon.filterName}</p>
+              <p className="text-white/70 text-sm mt-2 break-all">
+                Código: {weapon.filterCode}
+              </p>
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div>
+                  <p className="text-sm text-white/50">Brilho</p>
+                  <p className="text-lg font-bold">{weapon.brightness}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-white/50">Saturação</p>
+                  <p className="text-lg font-bold">{weapon.saturation}</p>
+                </div>
+              </div>
             </div>
 
-            {transactionError && (
-              <div className="mt-4 p-4 bg-red-500/20 border border-red-500 rounded-2xl text-red-400 text-center">
-                {transactionError}
-              </div>
-            )}
+            <div className="bg-black/40 border border-white/10 rounded-2xl p-4 mb-4">
+              <p className="text-sm text-white/50 mb-2">Bônus</p>
+              <p className="text-2xl font-bold">
+                {bonusLabel} +{weapon.skillBonusPercent}%
+              </p>
+            </div>
+
+            <div className="bg-black/40 border border-white/10 rounded-2xl p-4">
+              <p className="text-sm text-white/50 mb-2">Valor</p>
+              <p className="text-3xl font-bold text-primary">
+                R$ {weapon.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
           </div>
         </div>
-      )}
+      </main>
 
-      <CardTransactionModal
-        isOpen={showTransactionModal}
-        isProcessing={isProcessing}
-        onClose={() => {
-          setShowTransactionModal(false);
-          setTransactionError(null);
-        }}
-        onConfirm={handleBuyWeapon}
-      />
-
-      <div className="fixed bottom-8 left-6 z-50">
-        <button
-          onClick={() => navigate('/game')}
-          className="px-8 py-4 bg-zinc-800 text-white rounded-2xl"
-        >
-          ← Voltar ao Game
-        </button>
-      </div>
+      <Footer />
     </div>
   );
 }
