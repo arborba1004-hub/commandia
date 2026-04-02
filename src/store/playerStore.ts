@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { fetchCurrentPlayer, syncPlayerUpdate, hydratePlayerFromBackend, laundryStart, laundryComplete, canOperateLaundry } from '@/api/playerApi';
+import { fetchCurrentPlayer, syncPlayerUpdate, laundryStart, laundryComplete, canOperateLaundry } from '@/api/playerApi';
 import {
   clearExpiredPunishments,
   isMoneyLaunderingBlocked,
@@ -199,7 +199,6 @@ type PlayerStore = {
   // LAVAGEM DE DINHEIRO
   startLaundryOperation: (operation: Omit<ActiveOperation, 'status' | 'id'>) => Promise<boolean>;
   completeLaundryOperation: (operationId: string) => Promise<boolean>;
-  hydrateLaundryProgress: () => void;
   clearFinishedLaundryOperations: () => void;
   canOperateLaundryToday: (businessId: number) => Promise<boolean>;
 };
@@ -361,7 +360,6 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     skillBoostMultiplier: incoming?.skillBoostMultiplier ?? initialPlayer.skillBoostMultiplier,
   };
 }
-
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
   player: initialPlayer,
   isLoaded: false,
@@ -494,348 +492,343 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       });
     }
   },
+// ==========================================
+// POLLING - HIDRATAÇÃO QUASE EM TEMPO REAL
+// ==========================================
+startPolling: () => {
+  const token = localStorage.getItem('authToken');
+  if (!token) return;
 
-  // ==========================================
-  // POLLING - HIDRATAÇÃO QUASE EM TEMPO REAL
-  // ==========================================
-  startPolling: () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) return;
+  // Evita múltiplas instâncias de polling
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+  }
 
-    // Evita múltiplas instâncias de polling
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-    }
+  set({ isPolling: true });
 
-    set({ isPolling: true });
+  // Faz a primeira hidratação imediatamente
+  get().pollPlayerFromBackend();
 
-    // Faz a primeira hidratação imediatamente
+  // Depois, a cada 3 segundos
+  pollingInterval = setInterval(() => {
     get().pollPlayerFromBackend();
+  }, POLLING_INTERVAL);
+},
 
-    // Depois, a cada 3 segundos
-    pollingInterval = setInterval(() => {
-      get().pollPlayerFromBackend();
-    }, POLLING_INTERVAL);
-  },
+stopPolling: () => {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+  set({ isPolling: false });
+},
 
-  stopPolling: () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      pollingInterval = null;
+pollPlayerFromBackend: async () => {
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    get().stopPolling();
+    return;
+  }
+
+  try {
+    const serverPlayer = await fetchCurrentPlayer();
+
+    if (serverPlayer) {
+      const serverVersion = (serverPlayer as any).version || 0;
+      const localVersion = get().localVersion;
+
+      // Se o backend tem dados mais novos, substitui
+      if (serverVersion > localVersion) {
+        const merged = mergePlayer(serverPlayer);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+
+        set({
+          player: merged,
+          syncError: null,
+          pollingAttempts: 0,
+          localVersion: serverVersion,
+        });
+      } else {
+        // Backend está desatualizado, mantém local e agenda sync
+        get().scheduleSync();
+      }
     }
-    set({ isPolling: false });
-  },
+  } catch (error: any) {
+    console.error('Erro ao fazer polling do player:', error);
+    
+    const newAttempts = get().pollingAttempts + 1;
+    set({ pollingAttempts: newAttempts });
 
-  pollPlayerFromBackend: async () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
+    // Para o polling se atingiu o máximo de tentativas ou se for erro de autenticação (401)
+    if (newAttempts >= get().maxPollingAttempts || error?.status === 401) {
+      console.warn('Polling interrompido: máximo de tentativas atingido ou erro de autenticação');
       get().stopPolling();
-      return;
-    }
-
-    try {
-      const serverPlayer = await fetchCurrentPlayer();
-
-      if (serverPlayer) {
-        const serverVersion = (serverPlayer as any).version || 0;
-        const localVersion = get().localVersion;
-
-        // Se o backend tem dados mais novos, substitui
-        if (serverVersion > localVersion) {
-          const merged = mergePlayer(serverPlayer);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-
-          set({
-            player: merged,
-            syncError: null,
-            pollingAttempts: 0,
-            localVersion: serverVersion,
-          });
-        } else {
-          // Backend está desatualizado, mantém local e agenda sync
-          get().scheduleSync();
-        }
-      }
-    } catch (error: any) {
-      console.error('Erro ao fazer polling do player:', error);
-      
-      const newAttempts = get().pollingAttempts + 1;
-      set({ pollingAttempts: newAttempts });
-
-      // Para o polling se atingiu o máximo de tentativas ou se for erro de autenticação (401)
-      if (newAttempts >= get().maxPollingAttempts || error?.status === 401) {
-        console.warn('Polling interrompido: máximo de tentativas atingido ou erro de autenticação');
-        get().stopPolling();
-        // Opcional: disparar logout automático em caso de 401
-        if (error?.status === 401) {
-          localStorage.removeItem('authToken');
-        }
+      // Opcional: disparar logout automático em caso de 401
+      if (error?.status === 401) {
+        localStorage.removeItem('authToken');
       }
     }
-  },
+  }
+},
 
-  addDirtyMoney: (amount) => {
-    const current = get().player;
+// ==========================================
+// SALDOS
+// ==========================================
+addDirtyMoney: (amount) => {
+  const current = get().player;
 
-    if (isDirtyMoneyBlocked(current)) return;
+  if (isDirtyMoneyBlocked(current)) return;
 
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        dirtyMoney: current.balances.dirtyMoney + amount,
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    balances: {
+      ...current.balances,
+      dirtyMoney: current.balances.dirtyMoney + amount,
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  removeDirtyMoneyPercent: (percent) => {
-    const current = get().player;
+removeDirtyMoneyPercent: (percent) => {
+  const current = get().player;
 
-    if (isDirtyMoneyBlocked(current)) return;
+  if (isDirtyMoneyBlocked(current)) return;
 
-    const loss = current.balances.dirtyMoney * (percent / 100);
+  const loss = current.balances.dirtyMoney * (percent / 100);
 
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        dirtyMoney: Math.max(0, current.balances.dirtyMoney - loss),
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    balances: {
+      ...current.balances,
+      dirtyMoney: Math.max(0, current.balances.dirtyMoney - loss),
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  addCleanMoney: (amount) => {
-    const current = get().player;
+addCleanMoney: (amount) => {
+  const current = get().player;
 
-    if (isCleanMoneyBlocked(current)) return;
+  if (isCleanMoneyBlocked(current)) return;
 
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        cleanMoney: current.balances.cleanMoney + amount,
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    balances: {
+      ...current.balances,
+      cleanMoney: current.balances.cleanMoney + amount,
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  removeCleanMoney: (amount) => {
-    const current = get().player;
+removeCleanMoney: (amount) => {
+  const current = get().player;
 
-    if (isCleanMoneyBlocked(current)) return;
+  if (isCleanMoneyBlocked(current)) return;
 
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        cleanMoney: Math.max(0, current.balances.cleanMoney - amount),
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    balances: {
+      ...current.balances,
+      cleanMoney: Math.max(0, current.balances.cleanMoney - amount),
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  addCorre: (amount) => {
-    const current = get().player;
+addCorre: (amount) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        corre: current.balances.corre + amount,
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    balances: {
+      ...current.balances,
+      corre: current.balances.corre + amount,
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  removeCorre: (amount) => {
-    const current = get().player;
+removeCorre: (amount) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        corre: Math.max(0, current.balances.corre - amount),
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    balances: {
+      ...current.balances,
+      corre: Math.max(0, current.balances.corre - amount),
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  removeInventoryItem: (itemId) => {
-    const current = get().player;
+// ==========================================
+// INVENTÁRIO
+// ==========================================
+removeInventoryItem: (itemId) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      inventory: {
-        ...current.inventory,
-        items: current.inventory.items.filter((item: any) => item?.id !== itemId && item?._id !== itemId),
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    inventory: {
+      ...current.inventory,
+      items: current.inventory.items.filter((item: any) => item?.id !== itemId && item?._id !== itemId),
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  addGift: (gift) => {
-    const current = get().player;
+addGift: (gift) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      inventory: {
-        ...current.inventory,
-        gifts: [...current.inventory.gifts, gift],
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    inventory: {
+      ...current.inventory,
+      gifts: [...current.inventory.gifts, gift],
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  addReward: (reward) => {
-    const current = get().player;
+addReward: (reward) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      inventory: {
-        ...current.inventory,
-        rewards: [...current.inventory.rewards, reward],
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    inventory: {
+      ...current.inventory,
+      rewards: [...current.inventory.rewards, reward],
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  setNiveis: (incoming) => {
-    const current = get().player;
+// ==========================================
+// NÍVEIS E SKILLS
+// ==========================================
+setNiveis: (incoming) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      niveis: {
-        ...current.niveis,
-        ...incoming,
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    niveis: {
+      ...current.niveis,
+      ...incoming,
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  setPageLevel: (page, level) => {
-    const current = get().player;
+setPageLevel: (page, level) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      pageLevels: {
-        ...current.pageLevels,
-        [page]: level,
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    pageLevels: {
+      ...current.pageLevels,
+      [page]: level,
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  setSkills: (incoming) => {
-    const current = get().player;
+setSkills: (incoming) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      skills: {
-        ...current.skills,
-        ...incoming,
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    skills: {
+      ...current.skills,
+      ...incoming,
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  addSkillPercent: (skill, percent) => {
-    const current = get().player;
-    const currentValue = current.skills[skill] || 0;
-    const increase = currentValue * (percent / 100);
+addSkillPercent: (skill, percent) => {
+  const current = get().player;
+  const currentValue = current.skills[skill] || 0;
+  const increase = currentValue * (percent / 100);
 
-    const updated = mergePlayer({
-      ...current,
-      skills: {
-        ...current.skills,
-        [skill]: currentValue + increase,
-      },
-    });
+  const updated = mergePlayer({
+    ...current,
+    skills: {
+      ...current.skills,
+      [skill]: currentValue + increase,
+    },
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  setPower: (value) => {
-    const current = get().player;
+setPower: (value) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      power: value,
-    });
+  const updated = mergePlayer({
+    ...current,
+    power: value,
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  setHierarchyBadge: (badge) => {
-    const current = get().player;
+setHierarchyBadge: (badge) => {
+  const current = get().player;
 
-    const updated = mergePlayer({
-      ...current,
-      hierarchyBadge: badge,
-    });
+  const updated = mergePlayer({
+    ...current,
+    hierarchyBadge: badge,
+  });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
 
-  setBarracoPosition: (position) => {
-    const current = get().player;
-
-    const updated = mergePlayer({
-      ...current,
-      barracoPosition: {
-        ...current.barracoPosition,
-        ...position,
-      },
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-  },
-
+  // ==========================================
+  // LAVAGEM DE DINHEIRO
+  // ==========================================
   startLaundryOperation: async (operation) => {
     const current = get().player;
 
@@ -852,7 +845,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     try {
       // Chama o backend para iniciar a operação
-      // Backend valida saldo, calcula tempo, retorna operationId e endsAt
       const response = await laundryStart({
         businessId: operation.businessId,
         businessName: operation.businessName,
@@ -862,16 +854,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         netAmount: operation.netAmount,
       });
 
-      // Cria a operação com status 'processing' e ID único
+      // Cria a operação local baseada na resposta do backend
       const newOperation: ActiveOperation = {
         ...operation,
         id: generateUUID(),
         operationId: response.operationId,
-        endsAt: response.endsAt, // Usa o endsAt retornado pelo backend
+        endsAt: response.endsAt,
         status: 'processing',
       };
 
-      // Hidrata o player com os dados retornados pelo backend
+      // Atualiza o estado local com os dados retornados pelo backend
       const updated = mergePlayer({
         ...response.player,
         laundryProgress: {
@@ -902,69 +894,22 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     try {
       // Chama o backend para completar a operação
-      // Backend verifica se o tempo já passou e credita o dinheiro limpo
       const response = await laundryComplete(operationId);
 
-      // Hidrata o player com os dados retornados pelo backend
+      // Atualiza o estado local com os dados retornados pelo backend
       const updated = mergePlayer(response.player);
 
       set({ player: updated });
       get().saveLocal();
+
+      // Limpa operações diárias antigas para manter apenas as do dia atual
+      get().clearFinishedLaundryOperations();
 
       return true;
     } catch (error) {
       console.error('Erro ao completar operação de lavagem:', error);
       return false;
     }
-  },
-
-  hydrateLaundryProgress: () => {
-    const current = get().player;
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-
-    // Limpa operações ativas que expiraram
-    const activeOps = current.laundryProgress.activeOperations.filter((op) => {
-      const endsAt = new Date(op.endsAt);
-      return endsAt > now;
-    });
-
-    // Completa automaticamente operações que chegaram ao tempo
-    const completedOps: DailyOperation[] = [];
-    const newActiveOps: ActiveOperation[] = [];
-
-    current.laundryProgress.activeOperations.forEach((op) => {
-      const endsAt = new Date(op.endsAt);
-      if (endsAt <= now && op.status === 'processing') {
-        // Completa a operação
-        completedOps.push({
-          businessId: op.businessId,
-          date: today,
-          amount: op.netAmount,
-        });
-      } else if (endsAt > now) {
-        newActiveOps.push(op);
-      }
-    });
-
-    // Soma o dinheiro limpo das operações completadas
-    const totalCleanMoneyFromCompleted = completedOps.reduce((sum, op) => sum + op.amount, 0);
-
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        cleanMoney: current.balances.cleanMoney + totalCleanMoneyFromCompleted,
-      },
-      laundryProgress: {
-        activeOperations: newActiveOps,
-        dailyOperations: [...current.laundryProgress.dailyOperations, ...completedOps],
-      },
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
   },
 
   clearFinishedLaundryOperations: () => {
@@ -991,14 +936,27 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   canOperateLaundryToday: async (businessId) => {
     try {
-      // Consulta o backend para verificar se pode operar hoje
-      // Backend valida lastOperationDate e número de operações por dia (UTC)
       const result = await canOperateLaundry(businessId);
       return result.allowed;
     } catch (error) {
       console.error('Erro ao verificar limite diário de lavagem:', error);
-      // Em caso de erro, assume que pode operar (fallback seguro)
+      // Fallback seguro: permite operar (evita bloquear o jogador por erro de rede)
       return true;
     }
   },
 }));
+setBarracoPosition: (position) => {
+  const current = get().player;
+
+  const updated = mergePlayer({
+    ...current,
+    barracoPosition: {
+      ...current.barracoPosition,
+      ...position,
+    },
+  });
+
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
