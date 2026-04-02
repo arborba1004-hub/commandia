@@ -5,7 +5,7 @@ import {
   isMoneyLaunderingBlocked,
   isDirtyMoneyBlocked,
   isCleanMoneyBlocked,
-} from '@/services/punishmentService';
+} from '@/Services/punishmentService';
 import { generateUUID } from '@/lib/uuid';
 
 const STORAGE_KEY = 'playerData';
