@@ -39,7 +39,6 @@ const REEL_POOL: SymbolKey[] = [
 ];
 
 const MULTIPLIERS = [1, 2, 5, 10, 25, 50];
-
 const REEL_STOP_MS = [1400, 1900, 2500];
 
 function randomSymbol(): SymbolKey {
@@ -140,9 +139,9 @@ function generateSpinResult(multiplier: number): SpinResult {
     label: `⚡ Corre comum. +${(120 * multiplier).toLocaleString('pt-BR')} Commands Sujo`,
   };
 }
+
 export default function GiroPage() {
   const navigate = useNavigate();
-
   const {
     player,
     isLoaded,
@@ -169,7 +168,6 @@ export default function GiroPage() {
 
   useEffect(() => {
     if (!isLoaded) loadPlayer();
-
     return () => {
       reelTimers.current.forEach((timer) => window.clearTimeout(timer));
       reelIntervals.current.forEach((timer) => window.clearInterval(timer));
@@ -245,7 +243,7 @@ export default function GiroPage() {
     setSpinning(false);
   };
 
-const handleSpin = () => {
+  const handleSpin = () => {
     if (!canSpin) {
       if (corre < multiplier) {
         setMessage('Sem corre suficiente pra bancar esse corre.');
@@ -258,7 +256,7 @@ const handleSpin = () => {
     setSpinning(true);
     setLockedReels([false, false, false]);
     setMessage(`Rodando x${multiplier}... segura o coração.`);
-    
+
     // Apply no-cost chance
     if (Math.random() * 100 < giroBonus.noCostChance) {
       // Don't consume corre
@@ -276,43 +274,36 @@ const handleSpin = () => {
           return clone as SymbolKey[];
         });
       }, 90 + i * 40);
-
       reelIntervals.current.push(interval);
 
       const timer = window.setTimeout(() => {
         window.clearInterval(interval);
-
         setDisplayedReels((prev) => {
           const clone = [...prev];
           clone[i] = result.reels[i];
           return clone as SymbolKey[];
         });
-
         setLockedReels((prev) => {
           const clone = [...prev];
           clone[i] = true;
           return clone;
         });
-
         if (i === 2) {
           window.setTimeout(() => finalizeSpin(result), 250);
         }
       }, REEL_STOP_MS[i]);
-
       reelTimers.current.push(timer);
     }
   };
 
   const machineScaleClass =
     'w-[360px] sm:w-[420px] md:w-[520px] lg:w-[620px] xl:w-[680px]';
-
   const reelBase =
     'absolute top-[42%] -translate-y-1/2 h-[12%] w-[14%] rounded-[18px] overflow-hidden';
 
   return (
     <div className="min-h-screen bg-[#07090d] text-white relative overflow-x-hidden">
       <Header />
-
       <AnimatePresence>
         {policeFlash && (
           <motion.div
@@ -364,19 +355,15 @@ const handleSpin = () => {
                 <ShieldAlert className="h-10 w-10 animate-pulse" />
                 <BadgeAlert className="h-10 w-10 animate-pulse" />
               </div>
-
               <h2 className="mt-6 text-center text-4xl md:text-6xl font-black uppercase tracking-[0.16em] text-red-300">
                 RODOU
               </h2>
-
               <p className="mt-5 text-center text-base md:text-xl leading-relaxed text-zinc-100">
                 Os homem te enquadraram no meio do corre.
               </p>
-
               <p className="mt-3 text-center text-lg md:text-2xl font-bold text-red-300">
                 30% do Commands Sujo foi pro ralo.
               </p>
-
               <div className="mt-6 flex items-center justify-center gap-3 text-zinc-400">
                 <Skull className="h-5 w-5" />
                 <span className="text-xs md:text-sm uppercase tracking-[0.24em]">
@@ -388,7 +375,7 @@ const handleSpin = () => {
         )}
       </AnimatePresence>
 
-<AnimatePresence>
+      <AnimatePresence>
         {jackpotOpen && (
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
@@ -423,7 +410,6 @@ const handleSpin = () => {
           <Home className="h-4 w-4" />
           Home
         </button>
-
         <button
           onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/15 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-400/30"
@@ -436,12 +422,10 @@ const handleSpin = () => {
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-28 pb-14 px-4 md:px-6">
         <Image src={MACHINE_BG} alt="Máquina Giro no Asfalto" className="absolute inset-0 h-full w-full object-cover brightness-105 contrast-110" />
         <div className="absolute inset-0 bg-black/35" />
-
         <div className="relative z-10 w-full max-w-7xl grid grid-cols-1 xl:grid-cols-[1fr_390px] gap-8 items-center">
           <div className="flex flex-col items-center">
             <div className={`relative ${machineScaleClass}`}>
               <Image src={MACHINE_BG} alt="Estrutura da máquina" className="w-full h-auto object-contain select-none pointer-events-none opacity-0" />
-
               <div className={`${reelBase} left-[28%]`}>
                 <div className="relative flex h-full w-full items-center justify-center rounded-[12px] bg-black/80 border border-yellow-400/40 shadow-[inset_0_0_20px_rgba(255,200,0,0.3)] overflow-hidden">
                   <motion.img
@@ -455,7 +439,6 @@ const handleSpin = () => {
                   />
                 </div>
               </div>
-
               <div className={`${reelBase} left-[43%]`}>
                 <div className="relative flex h-full w-full items-center justify-center rounded-[12px] bg-black/80 border border-yellow-400/40 shadow-[inset_0_0_20px_rgba(255,200,0,0.3)] overflow-hidden">
                   <motion.img
@@ -469,7 +452,6 @@ const handleSpin = () => {
                   />
                 </div>
               </div>
-
               <div className={`${reelBase} left-[58%]`}>
                 <div className="relative flex h-full w-full items-center justify-center rounded-[12px] bg-black/80 border border-yellow-400/40 shadow-[inset_0_0_20px_rgba(255,200,0,0.3)] overflow-hidden">
                   <motion.img
@@ -483,33 +465,23 @@ const handleSpin = () => {
                   />
                 </div>
               </div>
-
               <div className="absolute left-1/2 top-[71.5%] w-[72%] -translate-x-1/2">
                 <div className="rounded-[28px] border border-yellow-500/35 bg-black/72 p-4 shadow-[0_0_35px_rgba(255,200,0,0.15)] backdrop-blur-md">
                   <div className="mb-3 grid grid-cols-3 gap-2">
                     <div className="rounded-2xl border border-red-500/20 bg-red-900/25 p-2 text-center">
                       <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Sujo</p>
-                      <p className="mt-1 text-xs md:text-sm font-bold text-red-200">
-                        {dirtyMoney.toLocaleString('pt-BR')}
-                      </p>
+                      <p className="mt-1 text-xs md:text-sm font-bold text-red-200">{dirtyMoney.toLocaleString('pt-BR')}</p>
                     </div>
-
                     <div className="rounded-2xl border border-emerald-500/20 bg-emerald-900/25 p-2 text-center">
                       <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Limpo</p>
-                      <p className="mt-1 text-xs md:text-sm font-bold text-emerald-200">
-                        {cleanMoney.toLocaleString('pt-BR')}
-                      </p>
+                      <p className="mt-1 text-xs md:text-sm font-bold text-emerald-200">{cleanMoney.toLocaleString('pt-BR')}</p>
                     </div>
-
                     <div className="rounded-2xl border border-cyan-500/20 bg-cyan-900/25 p-2 text-center">
                       <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Corre</p>
-                      <p className="mt-1 text-xs md:text-sm font-bold text-cyan-200">
-                        {corre.toLocaleString('pt-BR')}
-                      </p>
+                      <p className="mt-1 text-xs md:text-sm font-bold text-cyan-200">{corre.toLocaleString('pt-BR')}</p>
                     </div>
                   </div>
-
-<div className="mb-3 flex flex-wrap justify-center gap-2">
+                  <div className="mb-3 flex flex-wrap justify-center gap-2">
                     {MULTIPLIERS.map((value) => (
                       <button
                         key={value}
@@ -525,7 +497,6 @@ const handleSpin = () => {
                       </button>
                     ))}
                   </div>
-
                   <button
                     onClick={handleSpin}
                     disabled={!canSpin}
@@ -533,30 +504,21 @@ const handleSpin = () => {
                   >
                     {spinning ? `RODANDO x${multiplier}` : `GIRAR x${multiplier}`}
                   </button>
-
                   <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-center">
                     <div className="inline-flex items-center gap-2 text-yellow-300">
                       <Coins className="h-4 w-4" />
-                      <span className="text-[11px] md:text-sm font-semibold leading-relaxed">
-                        {message}
-                      </span>
+                      <span className="text-[11px] md:text-sm font-semibold leading-relaxed">{message}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-
           <div className="rounded-[28px] border border-cyan-500/20 bg-black/62 p-6 backdrop-blur-md shadow-[0_0_40px_rgba(0,234,255,0.10)]">
-            <h2 className="text-2xl font-black uppercase tracking-[0.14em] text-cyan-300">
-              Central do Corre
-            </h2>
-
+            <h2 className="text-2xl font-black uppercase tracking-[0.14em] text-cyan-300">Central do Corre</h2>
             <div className="mt-6 space-y-4">
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-                  Regras
-                </p>
+                <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Regras</p>
                 <ul className="mt-3 space-y-2 text-sm text-zinc-200">
                   <li>• cada giro consome corre conforme multiplicador</li>
                   <li>• prêmio entra no Commands Sujo da playerStore</li>
@@ -565,42 +527,30 @@ const handleSpin = () => {
                   <li>• o Header acompanha o mesmo cofre em tempo real</li>
                 </ul>
               </div>
-
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-                  Histórico
-                </p>
-
+                <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Histórico</p>
                 <div className="mt-3 space-y-2">
                   {history.length === 0 ? (
                     <p className="text-sm text-zinc-500">Nenhum corre rodado ainda.</p>
                   ) : (
                     history.map((entry, index) => (
-                      <div
-                        key={`${entry}-${index}`}
-                        className="rounded-xl border border-white/8 bg-black/30 px-3 py-2 text-sm text-zinc-200"
-                      >
+                      <div key={`${entry}-${index}`} className="rounded-xl border border-white/8 bg-black/30 px-3 py-2 text-sm text-zinc-200">
                         {entry}
                       </div>
                     ))
                   )}
                 </div>
               </div>
-
               <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
-                <p className="text-xs uppercase tracking-[0.22em] text-amber-300">
-                  Ligação com o sistema
-                </p>
+                <p className="text-xs uppercase tracking-[0.22em] text-amber-300">Ligação com o sistema</p>
                 <p className="mt-2 text-sm leading-relaxed text-zinc-200">
-                  Essa página só manda o corre. O cofre central da playerStore cuida do
-                  salvamento local, agenda o sync e empurra tudo pro backend.
+                  Essa página só manda o corre. O cofre central da playerStore cuida do salvamento local, agenda o sync e empurra tudo pro backend.
                 </p>
               </div>
             </div>
           </div>
         </div>
       </section>
-
       <Footer />
     </div>
   );
