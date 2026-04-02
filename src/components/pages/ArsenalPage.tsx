@@ -7,7 +7,7 @@ import { usePlayerStore } from '@/store/playerStore';
 import { useGangBonus } from '@/hooks/useGangBonus';
 import { WEAPONS, Weapon, WeaponCategory } from '@/data/armas';
 import { Model3D } from '@/components/Model3D';
-import SafeVaultModal from '@/components/SafeVaultModal';
+import DirtyMoneyVaultModal from '@/components/DirtyMoneyVaultModal';
 import { isDelacaoActive } from '@/Services/punishmentService';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
