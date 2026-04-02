@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
@@ -8,6 +9,8 @@ import { WEAPONS, Weapon, WeaponCategory } from '@/data/armas';
 import { Model3D } from '@/components/Model3D';
 import SafeVaultModal from '@/components/SafeVaultModal';
 import { isDelacaoActive } from '@/Services/punishmentService';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const CATEGORY_LABELS: Record<WeaponCategory, string> = {
   knife: 'Faca',
@@ -32,6 +35,7 @@ export default function ArsenalPage() {
   const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
   const [showWeaponModal, setShowWeaponModal] = useState(false);
   const [showVaultModal, setShowVaultModal] = useState(false);
+  const [showResult, setShowResult] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultMessage, setResultMessage] = useState('');
 
@@ -64,67 +68,76 @@ export default function ArsenalPage() {
   };
 
   const handleBuyWeapon = async () => {
-    if (!selectedWeapon) return;
-
     setIsProcessing(true);
-
     try {
       const inventory = player?.inventory?.items || [];
-      const alreadyOwned = inventory.some((item: any) => item.level === selectedWeapon.level);
+      const alreadyOwned = inventory.some((item: any) => item.level === selectedWeapon?.level);
       if (alreadyOwned) {
         setResultMessage('Você já possui essa arma!');
+        setShowResult(true);
         setShowVaultModal(false);
         return;
       }
       if (isDelacaoActive(player)) {
         setResultMessage('Você está bloqueado pela delação!');
+        setShowResult(true);
         setShowVaultModal(false);
         return;
       }
       if (dirtyMoney < finalPrice) {
         setResultMessage('Saldo insuficiente!');
+        setShowResult(true);
         setShowVaultModal(false);
         return;
       }
 
+      // Processa a compra
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       const newItem = {
         id: crypto.randomUUID(),
-        name: selectedWeapon.name,
-        level: selectedWeapon.level,
-        category: selectedWeapon.category,
+        name: selectedWeapon!.name,
+        level: selectedWeapon!.level,
+        category: selectedWeapon!.category,
         price: finalPrice,
-        attackBonus: selectedWeapon.attackBonus,
-        defenseBonus: selectedWeapon.defenseBonus,
+        attackBonus: selectedWeapon!.attackBonus,
+        defenseBonus: selectedWeapon!.defenseBonus,
       };
 
       const updated = {
         ...player,
         balances: {
-          ...player.balances,
-          dirtyMoney: player.balances.dirtyMoney - finalPrice,
+          ...player!.balances,
+          dirtyMoney: player!.balances.dirtyMoney - finalPrice,
         },
         inventory: {
-          ...player.inventory,
-          items: [...(player.inventory?.items || []), newItem],
+          ...player!.inventory,
+          items: [...(player!.inventory?.items || []), newItem],
         },
         skills: {
-          ...player.skills,
-          attack: (player.skills?.attack || 0) + selectedWeapon.attackBonus,
-          defense: (player.skills?.defense || 0) + selectedWeapon.defenseBonus,
+          ...player!.skills,
+          attack: (player!.skills?.attack || 0) + selectedWeapon!.attackBonus,
+          defense: (player!.skills?.defense || 0) + selectedWeapon!.defenseBonus,
         },
       };
 
       setPlayer(updated);
-      setResultMessage(`✅ ${selectedWeapon.name} comprada com sucesso!`);
+      setResultMessage(`✅ ${selectedWeapon!.name} comprada com sucesso!`);
+      setShowResult(true);
       setShowWeaponModal(false);
-      setTimeout(() => navigate('/game'), 1500);
+      setShowVaultModal(false);
     } catch (error) {
       setResultMessage('Erro na compra. Tente novamente.');
+      setShowResult(true);
     } finally {
       setIsProcessing(false);
-      setShowVaultModal(false);
+    }
+  };
+
+  const handleCloseResult = () => {
+    setShowResult(false);
+    if (resultMessage.includes('sucesso')) {
+      navigate('/game');
     }
   };
 
@@ -132,7 +145,8 @@ export default function ArsenalPage() {
     <div className="w-full min-h-screen bg-black flex flex-col overflow-hidden">
       <Header />
 
-      <div className="relative flex-1 w-full bg-black">
+      <div className="relative flex-1 w-full">
+        {/* Vídeo sem overlay escuro */}
         <video
           ref={videoRef}
           src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
@@ -141,11 +155,11 @@ export default function ArsenalPage() {
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/90" />
 
-        <div className="absolute bottom-12 left-6 right-6 z-50">
+        {/* Conteúdo sobre o vídeo – sem fundo escuro */}
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen pt-28 pb-14 px-4">
           {showDialog && (
-            <div className="mb-6 text-white text-2xl drop-shadow-2xl">
+            <div className="mb-6 text-white text-2xl drop-shadow-2xl text-center">
               Olá <span className="text-primary font-bold">{playerName}</span>,<br />
               Vamos ver o que eu tenho pra você hoje...
             </div>
@@ -153,7 +167,7 @@ export default function ArsenalPage() {
           {showButton && (
             <button
               onClick={handleShowWeapon}
-              className="w-full py-6 bg-primary text-white font-bold text-2xl rounded-3xl active:bg-pink-600 active:scale-95 transition-all"
+              className="px-8 py-4 bg-primary text-white font-bold text-xl rounded-2xl active:scale-95 transition-all"
             >
               EXIBIR ARMA →
             </button>
@@ -214,7 +228,7 @@ export default function ArsenalPage() {
         </div>
       )}
 
-      {/* MODAL DO COFRE (exatamente igual ao do Suborno) */}
+      {/* MODAL DO COFRE (idêntico ao Suborno) */}
       <SafeVaultModal
         open={showVaultModal}
         onOpenChange={setShowVaultModal}
@@ -224,23 +238,23 @@ export default function ArsenalPage() {
         isProcessing={isProcessing}
       />
 
-      {/* MODAL DE RESULTADO (simples, igual ao Suborno) */}
-      {resultMessage && (
-        <div className="fixed inset-0 z-[99999] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-primary/30 rounded-lg max-w-md w-full p-8 text-center">
-            <p className="text-white text-xl">{resultMessage}</p>
-            <button
-              onClick={() => {
-                setResultMessage('');
-                if (resultMessage.includes('sucesso')) navigate('/game');
-              }}
-              className="mt-6 px-6 py-3 bg-primary text-black rounded-lg"
-            >
-              Fechar
-            </button>
+      {/* MODAL DE RESULTADO (idêntico ao Suborno) */}
+      <Dialog open={showResult} onOpenChange={setShowResult}>
+        <DialogContent className="bg-gray-900 border-emerald-800 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-3xl text-center">Resultado da Compra</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-8">
+            <p className="font-paragraph text-xl whitespace-pre-line text-gray-200 leading-relaxed">{resultMessage}</p>
           </div>
-        </div>
-      )}
+          <Button
+            onClick={handleCloseResult}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-heading text-xl py-7 rounded-3xl"
+          >
+            FECHAR
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <div className="fixed bottom-8 left-6 z-50">
         <button onClick={() => navigate('/game')} className="px-8 py-4 bg-zinc-800 text-white rounded-2xl">← Voltar ao Game</button>
