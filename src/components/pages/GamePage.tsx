@@ -40,6 +40,13 @@ export default function GamePage() {
             Lavagem de Dinheiro
           </button>
 
+          <button
+            onClick={() => navigate('/arsenal')}
+            className="p-6 bg-white/10 text-white rounded-xl text-xl font-bold hover:bg-white/20 transition"
+          >
+            Senhor das Armas
+          </button>
+
         </div>
       </main>
 
