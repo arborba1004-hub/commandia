@@ -5,7 +5,7 @@ import { usePlayerStore } from '@/store/playerStore';
 import { WEAPONS, Weapon, WeaponCategory } from '@/data/armas';
 import { Model3D } from '@/components/Model3D';
 import SafeVaultModal from '@/components/SafeVaultModal';
-import { isDelacaoActive } from '@/services/punishmentService';
+import { isDelacaoActive } from '@/Services/punishmentService';
 
 const CATEGORY_LABELS: Record<WeaponCategory, string> = {
   knife: 'Faca',
