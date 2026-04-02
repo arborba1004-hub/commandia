@@ -469,7 +469,7 @@ export default function GiroPage() {
                   >
                     {spinning ? `RODANDO x${multiplier}` : `GIRAR x${multiplier}`}
                   </button>
-                  <div className="mb-3 grid grid-cols-3 gap-2">
+                  
                     <div className="rounded-2xl border border-red-500/20 bg-red-900/25 p-2 text-center">
                       <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Sujo</p>
                       <p className="mt-1 text-xs md:text-sm font-bold text-red-200">{dirtyMoney.toLocaleString('pt-BR')}</p>
