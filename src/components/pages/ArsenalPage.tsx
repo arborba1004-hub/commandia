@@ -9,9 +9,12 @@ import { Model3D } from '@/components/Model3D';
 import { isDelacaoActive } from '@/services/punishmentService';
 
 export default function ArsenalPage() {
+  // Guard clause: return null if player is not defined
+  const player = usePlayerStore((state) => state.player);
+  if (!player) return null;
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const navigate = useNavigate();
-  const player = usePlayerStore((state) => state.player);
   const { removeDirtyMoney, addInventoryItem, addSkill } = usePlayerStore((state) => ({
     removeDirtyMoney: state.removeDirtyMoney,
     addInventoryItem: state.addInventoryItem,
@@ -26,14 +29,12 @@ export default function ArsenalPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
 
-  const playerName = player?.name || 'Guerreiro';
-  const playerLevel = player?.niveis?.barracoLevel || 1;
-  const dirtyMoney = player?.balances?.dirtyMoney || 0;
+  const playerName = player.name || 'Guerreiro';
+  const playerLevel = player.niveis?.barracoLevel || 1;
+  const dirtyMoney = player.balances?.dirtyMoney || 0;
 
   // Filter weapons by player level
   const availableWeapons = WEAPONS.filter((w) => w.level === playerLevel);
-
-  if (!availableWeapons.length) return;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -92,7 +93,7 @@ export default function ArsenalPage() {
     // Update player state
     removeDirtyMoney(selectedWeapon.price);
     addInventoryItem({
-      id: `weapon-${selectedWeapon.level}-${Date.now()}`,
+      id: crypto.randomUUID(),
       name: selectedWeapon.name,
       level: selectedWeapon.level,
       category: selectedWeapon.category,
@@ -171,7 +172,7 @@ export default function ArsenalPage() {
             >
               <button
                 onClick={handleShowWeapon}
-                disabled={availableWeapons.length === 0}
+                disabled={!availableWeapons.length}
                 className="px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 Exibir Arma
