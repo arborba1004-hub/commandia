@@ -30,65 +30,38 @@ const router = createBrowserRouter(
         {
           index: true,
           element: <HomePage />,
-          routeMetadata: {
-            pageIdentifier: 'home',
-          },
         },
         {
           path: "galeria",
           element: <GaleriaPage />,
-          routeMetadata: {
-            pageIdentifier: 'galeria',
-          },
         },
         {
           path: "profile",
           element: <ProfilePage />,
-          routeMetadata: {
-            pageIdentifier: 'profile',
-          },
         },
         {
           path: "game",
           element: <GamePage />,
-          routeMetadata: {
-            pageIdentifier: 'game',
-          },
         },
         {
           path: "giro",
           element: <GiroPage />,
-          routeMetadata: {
-            pageIdentifier: 'giro',
-          },
         },
         {
           path: "luxuryshowroom",
           element: <LuxuryshowroomPage />,
-          routeMetadata: {
-            pageIdentifier: 'luxuryshowroom',
-          },
         },
         {
           path: "lavagem-de-dinheiro",
           element: <LavagemDeDinheiroPage />,
-          routeMetadata: {
-            pageIdentifier: 'lavagem-de-dinheiro',
-          },
         },
         {
           path: "suborno-ilustrado",
           element: <SubornoIlustradoPage />,
-          routeMetadata: {
-            pageIdentifier: 'suborno-ilustrado',
-          },
         },
         {
           path: "delacao-premiada",
           element: <DelacaoPremiadaPage />,
-          routeMetadata: {
-            pageIdentifier: 'delacao-premiada',
-          },
         },
         {
           path: "*",
