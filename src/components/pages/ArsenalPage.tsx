@@ -40,8 +40,6 @@ export default function ArsenalPage() {
   const playerName = player?.name || 'Guerreiro';
   const playerLevel = player?.niveis?.playerLevel || 1;
   const dirtyMoney = player?.balances?.dirtyMoney || 0;
-
-  // Aplica redução de custo da gang (Armeiro)
   const costReductionPercent = getArsenalCostReduction();
 
   const availableWeapons = WEAPONS
@@ -83,20 +81,16 @@ export default function ArsenalPage() {
 
     const inventory = player?.inventory?.items || [];
     const alreadyOwned = inventory.some((item: any) => item.level === selectedWeapon.level);
-
     if (alreadyOwned) {
       setTransactionError('Você já possui essa arma');
       return;
     }
-
     if (isDelacaoActive(player)) {
       setTransactionError('Você está bloqueado pela delação');
       return;
     }
 
-    // Calcula preço final com redução da gang
     const finalPrice = Math.floor(selectedWeapon.price * (1 - costReductionPercent / 100));
-
     if (dirtyMoney < finalPrice) {
       setTransactionError('Saldo insuficiente');
       return;
@@ -104,7 +98,7 @@ export default function ArsenalPage() {
 
     setIsProcessing(true);
 
-    // Simula processamento (2 segundos) – pode substituir por chamada backend depois
+    // Simulação de processamento – substituir por chamada backend se necessário
     await new Promise(resolve => setTimeout(resolve, 1800));
 
     const newItem = {
@@ -135,13 +129,13 @@ export default function ArsenalPage() {
     };
 
     setPlayer(updated);
-
     setIsProcessing(false);
     setShowVaultModal(false);
     setShowWeaponModal(false);
     setTransactionError(null);
 
-    alert(`✅ Arma ${selectedWeapon.name} comprada com sucesso!`);
+    // Redireciona para a página do jogo após compra
+    navigate('/game');
   };
 
   return (
@@ -157,7 +151,6 @@ export default function ArsenalPage() {
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
         />
-
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/90" />
 
         <div className="absolute bottom-12 left-6 right-6 z-50">
@@ -167,7 +160,6 @@ export default function ArsenalPage() {
               Vamos ver o que eu tenho pra você hoje...
             </div>
           )}
-
           {showButton && (
             <button
               onClick={handleShowWeapon}
@@ -243,21 +235,40 @@ export default function ArsenalPage() {
               <button onClick={() => setShowWeaponModal(false)} className="text-4xl leading-none text-gray-400 hover:text-white">✕</button>
             </div>
 
+            {/* Modelo 3D */}
             <div className="mb-6 bg-black/50 rounded-2xl overflow-hidden" style={{ height: '300px' }}>
               <Model3D modelUrl={selectedWeapon.object3d} />
             </div>
 
-            <div className="space-y-6 mb-8 flex-1 overflow-y-auto">
-              <div><p className="text-gray-400 text-sm">Filtro</p><p className="text-xl font-semibold text-primary">{selectedWeapon.filter}</p></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-gray-400 text-sm">Ataque</p><p className="text-2xl font-bold text-green-400">+{selectedWeapon.attackBonus}</p></div>
-                <div><p className="text-gray-400 text-sm">Defesa</p><p className="text-2xl font-bold text-blue-400">+{selectedWeapon.defenseBonus}</p></div>
+            {/* Bônus de Habilidade */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-black/40 rounded-xl p-3 text-center">
+                <p className="text-gray-400 text-sm">Ataque</p>
+                <p className="text-2xl font-bold text-green-400">+{selectedWeapon.attackBonus}</p>
               </div>
-              <div><p className="text-gray-400 text-sm">Preço</p><p className="text-3xl font-bold text-primary">R$ {Math.floor(selectedWeapon.price * (1 - costReductionPercent / 100)).toLocaleString('pt-BR')}</p></div>
-              <div><p className="text-gray-400 text-sm">Seu saldo</p><p className="text-xl">R$ {dirtyMoney.toLocaleString('pt-BR')}{dirtyMoney < selectedWeapon.price && <span className="text-red-400"> (Insuficiente)</span>}</p></div>
+              <div className="bg-black/40 rounded-xl p-3 text-center">
+                <p className="text-gray-400 text-sm">Defesa</p>
+                <p className="text-2xl font-bold text-blue-400">+{selectedWeapon.defenseBonus}</p>
+              </div>
             </div>
 
-            {transactionError && <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-2xl text-red-400 text-center">{transactionError}</div>}
+            {/* Bônus da Gang (Armeiro) */}
+            {costReductionPercent > 0 && (
+              <div className="mb-4 bg-purple-900/30 rounded-xl p-3 text-center">
+                <p className="text-purple-300 text-sm">Desconto da Gang (Armeiro)</p>
+                <p className="text-xl font-bold text-purple-400">-{costReductionPercent}% no preço</p>
+              </div>
+            )}
+
+            {/* Preço */}
+            <div className="mb-6 text-center">
+              <p className="text-gray-400 text-sm">Preço com desconto</p>
+              <p className="text-3xl font-bold text-primary">R$ {Math.floor(selectedWeapon.price * (1 - costReductionPercent / 100)).toLocaleString('pt-BR')}</p>
+            </div>
+
+            {transactionError && (
+              <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-xl text-red-400 text-center">{transactionError}</div>
+            )}
 
             <div className="flex gap-4">
               <button onClick={() => { setShowWeaponModal(false); setTransactionError(null); }} className="flex-1 py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600">Voltar</button>
@@ -267,6 +278,7 @@ export default function ArsenalPage() {
         </div>
       )}
 
+      {/* Modal do Cofre para confirmação de saldo */}
       <SafeVaultModal
         open={showVaultModal}
         onOpenChange={setShowVaultModal}
