@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import { usePlayerStore } from '@/store/playerStore';
-import { WEAPONS, canBuyWeapon, Weapon } from '@/data/armas';
+import { WEAPONS, Weapon } from '@/data/armas';
 import CardTransactionModal from '@/components/CardTransactionModal';
 import { Model3D } from '@/components/Model3D';
 import { isDelacaoActive } from '@/services/punishmentService';
@@ -144,32 +144,31 @@ export default function ArsenalPage() {
     <div className="w-full min-h-screen bg-black overflow-hidden flex flex-col">
       <Header />
 
-      {/* CONTAINER PRINCIPAL - VÍDEO CENTRALIZADO */}
-      <div className="relative flex-1 w-full flex items-center justify-center overflow-hidden bg-black">
-        <div className="relative w-[80%] max-w-[1200px] aspect-video mx-auto">
-          {/* VIDEO */}
-          <video
-            ref={videoRef}
-            src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
-            autoPlay
-            muted
-            playsInline
-            className="w-full h-full object-cover rounded-2xl shadow-2xl"
-          />
+      {/* ÁREA DO VÍDEO - Ocupa toda a tela abaixo do Header */}
+      <div className="relative flex-1 w-full overflow-hidden">
+        <video
+          ref={videoRef}
+          src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
+          autoPlay
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        />
 
-          {/* OVERLAY GRADIENT PARA MELHORAR LEGIBILIDADE */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-black/30 rounded-2xl pointer-events-none" />
+        {/* Overlay escuro sutil para melhorar contraste dos textos */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/70" />
 
-          {/* DIALOG - SEM BACKGROUND */}
+        {/* DIALOG + BOTÃO - Dentro do vídeo, na parte inferior */}
+        <div className="absolute bottom-12 left-8 md:left-12 z-30 max-w-md">
           <AnimatePresence>
             {showDialog && (
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-                className="absolute top-8 left-8 max-w-[320px] md:max-w-md z-20"
+                transition={{ duration: 0.6 }}
+                className="mb-6"
               >
-                <div className="text-white font-paragraph text-base md:text-lg leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                <div className="text-white font-paragraph text-lg md:text-xl leading-relaxed drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">
                   Olá <span className="text-primary font-bold">{playerName}</span>,
                   <br />
                   Vamos ver o que eu tenho pra você hoje...
@@ -178,21 +177,19 @@ export default function ArsenalPage() {
             )}
           </AnimatePresence>
 
-          {/* BOTÃO "EXIBIR ARMA" - DENTRO DO VÍDEO */}
           <AnimatePresence>
             {showButton && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.85 }}
+                initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="absolute bottom-8 right-8 z-30"
+                transition={{ duration: 0.5, delay: 0.1 }}
               >
                 <button
                   onClick={handleShowWeapon}
                   disabled={!availableWeapons.length}
-                  className="px-10 py-4 bg-primary hover:bg-pink-600 text-white font-bold text-lg rounded-2xl transition-all duration-300 shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                  className="px-10 py-4 bg-primary hover:bg-pink-600 text-white font-bold text-lg rounded-2xl transition-all duration-300 shadow-2xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
                 >
-                  <span>EXIBIR ARMA</span>
+                  EXIBIR ARMA
                   <span className="text-xl">→</span>
                 </button>
               </motion.div>
@@ -201,7 +198,7 @@ export default function ArsenalPage() {
         </div>
       </div>
 
-      {/* WEAPON MODAL - Mantido igual (só visual melhorado levemente) */}
+      {/* WEAPON MODAL */}
       <AnimatePresence>
         {showWeaponModal && selectedWeapon && (
           <motion.div
