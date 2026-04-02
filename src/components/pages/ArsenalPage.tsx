@@ -2,9 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { usePlayerStore } from '@/store/playerStore';
-import { WEAPONS, Weapon } from '@/data/armas';
+import { WEAPONS, Weapon, WeaponCategory } from '@/data/armas';
 import SafeVaultModal from '@/components/SafeVaultModal';
 import { isDelacaoActive } from '@/services/punishmentService';
+
+const CATEGORY_LABELS: Record<WeaponCategory, string> = {
+  knife: 'Faca',
+  revolver: 'Revólver',
+  pistol: 'Pistola',
+  auto_pistol: 'Pistola Automática',
+  smg: 'Metralhadora Leve',
+  shotgun: 'Espingarda',
+  rifle: 'Rifle',
+  assault: 'Fuzil de Assalto',
+  machinegun: 'Metralhadora',
+  launcher: 'Lançador',
+};
 
 export default function ArsenalPage() {
   const player = usePlayerStore((state) => state.player);
@@ -20,6 +33,8 @@ export default function ArsenalPage() {
   const [showVaultModal, setShowVaultModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<WeaponCategory | 'all'>('all');
+  const [showWeaponList, setShowWeaponList] = useState(false);
 
   const playerName = player.name || 'Guerreiro';
   const playerLevel = player.niveis?.barracoLevel || 1;
@@ -28,6 +43,10 @@ export default function ArsenalPage() {
   const availableWeapons = WEAPONS
     .filter((w) => w.level <= playerLevel)
     .sort((a, b) => a.level - b.level);
+
+  const filteredWeapons = selectedFilter === 'all'
+    ? availableWeapons
+    : availableWeapons.filter((w) => w.category === selectedFilter);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -50,9 +69,14 @@ export default function ArsenalPage() {
       alert("Nenhuma arma disponível para seu nível!");
       return;
     }
-    setSelectedWeapon(availableWeapons[0]);
-    setShowWeaponModal(true);
+    setShowWeaponList(true);
     setTransactionError(null);
+  };
+
+  const handleSelectWeapon = (weapon: Weapon) => {
+    setSelectedWeapon(weapon);
+    setShowWeaponModal(true);
+    setShowWeaponList(false);
   };
 
   const handleBuyWeapon = async () => {
@@ -157,12 +181,106 @@ export default function ArsenalPage() {
         </div>
       </div>
 
+      {/* MODAL DE LISTA DE ARMAS COM FILTRO */}
+      {showWeaponList && (
+        <div className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center p-6">
+          <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-2xl p-8 text-white max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-3xl font-bold">Seleção de Armas</h2>
+              <button 
+                onClick={() => setShowWeaponList(false)}
+                className="text-4xl leading-none text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Filtros por Categoria */}
+            <div className="mb-6">
+              <p className="text-gray-400 text-sm mb-3">Filtrar por tipo:</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedFilter('all')}
+                  className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                    selectedFilter === 'all'
+                      ? 'bg-primary text-black'
+                      : 'bg-gray-700 text-white hover:bg-gray-600'
+                  }`}
+                >
+                  Todas
+                </button>
+                {(Object.keys(CATEGORY_LABELS) as WeaponCategory[]).map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedFilter(category)}
+                    className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                      selectedFilter === category
+                        ? 'bg-primary text-black'
+                        : 'bg-gray-700 text-white hover:bg-gray-600'
+                    }`}
+                  >
+                    {CATEGORY_LABELS[category]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Lista de Armas */}
+            <div className="flex-1 overflow-y-auto mb-6 space-y-2">
+              {filteredWeapons.length > 0 ? (
+                filteredWeapons.map((weapon) => (
+                  <button
+                    key={weapon.level}
+                    onClick={() => handleSelectWeapon(weapon)}
+                    className="w-full p-4 bg-gray-800 hover:bg-gray-700 rounded-2xl text-left transition-all border border-gray-700 hover:border-primary"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-lg">{weapon.name}</p>
+                        <p className="text-gray-400 text-sm">
+                          {CATEGORY_LABELS[weapon.category]} • {weapon.filter}
+                        </p>
+                        <div className="flex gap-4 mt-2 text-sm">
+                          <span className="text-green-400">ATK: +{weapon.attackBonus}</span>
+                          <span className="text-blue-400">DEF: +{weapon.defenseBonus}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-primary font-bold text-xl">
+                          R$ {weapon.price.toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  Nenhuma arma disponível nesta categoria
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowWeaponList(false)}
+              className="w-full py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DA ARMA */}
       {showWeaponModal && selectedWeapon && (
         <div className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center p-6">
           <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-md p-8 text-white">
             <div className="flex justify-between items-start mb-6">
-              <h2 className="text-3xl font-bold">{selectedWeapon.name}</h2>
+              <div>
+                <h2 className="text-3xl font-bold">{selectedWeapon.name}</h2>
+                <p className="text-gray-400 text-sm mt-2">
+                  {CATEGORY_LABELS[selectedWeapon.category]} • Nível {selectedWeapon.level}
+                </p>
+              </div>
               <button 
                 onClick={() => setShowWeaponModal(false)}
                 className="text-4xl leading-none text-gray-400 hover:text-white"
@@ -172,6 +290,22 @@ export default function ArsenalPage() {
             </div>
 
             <div className="space-y-6 mb-8">
+              <div>
+                <p className="text-gray-400 text-sm">Filtro</p>
+                <p className="text-xl font-semibold text-primary">{selectedWeapon.filter}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-gray-400 text-sm">Ataque</p>
+                  <p className="text-2xl font-bold text-green-400">+{selectedWeapon.attackBonus}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Defesa</p>
+                  <p className="text-2xl font-bold text-blue-400">+{selectedWeapon.defenseBonus}</p>
+                </div>
+              </div>
+
               <div>
                 <p className="text-gray-400 text-sm">Preço</p>
                 <p className="text-3xl font-bold text-primary">
@@ -204,7 +338,7 @@ export default function ArsenalPage() {
                 }}
                 className="flex-1 py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600"
               >
-                Fechar
+                Voltar
               </button>
               <button
                 onClick={() => setShowVaultModal(true)}
