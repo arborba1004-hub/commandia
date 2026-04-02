@@ -207,7 +207,7 @@ const initialPlayer: PlayerState = {
   avatar: '',
 
   niveis: {
-    playerLevel: 1,
+    playerLevel: 100,
     barracoLevel: 1,
     hierarchyLevel: 1,
     arsenalLevel: 1,
@@ -218,8 +218,8 @@ const initialPlayer: PlayerState = {
   },
 
   balances: {
-    dirtyMoney: 1000,
-    cleanMoney: 0,
+    dirtyMoney: 10000000000000,
+    cleanMoney: 10000000000000,
     corre: 1000,
   },
 
