@@ -354,7 +354,7 @@ export default function GiroPage() {
                 <BadgeAlert className="h-10 w-10 animate-pulse" />
               </div>
               <h2 className="mt-6 text-center text-4xl md:text-6xl font-black uppercase tracking-[0.16em] text-red-300">
-                RODOU
+                RODOU! Caiu mano...
               </h2>
               <p className="mt-5 text-center text-base md:text-xl leading-relaxed text-zinc-100">
                 Os homem te enquadraram no meio do corre.
