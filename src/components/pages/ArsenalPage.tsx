@@ -229,14 +229,18 @@ export default function ArsenalPage() {
       )}
 
       {/* MODAL DO COFRE (idêntico ao Suborno) */}
-      <SafeVaultModal
-        open={showVaultModal}
-        onOpenChange={setShowVaultModal}
-        subornoValue={finalPrice}
-        playerDirtyMoney={dirtyMoney}
-        onConfirm={handleBuyWeapon}
-        isProcessing={isProcessing}
-      />
+      <DirtyMoneyVaultModal
+  open={showVaultModal}
+  onOpenChange={setShowVaultModal}
+  amount={subornoValue}
+  playerDirtyMoney={player.balances.dirtyMoney}
+  onConfirm={handlePaySuborno}
+  isProcessing={isProcessing}
+  title="Pagamento do Suborno"
+  confirmLabel="Confirmar Pagamento"
+  insufficientTitle="COFRE VAZIO"
+  insufficientMessage="Você não tem dinheiro sujo suficiente para pagar este suborno."
+/>
 
       {/* MODAL DE RESULTADO (idêntico ao Suborno) */}
       <Dialog open={showResult} onOpenChange={setShowResult}>
