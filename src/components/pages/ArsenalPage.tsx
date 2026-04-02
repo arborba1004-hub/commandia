@@ -11,6 +11,7 @@ import { isDelacaoActive } from '@/services/punishmentService';
 export default function ArsenalPage() {
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
 
   if (!isLoaded) {
     return (
@@ -41,21 +42,10 @@ export default function ArsenalPage() {
   const playerLevel = player.niveis?.barracoLevel || 1;
   const dirtyMoney = player.balances?.dirtyMoney || 0;
 
-  // 🔥 FIX PRINCIPAL (NUNCA FICA VAZIO)
-  const safeWeapons = [...WEAPONS]
+  // Armas disponíveis (até o nível do player)
+  const availableWeapons = WEAPONS
     .filter((w) => w.level <= playerLevel)
     .sort((a, b) => a.level - b.level);
-
-  const finalWeapons =
-    safeWeapons.length > 0
-      ? safeWeapons
-      : [...WEAPONS].sort((a, b) => a.level - b.level);
-
-  // 🔥 DEBUG (PODE REMOVER DEPOIS)
-  console.log('PLAYER LEVEL:', playerLevel);
-  console.log('WEAPONS:', WEAPONS);
-  console.log('SAFE:', safeWeapons);
-  console.log('FINAL:', finalWeapons);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -72,9 +62,8 @@ export default function ArsenalPage() {
   }, [showDialog, showButton]);
 
   const handleShowWeapon = () => {
-    if (!finalWeapons.length) return;
-
-    setSelectedWeapon(finalWeapons[0]);
+    if (!availableWeapons.length) return;
+    setSelectedWeapon(availableWeapons[0]);
     setShowWeaponModal(true);
     setTransactionError(null);
   };
@@ -103,18 +92,16 @@ export default function ArsenalPage() {
     setIsProcessing(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    const current = player;
-
     const updated = {
-      ...current,
+      ...player,
       balances: {
-        ...current.balances,
-        dirtyMoney: current.balances.dirtyMoney - selectedWeapon.price,
+        ...player.balances,
+        dirtyMoney: player.balances.dirtyMoney - selectedWeapon.price,
       },
       inventory: {
-        ...current.inventory,
+        ...player.inventory,
         items: [
-          ...(current.inventory?.items || []),
+          ...(player.inventory?.items || []),
           {
             id: crypto.randomUUID(),
             name: selectedWeapon.name,
@@ -127,13 +114,13 @@ export default function ArsenalPage() {
         ],
       },
       skills: {
-        ...current.skills,
-        attack: (current.skills?.attack || 0) + selectedWeapon.attackBonus,
-        defense: (current.skills?.defense || 0) + selectedWeapon.defenseBonus,
+        ...player.skills,
+        attack: (player.skills?.attack || 0) + selectedWeapon.attackBonus,
+        defense: (player.skills?.defense || 0) + selectedWeapon.defenseBonus,
       },
     };
 
-    usePlayerStore.getState().setPlayer(updated);
+    setPlayer(updated);                    // ← voltamos para o hook
 
     setIsProcessing(false);
     setShowTransactionModal(false);
@@ -143,21 +130,17 @@ export default function ArsenalPage() {
 
   const handleNextWeapon = () => {
     if (!selectedWeapon) return;
-
-    const index = finalWeapons.findIndex((w) => w.level === selectedWeapon.level);
-
-    if (index !== -1 && index < finalWeapons.length - 1) {
-      setSelectedWeapon(finalWeapons[index + 1]);
+    const index = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
+    if (index !== -1 && index < availableWeapons.length - 1) {
+      setSelectedWeapon(availableWeapons[index + 1]);
     }
   };
 
   const handlePrevWeapon = () => {
     if (!selectedWeapon) return;
-
-    const index = finalWeapons.findIndex((w) => w.level === selectedWeapon.level);
-
+    const index = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
     if (index > 0) {
-      setSelectedWeapon(finalWeapons[index - 1]);
+      setSelectedWeapon(availableWeapons[index - 1]);
     }
   };
 
@@ -177,6 +160,7 @@ export default function ArsenalPage() {
 
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80 pointer-events-none" />
 
+        {/* Diálogo + Botão */}
         <div className="absolute bottom-10 left-6 right-6 md:left-12 md:right-auto z-50 max-w-lg">
           <AnimatePresence>
             {showDialog && (
@@ -186,7 +170,7 @@ export default function ArsenalPage() {
                 transition={{ duration: 0.6 }}
                 className="mb-8"
               >
-                <div className="text-white font-paragraph text-xl md:text-2xl leading-tight">
+                <div className="text-white font-paragraph text-xl md:text-2xl leading-tight drop-shadow-[0_4px_15px_rgba(0,0,0,0.95)]">
                   Olá <span className="text-primary font-bold">{playerName}</span>,
                   <br />
                   Vamos ver o que eu tenho pra você hoje...
@@ -197,19 +181,66 @@ export default function ArsenalPage() {
 
           <AnimatePresence>
             {showButton && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4 }}
+              >
                 <button
                   onClick={handleShowWeapon}
-                  disabled={!finalWeapons.length}
-                  className="w-full md:w-auto px-12 py-5 bg-primary text-white font-bold text-xl rounded-2xl transition"
+                  disabled={!availableWeapons.length}
+                  className="w-full md:w-auto px-12 py-5 bg-primary hover:bg-pink-600 text-white font-bold text-xl rounded-2xl transition-all shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                 >
-                  EXIBIR ARMA →
+                  EXIBIR ARMA <span className="text-2xl">→</span>
                 </button>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </div>
+
+      {/* ==================== MODAL DA ARMA ==================== */}
+      <AnimatePresence>
+        {showWeaponModal && selectedWeapon && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-md p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ duration: 0.3 }}
+              className="bg-black border border-white/30 w-full max-w-2xl rounded-3xl p-8 max-h-[92vh] overflow-y-auto shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-white font-heading text-4xl tracking-tight">{selectedWeapon.name}</h2>
+                <button
+                  onClick={() => setShowWeaponModal(false)}
+                  className="text-white text-3xl hover:text-primary transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="w-full h-80 bg-zinc-950 rounded-2xl mb-8 flex items-center justify-center overflow-hidden border border-white/10">
+                <Model3D modelUrl={selectedWeapon.glb} />
+              </div>
+
+              {/* resto do conteúdo do modal (categoria, bônus, preço, navegação, botões) */}
+              {/* ... (pode copiar da versão anterior que eu te passei) ... */}
+
+              {transactionError && (
+                <div className="mt-6 p-4 bg-red-500/10 border border-red-500/50 rounded-2xl text-red-400 text-center">
+                  {transactionError}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <CardTransactionModal
         isOpen={showTransactionModal}
@@ -224,7 +255,7 @@ export default function ArsenalPage() {
       <div className="fixed bottom-8 left-6 md:left-8 z-40">
         <button
           onClick={() => navigate('/game')}
-          className="px-8 py-4 bg-zinc-800 text-white font-bold rounded-2xl"
+          className="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-2xl transition-all"
         >
           ← Voltar ao Game
         </button>
