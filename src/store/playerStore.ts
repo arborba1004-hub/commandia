@@ -453,6 +453,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   scheduleSync: () => {
+    // Não agenda enquanto sincroniza
+    if (get().isSyncing) return;
+
     if (syncTimeout) clearTimeout(syncTimeout);
 
     syncTimeout = setTimeout(() => {
@@ -461,6 +464,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   syncPlayerToBackend: async () => {
+    // Ignora novos agendamentos durante a sincronização
+    if (get().isSyncing) return;
+
     const player = get().player;
 
     try {
