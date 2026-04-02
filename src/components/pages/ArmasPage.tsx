@@ -1,245 +1,286 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { WEAPONS, Weapon } from '@/data/armas';
-import * as THREE from 'three';
+import CardTransactionModal from '@/components/CardTransactionModal';
+import { Model3D } from '@/components/Model3D';
+import { isDelacaoActive } from '@/services/punishmentService';
 
-const FILTER_COLORS: Record<string, string> = {
-  'branco': '#FFFFFF',
-  'cinza leve': '#D3D3D3',
-  'cinza escuro': '#555555',
-  'marrom': '#8B4513',
-  'verde militar': '#556B2F',
-  'preto': '#000000',
-  'preto neon': '#00FF00',
-  'prata': '#C0C0C0',
-  'bronze metálico': '#CD7F32',
-  'dourado': '#FFD700',
-  'dourado neon': '#FFFF00',
-};
-
-const FILTER_DESCRIPTIONS: Record<string, string> = {
-  'branco': 'Iniciante',
-  'cinza leve': 'Simples',
-  'cinza escuro': 'Médio',
-  'marrom': 'Top',
-  'verde militar': 'Militar',
-  'preto': 'Profissional',
-  'preto neon': 'Ultra',
-  'prata': 'Max',
-  'bronze metálico': 'Lendário',
-  'dourado': 'Domínio',
-  'dourado neon': 'Comando',
-};
-
-export default function ArmasPage() {
+export default function ArsenalPage() {
   const player = usePlayerStore((state) => state.player);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
+
   const navigate = useNavigate();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const modelRef = useRef<THREE.Group | null>(null);
 
-  const playerLevel = player.niveis?.playerLevel || 1;
-  const currentWeapon = WEAPONS[playerLevel - 1] || WEAPONS[0];
-  const filterColor = FILTER_COLORS[currentWeapon.filter] || '#FFFFFF';
-  const filterDescription = FILTER_DESCRIPTIONS[currentWeapon.filter] || 'Desconhecido';
+  const [showDialog, setShowDialog] = useState(false);
+  const [showButton, setShowButton] = useState(false);
+  const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
+  const [showWeaponModal, setShowWeaponModal] = useState(false);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [transactionError, setTransactionError] = useState<string | null>(null);
 
-  // Inicializar cena 3D
+  const playerName = player.name || 'Guerreiro';
+  const playerLevel = player.niveis?.barracoLevel || 1;
+  const dirtyMoney = player.balances?.dirtyMoney || 0;
+
+  // Armas disponíveis até o nível do jogador
+  const availableWeapons = WEAPONS
+    .filter((w) => w.level <= playerLevel)
+    .sort((a, b) => a.level - b.level);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   useEffect(() => {
-    if (!containerRef.current) return;
+    const video = videoRef.current;
+    if (!video) return;
 
-    // Scene setup
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a0a);
-    sceneRef.current = scene;
+    const handleTime = () => {
+      const t = video.currentTime;
+      if (t >= 0 && !showDialog) setShowDialog(true);
+      if (t >= 8 && !showButton) setShowButton(true);
+    };
 
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      containerRef.current.clientWidth / containerRef.current.clientHeight,
-      0.1,
-      1000
-    );
-    camera.position.z = 5;
+    video.addEventListener('timeupdate', handleTime);
+    return () => video.removeEventListener('timeupdate', handleTime);
+  }, [showDialog, showButton]);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    containerRef.current.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
+  const handleShowWeapon = () => {
+    if (availableWeapons.length === 0) {
+      alert("Nenhuma arma disponível para seu nível!");
+      return;
+    }
+    setSelectedWeapon(availableWeapons[0]);
+    setShowWeaponModal(true);
+    setTransactionError(null);
+  };
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
+  const handleBuyWeapon = async () => {
+    if (!selectedWeapon) return;
 
-    const pointLight1 = new THREE.PointLight(0xffffff, 1.2);
-    pointLight1.position.set(10, 10, 10);
-    scene.add(pointLight1);
+    const inventory = player?.inventory?.items || [];
+    const alreadyOwned = inventory.some((item: any) => item.level === selectedWeapon.level);
 
-    const pointLight2 = new THREE.PointLight(0xffffff, 0.8);
-    pointLight2.position.set(-10, -10, 10);
-    scene.add(pointLight2);
+    if (alreadyOwned) {
+      setTransactionError('Você já possui essa arma');
+      return;
+    }
 
-    // Load model
-    const loader = new THREE.GLTFLoader();
+    if (isDelacaoActive(player)) {
+      setTransactionError('Você está bloqueado pela delação');
+      return;
+    }
 
-    loader.load(
-      currentWeapon.glb,
-      (gltf) => {
-        const model = gltf.scene;
-        modelRef.current = model;
-        scene.add(model);
+    if (dirtyMoney < selectedWeapon.price) {
+      setTransactionError('Saldo insuficiente');
+      return;
+    }
 
-        // Center and scale model
-        const box = new THREE.Box3().setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        model.position.sub(center);
+    setIsProcessing(true);
+    await new Promise((resolve) => setTimeout(resolve, 1800));
 
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 4 / maxDim;
-        model.scale.multiplyScalar(scale);
-
-        // Apply color filter to model
-        model.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            const colorHex = filterColor.replace('#', '0x');
-            child.material.color.setHex(parseInt(colorHex));
-            child.material.emissive.setHex(parseInt(colorHex));
-            child.material.emissiveIntensity = 0.3;
-          }
-        });
+    const updated = {
+      ...player,
+      balances: {
+        ...player.balances,
+        dirtyMoney: player.balances.dirtyMoney - selectedWeapon.price,
       },
-      undefined,
-      (error) => {
-        console.error('Error loading model:', error);
-      }
-    );
-
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
-
-      if (modelRef.current) {
-        modelRef.current.rotation.x += 0.005;
-        modelRef.current.rotation.y += 0.01;
-      }
-
-      renderer.render(scene, camera);
+      inventory: {
+        ...player.inventory,
+        items: [
+          ...(player.inventory?.items || []),
+          {
+            id: crypto.randomUUID(),
+            name: selectedWeapon.name,
+            level: selectedWeapon.level,
+            category: selectedWeapon.category,
+            price: selectedWeapon.price,
+            attackBonus: selectedWeapon.attackBonus,
+            defenseBonus: selectedWeapon.defenseBonus,
+          },
+        ],
+      },
+      skills: {
+        ...player.skills,
+        attack: (player.skills?.attack || 0) + selectedWeapon.attackBonus,
+        defense: (player.skills?.defense || 0) + selectedWeapon.defenseBonus,
+      },
     };
 
-    animate();
+    setPlayer(updated);
 
-    // Handle resize
-    const handleResize = () => {
-      if (!containerRef.current || !rendererRef.current) return;
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      rendererRef.current.setSize(width, height);
-    };
+    setIsProcessing(false);
+    setShowTransactionModal(false);
+    setShowWeaponModal(false);
+    setTransactionError(null);
 
-    window.addEventListener('resize', handleResize);
+    alert(`✅ ${selectedWeapon.name} comprada com sucesso!`);
+  };
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
-        containerRef.current.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
-    };
-  }, [currentWeapon.glb, filterColor]);
+  const handleNextWeapon = () => {
+    if (!selectedWeapon) return;
+    const index = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
+    if (index !== -1 && index < availableWeapons.length - 1) {
+      setSelectedWeapon(availableWeapons[index + 1]);
+    }
+  };
+
+  const handlePrevWeapon = () => {
+    if (!selectedWeapon) return;
+    const index = availableWeapons.findIndex((w) => w.level === selectedWeapon.level);
+    if (index > 0) {
+      setSelectedWeapon(availableWeapons[index - 1]);
+    }
+  };
 
   return (
-    <div className="w-full min-h-screen bg-black flex flex-col">
+    <div className="w-full min-h-screen bg-black flex flex-col overflow-hidden">
       <Header />
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-8 p-6 max-w-[100rem] mx-auto w-full">
-        {/* 3D Model Container */}
-        <div className="flex-1 min-h-[500px] lg:min-h-[600px] rounded-2xl overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-zinc-900 to-black">
-          <div
-            ref={containerRef}
-            className="w-full h-full"
-            style={{
-              filter: `drop-shadow(0 0 20px ${filterColor}80)`,
-            }}
-          />
-        </div>
+      <div className="relative flex-1 w-full bg-black">
+        <video
+          ref={videoRef}
+          src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
+          autoPlay
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        />
 
-        {/* Info Container */}
-        <div className="flex-1 flex flex-col justify-center space-y-8">
-          {/* Weapon Info */}
-          <div className="space-y-6">
-            <div>
-              <p className="text-gray-400 text-sm uppercase tracking-widest mb-2">Arma Atual</p>
-              <h1 className="text-5xl font-bold text-white mb-2">{currentWeapon.name}</h1>
-              <p className="text-gray-400 text-lg">Nível {currentWeapon.level}</p>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/90" />
+
+        {/* Diálogo + Botão */}
+        <div className="absolute bottom-12 left-6 right-6 z-50">
+          {showDialog && (
+            <div className="mb-6 text-white text-2xl drop-shadow-2xl">
+              Olá <span className="text-primary font-bold">{playerName}</span>,<br />
+              Vamos ver o que eu tenho pra você hoje...
             </div>
+          )}
 
-            {/* Filter Badge */}
-            <div
-              className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border-2 w-fit"
-              style={{
-                borderColor: filterColor,
-                backgroundColor: `${filterColor}15`,
-              }}
-            >
-              <div
-                className="w-4 h-4 rounded-full"
-                style={{ backgroundColor: filterColor }}
-              />
-              <span className="font-semibold text-white">{filterDescription}</span>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
-                <p className="text-gray-400 text-sm mb-1">Ataque</p>
-                <p className="text-3xl font-bold text-green-400">+{currentWeapon.attackBonus}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                <p className="text-gray-400 text-sm mb-1">Defesa</p>
-                <p className="text-3xl font-bold text-blue-400">+{currentWeapon.defenseBonus}</p>
-              </div>
-            </div>
-
-            {/* Category */}
-            <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-700">
-              <p className="text-gray-400 text-sm mb-1">Tipo</p>
-              <p className="text-xl font-semibold text-white capitalize">{currentWeapon.category.replace('_', ' ')}</p>
-            </div>
-
-            {/* Price */}
-            <div className="p-4 rounded-xl bg-primary/10 border border-primary/30">
-              <p className="text-gray-400 text-sm mb-1">Preço</p>
-              <p className="text-3xl font-bold text-primary">
-                R$ {currentWeapon.price.toLocaleString('pt-BR')}
-              </p>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4 pt-4">
+          {showButton && (
             <button
-              onClick={() => navigate('/arsenal')}
-              className="flex-1 py-4 px-6 bg-primary text-black font-bold text-lg rounded-xl hover:bg-pink-500 active:scale-95 transition-all"
+              onClick={handleShowWeapon}
+              className="w-full py-6 bg-primary text-white font-bold text-2xl rounded-3xl active:bg-pink-600 active:scale-95 transition-all"
             >
-              Ir para Arsenal
+              EXIBIR ARMA →
             </button>
-            <button
-              onClick={() => navigate('/game')}
-              className="flex-1 py-4 px-6 bg-zinc-800 text-white font-bold text-lg rounded-xl hover:bg-zinc-700 active:scale-95 transition-all"
-            >
-              Voltar
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
-      <Footer />
+      {/* ==================== MODAL DA ARMA ==================== */}
+      {showWeaponModal && selectedWeapon && (
+        <div className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-lg p-8 text-white">
+            
+            {/* Nome da arma */}
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-3xl font-bold text-primary">{selectedWeapon.name}</h2>
+              <button 
+                onClick={() => setShowWeaponModal(false)}
+                className="text-4xl leading-none text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Objeto 3D */}
+            <div className="w-full h-72 bg-black rounded-2xl mb-8 flex items-center justify-center overflow-hidden border border-white/20">
+              <Model3D modelUrl={selectedWeapon.glb} />
+            </div>
+
+            {/* Informações detalhadas */}
+            <div className="space-y-5 mb-8 text-lg">
+              <div>
+                <p className="text-gray-400 text-sm">Filtro</p>
+                <p className="font-medium">{selectedWeapon.filter}</p>
+              </div>
+
+              <div>
+                <p className="text-gray-400 text-sm">Brilho</p>
+                <p className="font-medium">Alto</p>
+              </div>
+
+              <div>
+                <p className="text-gray-400 text-sm">Saturação</p>
+                <p className="font-medium">Média</p>
+              </div>
+
+              <div>
+                <p className="text-gray-400 text-sm">Bônus de Habilidade</p>
+                <p className="font-medium">
+                  +{selectedWeapon.attackBonus}% Ataque / +{selectedWeapon.defenseBonus}% Defesa
+                </p>
+              </div>
+
+              <div>
+                <p className="text-gray-400 text-sm">Valor</p>
+                <p className="text-2xl font-bold text-primary">
+                  R$ {selectedWeapon.price.toLocaleString('pt-BR')}
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-white/20">
+                <p className="text-gray-400 text-sm">Seu saldo atual</p>
+                <p className="text-xl">
+                  R$ {dirtyMoney.toLocaleString('pt-BR')}
+                  {dirtyMoney < selectedWeapon.price && (
+                    <span className="text-red-400 ml-2">(Insuficiente)</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Botões */}
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowWeaponModal(false);
+                  setTransactionError(null);
+                }}
+                className="flex-1 py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600"
+              >
+                Fechar
+              </button>
+              <button
+                onClick={() => setShowTransactionModal(true)}
+                disabled={dirtyMoney < selectedWeapon.price || isProcessing}
+                className="flex-1 py-4 bg-primary rounded-2xl text-lg font-bold active:bg-pink-600 disabled:opacity-50"
+              >
+                COMPRAR
+              </button>
+            </div>
+
+            {transactionError && (
+              <div className="mt-4 p-4 bg-red-500/20 border border-red-500 rounded-2xl text-red-400 text-center">
+                {transactionError}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <CardTransactionModal
+        isOpen={showTransactionModal}
+        isProcessing={isProcessing}
+        onClose={() => {
+          setShowTransactionModal(false);
+          setTransactionError(null);
+        }}
+        onConfirm={handleBuyWeapon}
+      />
+
+      <div className="fixed bottom-8 left-6 z-50">
+        <button
+          onClick={() => navigate('/game')}
+          className="px-8 py-4 bg-zinc-800 text-white rounded-2xl"
+        >
+          ← Voltar ao Game
+        </button>
+      </div>
     </div>
   );
 }
