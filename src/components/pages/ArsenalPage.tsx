@@ -29,26 +29,19 @@ export default function ArsenalPage() {
 
   const [showDialog, setShowDialog] = useState(false);
   const [showButton, setShowButton] = useState(false);
-  const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
   const [showWeaponModal, setShowWeaponModal] = useState(false);
   const [showVaultModal, setShowVaultModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<WeaponCategory | 'all'>('all');
-  const [showWeaponList, setShowWeaponList] = useState(false);
 
   const playerName = player?.name || 'Guerreiro';
   const playerLevel = player?.niveis?.playerLevel || 1;
   const dirtyMoney = player?.balances?.dirtyMoney || 0;
   const costReductionPercent = getArsenalCostReduction();
 
-  const availableWeapons = WEAPONS
-    .filter((w) => w.level <= playerLevel)
-    .sort((a, b) => a.level - b.level);
-
-  const filteredWeapons = selectedFilter === 'all'
-    ? availableWeapons
-    : availableWeapons.filter((w) => w.category === selectedFilter);
+  // Arma correspondente ao nível do jogador
+  const currentWeapon = WEAPONS.find(w => w.level === playerLevel) || WEAPONS[playerLevel - 1];
+  const finalPrice = currentWeapon ? Math.floor(currentWeapon.price * (1 - costReductionPercent / 100)) : 0;
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -62,25 +55,19 @@ export default function ArsenalPage() {
   }, []);
 
   const handleShowWeapon = () => {
-    if (availableWeapons.length === 0) {
+    if (!currentWeapon) {
       alert("Nenhuma arma disponível para seu nível!");
       return;
     }
-    setShowWeaponList(true);
+    setShowWeaponModal(true);
     setTransactionError(null);
   };
 
-  const handleSelectWeapon = (weapon: Weapon) => {
-    setSelectedWeapon(weapon);
-    setShowWeaponModal(true);
-    setShowWeaponList(false);
-  };
-
   const handleBuyWeapon = async () => {
-    if (!selectedWeapon) return;
+    if (!currentWeapon) return;
 
     const inventory = player?.inventory?.items || [];
-    const alreadyOwned = inventory.some((item: any) => item.level === selectedWeapon.level);
+    const alreadyOwned = inventory.some((item: any) => item.level === currentWeapon.level);
     if (alreadyOwned) {
       setTransactionError('Você já possui essa arma');
       return;
@@ -90,25 +77,22 @@ export default function ArsenalPage() {
       return;
     }
 
-    const finalPrice = Math.floor(selectedWeapon.price * (1 - costReductionPercent / 100));
     if (dirtyMoney < finalPrice) {
       setTransactionError('Saldo insuficiente');
       return;
     }
 
     setIsProcessing(true);
-
-    // Simulação de processamento – substituir por chamada backend se necessário
     await new Promise(resolve => setTimeout(resolve, 1800));
 
     const newItem = {
       id: crypto.randomUUID(),
-      name: selectedWeapon.name,
-      level: selectedWeapon.level,
-      category: selectedWeapon.category,
+      name: currentWeapon.name,
+      level: currentWeapon.level,
+      category: currentWeapon.category,
       price: finalPrice,
-      attackBonus: selectedWeapon.attackBonus,
-      defenseBonus: selectedWeapon.defenseBonus,
+      attackBonus: currentWeapon.attackBonus,
+      defenseBonus: currentWeapon.defenseBonus,
     };
 
     const updated = {
@@ -123,8 +107,8 @@ export default function ArsenalPage() {
       },
       skills: {
         ...player.skills,
-        attack: (player.skills?.attack || 0) + selectedWeapon.attackBonus,
-        defense: (player.skills?.defense || 0) + selectedWeapon.defenseBonus,
+        attack: (player.skills?.attack || 0) + currentWeapon.attackBonus,
+        defense: (player.skills?.defense || 0) + currentWeapon.defenseBonus,
       },
     };
 
@@ -133,8 +117,6 @@ export default function ArsenalPage() {
     setShowVaultModal(false);
     setShowWeaponModal(false);
     setTransactionError(null);
-
-    // Redireciona para a página do jogo após compra
     navigate('/game');
   };
 
@@ -171,88 +153,33 @@ export default function ArsenalPage() {
         </div>
       </div>
 
-      {/* MODAL DE LISTA DE ARMAS COM FILTRO */}
-      {showWeaponList && (
-        <div className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center p-6">
-          <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-2xl p-8 text-white max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-start mb-6">
-              <h2 className="text-3xl font-bold">Seleção de Armas</h2>
-              <button onClick={() => setShowWeaponList(false)} className="text-4xl leading-none text-gray-400 hover:text-white">✕</button>
-            </div>
-
-            <div className="mb-6">
-              <p className="text-gray-400 text-sm mb-3">Filtrar por tipo:</p>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => setSelectedFilter('all')} className={`px-4 py-2 rounded-xl font-medium transition-all ${selectedFilter === 'all' ? 'bg-primary text-black' : 'bg-gray-700 text-white hover:bg-gray-600'}`}>Todas</button>
-                {(Object.keys(CATEGORY_LABELS) as WeaponCategory[]).map((category) => (
-                  <button key={category} onClick={() => setSelectedFilter(category)} className={`px-4 py-2 rounded-xl font-medium transition-all ${selectedFilter === category ? 'bg-primary text-black' : 'bg-gray-700 text-white hover:bg-gray-600'}`}>{CATEGORY_LABELS[category]}</button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto mb-6 space-y-2">
-              {filteredWeapons.length > 0 ? (
-                filteredWeapons.map((weapon) => {
-                  const finalPrice = Math.floor(weapon.price * (1 - costReductionPercent / 100));
-                  return (
-                    <button key={weapon.level} onClick={() => handleSelectWeapon(weapon)} className="w-full p-4 bg-gray-800 hover:bg-gray-700 rounded-2xl text-left transition-all border border-gray-700 hover:border-primary">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-bold text-lg">{weapon.name}</p>
-                          <p className="text-gray-400 text-sm">{CATEGORY_LABELS[weapon.category]} • {weapon.filter}</p>
-                          <div className="flex gap-4 mt-2 text-sm">
-                            <span className="text-green-400">ATK: +{weapon.attackBonus}</span>
-                            <span className="text-blue-400">DEF: +{weapon.defenseBonus}</span>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-primary font-bold text-xl">R$ {finalPrice.toLocaleString('pt-BR')}</p>
-                          {costReductionPercent > 0 && <p className="text-xs text-green-400">-{costReductionPercent}% (gang)</p>}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-gray-400">Nenhuma arma disponível nesta categoria</div>
-              )}
-            </div>
-
-            <button onClick={() => setShowWeaponList(false)} className="w-full py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600">Fechar</button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DA ARMA COM MODELO 3D */}
-      {showWeaponModal && selectedWeapon && (
+      {/* MODAL DA ARMA (DIRETO, SEM LISTA) */}
+      {showWeaponModal && currentWeapon && (
         <div className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center p-6">
           <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-2xl p-8 text-white max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-3xl font-bold">{selectedWeapon.name}</h2>
-                <p className="text-gray-400 text-sm mt-2">{CATEGORY_LABELS[selectedWeapon.category]} • Nível {selectedWeapon.level}</p>
+                <h2 className="text-3xl font-bold">{currentWeapon.name}</h2>
+                <p className="text-gray-400 text-sm mt-2">{CATEGORY_LABELS[currentWeapon.category]} • Nível {currentWeapon.level}</p>
               </div>
               <button onClick={() => setShowWeaponModal(false)} className="text-4xl leading-none text-gray-400 hover:text-white">✕</button>
             </div>
 
-            {/* Modelo 3D */}
             <div className="mb-6 bg-black/50 rounded-2xl overflow-hidden" style={{ height: '300px' }}>
-              <Model3D modelUrl={selectedWeapon.object3d} />
+              <Model3D modelUrl={currentWeapon.object3d} />
             </div>
 
-            {/* Bônus de Habilidade */}
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="bg-black/40 rounded-xl p-3 text-center">
                 <p className="text-gray-400 text-sm">Ataque</p>
-                <p className="text-2xl font-bold text-green-400">+{selectedWeapon.attackBonus}</p>
+                <p className="text-2xl font-bold text-green-400">+{currentWeapon.attackBonus}</p>
               </div>
               <div className="bg-black/40 rounded-xl p-3 text-center">
                 <p className="text-gray-400 text-sm">Defesa</p>
-                <p className="text-2xl font-bold text-blue-400">+{selectedWeapon.defenseBonus}</p>
+                <p className="text-2xl font-bold text-blue-400">+{currentWeapon.defenseBonus}</p>
               </div>
             </div>
 
-            {/* Bônus da Gang (Armeiro) */}
             {costReductionPercent > 0 && (
               <div className="mb-4 bg-purple-900/30 rounded-xl p-3 text-center">
                 <p className="text-purple-300 text-sm">Desconto da Gang (Armeiro)</p>
@@ -260,10 +187,9 @@ export default function ArsenalPage() {
               </div>
             )}
 
-            {/* Preço */}
             <div className="mb-6 text-center">
               <p className="text-gray-400 text-sm">Preço com desconto</p>
-              <p className="text-3xl font-bold text-primary">R$ {Math.floor(selectedWeapon.price * (1 - costReductionPercent / 100)).toLocaleString('pt-BR')}</p>
+              <p className="text-3xl font-bold text-primary">R$ {finalPrice.toLocaleString('pt-BR')}</p>
             </div>
 
             {transactionError && (
@@ -271,18 +197,17 @@ export default function ArsenalPage() {
             )}
 
             <div className="flex gap-4">
-              <button onClick={() => { setShowWeaponModal(false); setTransactionError(null); }} className="flex-1 py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600">Voltar</button>
-              <button onClick={() => setShowVaultModal(true)} disabled={dirtyMoney < selectedWeapon.price || isProcessing} className="flex-1 py-4 bg-primary rounded-2xl text-lg font-bold active:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed">COMPRAR</button>
+              <button onClick={() => setShowWeaponModal(false)} className="flex-1 py-4 bg-gray-700 rounded-2xl text-lg font-medium active:bg-gray-600">Voltar</button>
+              <button onClick={() => setShowVaultModal(true)} disabled={dirtyMoney < finalPrice || isProcessing} className="flex-1 py-4 bg-primary rounded-2xl text-lg font-bold active:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed">COMPRAR</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal do Cofre para confirmação de saldo */}
       <SafeVaultModal
         open={showVaultModal}
         onOpenChange={setShowVaultModal}
-        subornoValue={Math.floor((selectedWeapon?.price || 0) * (1 - costReductionPercent / 100))}
+        subornoValue={finalPrice}
         playerDirtyMoney={dirtyMoney}
         onConfirm={handleBuyWeapon}
         isProcessing={isProcessing}
