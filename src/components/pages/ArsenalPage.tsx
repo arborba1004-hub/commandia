@@ -26,11 +26,13 @@ export default function ArsenalPage() {
   const [transactionError, setTransactionError] = useState<string | null>(null);
 
   const playerName = player?.name || 'Guerreiro';
-  const playerLevel = player?.niveis?.playerLevel || 1;
+  const playerLevel = player?.niveis?.barracoLevel || 1;
   const dirtyMoney = player?.balances?.dirtyMoney || 0;
 
   // Filter weapons by player level
-  const availableWeapons = WEAPONS.filter((w) => canBuyWeapon(playerLevel, w.level));
+  const availableWeapons = WEAPONS.filter((w) => w.level === playerLevel);
+
+  if (!availableWeapons.length) return;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -47,10 +49,10 @@ export default function ArsenalPage() {
   }, [showDialog, showButton]);
 
   const handleShowWeapon = () => {
-    if (availableWeapons.length > 0) {
-      setSelectedWeapon(availableWeapons[0]);
-      setShowWeaponModal(true);
-    }
+    if (!availableWeapons.length) return;
+
+    setSelectedWeapon(availableWeapons[0]);
+    setShowWeaponModal(true);
   };
 
   const handleBuyWeapon = async () => {
@@ -219,9 +221,9 @@ export default function ArsenalPage() {
               {/* PRICE */}
               <div className="bg-primary/20 border border-primary p-4 rounded-lg mb-6">
                 <p className="text-gray-400 text-sm">Preço</p>
-                <p className="text-primary font-bold text-3xl">${selectedWeapon.price}</p>
+                <p className="text-primary font-bold text-3xl">R$ {selectedWeapon.price.toLocaleString('pt-BR')}</p>
                 <p className="text-gray-400 text-xs mt-2">
-                  Saldo: ${dirtyMoney} {dirtyMoney < selectedWeapon.price && '(Insuficiente)'}
+                  Saldo: R$ {dirtyMoney.toLocaleString('pt-BR')} {dirtyMoney < selectedWeapon.price && '(Insuficiente)'}
                 </p>
               </div>
 
