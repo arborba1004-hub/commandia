@@ -4,7 +4,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Image } from '@/components/ui/image';
 
-interface DirtyMoneyVaultModalProps {
+interface dirtymoneyVaultModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   amount: number;
@@ -18,7 +18,7 @@ interface DirtyMoneyVaultModalProps {
   imageUrl?: string;
 }
 
-export default function DirtyMoneyVaultModal({
+export default function dirtymoneyVaultModal({
   open,
   onOpenChange,
   amount,
@@ -30,9 +30,9 @@ export default function DirtyMoneyVaultModal({
   insufficientTitle = 'COFRE VAZIO',
   insufficientMessage = 'Você não tem dinheiro sujo suficiente para concluir esta operação.',
   imageUrl = 'https://static.wixstatic.com/media/50f4bf_5868d04681cb49d1a58d89dc4493574f\~mv2.png',
-}: DirtyMoneyVaultModalProps) {
+}: dirtymoneyVaultModalProps) {
   const [doorOpen, setDoorOpen] = useState(false);
-  const hasSufficientFunds = playerDirtyMoney >= amount;
+  const hasSufficientFunds = playerdirtymoney >= amount;
 
   useEffect(() => {
     if (open) {
@@ -141,7 +141,7 @@ export default function DirtyMoneyVaultModal({
 
           <div className="absolute top-4 left-4 right-4 z-20">
             <p className="text-gray-300 text-sm text-center">
-              Saldo Atual: R$ {playerDirtyMoney.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              Saldo Atual: R$ {playerdirtymoney.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>
