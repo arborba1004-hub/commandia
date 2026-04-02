@@ -69,19 +69,19 @@ export function isPvpProtected(player: any): boolean {
 }
 
 export function isDirtyMoneyBlocked(player: any): boolean {
-  return !!player?.punishments?.dirtyMoneyBlocked && isDelacaoActive(player);
+  return !!player?.punishments?.dirtyMoneyBlocked || isDelacaoActive(player);
 }
 
 export function isCleanMoneyBlocked(player: any): boolean {
-  return !!player?.punishments?.cleanMoneyBlocked && isDelacaoActive(player);
+  return !!player?.punishments?.cleanMoneyBlocked || isDelacaoActive(player);
 }
 
 export function isInventoryBlocked(player: any): boolean {
-  return !!player?.punishments?.inventoryBlocked && isDelacaoActive(player);
+  return !!player?.punishments?.inventoryBlocked || isDelacaoActive(player);
 }
 
 export function isLevelProgressionBlocked(player: any): boolean {
-  return !!player?.punishments?.levelProgressionBlocked && isDelacaoActive(player);
+  return !!player?.punishments?.levelProgressionBlocked || isDelacaoActive(player);
 }
 
 export function getInventoryBonusReductionPercent(player: any): number {
