@@ -1,5 +1,3 @@
-// ================= TYPES =================
-
 export type WeaponCategory =
   | 'knife'
   | 'revolver'
@@ -16,24 +14,15 @@ export interface Weapon {
   level: number;
   name: string;
   category: WeaponCategory;
-  glb: string;
+  object3d: string;
   price: number;
   attackBonus: number;
   defenseBonus: number;
-  filter: string;
-  skillBonusType?: 'attack' | 'defense';
-  object3d?: string;
-  filterCode?: string;
-  playerStoreLevel?: number;
-  filterName?: string;
-  brightness?: number;
-  saturation?: number;
-  value?: number;
+  filterName: string;
+  brightness: number;
+  saturation: number;
 }
 
-// ================= CONFIG =================
-
-// 10 MODELOS BASE (1 por categoria)
 const GLB_MODELS = [
   'https://static.wixstatic.com/3d/50f4bf_0fe925d5b5cc4ffca5f14a46fa4e73ba.glb',
   'https://static.wixstatic.com/3d/50f4bf_ac14fbf2d0f349e99a3c03567cc26847.glb',
@@ -47,142 +36,52 @@ const GLB_MODELS = [
   'https://static.wixstatic.com/3d/50f4bf_065ab40322644d4ebdc2be1d0d8f9bbe.glb',
 ];
 
-const CATEGORIES: WeaponCategory[] = [
-  'knife',
-  'revolver',
-  'pistol',
-  'auto_pistol',
-  'smg',
-  'shotgun',
-  'rifle',
-  'assault',
-  'machinegun',
-  'launcher',
-];
-
 const FILTERS = [
-  'branco',           // Iniciante
-  'cinza leve',       // Simples
-  'cinza escuro',     // Médio
-  'marrom',           // Top
-  'verde militar',    // Militar
-  'preto',            // Profissional
-  'preto neon',       // Ultra
-  'prata',            // Max
-  'bronze metálico',  // Lendário
-  'dourado',          // Domínio
-  'dourado neon',     // Comando
+  { name: 'Iniciante', brightness: 1, saturation: 0.2 },
+  { name: 'Simples', brightness: 0.9, saturation: 0.3 },
+  { name: 'Médio', brightness: 0.8, saturation: 0.4 },
+  { name: 'Top', brightness: 0.85, saturation: 0.6 },
+  { name: 'Militar', brightness: 0.75, saturation: 0.7 },
+  { name: 'Profissional', brightness: 0.6, saturation: 0.8 },
+  { name: 'Ultra', brightness: 0.7, saturation: 1 },
+  { name: 'Max', brightness: 1.1, saturation: 0.5 },
+  { name: 'Lendário', brightness: 1.2, saturation: 0.6 },
+  { name: 'Domínio', brightness: 1.3, saturation: 0.8 },
 ];
 
-// ================= HELPERS =================
-
-function getCategoryByLevel(level: number): WeaponCategory {
-  return CATEGORIES[(level - 1) % 10];
-}
-
-function getGLBByLevel(level: number): string {
-  return GLB_MODELS[(level - 1) % 10];
-}
-
-function getFilterByLevel(level: number): string {
-  const tier = Math.floor((level - 1) / 10);
-  return FILTERS[tier];
-}
-
-// ================= PRICE =================
-
-function calculatePrice(level: number): number {
+function calculatePrice(level: number) {
   let price = 122;
-
   for (let i = 2; i <= level; i++) {
     price = price * 1.11 + 3;
   }
-
   return Math.floor(price);
 }
 
-// ================= BONUS =================
-
 function calculateBonus(level: number) {
-  let attack = 0;
-  let defense = 0;
-
-  for (let i = 1; i <= level; i++) {
-    const base = 0.5 + (i - 1) * 0.1;
-
-    if (i % 2 === 0) {
-      attack += base;
-    } else {
-      defense += base;
-    }
-  }
+  const base = 0.5 + (level - 1) * 0.1;
 
   return {
-    attack: Number(attack.toFixed(2)),
-    defense: Number(defense.toFixed(2)),
+    attack: level % 2 === 0 ? base : 0,
+    defense: level % 2 !== 0 ? base : 0,
   };
 }
 
-// ================= GENERATOR =================
-
-export function generateWeapons(): Weapon[] {
-  const weapons: Weapon[] = [];
-
-  for (let level = 1; level <= 100; level++) {
-    const bonus = calculateBonus(level);
-
-    weapons.push({
-      level,
-      name: `Arma Nível ${level}`,
-      category: getCategoryByLevel(level),
-      glb: getGLBByLevel(level),
-      price: calculatePrice(level),
-      attackBonus: bonus.attack,
-      defenseBonus: bonus.defense,
-      filter: getFilterByLevel(level),
-    });
-  }
-
-  return weapons;
-}
-
-// ================= INSTANCE =================
-
-export const WEAPONS = generateWeapons();
-
-// ================= GAME RULE =================
-
-// Pode comprar arma do nível atual ou inferior
-export function canBuyWeapon(playerLevel: number, weaponLevel: number) {
-  return weaponLevel <= playerLevel;
-}
-
-// ================= WEAPON GETTER =================
-
-export function getWeaponByPlayerLevel(playerLevel: number): Weapon | null {
-  if (playerLevel < 1 || playerLevel > 100) {
-    return null;
-  }
-
-  const baseWeapon = WEAPONS[playerLevel - 1];
-  if (!baseWeapon) {
-    return null;
-  }
-
-  const bonus = calculateBonus(playerLevel);
-  const skillBonusType = playerLevel % 2 === 0 ? 'attack' : 'defense';
-  const skillBonusPercent = skillBonusType === 'attack' ? bonus.attack * 10 : bonus.defense * 10;
+export const WEAPONS: Weapon[] = Array.from({ length: 100 }).map((_, i) => {
+  const level = i + 1;
+  const tier = Math.floor((level - 1) / 10);
+  const filter = FILTERS[tier];
+  const bonus = calculateBonus(level);
 
   return {
-    ...baseWeapon,
-    skillBonusType,
-    skillBonusPercent: Math.round(skillBonusPercent),
-    object3d: baseWeapon.glb,
-    filterCode: baseWeapon.filter,
-    playerStoreLevel: playerLevel,
-    filterName: FILTERS[Math.floor((playerLevel - 1) / 10)],
-    brightness: 100 + (playerLevel % 10) * 5,
-    saturation: 80 + (playerLevel % 10) * 2,
-    value: baseWeapon.price,
+    level,
+    name: `Arma Nível ${level}`,
+    category: 'knife',
+    object3d: GLB_MODELS[level % 10],
+    price: calculatePrice(level),
+    attackBonus: Number(bonus.attack.toFixed(2)),
+    defenseBonus: Number(bonus.defense.toFixed(2)),
+    filterName: filter.name,
+    brightness: filter.brightness,
+    saturation: filter.saturation,
   };
-}
+});
