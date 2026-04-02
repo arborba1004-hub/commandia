@@ -145,6 +145,8 @@ type PlayerStore = {
   isPolling: boolean;
   pollingAttempts: number;
   maxPollingAttempts: number;
+  localVersion: number;
+  lastSyncAt: number;
 
   loadPlayer: () => void;
   setPlayer: (incoming: Partial<PlayerState>) => void;
@@ -360,6 +362,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   isPolling: false,
   pollingAttempts: 0,
   maxPollingAttempts: 5,
+  localVersion: 0,
+  lastSyncAt: 0,
 
   loadPlayer: () => {
     try {
@@ -393,6 +397,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   setPlayer: (incoming) => {
+    const newVersion = get().localVersion + 1;
     const merged = mergePlayer({
       ...get().player,
       ...incoming,
@@ -403,6 +408,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     set({
       player: merged,
       syncError: null,
+      localVersion: newVersion,
+      lastSyncAt: Date.now(),
     });
 
     get().scheduleSync();
@@ -516,15 +523,24 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       const serverPlayer = await fetchCurrentPlayer();
 
       if (serverPlayer) {
-        // Hidrata sem disparar sync (evita loop)
-        const merged = mergePlayer(serverPlayer);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        const serverVersion = (serverPlayer as any).version || 0;
+        const localVersion = get().localVersion;
 
-        set({
-          player: merged,
-          syncError: null,
-          pollingAttempts: 0, // Reseta tentativas em caso de sucesso
-        });
+        // Se o backend tem dados mais novos, substitui
+        if (serverVersion > localVersion) {
+          const merged = mergePlayer(serverPlayer);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+
+          set({
+            player: merged,
+            syncError: null,
+            pollingAttempts: 0,
+            localVersion: serverVersion,
+          });
+        } else {
+          // Backend está desatualizado, mantém local e agenda sync
+          get().scheduleSync();
+        }
       }
     } catch (error: any) {
       console.error('Erro ao fazer polling do player:', error);
