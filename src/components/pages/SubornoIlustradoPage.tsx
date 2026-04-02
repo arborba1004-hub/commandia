@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Image } from '@/components/ui/image';
 import SafeVaultModal from '@/components/SafeVaultModal';
-import { getRandomPunishment, applyPunishment, applyDelacaoPremiada } from '@/Services/punishmentService';
+import { getRandomPunishment, applyPunishment, applyDelacaoPremiada } from '@/services/punishmentService';
 
 interface Authority {
   id: number;

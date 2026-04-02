@@ -62,7 +62,7 @@ export default function DelacaoPremiadaPage() {
         className="absolute inset-0 z-0"
         style={{
           backgroundImage:
-            'url(https://static.wixstatic.com/media/50f4bf_b6f29b55ba6b404bbd2a3c37f122f91f\~mv2.png)',
+            'url(https://static.wixstatic.com/media/50f4bf_b6f29b55ba6b404bbd2a3c37f122f91f~mv2.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
@@ -166,7 +166,7 @@ export default function DelacaoPremiadaPage() {
 
                   <div className="mt-14 flex flex-wrap gap-4">
                     <button
-                      onClick={() => navigate('/suborno')}
+                      onClick={() => navigate('/suborno-ilustrado')}
                       className="group px-8 py-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 text-white font-medium transition-all duration-300 flex-1 md:flex-none hover:ring-2 hover:ring-white/30 active:scale-95"
                     >
                       ← Voltar

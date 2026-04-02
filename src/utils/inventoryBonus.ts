@@ -1,4 +1,4 @@
-import { getInventoryBonusReductionPercent } from '@/Services/punishmentService';
+import { getInventoryBonusReductionPercent } from '@/services/punishmentService';
 
 /**
  * Calculates the final inventory bonus value after applying punishment reduction
