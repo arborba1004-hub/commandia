@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGangBonus } from '@/hooks/useGangBonus';
 import { WEAPONS, Weapon, WeaponCategory } from '@/data/armas';
 import { Model3D } from '@/components/Model3D';
-import DirtyMoneyVaultModal from '@/components/DirtyMoneyVaultModal';
 import { isDelacaoActive } from '@/Services/punishmentService';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -228,19 +226,34 @@ export default function ArsenalPage() {
         </div>
       )}
 
-      {/* MODAL DO COFRE (idêntico ao Suborno) */}
-      <DirtyMoneyVaultModal
-  open={showVaultModal}
-  onOpenChange={setShowVaultModal}
-  amount={subornoValue}
-  playerDirtyMoney={player.balances.dirtyMoney}
-  onConfirm={handlePaySuborno}
-  isProcessing={isProcessing}
-  title="Pagamento do Suborno"
-  confirmLabel="Confirmar Pagamento"
-  insufficientTitle="COFRE VAZIO"
-  insufficientMessage="Você não tem dinheiro sujo suficiente para pagar este suborno."
-/>
+      {/* MODAL DO COFRE */}
+      <Dialog open={showVaultModal} onOpenChange={setShowVaultModal}>
+        <DialogContent className="bg-gray-900 border-emerald-800 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-3xl text-center">Confirmar Compra</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-8">
+            <p className="font-paragraph text-lg text-gray-200 mb-4">Você está prestes a gastar:</p>
+            <p className="font-heading text-4xl text-primary mb-6">R$ {finalPrice.toLocaleString('pt-BR')}</p>
+            <p className="font-paragraph text-sm text-gray-400">Saldo atual: R$ {dirtyMoney.toLocaleString('pt-BR')}</p>
+          </div>
+          <div className="flex gap-4">
+            <Button
+              onClick={() => setShowVaultModal(false)}
+              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-heading text-lg py-6 rounded-3xl"
+            >
+              CANCELAR
+            </Button>
+            <Button
+              onClick={handleBuyWeapon}
+              disabled={isProcessing}
+              className="flex-1 bg-primary hover:bg-pink-600 text-white font-heading text-lg py-6 rounded-3xl disabled:opacity-50"
+            >
+              {isProcessing ? 'PROCESSANDO...' : 'CONFIRMAR'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* MODAL DE RESULTADO (idêntico ao Suborno) */}
       <Dialog open={showResult} onOpenChange={setShowResult}>
