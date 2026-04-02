@@ -18,7 +18,7 @@ export interface Weapon {
   price: number;
   attackBonus: number;
   defenseBonus: number;
-  filterName: string;
+  filter: string;
   brightness: number;
   saturation: number;
 }
@@ -69,7 +69,7 @@ function calculateBonus(level: number) {
 export const WEAPONS: Weapon[] = Array.from({ length: 100 }).map((_, i) => {
   const level = i + 1;
   const tier = Math.floor((level - 1) / 10);
-  const filter = FILTERS[tier];
+  const filterData = FILTERS[tier];
   const bonus = calculateBonus(level);
 
   return {
@@ -80,8 +80,8 @@ export const WEAPONS: Weapon[] = Array.from({ length: 100 }).map((_, i) => {
     price: calculatePrice(level),
     attackBonus: Number(bonus.attack.toFixed(2)),
     defenseBonus: Number(bonus.defense.toFixed(2)),
-    filterName: filter.name,
-    brightness: filter.brightness,
-    saturation: filter.saturation,
+    filter: filterData.name,
+    brightness: filterData.brightness,
+    saturation: filterData.saturation,
   };
 });

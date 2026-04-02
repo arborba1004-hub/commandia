@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 interface Model3DProps {
   modelUrl: string;
@@ -41,7 +42,7 @@ export function Model3D({ modelUrl }: Model3DProps) {
     scene.add(pointLight2);
 
     // Load model
-    const loader = new THREE.GLTFLoader();
+    const loader = new GLTFLoader();
     let model: THREE.Group | null = null;
 
     loader.load(
@@ -94,7 +95,9 @@ export function Model3D({ modelUrl }: Model3DProps) {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      containerRef.current?.removeChild(renderer.domElement);
+      if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
+        containerRef.current.removeChild(renderer.domElement);
+      }
       renderer.dispose();
     };
   }, [modelUrl]);

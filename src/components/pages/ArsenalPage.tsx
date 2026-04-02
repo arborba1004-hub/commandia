@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { usePlayerStore } from '@/store/playerStore';
 import { WEAPONS, Weapon, WeaponCategory } from '@/data/armas';
+import { Model3D } from '@/components/Model3D';
 import SafeVaultModal from '@/components/SafeVaultModal';
 import { isDelacaoActive } from '@/services/punishmentService';
 
@@ -37,7 +38,7 @@ export default function ArsenalPage() {
   const [showWeaponList, setShowWeaponList] = useState(false);
 
   const playerName = player.name || 'Guerreiro';
-  const playerLevel = player.niveis?.barracoLevel || 1;
+  const playerLevel = player.niveis?.playerLevel || 1;
   const dirtyMoney = player.balances?.dirtyMoney || 0;
 
   const availableWeapons = WEAPONS
@@ -50,19 +51,23 @@ export default function ArsenalPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Controla UI com setTimeout, independente do vídeo
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    // Mostra diálogo após 500ms
+    const dialogTimer = setTimeout(() => {
+      setShowDialog(true);
+    }, 500);
 
-    const handleTime = () => {
-      const t = video.currentTime;
-      if (t >= 0 && !showDialog) setShowDialog(true);
-      if (t >= 8 && !showButton) setShowButton(true);
+    // Mostra botão após 2.5s
+    const buttonTimer = setTimeout(() => {
+      setShowButton(true);
+    }, 2500);
+
+    return () => {
+      clearTimeout(dialogTimer);
+      clearTimeout(buttonTimer);
     };
-
-    video.addEventListener('timeupdate', handleTime);
-    return () => video.removeEventListener('timeupdate', handleTime);
-  }, [showDialog, showButton]);
+  }, []);
 
   const handleShowWeapon = () => {
     if (availableWeapons.length === 0) {
@@ -270,10 +275,10 @@ export default function ArsenalPage() {
         </div>
       )}
 
-      {/* MODAL DA ARMA */}
+      {/* MODAL DA ARMA COM MODELO 3D */}
       {showWeaponModal && selectedWeapon && (
         <div className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center p-6">
-          <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-md p-8 text-white">
+          <div className="bg-zinc-900 border-2 border-white rounded-3xl w-full max-w-2xl p-8 text-white max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-3xl font-bold">{selectedWeapon.name}</h2>
@@ -289,7 +294,12 @@ export default function ArsenalPage() {
               </button>
             </div>
 
-            <div className="space-y-6 mb-8">
+            {/* Modelo 3D da Arma */}
+            <div className="mb-6 bg-black/50 rounded-2xl overflow-hidden" style={{ height: '300px' }}>
+              <Model3D modelUrl={selectedWeapon.object3d} />
+            </div>
+
+            <div className="space-y-6 mb-8 flex-1 overflow-y-auto">
               <div>
                 <p className="text-gray-400 text-sm">Filtro</p>
                 <p className="text-xl font-semibold text-primary">{selectedWeapon.filter}</p>
