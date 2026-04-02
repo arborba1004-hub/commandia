@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
+import { useGangBonus } from '@/hooks/useGangBonus';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Home, Siren, ShieldAlert, Coins, Skull, BadgeAlert } from 'lucide-react';
 import { Image } from '@/components/ui/image';
@@ -150,6 +151,7 @@ export default function GiroPage() {
     removeDirtyMoneyPercent,
     removeCorre,
   } = usePlayerStore();
+  const { getGiroBonus } = useGangBonus();
 
   const [displayedReels, setDisplayedReels] = useState<SymbolKey[]>(['money', 'gun', 'diamond']);
   const [lockedReels, setLockedReels] = useState<boolean[]>([true, true, true]);
@@ -214,6 +216,7 @@ export default function GiroPage() {
 
   const finalizeSpin = (result: SpinResult) => {
     const prisonLossBase = player?.balances?.dirtyMoney ?? 0;
+    const giroBonus = getGiroBonus();
 
     if (result.prison) {
       removeDirtyMoneyPercent(30);
@@ -229,7 +232,8 @@ export default function GiroPage() {
     }
 
     if (result.dirtyGain > 0) {
-      addDirtyMoney(result.dirtyGain);
+      const bonusGain = result.dirtyGain * (1 + giroBonus.percent / 100);
+      addDirtyMoney(bonusGain);
     }
 
     if (countOf(result.reels, 'diamond') === 3) {
@@ -249,11 +253,18 @@ const handleSpin = () => {
       return;
     }
 
+    const giroBonus = getGiroBonus();
     clearAnimations();
     setSpinning(true);
     setLockedReels([false, false, false]);
     setMessage(`Rodando x${multiplier}... segura o coração.`);
-    removeCorre(multiplier);
+    
+    // Apply no-cost chance
+    if (Math.random() * 100 < giroBonus.noCostChance) {
+      // Don't consume corre
+    } else {
+      removeCorre(multiplier);
+    }
 
     const result = generateSpinResult(multiplier);
 

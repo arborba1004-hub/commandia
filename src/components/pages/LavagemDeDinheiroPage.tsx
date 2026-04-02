@@ -6,6 +6,7 @@ import { Image } from '@/components/ui/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { usePlayerStore } from '@/store/playerStore';
+import { useGangBonus } from '@/hooks/useGangBonus';
 import SoapBubbleAnimation from '@/components/SoapBubbleAnimation';
 
 interface Business {
@@ -85,12 +86,14 @@ export default function LavagemDeDinheiroPage() {
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const { player, isLoaded, loadPlayer, startLaundryOperation, completeLaundryOperation, canOperateLaundryToday, hydrateLaundryProgress } = usePlayerStore();
+  const { getLaundryTaxReduction } = useGangBonus();
   
   // Calculate level multiplier (1.1 per level)
   const barracoLevel = player?.niveis?.barracoLevel || 1;
   const levelMultiplier = Math.pow(1.1, barracoLevel - 1);
   const dirtyMoney = player?.balances?.dirtyMoney || 0;
   const activeOperations = player?.laundryProgress?.activeOperations || [];
+  const taxReduction = getLaundryTaxReduction();
 
   useEffect(() => {
     if (!isLoaded) {
@@ -164,7 +167,8 @@ export default function LavagemDeDinheiroPage() {
       // Calculate values
       const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
       const fee = (scaledMoney * business.feePercentage) / 100;
-      const netAmount = scaledMoney - fee;
+      const finalFee = fee * (1 - taxReduction / 100);
+      const netAmount = scaledMoney - finalFee;
 
       // Trigger animation
       setAnimatingBusinessId(businessId);
@@ -180,7 +184,7 @@ export default function LavagemDeDinheiroPage() {
         endsAt: '', // Será preenchido pelo backend
         grossAmount: scaledMoney,
         feePercentage: business.feePercentage,
-        feeAmount: fee,
+        feeAmount: finalFee,
         netAmount,
         operationId: '', // Será preenchido pelo backend
         status: 'processing',

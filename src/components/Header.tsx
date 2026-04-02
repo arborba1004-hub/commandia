@@ -59,6 +59,15 @@ export default function Header() {
             Galeria
           </Link>
 
+          {isAuthenticated && (
+            <Link
+              to="/gang"
+              className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
+            >
+              Quadrilha
+            </Link>
+          )}
+
           {!isAuthenticated && (
             <a
               href="#missoes"

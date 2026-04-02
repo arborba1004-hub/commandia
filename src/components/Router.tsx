@@ -12,6 +12,7 @@ import SubornoIlustradoPage from '@/components/pages/SubornoIlustradoPage';
 import DelacaoPremiadaPage from '@/components/pages/DelacaoPremiadaPage';
 import ArsenalPage from '@/components/pages/ArsenalPage';
 import ArmasPage from '@/components/pages/ArmasPage';
+import GangPage from '@/components/gang/GangPage';
 
 function Layout() {
   return (
@@ -72,6 +73,10 @@ const router = createBrowserRouter(
         {
           path: "armas",
           element: <ArmasPage />,
+        },
+        {
+          path: "gang",
+          element: <GangPage />,
         },
         {
           path: "*",
