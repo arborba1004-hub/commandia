@@ -22,7 +22,7 @@ export default function dirtymoneyVaultModal({
   open,
   onOpenChange,
   amount,
-  playerDirtyMoney,
+  playerdirtymoney,
   onConfirm,
   isProcessing,
   title = 'Pagamento em Dinheiro Sujo',
