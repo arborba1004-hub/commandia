@@ -208,8 +208,8 @@ const initialPlayer: PlayerState = {
 
   niveis: {
     playerLevel: 100,
-    barracoLevel: 1,
-    hierarchyLevel: 1,
+    barracoLevel: 100,
+    hierarchyLevel: 100,
     arsenalLevel: 1,
     giroLevel: 1,
     lavagemLevel: 1,
