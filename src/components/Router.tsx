@@ -15,6 +15,23 @@ import ArmasPage from '@/components/pages/ArmasPage';
 import GangPage from '@/components/gang/GangPage';
 import LuxoItemPage from '@/components/pages/LuxoItemPage';
 
+// Ensure all components are properly loaded
+const components = {
+  HomePage,
+  GaleriaPage,
+  ProfilePage,
+  GamePage,
+  GiroPage,
+  LuxuryshowroomPage,
+  LavagemDeDinheiroPage,
+  SubornoIlustradoPage,
+  DelacaoPremiadaPage,
+  ArsenalPage,
+  ArmasPage,
+  GangPage,
+  LuxoItemPage,
+};
+
 function Layout() {
   return (
     <>

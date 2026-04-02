@@ -469,19 +469,17 @@ export default function GiroPage() {
                   >
                     {spinning ? `RODANDO x${multiplier}` : `GIRAR x${multiplier}`}
                   </button>
-                  
-                    <div className="rounded-2xl border border-red-500/20 bg-red-900/25 p-2 text-center">
-                      <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Sujo</p>
-                      <p className="mt-1 text-xs md:text-sm font-bold text-red-200">{dirtyMoney.toLocaleString('pt-BR')}</p>
-                    </div>
-                    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-900/25 p-2 text-center">
-                      <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Limpo</p>
-                      <p className="mt-1 text-xs md:text-sm font-bold text-emerald-200">{cleanMoney.toLocaleString('pt-BR')}</p>
-                    </div>
-                    <div className="rounded-2xl border border-cyan-500/20 bg-cyan-900/25 p-2 text-center">
-                      <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Corre</p>
-                      <p className="mt-1 text-xs md:text-sm font-bold text-cyan-200">{corre.toLocaleString('pt-BR')}</p>
-                    </div>
+                  <div className="rounded-2xl border border-red-500/20 bg-red-900/25 p-2 text-center">
+                    <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Sujo</p>
+                    <p className="mt-1 text-xs md:text-sm font-bold text-red-200">{dirtyMoney.toLocaleString('pt-BR')}</p>
+                  </div>
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-900/25 p-2 text-center">
+                    <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Limpo</p>
+                    <p className="mt-1 text-xs md:text-sm font-bold text-emerald-200">{cleanMoney.toLocaleString('pt-BR')}</p>
+                  </div>
+                  <div className="rounded-2xl border border-cyan-500/20 bg-cyan-900/25 p-2 text-center">
+                    <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400">Corre</p>
+                    <p className="mt-1 text-xs md:text-sm font-bold text-cyan-200">{corre.toLocaleString('pt-BR')}</p>
                   </div>
                   <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-center">
                     <div className="inline-flex items-center gap-2 text-yellow-300">
@@ -489,7 +487,7 @@ export default function GiroPage() {
                       <span className="text-[11px] md:text-sm font-semibold leading-relaxed">{message}</span>
                     </div>
                   </div>
-                <div className="mb-3 flex flex-wrap justify-center gap-2">
+                  <div className="mb-3 flex flex-wrap justify-center gap-2">
                     {MULTIPLIERS.map((value) => (
                       <button
                         key={value}
@@ -505,7 +503,7 @@ export default function GiroPage() {
                       </button>
                     ))}
                   </div>
-                  </div>
+                </div>
               </div>
             </div>
           </div>
