@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { usePlayerStore } from '@/store/playerStore';
 import { WEAPONS, Weapon } from '@/data/armas';
-import CardTransactionModal from '@/components/CardTransactionModal';
+import SafeVaultModal from '@/components/SafeVaultModal';
 import { isDelacaoActive } from '@/services/punishmentService';
 
 export default function ArsenalPage() {
@@ -17,7 +17,7 @@ export default function ArsenalPage() {
   const [showButton, setShowButton] = useState(false);
   const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
   const [showWeaponModal, setShowWeaponModal] = useState(false);
-  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showVaultModal, setShowVaultModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
 
@@ -113,7 +113,7 @@ export default function ArsenalPage() {
 
     // Fecha tudo
     setIsProcessing(false);
-    setShowTransactionModal(false);
+    setShowVaultModal(false);
     setShowWeaponModal(false);
     setTransactionError(null);
 
@@ -207,7 +207,7 @@ export default function ArsenalPage() {
                 Fechar
               </button>
               <button
-                onClick={() => setShowTransactionModal(true)}
+                onClick={() => setShowVaultModal(true)}
                 disabled={dirtyMoney < selectedWeapon.price || isProcessing}
                 className="flex-1 py-4 bg-primary rounded-2xl text-lg font-bold active:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -219,14 +219,13 @@ export default function ArsenalPage() {
       )}
 
       {/* Modal de Confirmação de Transação */}
-      <CardTransactionModal
-        isOpen={showTransactionModal}
-        isProcessing={isProcessing}
-        onClose={() => {
-          setShowTransactionModal(false);
-          setTransactionError(null);
-        }}
+      <SafeVaultModal
+        open={showVaultModal}
+        onOpenChange={setShowVaultModal}
+        subornoValue={selectedWeapon?.price || 0}
+        playerDirtyMoney={dirtyMoney}
         onConfirm={handleBuyWeapon}
+        isProcessing={isProcessing}
       />
 
       <div className="fixed bottom-8 left-6 z-50">
