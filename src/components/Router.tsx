@@ -24,34 +24,31 @@ function Layout() {
   );
 }
 
-const router = createBrowserRouter(
-  [
-    {
-      path: "/",
-      element: <Layout />,
-      errorElement: <ErrorPage />,
-      children: [
-        { index: true, element: <HomePage /> },
-        { path: "galeria", element: <GaleriaPage /> },
-        { path: "profile", element: <ProfilePage /> },
-        { path: "game", element: <GamePage /> },
-        { path: "giro", element: <GiroPage /> },
-        { path: "luxuryshowroom", element: <LuxuryshowroomPage /> },
-        { path: "lavagem-de-dinheiro", element: <LavagemDeDinheiroPage /> },
-        { path: "suborno-ilustrado", element: <SubornoIlustradoPage /> },
-        { path: "delacao-premiada", element: <DelacaoPremiadaPage /> },
-        { path: "arsenal", element: <ArsenalPage /> },
-        { path: "armas", element: <ArmasPage /> },
-        { path: "gang", element: <GangPage /> },
-        { path: "luxo-item", element: <LuxoItemPage /> },
-        { path: "*", element: <Navigate to="/" replace /> },
-      ],
-    },
-  ],
+const router = createBrowserRouter([
   {
-    basename: import.meta.env.BASE_NAME,
-  }
-);
+    path: '/',
+    element: <Layout />,
+    errorElement: <ErrorPage />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'galeria', element: <GaleriaPage /> },
+      { path: 'profile', element: <ProfilePage /> },
+      { path: 'game', element: <GamePage /> },
+      { path: 'giro', element: <GiroPage /> },
+      { path: 'luxuryshowroom', element: <LuxuryshowroomPage /> },
+      { path: 'lavagem-de-dinheiro', element: <LavagemDeDinheiroPage /> },
+      { path: 'suborno-ilustrado', element: <SubornoIlustradoPage /> },
+      { path: 'delacao-premiada', element: <DelacaoPremiadaPage /> },
+      { path: 'arsenal', element: <ArsenalPage /> },
+      { path: 'armas', element: <ArmasPage /> },
+      { path: 'gang', element: <GangPage /> },
+      { path: 'luxo-item', element: <LuxoItemPage /> },
+      { path: '*', element: <Navigate to="/" replace /> },
+    ],
+  },
+], {
+  basename: import.meta.env.BASE_NAME,
+});
 
 export default function AppRouter() {
   return <RouterProvider router={router} />;

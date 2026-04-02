@@ -944,19 +944,20 @@ setHierarchyBadge: (badge) => {
       return true;
     }
   },
+
+  setBarracoPosition: (position) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      barracoPosition: {
+        ...current.barracoPosition,
+        ...position,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
 }));
-setBarracoPosition: (position) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
-    barracoPosition: {
-      ...current.barracoPosition,
-      ...position,
-    },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
-},
