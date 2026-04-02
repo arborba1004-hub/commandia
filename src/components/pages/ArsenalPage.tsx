@@ -10,9 +10,10 @@ import { isDelacaoActive } from '@/services/punishmentService';
 
 export default function ArsenalPage() {
   const player = usePlayerStore((state) => state.player);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
   
   // Show loading state while player is being loaded
-  if (!player) {
+  if (!isLoaded || !player?._id) {
     return (
       <div className="w-full min-h-screen bg-black flex flex-col">
         <Header />
