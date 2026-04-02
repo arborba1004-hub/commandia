@@ -85,68 +85,82 @@ export default function LavagemDeDinheiroPage() {
   const [timerStates, setTimerStates] = useState<Record<number, number>>({});
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
-  const { player, isLoaded, loadPlayer, startLaundryOperation, completeLaundryOperation, canOperateLaundryToday, hydrateLaundryProgress } = usePlayerStore();
+  
+  const { player, isLoaded, loadPlayer, startLaundryOperation, completeLaundryOperation, canOperateLaundryToday, clearFinishedLaundryOperations } = usePlayerStore();
   const { getLaundryTaxReduction } = useGangBonus();
   
-  // Calculate level multiplier (1.1 per level)
-  const barracoLevel = player?.niveis?.barracoLevel || 1;
-  const levelMultiplier = Math.pow(1.1, barracoLevel - 1);
+  // Usamos playerLevel (nível do jogador) como base para o multiplicador
+  const playerLevel = player?.niveis?.playerLevel || 1;
+  const levelMultiplier = Math.pow(1.1, playerLevel - 1);
   const dirtyMoney = player?.balances?.dirtyMoney || 0;
   const activeOperations = player?.laundryProgress?.activeOperations || [];
   const taxReduction = getLaundryTaxReduction();
+// Carrega os dados do jogador e limpa operações diárias antigas
+useEffect(() => {
+  if (!isLoaded) {
+    loadPlayer();
+  } else {
+    // Limpa operações diárias de dias anteriores (mantém só hoje)
+    clearFinishedLaundryOperations();
+  }
+}, [isLoaded, loadPlayer, clearFinishedLaundryOperations]);
 
-  useEffect(() => {
-    if (!isLoaded) {
-      loadPlayer();
-    } else {
-      // Hidrata operações ao carregar a página (restaura operações expiradas)
-      hydrateLaundryProgress();
-    }
-  }, [isLoaded, loadPlayer, hydrateLaundryProgress]);
+// Timer para atualizar a contagem regressiva baseada em endsAt (vindo do backend)
+useEffect(() => {
+  if (activeOperations.length === 0) return;
 
-  // Timer para processar operações ativas - calcula baseado em endsAt do backend
-  useEffect(() => {
-    if (activeOperations.length === 0) return;
+  const interval = setInterval(() => {
+    setTimerStates(prev => {
+      const updated = { ...prev };
+      let hasChanges = false;
 
-    const interval = setInterval(() => {
-      setTimerStates(prev => {
-        const updated = { ...prev };
-        let hasChanges = false;
+      activeOperations.forEach(op => {
+        if (op.status !== 'processing') return;
+        
+        const endsAt = new Date(op.endsAt);
+        const now = new Date();
+        const timeRemaining = Math.max(0, Math.floor((endsAt.getTime() - now.getTime()) / 1000));
 
-        activeOperations.forEach(op => {
-          const endsAt = new Date(op.endsAt);
-          const now = new Date();
-          const timeRemaining = Math.max(0, Math.floor((endsAt.getTime() - now.getTime()) / 1000));
+        if (timeRemaining !== (prev[op.businessId] ?? -1)) {
+          updated[op.businessId] = timeRemaining;
+          hasChanges = true;
 
-          if (timeRemaining !== (prev[op.businessId] ?? -1)) {
-            updated[op.businessId] = timeRemaining;
-            hasChanges = true;
-
-            // Completa a operação quando o tempo chega a 0
-            if (timeRemaining === 0 && op.status === 'processing') {
-              // Chama o backend para completar a operação
-              completeLaundryOperation(op.operationId);
-            }
+          // Quando o tempo chegar a 0, completa a operação chamando o backend
+          if (timeRemaining === 0) {
+            completeLaundryOperation(op.operationId);
           }
-        });
-
-        return hasChanges ? updated : prev;
+        }
       });
-    }, 1000);
 
-    return () => clearInterval(interval);
-  }, [activeOperations, completeLaundryOperation]);
+      return hasChanges ? updated : prev;
+    });
+  }, 1000);
 
+  return () => clearInterval(interval);
+}, [activeOperations, completeLaundryOperation]);
+
+// Função para escalar valores com base no nível do jogador
+const getScaledValues = (business: Business) => {
+  const scaledMoney = business.initialMoney * levelMultiplier;
+  const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
+  const fee = (scaledMoney * business.feePercentage) / 100;
+  const finalFee = fee * (1 - taxReduction / 100);
+  const netAmount = scaledMoney - finalFee;
+  return { scaledMoney, scaledTime, fee: finalFee, netAmount };
+};
+
+// Obtém a operação ativa para um negócio
+const getActiveOperation = (businessId: number) => {
+  return activeOperations.find(op => op.businessId === businessId && op.status === 'processing');
+};
   const handleLaunder = async (businessId: number) => {
     const business = businesses.find(b => b.id === businessId);
     if (!business) return;
 
-    // Marca como processando
     setIsProcessing(business.id.toString());
 
     try {
-      // Verifica se pode operar hoje (máximo 1 operação por dia por negócio)
-      // Chamada assíncrona ao backend para validar limite diário
+      // Verifica se pode operar hoje (limite diário) – chamada ao backend
       const canOperate = await canOperateLaundryToday(businessId);
       if (!canOperate) {
         alert('Você já realizou uma operação neste comércio hoje. Volte amanhã!');
@@ -154,39 +168,30 @@ export default function LavagemDeDinheiroPage() {
         return;
       }
 
-      // Apply level multiplier to values
-      const scaledMoney = business.initialMoney * levelMultiplier;
+      const { scaledMoney, fee, netAmount } = getScaledValues(business);
       
-      // Validação: verifica se o jogador possui dirtyMoney suficiente ANTES de iniciar
+      // Validação de saldo (local, mas o backend também validará)
       if (dirtyMoney < scaledMoney) {
         alert('Você não tem dinheiro sujo suficiente.');
         setIsProcessing(null);
         return;
       }
 
-      // Calculate values
-      const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
-      const fee = (scaledMoney * business.feePercentage) / 100;
-      const finalFee = fee * (1 - taxReduction / 100);
-      const netAmount = scaledMoney - finalFee;
-
-      // Trigger animation
+      // Dispara animação
       setAnimatingBusinessId(businessId);
       setTimeout(() => setAnimatingBusinessId(null), 2000);
 
       // Inicia a operação no backend
-      // Backend valida saldo, calcula tempo, retorna operationId e endsAt
-      const now = new Date();
       const success = await startLaundryOperation({
         businessId,
         businessName: business.name,
-        startedAt: now.toISOString(),
-        endsAt: '', // Será preenchido pelo backend
+        startedAt: new Date().toISOString(),
+        endsAt: '', // será preenchido pelo backend
         grossAmount: scaledMoney,
         feePercentage: business.feePercentage,
-        feeAmount: finalFee,
+        feeAmount: fee,
         netAmount,
-        operationId: '', // Será preenchido pelo backend
+        operationId: '',
         status: 'processing',
       });
 
@@ -201,25 +206,10 @@ export default function LavagemDeDinheiroPage() {
     }
   };
 
-  // Get scaled values for display
-  const getScaledValues = (business: Business) => {
-    const scaledMoney = business.initialMoney * levelMultiplier;
-    const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
-    const fee = (scaledMoney * business.feePercentage) / 100;
-    const netAmount = scaledMoney - fee;
-    return { scaledMoney, scaledTime, fee, netAmount };
-  };
-
-  // Obtém a operação ativa para um negócio
-  const getActiveOperation = (businessId: number) => {
-    return activeOperations.find(op => op.businessId === businessId && op.status === 'processing');
-  };
-
   return (
     <div className="min-h-screen bg-black text-white">
       <Header />
       
-      {/* Soap Bubble Animation */}
       <SoapBubbleAnimation 
         isAnimating={animatingBusinessId !== null} 
         buttonRef={buttonRefs.current[animatingBusinessId || 0] ? { current: buttonRefs.current[animatingBusinessId || 0] } : { current: null }}
@@ -243,7 +233,7 @@ export default function LavagemDeDinheiroPage() {
             </p>
             <div className="inline-block bg-primary/20 border border-primary/50 rounded-lg px-6 py-3 mb-6">
               <p className="text-primary font-bold text-lg">
-                Nível do Barraco: <span className="text-2xl">{barracoLevel}</span> | Multiplicador: <span className="text-2xl">{levelMultiplier.toFixed(2)}x</span>
+                Nível do Jogador: <span className="text-2xl">{playerLevel}</span> | Multiplicador: <span className="text-2xl">{levelMultiplier.toFixed(2)}x</span>
               </p>
             </div>
           </motion.div>
@@ -315,15 +305,8 @@ export default function LavagemDeDinheiroPage() {
                         </p>
                       </div>
 
-                      {/* Daily Operation Status - Validado no backend */}
-                      {!hasActiveOp && (
-                        <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
-                          <p className="text-xs text-blue-400 uppercase tracking-wider font-bold">✓ Disponível Hoje</p>
-                        </div>
-                      )}
-
                       {/* Operation Status */}
-                      {activeOp && (
+                      {hasActiveOp && (
                         <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded">
                           <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Operação em Andamento</p>
                           <div className="flex justify-between items-center mb-2">
@@ -350,12 +333,12 @@ export default function LavagemDeDinheiroPage() {
                           e.stopPropagation();
                           handleLaunder(business.id);
                         }}
-                        disabled={!!activeOp || isProcessing === business.id.toString()}
+                        disabled={!!hasActiveOp || isProcessing === business.id.toString()}
                         className="w-full bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-2 rounded"
                       >
                         {isProcessing === business.id.toString()
                           ? 'Iniciando...'
-                          : activeOp 
+                          : hasActiveOp 
                           ? `Processando... (${timeRemaining}s)`
                           : `Lavar R$ ${scaledMoney.toFixed(2)}`
                         }
