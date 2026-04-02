@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
+import { useEffect, useState } from 'react';
 
 type TransactionStatus = 'idle' | 'processing' | 'success' | 'error';
 
@@ -17,17 +18,41 @@ export default function CardTransactionModal({
   onConfirm,
 }: CardTransactionModalProps) {
   const player = usePlayerStore((state) => state.player);
+  const [showSuccess, setShowSuccess] = useState(false);
   
   const getStatus = (): TransactionStatus => {
-    if (!isProcessing) return 'idle';
-    return 'processing';
+    if (showSuccess) return 'success';
+    if (isProcessing) return 'processing';
+    return 'idle';
   };
   
   const status = getStatus();
   
+  // Fechar modal automaticamente após sucesso
+  useEffect(() => {
+    if (showSuccess) {
+      const timer = setTimeout(() => {
+        setShowSuccess(false);
+        onClose();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess, onClose]);
+  
+  // Resetar estado quando modal fecha
+  useEffect(() => {
+    if (!isOpen) {
+      setShowSuccess(false);
+    }
+  }, [isOpen]);
+  
   const handleCardTap = () => {
     if (status === 'idle' && !isProcessing) {
       onConfirm();
+      // Mostrar sucesso após processamento
+      setTimeout(() => {
+        setShowSuccess(true);
+      }, 2500);
     }
   };
 
