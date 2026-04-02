@@ -9,9 +9,22 @@ import { Model3D } from '@/components/Model3D';
 import { isDelacaoActive } from '@/services/punishmentService';
 
 export default function ArsenalPage() {
-  // Guard clause: return null if player is not defined
   const player = usePlayerStore((state) => state.player);
-  if (!player) return null;
+  
+  // Show loading state while player is being loaded
+  if (!player) {
+    return (
+      <div className="w-full min-h-screen bg-black flex flex-col">
+        <Header />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-white text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="font-paragraph text-lg">Carregando...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const navigate = useNavigate();
