@@ -143,6 +143,8 @@ type PlayerStore = {
   isSyncing: boolean;
   syncError: string | null;
   isPolling: boolean;
+  pollingAttempts: number;
+  maxPollingAttempts: number;
 
   loadPlayer: () => void;
   setPlayer: (incoming: Partial<PlayerState>) => void;
@@ -356,6 +358,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   isSyncing: false,
   syncError: null,
   isPolling: false,
+  pollingAttempts: 0,
+  maxPollingAttempts: 5,
 
   loadPlayer: () => {
     try {
@@ -503,7 +507,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   pollPlayerFromBackend: async () => {
     const token = localStorage.getItem('authToken');
-    if (!token) return;
+    if (!token) {
+      get().stopPolling();
+      return;
+    }
 
     try {
       const serverPlayer = await fetchCurrentPlayer();
@@ -516,11 +523,24 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         set({
           player: merged,
           syncError: null,
+          pollingAttempts: 0, // Reseta tentativas em caso de sucesso
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao fazer polling do player:', error);
-      // Não atualiza syncError aqui para não poluir a UI com erros de polling
+      
+      const newAttempts = get().pollingAttempts + 1;
+      set({ pollingAttempts: newAttempts });
+
+      // Para o polling se atingiu o máximo de tentativas ou se for erro de autenticação (401)
+      if (newAttempts >= get().maxPollingAttempts || error?.status === 401) {
+        console.warn('Polling interrompido: máximo de tentativas atingido ou erro de autenticação');
+        get().stopPolling();
+        // Opcional: disparar logout automático em caso de 401
+        if (error?.status === 401) {
+          localStorage.removeItem('authToken');
+        }
+      }
     }
   },
 
