@@ -144,7 +144,7 @@ export const WEAPONS = generateWeapons();
 
 // ================= GAME RULE =================
 
-// Só pode comprar arma do nível atual
+// Pode comprar arma do nível atual ou inferior
 export function canBuyWeapon(playerLevel: number, weaponLevel: number) {
-  return playerLevel === weaponLevel;
+  return weaponLevel <= playerLevel;
 }
