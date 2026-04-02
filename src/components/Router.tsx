@@ -10,6 +10,7 @@ import LuxuryshowroomPage from '@/components/pages/LuxuryshowroomPage';
 import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
 import SubornoIlustradoPage from '@/components/pages/SubornoIlustradoPage';
 import DelacaoPremiadaPage from '@/components/pages/DelacaoPremiadaPage';
+import ArsenalPage from '@/components/pages/ArsenalPage';
 
 function Layout() {
   return (
@@ -62,6 +63,10 @@ const router = createBrowserRouter(
         {
           path: "delacao-premiada",
           element: <DelacaoPremiadaPage />,
+        },
+        {
+          path: "arsenal",
+          element: <ArsenalPage />,
         },
         {
           path: "*",
