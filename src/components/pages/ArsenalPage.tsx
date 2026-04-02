@@ -6,6 +6,7 @@ import { usePlayerStore } from '@/store/playerStore';
 import { WEAPONS, canBuyWeapon, Weapon } from '@/data/armas';
 import CardTransactionModal from '@/components/CardTransactionModal';
 import { Model3D } from '@/components/Model3D';
+import { isDelacaoActive } from '@/services/punishmentService';
 
 export default function ArsenalPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -53,10 +54,27 @@ export default function ArsenalPage() {
 
     setSelectedWeapon(availableWeapons[0]);
     setShowWeaponModal(true);
+    setTransactionError(null);
   };
 
   const handleBuyWeapon = async () => {
     if (!selectedWeapon) return;
+
+    // Check if player already owns this weapon
+    const alreadyOwned = player?.inventory?.items?.some(
+      (item: any) => item.level === selectedWeapon.level
+    );
+
+    if (alreadyOwned) {
+      setTransactionError('Você já possui essa arma');
+      return;
+    }
+
+    // Check if player is blocked by delação
+    if (isDelacaoActive(player)) {
+      setTransactionError('Você está bloqueado pela delação');
+      return;
+    }
 
     if (dirtyMoney < selectedWeapon.price) {
       setTransactionError('Saldo insuficiente');
