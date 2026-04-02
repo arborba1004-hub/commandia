@@ -99,10 +99,10 @@ export async function hydratePlayerFromBackend(): Promise<PlayerState> {
 
 /**
  * Inicia uma operação de lavagem de dinheiro
- * Endpoint: POST /laundry/start (futuro)
+ * Endpoint: POST /laundry/start
  * 
- * Atualmente usa o endpoint genérico /player/update
- * Será migrado para endpoint específico quando disponível
+ * Backend valida saldo, calcula tempo baseado em configuração do servidor,
+ * retorna operationId e endsAt. Frontend apenas exibe contagem regressiva.
  */
 export async function laundryStart(payload: {
   businessId: number;
@@ -111,91 +111,24 @@ export async function laundryStart(payload: {
   feePercentage: number;
   feeAmount: number;
   netAmount: number;
-  duration: number; // em ms
-}): Promise<{ player: PlayerState }> {
-  // TODO: Migrar para POST /laundry/start quando disponível
-  // return makeRequest<{ player: PlayerState }>('/laundry/start', {
-  //   method: 'POST',
-  //   body: JSON.stringify(payload),
-  // });
-
-  // Por enquanto, usa o endpoint genérico
-  const currentPlayer = await fetchCurrentPlayer();
-  const startedAt = new Date().toISOString();
-  const endsAt = new Date(Date.now() + payload.duration).toISOString();
-
-  return syncPlayerUpdate({
-    laundryProgress: {
-      ...currentPlayer.laundryProgress,
-      activeOperations: [
-        ...currentPlayer.laundryProgress.activeOperations,
-        {
-          businessId: payload.businessId,
-          businessName: payload.businessName,
-          startedAt,
-          endsAt,
-          grossAmount: payload.grossAmount,
-          feePercentage: payload.feePercentage,
-          feeAmount: payload.feeAmount,
-          netAmount: payload.netAmount,
-          status: 'processing',
-        },
-      ],
-    },
-    balances: {
-      ...currentPlayer.balances,
-      dirtyMoney: currentPlayer.balances.dirtyMoney - payload.grossAmount,
-    },
+}): Promise<{ operationId: string; endsAt: string; player: PlayerState }> {
+  return makeRequest<{ operationId: string; endsAt: string; player: PlayerState }>('/laundry/start', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }
 
 /**
  * Completa uma operação de lavagem de dinheiro
- * Endpoint: POST /laundry/complete (futuro)
+ * Endpoint: POST /laundry/complete/{operationId}
  * 
- * Atualmente usa o endpoint genérico /player/update
- * Será migrado para endpoint específico quando disponível
+ * Backend verifica se o tempo já passou e credita o dinheiro limpo.
+ * Frontend chama este endpoint quando o timer chega a 0.
  */
-export async function laundryComplete(businessId: number): Promise<{ player: PlayerState }> {
-  // TODO: Migrar para POST /laundry/complete quando disponível
-  // return makeRequest<{ player: PlayerState }>('/laundry/complete', {
-  //   method: 'POST',
-  //   body: JSON.stringify({ businessId }),
-  // });
-
-  // Por enquanto, usa o endpoint genérico
-  const currentPlayer = await fetchCurrentPlayer();
-  const today = new Date().toISOString().split('T')[0];
-
-  const operationIndex = currentPlayer.laundryProgress.activeOperations.findIndex(
-    (op) => op.businessId === businessId && op.status === 'processing'
-  );
-
-  if (operationIndex === -1) {
-    throw new Error('Operação não encontrada');
-  }
-
-  const operation = currentPlayer.laundryProgress.activeOperations[operationIndex];
-  const activeOps = currentPlayer.laundryProgress.activeOperations.filter(
-    (_, idx) => idx !== operationIndex
-  );
-
-  return syncPlayerUpdate({
-    laundryProgress: {
-      activeOperations: activeOps,
-      dailyOperations: [
-        ...currentPlayer.laundryProgress.dailyOperations,
-        {
-          businessId: operation.businessId,
-          date: today,
-          amount: operation.netAmount,
-        },
-      ],
-    },
-    balances: {
-      ...currentPlayer.balances,
-      cleanMoney: currentPlayer.balances.cleanMoney + operation.netAmount,
-    },
+export async function laundryComplete(operationId: string): Promise<{ player: PlayerState }> {
+  return makeRequest<{ player: PlayerState }>('/laundry/complete', {
+    method: 'POST',
+    body: JSON.stringify({ operationId }),
   });
 }
 

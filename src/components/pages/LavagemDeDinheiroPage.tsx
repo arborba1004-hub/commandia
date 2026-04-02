@@ -82,6 +82,7 @@ export default function LavagemDeDinheiroPage() {
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [animatingBusinessId, setAnimatingBusinessId] = useState<number | null>(null);
   const [timerStates, setTimerStates] = useState<Record<number, number>>({});
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const { player, isLoaded, loadPlayer, startLaundryOperation, completeLaundryOperation, canOperateLaundryToday, hydrateLaundryProgress } = usePlayerStore();
   
@@ -100,7 +101,7 @@ export default function LavagemDeDinheiroPage() {
     }
   }, [isLoaded, loadPlayer, hydrateLaundryProgress]);
 
-  // Timer para processar operações ativas - calcula baseado em startedAt e endsAt persistidos
+  // Timer para processar operações ativas - calcula baseado em endsAt do backend
   useEffect(() => {
     if (activeOperations.length === 0) return;
 
@@ -120,7 +121,8 @@ export default function LavagemDeDinheiroPage() {
 
             // Completa a operação quando o tempo chega a 0
             if (timeRemaining === 0 && op.status === 'processing') {
-              completeLaundryOperation(op.businessId);
+              // Chama o backend para completar a operação
+              completeLaundryOperation(op.operationId);
             }
           }
         });
@@ -132,7 +134,7 @@ export default function LavagemDeDinheiroPage() {
     return () => clearInterval(interval);
   }, [activeOperations, completeLaundryOperation]);
 
-  const handleLaunder = (businessId: number) => {
+  const handleLaunder = async (businessId: number) => {
     const business = businesses.find(b => b.id === businessId);
     if (!business) return;
 
@@ -160,23 +162,35 @@ export default function LavagemDeDinheiroPage() {
     setAnimatingBusinessId(businessId);
     setTimeout(() => setAnimatingBusinessId(null), 2000);
 
-    // Inicia a operação na store
-    // Ao iniciar, debita imediatamente o valor bruto de dirtyMoney
-    // Ao concluir, credita apenas o netAmount em cleanMoney
-    // O valor bruto, a taxa e o líquido ficam salvos dentro da operação persistente
-    const now = new Date();
-    const endsAt = new Date(now.getTime() + scaledTime * 1000);
+    // Marca como processando
+    setIsProcessing(business.id.toString());
 
-    startLaundryOperation({
-      businessId,
-      businessName: business.name,
-      startedAt: now.toISOString(),
-      endsAt: endsAt.toISOString(),
-      grossAmount: scaledMoney,
-      feePercentage: business.feePercentage,
-      feeAmount: fee,
-      netAmount,
-    });
+    try {
+      // Inicia a operação no backend
+      // Backend valida saldo, calcula tempo, retorna operationId e endsAt
+      const now = new Date();
+      const success = await startLaundryOperation({
+        businessId,
+        businessName: business.name,
+        startedAt: now.toISOString(),
+        endsAt: '', // Será preenchido pelo backend
+        grossAmount: scaledMoney,
+        feePercentage: business.feePercentage,
+        feeAmount: fee,
+        netAmount,
+        operationId: '', // Será preenchido pelo backend
+        status: 'processing',
+      });
+
+      if (!success) {
+        alert('Erro ao iniciar operação. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao iniciar operação:', error);
+      alert('Erro ao iniciar operação. Tente novamente.');
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
   // Get scaled values for display
@@ -332,10 +346,12 @@ export default function LavagemDeDinheiroPage() {
                           e.stopPropagation();
                           handleLaunder(business.id);
                         }}
-                        disabled={!!activeOp || !canOperate}
+                        disabled={!!activeOp || !canOperate || isProcessing === business.id.toString()}
                         className="w-full bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-2 rounded"
                       >
-                        {activeOp 
+                        {isProcessing === business.id.toString()
+                          ? 'Iniciando...'
+                          : activeOp 
                           ? `Processando... (${timeRemaining}s)`
                           : canOperate
                           ? `Lavar R$ ${scaledMoney.toFixed(2)}`
@@ -475,10 +491,12 @@ export default function LavagemDeDinheiroPage() {
                       onClick={() => {
                         handleLaunder(selectedBusiness.id);
                       }}
-                      disabled={!!activeOp || !canOperate}
+                      disabled={!!activeOp || !canOperate || isProcessing === selectedBusiness.id.toString()}
                       className="flex-1 bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-3 rounded text-lg"
                     >
-                      {activeOp 
+                      {isProcessing === selectedBusiness.id.toString()
+                        ? 'Iniciando...'
+                        : activeOp 
                         ? `Processando... (${timeRemaining}s)`
                         : canOperate
                         ? `Lavar R$ ${scaledMoney.toFixed(2)}`

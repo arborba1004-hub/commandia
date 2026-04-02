@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { fetchCurrentPlayer, syncPlayerUpdate, hydratePlayerFromBackend } from '@/api/playerApi';
+import { fetchCurrentPlayer, syncPlayerUpdate, hydratePlayerFromBackend, laundryStart, laundryComplete } from '@/api/playerApi';
 import {
   clearExpiredPunishments,
   isMoneyLaunderingBlocked,
@@ -68,6 +68,7 @@ type BarracoPosition = {
 
 type ActiveOperation = {
   id: string;
+  operationId: string; // ID retornado pelo backend
   businessId: number;
   businessName: string;
   startedAt: string;
@@ -196,8 +197,8 @@ type PlayerStore = {
   setBarracoPosition: (position: Partial<BarracoPosition>) => void;
 
   // LAVAGEM DE DINHEIRO
-  startLaundryOperation: (operation: Omit<ActiveOperation, 'status'>) => boolean;
-  completeLaundryOperation: (businessId: number) => boolean;
+  startLaundryOperation: (operation: Omit<ActiveOperation, 'status' | 'id'>) => Promise<boolean>;
+  completeLaundryOperation: (operationId: string) => Promise<boolean>;
   hydrateLaundryProgress: () => void;
   clearFinishedLaundryOperations: () => void;
   canOperateLaundryToday: (businessId: number, maxPerDay: number) => boolean;
@@ -829,7 +830,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     get().scheduleSync();
   },
 
-  startLaundryOperation: (operation) => {
+  startLaundryOperation: async (operation) => {
     const current = get().player;
 
     if (isMoneyLaunderingBlocked(current)) {
@@ -843,86 +844,72 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       return false;
     }
 
-    // Debita o dinheiro sujo
-    const newDirtyMoney = dirtyMoney - operation.grossAmount;
+    try {
+      // Chama o backend para iniciar a operação
+      // Backend valida saldo, calcula tempo, retorna operationId e endsAt
+      const response = await laundryStart({
+        businessId: operation.businessId,
+        businessName: operation.businessName,
+        grossAmount: operation.grossAmount,
+        feePercentage: operation.feePercentage,
+        feeAmount: operation.feeAmount,
+        netAmount: operation.netAmount,
+      });
 
-    // Cria a operação com status 'processing' e ID único
-    const newOperation: ActiveOperation = {
-      ...operation,
-      id: generateUUID(),
-      status: 'processing',
-    };
+      // Cria a operação com status 'processing' e ID único
+      const newOperation: ActiveOperation = {
+        ...operation,
+        id: generateUUID(),
+        operationId: response.operationId,
+        endsAt: response.endsAt, // Usa o endsAt retornado pelo backend
+        status: 'processing',
+      };
 
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        dirtyMoney: newDirtyMoney,
-      },
-      laundryProgress: {
-        ...current.laundryProgress,
-        activeOperations: [...current.laundryProgress.activeOperations, newOperation],
-      },
-    });
+      // Hidrata o player com os dados retornados pelo backend
+      const updated = mergePlayer({
+        ...response.player,
+        laundryProgress: {
+          ...response.player.laundryProgress,
+          activeOperations: [...response.player.laundryProgress.activeOperations, newOperation],
+        },
+      });
 
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
+      set({ player: updated });
+      get().saveLocal();
 
-    return true;
+      return true;
+    } catch (error) {
+      console.error('Erro ao iniciar operação de lavagem:', error);
+      return false;
+    }
   },
 
-  completeLaundryOperation: (businessId) => {
+  completeLaundryOperation: async (operationId) => {
     const current = get().player;
     const operationIndex = current.laundryProgress.activeOperations.findIndex(
-      (op) => op.businessId === businessId && op.status === 'processing'
+      (op) => op.operationId === operationId && op.status === 'processing'
     );
 
     if (operationIndex === -1) {
       return false;
     }
 
-    const operation = current.laundryProgress.activeOperations[operationIndex];
-    const today = new Date().toISOString().split('T')[0];
+    try {
+      // Chama o backend para completar a operação
+      // Backend verifica se o tempo já passou e credita o dinheiro limpo
+      const response = await laundryComplete(operationId);
 
-    // Marca como completa
-    const completedOperation: ActiveOperation = {
-      ...operation,
-      status: 'completed',
-    };
+      // Hidrata o player com os dados retornados pelo backend
+      const updated = mergePlayer(response.player);
 
-    // Registra na operação diária
-    const dailyOp: DailyOperation = {
-      businessId: operation.businessId,
-      date: today,
-      amount: operation.netAmount,
-    };
+      set({ player: updated });
+      get().saveLocal();
 
-    // Remove da lista de ativas e adiciona à diária
-    const activeOps = current.laundryProgress.activeOperations.filter(
-      (_, idx) => idx !== operationIndex
-    );
-
-    // Credita o dinheiro limpo
-    const newCleanMoney = current.balances.cleanMoney + operation.netAmount;
-
-    const updated = mergePlayer({
-      ...current,
-      balances: {
-        ...current.balances,
-        cleanMoney: newCleanMoney,
-      },
-      laundryProgress: {
-        activeOperations: activeOps,
-        dailyOperations: [...current.laundryProgress.dailyOperations, dailyOp],
-      },
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
-
-    return true;
+      return true;
+    } catch (error) {
+      console.error('Erro ao completar operação de lavagem:', error);
+      return false;
+    }
   },
 
   hydrateLaundryProgress: () => {
