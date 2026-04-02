@@ -6,6 +6,7 @@ import {
   isDirtyMoneyBlocked,
   isCleanMoneyBlocked,
 } from '@/services/punishmentService';
+import { generateUUID } from '@/lib/uuid';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
@@ -848,7 +849,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     // Cria a operação com status 'processing' e ID único
     const newOperation: ActiveOperation = {
       ...operation,
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       status: 'processing',
     };
 
