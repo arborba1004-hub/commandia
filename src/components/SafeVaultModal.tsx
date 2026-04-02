@@ -3,22 +3,6 @@ import { motion } from 'framer-motion';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Image } from '@/components/ui/image';
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
-import { ScrollToTop } from '@/lib/scroll-to-top';
-import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
-import HomePage from '@/components/pages/HomePage';
-import GaleriaPage from '@/components/pages/GaleriaPage';
-import ProfilePage from '@/components/pages/ProfilePage';
-import GamePage from '@/components/pages/GamePage';
-import GiroPage from '@/components/pages/GiroPage';
-import LuxuryshowroomPage from '@/components/pages/LuxuryshowroomPage';
-import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
-import SubornoIlustradoPage from '@/components/pages/SubornoIlustradoPage';
-import DelacaoPremiadaPage from '@/components/pages/DelacaoPremiadaPage';
-import ArsenalPage from '@/components/pages/ArsenalPage';
-import ArmasPage from '@/components/pages/ArmasPage';
-import GangPage from '@/components/gang/GangPage';
-import LuxoItemPage from '@/components/pages/LuxoItemPage';
 
 interface dirtymoneyVaultModalProps {
   open: boolean;
@@ -38,17 +22,17 @@ export default function dirtymoneyVaultModal({
   open,
   onOpenChange,
   amount,
-  playerdirtymoney,
+  playerDirtyMoney,
   onConfirm,
   isProcessing,
   title = 'Pagamento em Dinheiro Sujo',
   confirmLabel = 'Confirmar Pagamento',
   insufficientTitle = 'COFRE VAZIO',
   insufficientMessage = 'Você não tem dinheiro sujo suficiente para concluir esta operação.',
-  imageUrl = 'https://static.wixstatic.com/media/50f4bf_5868d04681cb49d1a58d89dc4493574f\~mv2.png',
+  imageUrl = 'https://static.wixstatic.com/media/50f4bf_5868d04681cb49d1a58d89dc4493574f\\~mv2.png',
 }: dirtymoneyVaultModalProps) {
   const [doorOpen, setDoorOpen] = useState(false);
-  const hasSufficientFunds = playerdirtymoney >= amount;
+  const hasSufficientFunds = playerDirtyMoney >= amount;
 
   useEffect(() => {
     if (open) {
@@ -157,7 +141,7 @@ export default function dirtymoneyVaultModal({
 
           <div className="absolute top-4 left-4 right-4 z-20">
             <p className="text-gray-300 text-sm text-center">
-              Saldo Atual: R$ {playerdirtymoney.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              Saldo Atual: R$ {playerDirtyMoney.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>
