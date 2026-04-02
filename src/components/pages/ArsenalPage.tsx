@@ -156,14 +156,14 @@ export default function ArsenalPage() {
           autoPlay
           muted
           playsInline
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
         />
 
         {/* Gradiente forte para legibilidade em mobile */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80 pointer-events-none" />
 
         {/* DIÁLOGO + BOTÃO - Posicionados na parte inferior esquerda */}
-        <div className="absolute bottom-10 left-6 right-6 md:left-12 md:right-auto z-30 max-w-lg">
+        <div className="absolute bottom-10 left-6 right-6 md:left-12 md:right-auto z-50 max-w-lg">
           <AnimatePresence>
             {showDialog && (
               <motion.div
