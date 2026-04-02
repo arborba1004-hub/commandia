@@ -109,7 +109,7 @@ export default function DelacaoPremiadaPage() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -40, scale: 0.95 }}
                 transition={{ duration: 0.7, ease: "easeOut" }}
-                className="relative rounded-3xl bg-black/80 backdrop-blur-2xl border border-white/10 shadow-[0_0_120px_-20px_rgba(255,60,60,0.6),0_40px_160px_rgba(0,0,0,0.9)] overflow-hidden"
+                className="relative rounded-2xl bg-black/80 backdrop-blur-2xl border border-white/10 overflow-hidden"
               >
                 {/* GLOW INTERNO PREMIUM */}
                 <div 
@@ -189,7 +189,7 @@ export default function DelacaoPremiadaPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -40 }}
                 transition={{ duration: 0.6 }}
-                className="bg-black/90 backdrop-blur-2xl rounded-3xl border border-white/10 p-12 md:p-16 text-center shadow-[0_0_140px_rgba(255,60,60,0.4)] relative"
+                className="bg-black/90 backdrop-blur-2xl rounded-2xl border border-white/10 p-12 md:p-16 text-center relative bg-gradient-to-br from-white/[0.04] to-transparent"
               >
                 {/* WARNING HEADER */}
                 <div className="flex justify-center mb-6">
@@ -309,7 +309,7 @@ export default function DelacaoPremiadaPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
-                className="bg-black/90 backdrop-blur-2xl rounded-3xl border border-emerald-400/30 p-12 md:p-16 text-center shadow-[0_0_160px_rgba(16,185,129,0.5)]"
+                className="bg-black/90 backdrop-blur-2xl rounded-2xl border border-emerald-400/30 p-12 md:p-16 text-center bg-gradient-to-br from-emerald-500/[0.08] to-transparent"
               >
                 {/* CHECK ICON PULSING */}
                 <motion.div

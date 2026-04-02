@@ -169,7 +169,7 @@ export default function LuxuryshowroomPage() {
                   px-8 py-4
                   sm:px-9 sm:py-4
                   md:px-10 md:py-5
-                  rounded-2xl
+                  rounded-xl
                   text-white
                   font-bold
                   text-base sm:text-lg md:text-xl
