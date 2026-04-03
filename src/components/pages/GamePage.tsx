@@ -41,10 +41,7 @@ export default function GamePage() {
       </div>
 
       {/* CAMADA INTERATIVA DO MAPA */}
-      <div className="absolute bottom-0 left-0 w-full h-[45%] z-20 flex items-end justify-center pb-10">
-        <button className="px-6 py-3 bg-black/70 backdrop-blur-md text-white rounded-xl border border-white/20 hover:bg-black/80 transition">
-          🎰 Giro no Asfalto
-        </button>
+      <div className="absolute left-0 right-0 bottom-0 top-[48%] z-20">
       </div>
 
       <Header />
