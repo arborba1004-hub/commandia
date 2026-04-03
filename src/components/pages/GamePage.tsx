@@ -10,10 +10,12 @@ export default function GamePage() {
 
       {/* BACKGROUND */}
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className="absolute top-0 left-0 w-full h-[40%] bg-cover bg-center"
         style={{
           backgroundImage:
-            'url("https://static.wixstatic.com/media/50f4bf_bfc662c34e36465cbe83cbcce45e640e~mv2.jpeg")',
+            'url("https://static.wixstatic.com/media/50f4bf_3af16a6d99f04e67b6805bb21bb1dd39~mv2.jpeg")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
         }}
       />
 
