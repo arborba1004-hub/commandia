@@ -13,6 +13,12 @@ export default function Header() {
   const corre = player?.balances?.corre ?? 0;
   const playerName = playerData?.name || 'Jogador';
 
+  // Ensure values are numbers for toLocaleString
+  const formatMoney = (value: any) => {
+    const num = typeof value === 'number' ? value : 0;
+    return num.toLocaleString('pt-BR');
+  };
+
   const handleLogout = () => {
     logout();
     window.location.href = '/';
@@ -31,15 +37,15 @@ export default function Header() {
         {isAuthenticated && (
           <div className="hidden lg:flex items-center gap-3">
             <div className="px-4 py-2 rounded-xl border border-red-500/20 bg-red-900/30 text-sm font-heading uppercase tracking-wider text-red-200">
-              Commands Sujo: {dirtyMoney.toLocaleString('pt-BR')}
+              Commands Sujo: {formatMoney(dirtyMoney)}
             </div>
 
             <div className="px-4 py-2 rounded-xl border border-emerald-500/20 bg-emerald-900/30 text-sm font-heading uppercase tracking-wider text-emerald-200">
-              Commands Limpo: {cleanMoney.toLocaleString('pt-BR')}
+              Commands Limpo: {formatMoney(cleanMoney)}
             </div>
 
             <div className="px-4 py-2 rounded-xl border border-blue-500/20 bg-blue-900/30 text-sm font-heading uppercase tracking-wider text-blue-200">
-              Corre: {corre.toLocaleString('pt-BR')}
+              Corre: {formatMoney(corre)}
             </div>
           </div>
         )}
