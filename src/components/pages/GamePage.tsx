@@ -18,6 +18,9 @@ export default function GamePage() {
       {/* Dark overlay for better text readability */}
       <div className="absolute inset-0 bg-black/40" />
 
+      {/* Dark overlay to darken background and make ground appear real */}
+      <div className="absolute inset-0 bg-black/40 z-[5]" />
+
       {/* CHÃO DO JOGO FULL */}
       <div
         className="absolute inset-0 z-10 pointer-events-none"
