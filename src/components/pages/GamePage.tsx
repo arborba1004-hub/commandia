@@ -19,7 +19,10 @@ export default function GamePage() {
       <div className="absolute inset-0 bg-black/40" />
 
       {/* CHÃO DO JOGO */}
-      <div className="absolute bottom-0 left-0 w-full h-[45%] z-10 pointer-events-none">
+      <div
+        className="absolute bottom-0 left-0 w-full h-[45%] z-10 pointer-events-none"
+        style={{ transform: 'perspective(800px) rotateX(35deg)' }}
+      >
         <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/asfalt-dark.png')] bg-repeat opacity-40" />
 
         {/* GRADIENTE DE PROFUNDIDADE */}
