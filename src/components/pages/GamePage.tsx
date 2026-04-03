@@ -18,14 +18,13 @@ export default function GamePage() {
       {/* Dark overlay for better text readability */}
       <div className="absolute inset-0 bg-black/40" />
 
-      {/* CHÃO DO JOGO */}
+      {/* CHÃO DO JOGO FULL */}
       <div
-        className="absolute bottom-0 left-0 w-full h-[45%] z-10 pointer-events-none"
-        style={{ transform: 'perspective(800px) rotateX(35deg)' }}
+        className="absolute inset-0 z-10 pointer-events-none"
+        style={{ transform: 'perspective(800px) rotateX(25deg)' }}
       >
         <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/asfalt-dark.png')] bg-repeat opacity-40" />
 
-        {/* GRADIENTE DE PROFUNDIDADE */}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
       </div>
 
