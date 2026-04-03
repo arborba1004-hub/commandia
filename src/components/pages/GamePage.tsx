@@ -7,44 +7,41 @@ export default function GamePage() {
 
   return (
     <div className="w-full min-h-screen relative overflow-hidden flex flex-col">
-      {/* BACKGROUND */}
+
+      {/* BACKGROUND (cidade + horizonte) */}
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: 'url("https://static.wixstatic.com/media/50f4bf_bfc662c34e36465cbe83cbcce45e640e~mv2.jpeg")',
+          backgroundImage:
+            'url("https://static.wixstatic.com/media/50f4bf_bfc662c34e36465cbe83cbcce45e640e~mv2.jpeg")',
         }}
       />
-      
-      {/* Dark overlay for better text readability */}
-      <div className="absolute inset-0 bg-black/40" />
 
-      {/* Dark overlay to darken background and make ground appear real */}
-      <div className="absolute inset-0 bg-black/40 z-[5]" />
+      {/* overlay leve */}
+      <div className="absolute inset-0 bg-black/30 z-[5]" />
 
-      {/* CHÃO ALINHADO COM A ÁREA DE TERRA DA IMAGEM */}
+      {/* CHÃO REAL ALINHADO COM A FOTO */}
       <div className="absolute left-0 right-0 bottom-0 top-[48%] z-10 pointer-events-none overflow-hidden">
-        {/* textura do chão */}
+
+        {/* textura real */}
         <div
           className="absolute inset-0 bg-cover bg-bottom"
           style={{
-            backgroundImage: 'url("https://static.wixstatic.com/media/50f4bf_f4faec7b1d9b4ff2a32266d47cbd2107~mv2.png")',
+            backgroundImage:
+              'url("https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg")',
           }}
         />
 
-        {/* profundidade do chão */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/55" />
+        {/* blend suave com o fundo */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/50" />
 
-        {/* vinheta inferior para dar peso */}
-        <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/65 to-transparent" />
-      </div>
-
-      {/* CAMADA INTERATIVA DO MAPA */}
-      <div className="absolute left-0 right-0 bottom-0 top-[48%] z-20">
+        {/* profundidade */}
+        <div className="absolute inset-x-0 bottom-0 h-[35%] bg-gradient-to-t from-black/60 to-transparent" />
       </div>
 
       <Header />
 
-      <main className="flex-1 flex items-center justify-center relative z-10">
+      <main className="flex-1 flex items-center justify-center relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-xl px-4">
 
           <button
