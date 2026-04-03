@@ -6,10 +6,21 @@ export default function GamePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="w-full min-h-screen relative overflow-hidden flex flex-col">
+      {/* BACKGROUND */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage: 'url("https://static.wixstatic.com/media/50f4bf_bfc662c34e36465cbe83cbcce45e640e~mv2.jpeg")',
+        }}
+      />
+      
+      {/* Dark overlay for better text readability */}
+      <div className="absolute inset-0 bg-black/40" />
+
       <Header />
 
-      <main className="flex-1 flex items-center justify-center">
+      <main className="flex-1 flex items-center justify-center relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-xl px-4">
 
           <button
