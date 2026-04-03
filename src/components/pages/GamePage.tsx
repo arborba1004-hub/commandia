@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import InteractiveTileGrid from '@/components/InteractiveTileGrid';
 
 export default function GamePage() {
   const navigate = useNavigate();
@@ -37,6 +38,13 @@ export default function GamePage() {
 
         {/* profundidade */}
         <div className="absolute inset-x-0 bottom-0 h-[35%] bg-gradient-to-t from-black/60 to-transparent" />
+      </div>
+
+      {/* CAMADA 3D - INTERACTIVE TILE GRID */}
+      <div className="absolute left-0 right-0 bottom-0 top-[48%] z-[15]">
+        <div className="w-full h-full">
+          <InteractiveTileGrid />
+        </div>
       </div>
 
       <Header />
