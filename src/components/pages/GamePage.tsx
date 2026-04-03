@@ -21,14 +21,23 @@ export default function GamePage() {
       {/* Dark overlay to darken background and make ground appear real */}
       <div className="absolute inset-0 bg-black/40 z-[5]" />
 
-      {/* CHÃO DO JOGO FULL */}
-      <div
-        className="absolute inset-0 z-10 pointer-events-none"
-        style={{ transform: 'perspective(800px) rotateX(25deg)' }}
-      >
-        <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/asfalt-dark.png')] bg-repeat opacity-40" />
+      {/* CHÃO ALINHADO COM A ÁREA DE TERRA DA IMAGEM */}
+      <div className="absolute left-0 right-0 bottom-0 top-[48%] z-10 pointer-events-none overflow-hidden">
+        {/* textura do chão */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: "url('https://www.transparenttextures.com/patterns/asfalt-dark.png')",
+            backgroundRepeat: 'repeat',
+            opacity: 0.22,
+          }}
+        />
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+        {/* profundidade do chão */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/55" />
+
+        {/* vinheta inferior para dar peso */}
+        <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/65 to-transparent" />
       </div>
 
       {/* CAMADA INTERATIVA DO MAPA */}
