@@ -25,11 +25,9 @@ export default function GamePage() {
       <div className="absolute left-0 right-0 bottom-0 top-[48%] z-10 pointer-events-none overflow-hidden">
         {/* textura do chão */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 bg-cover bg-bottom"
           style={{
-            backgroundImage: "url('https://www.transparenttextures.com/patterns/asfalt-dark.png')",
-            backgroundRepeat: 'repeat',
-            opacity: 0.22,
+            backgroundImage: 'url("https://static.wixstatic.com/media/50f4bf_f4faec7b1d9b4ff2a32266d47cbd2107~mv2.png")',
           }}
         />
 
