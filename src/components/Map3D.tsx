@@ -42,7 +42,7 @@ export default function Map3D() {
     const floorTexture = textureLoader.load(FLOOR_TEXTURE);
     floorTexture.wrapS = THREE.RepeatWrapping;
     floorTexture.wrapT = THREE.RepeatWrapping;
-    floorTexture.repeat.set(8, 4);
+    floorTexture.repeat.set(1, 1);
 
     const groundMaterial = new THREE.MeshStandardMaterial({
       map: floorTexture,
