@@ -34,6 +34,15 @@ export default function Map3D() {
 
     scene.add(highlight);
 
+    // Player object
+    const playerGeometry = new THREE.ConeGeometry(0.3, 0.8, 8);
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xff007f });
+    const player = new THREE.Mesh(playerGeometry, playerMaterial);
+    player.castShadow = true;
+    player.receiveShadow = true;
+    player.position.set(0, 0.4, 0);
+    scene.add(player);
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -148,6 +157,12 @@ export default function Map3D() {
         highlight.position.set(
           tileX - GRID_WIDTH / 2 + 0.5,
           0.05,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
+
+        player.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.3,
           tileZ - GRID_HEIGHT / 2 + 0.5
         );
       }
