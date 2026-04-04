@@ -122,8 +122,10 @@ export default function InteractiveTileGrid() {
   }, []);
 
   const handleTileClick = async (tile: Tile) => {
+    const me = await fetchCurrentPlayer();
+
     const updatedPlayer = {
-      id: 'player-1',
+      id: me.id,
       tileX: tile.x,
       tileY: tile.y,
       worldX: tile.worldX,
@@ -133,7 +135,7 @@ export default function InteractiveTileGrid() {
     // Atualizar UI imediatamente (otimista)
     setPlayers(prev =>
       prev.map(p =>
-        p.id === 'player-1'
+        p.id === me.id
           ? {
               ...p,
               tileX: tile.x,
@@ -161,7 +163,7 @@ export default function InteractiveTileGrid() {
         if (playerData) {
           setPlayers(prev =>
             prev.map(p =>
-              p.id === 'player-1'
+              p.id === me.id
                 ? {
                     ...p,
                     tileX: playerData.tileX ?? p.tileX,
