@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ export default function dirtymoneyVaultModal({
   confirmLabel = 'Confirmar Pagamento',
   insufficientTitle = 'COFRE VAZIO',
   insufficientMessage = 'Você não tem dinheiro sujo suficiente para concluir esta operação.',
-  imageUrl = 'https://static.wixstatic.com/media/50f4bf_5868d04681cb49d1a58d89dc4493574f\\~mv2.png',
+  imageUrl = 'https://static.wixstatic.com/media/50f4bf_5868d04681cb49d1a58d89dc4493574f\~mv2.png',
 }: dirtymoneyVaultModalProps) {
   const [doorOpen, setDoorOpen] = useState(false);
   const hasSufficientFunds = playerDirtyMoney >= amount;
@@ -42,6 +42,12 @@ export default function dirtymoneyVaultModal({
 
     setDoorOpen(false);
   }, [open]);
+
+  const handleConfirm = useCallback(() => {
+    if (!isProcessing && hasSufficientFunds) {
+      onConfirm();
+    }
+  }, [isProcessing, hasSufficientFunds, onConfirm]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -91,6 +97,7 @@ export default function dirtymoneyVaultModal({
               )}
             </div>
 
+            {/* PORTA DO COFRE COM ANIMAÇÃO 3D */}
             <motion.div
               initial={{ rotateY: 0 }}
               animate={{ rotateY: doorOpen ? -110 : 0 }}
@@ -119,6 +126,7 @@ export default function dirtymoneyVaultModal({
             </motion.div>
           </div>
 
+          {/* BOTÕES DE AÇÃO */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-gray-900 to-transparent p-6 flex gap-4 z-20">
             <Button
               onClick={() => onOpenChange(false)}
@@ -130,7 +138,7 @@ export default function dirtymoneyVaultModal({
 
             {hasSufficientFunds && (
               <Button
-                onClick={onConfirm}
+                onClick={handleConfirm}
                 className="flex-1 bg-primary hover:bg-primary/80 text-black font-heading"
                 disabled={isProcessing}
               >
@@ -139,6 +147,7 @@ export default function dirtymoneyVaultModal({
             )}
           </div>
 
+          {/* SALDO ATUAL */}
           <div className="absolute top-4 left-4 right-4 z-20">
             <p className="text-gray-300 text-sm text-center">
               Saldo Atual: R$ {playerDirtyMoney.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
