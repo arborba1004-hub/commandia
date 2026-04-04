@@ -186,6 +186,9 @@ export default function Map3D() {
 
     let barraco: THREE.Object3D | null = null;
 
+    // Array para guardar os modelos dos jogadores e poder limpar a memória quando o jogador sair da página
+    const loadedPlayerModels: THREE.Group[] = [];
+
     loader.load(
       modelUrl,
       (gltf) => {
@@ -248,6 +251,42 @@ export default function Map3D() {
       undefined,
       (error) => console.error('Erro ao carregar GLB:', error)
     );
+
+    // Busca os jogadores no backend e carrega seus modelos 3D
+    fetch('https://comando-backend.onrender.com/players', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      }
+    })
+      .then(res => res.json())
+      .then(players => {
+        players.forEach((p: any) => {
+          // Descobre qual é o modelo 3D correto baseado no nível do barraco (fallback para o nível 1)
+          const modelInfo = BARRACO_MODELS.find(m => p.barracoLevel >= m.min && p.barracoLevel <= m.max) 
+                         || BARRACO_MODELS[0];
+
+          // Carrega o modelo
+          loader.load(modelInfo.url, (gltf) => {
+            const model = gltf.scene;
+
+            // Ajuste de escala (se os seus modelos vierem muito grandes ou pequenos, altere aqui)
+            model.scale.set(0.8, 0.8, 0.8);
+
+            // Posicionamento matemático no grid
+            // Subtraímos a metade da largura/altura para que o centro do mapa seja o ponto (0,0) do Three.js
+            const posX = (p.tileX - (GRID_WIDTH / 2)) * TILE_SIZE;
+            const posZ = (p.tileY - (GRID_HEIGHT / 2)) * TILE_SIZE;
+
+            // O Y é a altura. Colocamos em cima da plataforma.
+            model.position.set(posX, PLATFORM_HEIGHT / 2, posZ);
+
+            // Adiciona na cena
+            scene.add(model);
+            loadedPlayerModels.push(model);
+          });
+        });
+      })
+      .catch(err => console.error("Erro ao buscar vizinhos do mapa:", err));
 
     const textureLoader = new THREE.TextureLoader();
     const floorTexture = textureLoader.load(FLOOR_TEXTURE);
@@ -487,6 +526,22 @@ export default function Map3D() {
       container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
+
+      // Limpeza de memória dos modelos dos jogadores
+      loadedPlayerModels.forEach(model => {
+        scene.remove(model);
+        model.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.geometry.dispose();
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(mat => mat.dispose());
+            } else {
+              mesh.material.dispose();
+            }
+          }
+        });
+      });
 
       // Dispose básico
       platformGeometry.dispose();
