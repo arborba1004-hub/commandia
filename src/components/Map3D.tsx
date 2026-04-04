@@ -115,7 +115,7 @@ export default function Map3D() {
     );
 
     const updateCamera = () => {
-      camera.position.set(0, zoomDistance + 8, zoomDistance);
+      camera.position.set(0, zoomDistance * 0.5, zoomDistance * 1.2);
       camera.lookAt(0, 0, 0);
     };
 
