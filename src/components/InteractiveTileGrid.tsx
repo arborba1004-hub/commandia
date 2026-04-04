@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { fetchCurrentPlayer, syncPlayerUpdate } from '@/api/playerApi';
+import { fetchAllPlayers, syncPlayerUpdate } from '@/api/playerApi';
 
 interface Tile {
   id: string;
@@ -57,24 +57,37 @@ export default function InteractiveTileGrid() {
   useEffect(() => {
     const loadPlayers = async () => {
       try {
-        const playerData = await fetchCurrentPlayer();
-        if (playerData) {
-          setPlayers(prev =>
-            prev.map(p =>
-              p.id === 'player-1'
-                ? {
-                    ...p,
-                    tileX: playerData.tileX ?? p.tileX,
-                    tileY: playerData.tileY ?? p.tileY,
-                    worldX: playerData.worldX ?? p.worldX,
-                    worldY: playerData.worldY ?? p.worldY,
-                  }
-                : p
-            )
-          );
+        const playersData = await fetchAllPlayers();
+
+        if (playersData && playersData.length > 0) {
+          setPlayers(prev => {
+            const localPlayer = prev.find(p => p.id === 'player-1');
+
+            const serverPlayers = playersData.map((p, index) => ({
+              id: String(p.id),
+              tileX: p.tileX,
+              tileY: p.tileY,
+              worldX: p.worldX,
+              worldY: p.worldY,
+              color: index === 0 ? 'bg-cyan-400' : 'bg-pink-400',
+            }));
+
+            return localPlayer
+              ? [
+                  {
+                    ...localPlayer,
+                    tileX: serverPlayers[0]?.tileX ?? localPlayer.tileX,
+                    tileY: serverPlayers[0]?.tileY ?? localPlayer.tileY,
+                    worldX: serverPlayers[0]?.worldX ?? localPlayer.worldX,
+                    worldY: serverPlayers[0]?.worldY ?? localPlayer.worldY,
+                  },
+                  ...serverPlayers.slice(1),
+                ]
+              : serverPlayers;
+          });
         }
       } catch (error) {
-        console.error('Erro ao carregar dados do jogador:', error);
+        console.error('Erro ao carregar players:', error);
       }
     };
 
