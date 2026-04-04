@@ -143,13 +143,17 @@ export default function Map3D() {
     renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.35);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.25);
-    dirLight.position.set(12, 30, 18);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    dirLight.position.set(8, 20, 10);
     dirLight.castShadow = true;
     scene.add(dirLight);
+
+    const fillLight = new THREE.DirectionalLight(0xfff2d6, 1.1);
+    fillLight.position.set(-10, 12, 8);
+    scene.add(fillLight);
 
     const loader = new GLTFLoader();
 
