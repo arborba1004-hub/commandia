@@ -34,7 +34,7 @@ export default function InteractiveTileGrid() {
   });
 
   const handleTileClick = (id: string) => {
-    setTiles(tiles.map(tile =>
+    setTiles(prev => prev.map(tile =>
       tile.id === id ? { ...tile, isActive: !tile.isActive } : tile
     ));
   };
