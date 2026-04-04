@@ -35,15 +35,19 @@ export default function InteractiveTileGrid() {
 
   const [player, setPlayer] = useState({
     id: 'player-1',
-    x: 10,
-    y: 5,
+    tileX: 10,
+    tileY: 5,
+    worldX: 10,
+    worldY: 5,
   });
 
   const handleTileClick = (tile: Tile) => {
     setPlayer({
       id: 'player-1',
-      x: tile.x,
-      y: tile.y,
+      tileX: tile.x,
+      tileY: tile.y,
+      worldX: tile.worldX,
+      worldY: tile.worldY,
     });
   };
 
@@ -70,7 +74,7 @@ export default function InteractiveTileGrid() {
             <span className="text-xs text-white font-bold opacity-70">
               {tile.type === 'locked' ? '🔒' : tile.type === 'special' ? '⭐' : ''}
             </span>
-            {player.x === tile.x && player.y === tile.y && (
+            {player.tileX === tile.x && player.tileY === tile.y && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-4 h-4 bg-cyan-400 rounded-full" />
               </div>
