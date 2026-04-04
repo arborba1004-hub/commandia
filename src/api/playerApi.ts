@@ -93,6 +93,32 @@ export async function hydratePlayerFromBackend(): Promise<PlayerState> {
   return fetchCurrentPlayer();
 }
 
+/**
+ * Busca todos os jogadores do servidor
+ * Endpoint: GET /players
+ */
+export async function fetchAllPlayers(): Promise<
+  Array<{
+    id: string;
+    tileX: number;
+    tileY: number;
+    worldX: number;
+    worldY: number;
+  }>
+> {
+  return makeRequest<
+    Array<{
+      id: string;
+      tileX: number;
+      tileY: number;
+      worldX: number;
+      worldY: number;
+    }>
+  >('/players', {
+    method: 'GET',
+  });
+}
+
 // ==========================================
 // LAUNDRY ENDPOINTS (ESPECÍFICOS - FUTUROS)
 // ==========================================
