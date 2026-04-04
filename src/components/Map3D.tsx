@@ -151,6 +151,33 @@ export default function Map3D() {
     dirLight.castShadow = true;
     scene.add(dirLight);
 
+    const loader = new GLTFLoader();
+
+    const modelUrl = getBarracoModelUrl(level);
+
+    let barraco: THREE.Object3D | null = null;
+
+    loader.load(modelUrl, (gltf) => {
+      barraco = gltf.scene;
+
+      // posição no centro do mapa
+      barraco.position.set(0, 0, 0);
+
+      // escala proporcional ao tamanho (2x2 / 3x3 / 4x4)
+      const scale = barracoSize * 0.5;
+      barraco.scale.set(scale, scale, scale);
+
+      // sombras
+      barraco.traverse((child: any) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+
+      scene.add(barraco);
+    });
+
     const textureLoader = new THREE.TextureLoader();
     const floorTexture = textureLoader.load(FLOOR_TEXTURE);
     floorTexture.wrapS = THREE.ClampToEdgeWrapping;
