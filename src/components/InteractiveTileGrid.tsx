@@ -57,11 +57,12 @@ export default function InteractiveTileGrid() {
   useEffect(() => {
     const loadPlayers = async () => {
       try {
+        const me = await fetchCurrentPlayer();
         const playersData = await fetchAllPlayers();
 
         if (playersData && playersData.length > 0) {
           setPlayers(prev => {
-            const localPlayer = prev.find(p => p.id === 'player-1');
+            const localPlayer = prev.find(p => p.id === me.id);
 
             const serverPlayers = playersData.map((p, index) => ({
               id: String(p.id),
