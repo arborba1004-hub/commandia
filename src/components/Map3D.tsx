@@ -46,6 +46,10 @@ export default function Map3D() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
+    // PASSO 1 — variáveis de estado para pan
+    let isDragging = false;
+    let previousMouse = { x: 0, y: 0 };
+
     let zoomDistance = 18;
     const MIN_ZOOM = 10;
     const MAX_ZOOM = 32;
@@ -59,6 +63,16 @@ export default function Map3D() {
 
     const updateCamera = () => {
       camera.position.set(0, zoomDistance + 8, zoomDistance);
+      camera.lookAt(0, 0, 0);
+    };
+
+    // PASSO 2 — função de mover câmera
+    const panSpeed = 0.05;
+
+    const moveCamera = (deltaX: number, deltaY: number) => {
+      camera.position.x -= deltaX * panSpeed;
+      camera.position.z -= deltaY * panSpeed;
+
       camera.lookAt(0, 0, 0);
     };
 
@@ -177,6 +191,56 @@ export default function Map3D() {
       }
     };
 
+    // PASSO 3 — mouse drag (PC)
+    const handleMouseDown = (e: MouseEvent) => {
+      isDragging = true;
+      previousMouse = { x: e.clientX, y: e.clientY };
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+
+      const deltaX = e.clientX - previousMouse.x;
+      const deltaY = e.clientY - previousMouse.y;
+
+      moveCamera(deltaX, deltaY);
+
+      previousMouse = { x: e.clientX, y: e.clientY };
+    };
+
+    const handleMouseUp = () => {
+      isDragging = false;
+    };
+
+    // PASSO 4 — touch drag (celular)
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        previousMouse = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+        };
+      }
+    };
+
+    const handleTouchMovePan = (e: TouchEvent) => {
+      if (!isDragging || e.touches.length !== 1) return;
+
+      const deltaX = e.touches[0].clientX - previousMouse.x;
+      const deltaY = e.touches[0].clientY - previousMouse.y;
+
+      moveCamera(deltaX, deltaY);
+
+      previousMouse = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    };
+
+    const handleTouchEndPan = () => {
+      isDragging = false;
+    };
+
     const shadowPlane = new THREE.Mesh(
       new THREE.PlaneGeometry(GRID_WIDTH * 1.4, GRID_HEIGHT * 1.4),
       new THREE.MeshBasicMaterial({
@@ -251,6 +315,15 @@ export default function Map3D() {
     container.addEventListener('touchmove', handleTouchMove);
     container.addEventListener('touchend', handleTouchEnd);
 
+    // PASSO 5 — registrar eventos de pan
+    container.addEventListener('mousedown', handleMouseDown);
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mouseup', handleMouseUp);
+
+    container.addEventListener('touchstart', handleTouchStart);
+    container.addEventListener('touchmove', handleTouchMovePan);
+    container.addEventListener('touchend', handleTouchEndPan);
+
     return () => {
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
@@ -258,6 +331,16 @@ export default function Map3D() {
       container.removeEventListener('wheel', handleWheel);
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
+
+      // 🧹 CLEANUP — remover eventos de pan
+      container.removeEventListener('mousedown', handleMouseDown);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseup', handleMouseUp);
+
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMovePan);
+      container.removeEventListener('touchend', handleTouchEndPan);
+
       platformGeometry.dispose();
       topMaterial.dispose();
       sideMaterial.dispose();
