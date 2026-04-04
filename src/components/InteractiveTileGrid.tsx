@@ -5,20 +5,26 @@ interface Tile {
   id: string;
   x: number;
   y: number;
+  worldX: number;
+  worldY: number;
   isActive: boolean;
   type: 'normal' | 'special' | 'locked';
 }
 
 export default function InteractiveTileGrid() {
+  const TILE_SIZE = 1; // unidade do mapa (ajustável)
+
   const [tiles, setTiles] = useState<Tile[]>(() => {
     const grid: Tile[] = [];
-    for (let y = 0; y < 5; y++) {
-      for (let x = 0; x < 8; x++) {
+    for (let y = 0; y < 20; y++) {
+      for (let x = 0; x < 40; x++) {
         const id = `tile-${x}-${y}`;
         grid.push({
           id,
           x,
           y,
+          worldX: x * TILE_SIZE,
+          worldY: y * TILE_SIZE,
           isActive: false,
           type: Math.random() > 0.8 ? 'special' : Math.random() > 0.7 ? 'locked' : 'normal',
         });
@@ -41,7 +47,7 @@ export default function InteractiveTileGrid() {
 
   return (
     <div className="w-full h-full flex items-center justify-center p-4">
-      <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(8, minmax(0, 1fr))' }}>
+      <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(40, minmax(0, 1fr))' }}>
         {tiles.map((tile) => (
           <motion.button
             key={tile.id}
@@ -51,7 +57,7 @@ export default function InteractiveTileGrid() {
             whileTap={{ scale: 0.95 }}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: (tile.x + tile.y * 8) * 0.02 }}
+            transition={{ delay: (tile.x + tile.y * 40) * 0.02 }}
           >
             <span className="text-xs text-white font-bold opacity-70">
               {tile.type === 'locked' ? '🔒' : tile.type === 'special' ? '⭐' : ''}
