@@ -52,6 +52,16 @@ function getBarracoModelUrl(level: number) {
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const level = 1;
+
+  const getBarracoSize = (level: number) => {
+    if (level >= 60) return 4;
+    if (level >= 30) return 3;
+    return 2;
+  };
+
+  const barracoSize = getBarracoSize(level);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
