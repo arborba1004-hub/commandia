@@ -143,6 +143,13 @@ export default function Map3D() {
         const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
 
         console.log('CLICK NO TILE:', tileX, tileZ);
+
+        highlight.visible = true;
+        highlight.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.05,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
       }
     };
 
