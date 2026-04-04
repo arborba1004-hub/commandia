@@ -358,6 +358,9 @@ export default function Map3D() {
           x: e.touches[0].clientX,
           y: e.touches[0].clientY,
         };
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        lastDistance = getDistance(e.touches);
       }
     };
 
@@ -367,7 +370,8 @@ export default function Map3D() {
       const deltaX = e.touches[0].clientX - previousMouse.x;
       const deltaY = e.touches[0].clientY - previousMouse.y;
 
-      moveCamera(deltaX, deltaY);
+      orbitAngle -= deltaX * rotateSpeed;
+      updateCamera();
 
       previousMouse = {
         x: e.touches[0].clientX,
