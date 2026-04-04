@@ -103,9 +103,12 @@ export default function Map3D() {
     let previousMouse = { x: 0, y: 0 };
     let velocity = { x: 0, z: 0 };
 
-    let zoomDistance = 18;
-    const MIN_ZOOM = 10;
-    const MAX_ZOOM = 32;
+    let zoomDistance = 28;
+    const MIN_ZOOM = 12;
+    const MAX_ZOOM = 60;
+
+    let orbitAngle = Math.PI / 4;
+    let orbitTilt = 0.62;
 
     const camera = new THREE.PerspectiveCamera(
       45,
@@ -114,25 +117,28 @@ export default function Map3D() {
       1000
     );
 
+    const cameraTarget = new THREE.Vector3(0, 0, 0);
+
     const updateCamera = () => {
-      camera.position.set(0, zoomDistance * 0.5, zoomDistance * 1.2);
-      camera.lookAt(0, 0, 0);
+      const radius = zoomDistance;
+      const y = radius * orbitTilt;
+      const x = Math.cos(orbitAngle) * radius;
+      const z = Math.sin(orbitAngle) * radius;
+
+      camera.position.set(x, y, z);
+      camera.lookAt(cameraTarget);
     };
 
-    // PASSO 2 — função de mover câmera
-    const panSpeed = 0.05;
-
-    const clamp = (value: number, min: number, max: number) =>
-      Math.max(min, Math.min(max, value));
+    const panSpeed = 0.003;
+    const rotateSpeed = 0.01;
 
     const moveCamera = (deltaX: number, deltaY: number) => {
-      const nextX = camera.position.x - deltaX * panSpeed;
-      const nextZ = camera.position.z - deltaY * panSpeed;
+      orbitAngle -= deltaX * rotateSpeed;
+      zoomDistance += deltaY * panSpeed * 100;
 
-      camera.position.x = clamp(nextX, -12, 12);
-      camera.position.z = clamp(nextZ, 8, 26);
+      zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
 
-      camera.lookAt(0, 0, 0);
+      updateCamera();
     };
 
     updateCamera();
@@ -197,6 +203,12 @@ export default function Map3D() {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
+
+          if (child.material) {
+            child.material.envMapIntensity = 1.2;
+            child.material.emissive = new THREE.Color(0x2a1a0a);
+            child.material.emissiveIntensity = 0.22;
+          }
         }
       });
 
