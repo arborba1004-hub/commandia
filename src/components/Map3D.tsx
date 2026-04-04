@@ -200,17 +200,21 @@ scene.add(fillLight);
       barraco.position.z = 0;
 
       barraco.traverse((child: any) => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
+  if (child.isMesh) {
+    child.castShadow = true;
+    child.receiveShadow = true;
 
-          if (child.material) {
-            child.material.envMapIntensity = 1.2;
-            child.material.emissive = new THREE.Color(0x2a1a0a);
-            child.material.emissiveIntensity = 0.22;
-          }
-        }
-      });
+    if (child.material) {
+      child.material.roughness = 0.7;
+      child.material.metalness = 0;
+
+      child.material.emissive = new THREE.Color(0x3a220f);
+      child.material.emissiveIntensity = 0.35;
+
+      child.material.needsUpdate = true;
+    }
+  }
+});
 
       scene.add(barraco);
 
