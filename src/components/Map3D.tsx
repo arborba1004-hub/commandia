@@ -8,6 +8,46 @@ const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
+const BARRACO_MODELS = [
+  {
+    min: 1,
+    max: 9,
+    url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb',
+  },
+  {
+    min: 10,
+    max: 19,
+    url: 'https://static.wixstatic.com/3d/50f4bf_e10d19cfeff147ce95eee1d04a31b04a.glb',
+  },
+  {
+    min: 20,
+    max: 29,
+    url: 'https://static.wixstatic.com/3d/50f4bf_ad7304550b404996b3b82c425be28df8.glb',
+  },
+  {
+    min: 30,
+    max: 39,
+    url: 'https://static.wixstatic.com/3d/50f4bf_d2c8efd640c24cabb3bda73016b7a6b7.glb',
+  },
+  {
+    min: 40,
+    max: 49,
+    url: 'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb',
+  },
+  {
+    min: 50,
+    max: 59,
+    url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb',
+  },
+];
+
+function getBarracoModelUrl(level: number) {
+  return (
+    BARRACO_MODELS.find(model => level >= model.min && level <= model.max)?.url ??
+    BARRACO_MODELS[0].url
+  );
+}
+
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
