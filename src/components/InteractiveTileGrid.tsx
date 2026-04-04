@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { fetchCurrentPlayer, syncPlayerUpdate } from '@/api/playerApi';
 
 interface Tile {
   id: string;
@@ -52,7 +53,44 @@ export default function InteractiveTileGrid() {
     },
   ]);
 
-  const handleTileClick = (tile: Tile) => {
+  // Carregar dados do servidor ao montar o componente
+  useEffect(() => {
+    const loadPlayers = async () => {
+      try {
+        const playerData = await fetchCurrentPlayer();
+        if (playerData) {
+          setPlayers(prev =>
+            prev.map(p =>
+              p.id === 'player-1'
+                ? {
+                    ...p,
+                    tileX: playerData.tileX ?? p.tileX,
+                    tileY: playerData.tileY ?? p.tileY,
+                    worldX: playerData.worldX ?? p.worldX,
+                    worldY: playerData.worldY ?? p.worldY,
+                  }
+                : p
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados do jogador:', error);
+      }
+    };
+
+    loadPlayers();
+  }, []);
+
+  const handleTileClick = async (tile: Tile) => {
+    const updatedPlayer = {
+      id: 'player-1',
+      tileX: tile.x,
+      tileY: tile.y,
+      worldX: tile.worldX,
+      worldY: tile.worldY,
+    };
+
+    // Atualizar UI imediatamente (otimista)
     setPlayers(prev =>
       prev.map(p =>
         p.id === 'player-1'
@@ -66,6 +104,39 @@ export default function InteractiveTileGrid() {
           : p
       )
     );
+
+    // Sincronizar com o servidor
+    try {
+      await syncPlayerUpdate({
+        tileX: tile.x,
+        tileY: tile.y,
+        worldX: tile.worldX,
+        worldY: tile.worldY,
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar posição no servidor:', error);
+      // Recarregar dados do servidor em caso de erro
+      try {
+        const playerData = await fetchCurrentPlayer();
+        if (playerData) {
+          setPlayers(prev =>
+            prev.map(p =>
+              p.id === 'player-1'
+                ? {
+                    ...p,
+                    tileX: playerData.tileX ?? p.tileX,
+                    tileY: playerData.tileY ?? p.tileY,
+                    worldX: playerData.worldX ?? p.worldX,
+                    worldY: playerData.worldY ?? p.worldY,
+                  }
+                : p
+            )
+          );
+        }
+      } catch (reloadError) {
+        console.error('Erro ao recarregar dados do jogador:', reloadError);
+      }
+    }
   };
 
   const getTileColor = (tile: Tile) => {
