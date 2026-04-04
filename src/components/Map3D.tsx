@@ -70,7 +70,6 @@ export default function Map3D() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
 
-    // Quadrado amarelo do clique (Highlight)
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
       color: 0xffff00,
@@ -143,6 +142,21 @@ export default function Map3D() {
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
 
+    // FUNÇÃO PARA CLAREAR MATERIAIS (Tira o reflexo preto e dá brilho)
+    const fixDarkMaterials = (child: any) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (child.material) {
+          child.material.metalness = 0; // Tira o reflexo escuro
+          child.material.roughness = 0.8; // Deixa mais fosco/natural
+          child.material.emissive = new THREE.Color(0x3a220f); // Dá uma luzinha própria quente
+          child.material.emissiveIntensity = 0.2;
+          child.material.needsUpdate = true;
+        }
+      }
+    };
+
     // CARREGANDO O SEU BARRACO
     loader.load(
       modelUrl,
@@ -158,43 +172,35 @@ export default function Map3D() {
         const scale = barracoSize / maxDimension;
         barraco.scale.setScalar(scale);
 
-        // Centraliza o modelo
         const scaledBox = new THREE.Box3().setFromObject(barraco);
         const center = new THREE.Vector3();
         scaledBox.getCenter(center);
         barraco.position.sub(center);
 
-        // Prega o modelo no chão (Y = 0)
         const finalBox = new THREE.Box3().setFromObject(barraco);
         barraco.position.y -= finalBox.min.y;
 
-        // Coloca o SEU barraco na coordenada calculada (Removido o erro do eixo Y)
         barraco.position.x = playerWorldX;
         barraco.position.z = playerWorldZ;
 
-        barraco.traverse((child: any) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-          }
-        });
+        // APLICA O CLAREAMENTO AQUI
+        barraco.traverse(fixDarkMaterials);
 
         scene.add(barraco);
         loadedPlayerModels.push(barraco);
 
-        // Área reservada (o chãozinho laranja/amarelo em baixo do seu barraco)
         const reservedArea = new THREE.Mesh(
           new THREE.PlaneGeometry(4, 4),
           new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
         );
         reservedArea.rotation.x = -Math.PI / 2;
-        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ); // Puxei pro chão
+        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ); 
         
         scene.add(reservedArea);
         loadedPlayerModels.push(reservedArea);
       },
       undefined,
-      (error) => console.error('❌ Erro crítico ao carregar o modelo 3D do seu barraco:', error)
+      (error) => console.error('❌ Erro crítico ao carregar o modelo:', error)
     );
 
     // CARREGANDO OS OUTROS JOGADORES DO BACKEND
@@ -226,14 +232,12 @@ export default function Map3D() {
               const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
               const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
   
-              // Coloca no chão
               model.position.set(posX, 0, posZ);
-              
-              // Garante o alinhamento da base com o chão
               const sBoxFinal = new THREE.Box3().setFromObject(model);
               model.position.y -= sBoxFinal.min.y;
 
-              model.traverse((c: any) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+              // APLICA O CLAREAMENTO NOS OUTROS JOGADORES TAMBÉM
+              model.traverse(fixDarkMaterials);
   
               scene.add(model);
               loadedPlayerModels.push(model);
@@ -256,7 +260,6 @@ export default function Map3D() {
     const platform = new THREE.Mesh(platformGeometry, [
       sideMaterial, sideMaterial, topMaterial, sideMaterial, sideMaterial, sideMaterial,
     ]);
-    // O topo da plataforma fica exatamente no eixo Y = 0
     platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
     platform.receiveShadow = true;
     platform.castShadow = true;
