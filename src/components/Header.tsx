@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LogOut } from 'lucide-react';
+import { Image } from '@/components/ui/image';
 
 export default function Header() {
   const { player } = usePlayerStore();
@@ -55,23 +56,13 @@ export default function Header() {
 
             {/* BLOCO LOGO */}
             <div className="rounded-xl border border-[#7a5a25] bg-[linear-gradient(180deg,#4d0909_0%,#1b0909_100%)] flex flex-col items-center justify-center px-1 py-2">
-              <div className="text-center leading-none">
-                <div
-                  className="font-heading text-[13px] sm:text-[18px] uppercase text-[#e2c57a]"
-                  style={{ textShadow: '0 0 10px rgba(255,215,120,0.18)' }}
-                >
-                  DOMÍNIO
-                </div>
-                <div
-                  className="font-heading text-[11px] sm:text-[16px] uppercase text-[#e2c57a]"
-                  style={{ textShadow: '0 0 10px rgba(255,215,120,0.18)' }}
-                >
-                  DO COMANDO
-                </div>
-                <div className="mt-1 px-1.5 py-0.5 rounded-full border border-[#7a5a25] bg-black/50 text-[6px] sm:text-[8px] font-heading uppercase tracking-[0.2em] text-zinc-200">
-                  Submundo Urbano
-                </div>
-              </div>
+              <Image 
+                src="https://static.wixstatic.com/media/50f4bf_9e06e6237b1c4e87997633edc2d94227~mv2.png"
+                alt="Domínio do Comando Logo"
+                width={80}
+                height={80}
+                className="w-full h-auto object-contain"
+              />
             </div>
 
             {/* BLOCO CENTRAL */}
@@ -80,7 +71,7 @@ export default function Header() {
                 <div className="flex items-center justify-center">
                   <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full p-[3px] bg-[linear-gradient(180deg,#e4c778_0%,#695124_100%)]">
                     <div className="w-full h-full rounded-full overflow-hidden border border-black/70 bg-black">
-                      <img src={avatar} alt={playerName} className="w-full h-full object-cover" />
+                      <Image src={avatar} alt={playerName} className="w-full h-full object-cover" />
                     </div>
                   </div>
                 </div>
