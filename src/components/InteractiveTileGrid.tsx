@@ -100,14 +100,18 @@ export default function InteractiveTileGrid() {
         const playersData = await fetchAllPlayers();
 
         setPlayers(prev =>
-          playersData.map((p, index) => ({
-            id: String(p.id),
-            tileX: p.tileX,
-            tileY: p.tileY,
-            worldX: p.worldX,
-            worldY: p.worldY,
-            color: index === 0 ? 'bg-cyan-400' : 'bg-pink-400',
-          }))
+          playersData.map((p, index) => {
+            const existing = prev.find(player => player.id === String(p.id));
+
+            return {
+              id: String(p.id),
+              tileX: p.tileX,
+              tileY: p.tileY,
+              worldX: p.worldX,
+              worldY: p.worldY,
+              color: existing?.color ?? (index === 0 ? 'bg-cyan-400' : 'bg-pink-400'),
+            };
+          })
         );
       } catch (error) {
         console.error('Erro no polling:', error);
