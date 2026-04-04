@@ -19,6 +19,21 @@ export default function Map3D() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
 
+    const highlightGeometry = new THREE.PlaneGeometry(1, 1);
+    const highlightMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+    });
+
+    const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+    highlight.rotation.x = -Math.PI / 2;
+    highlight.position.y = 0.05;
+    highlight.visible = false;
+
+    scene.add(highlight);
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
