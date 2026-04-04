@@ -69,9 +69,15 @@ export default function Map3D() {
     // PASSO 2 — função de mover câmera
     const panSpeed = 0.05;
 
+    const clamp = (value: number, min: number, max: number) =>
+      Math.max(min, Math.min(max, value));
+
     const moveCamera = (deltaX: number, deltaY: number) => {
-      camera.position.x -= deltaX * panSpeed;
-      camera.position.z -= deltaY * panSpeed;
+      const nextX = camera.position.x - deltaX * panSpeed;
+      const nextZ = camera.position.z - deltaY * panSpeed;
+
+      camera.position.x = clamp(nextX, -12, 12);
+      camera.position.z = clamp(nextZ, 8, 26);
 
       camera.lookAt(0, 0, 0);
     };
