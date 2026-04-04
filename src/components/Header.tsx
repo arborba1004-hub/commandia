@@ -179,7 +179,10 @@ export default function Header() {
                 {formatCountdown(secondsLeft)}
               </div>
               <div className="mt-1 text-center text-[7px] sm:text-[9px] uppercase tracking-[0.14em] text-zinc-300 font-heading">
-                Tempo até próximo giro
+                +{playerLevel} giros por minuto
+              </div>
+              <div className="mt-1 text-center text-[8px] sm:text-[10px] uppercase tracking-[0.14em] text-yellow-300 font-heading">
+                Acumulado: {pendingGiros}
               </div>
             </div>
           </div>
