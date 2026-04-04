@@ -4,7 +4,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Image } from '@/components/ui/image';
 
-interface dirtymoneyVaultModalProps {
+interface DirtyMoneyVaultModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   amount: number;
@@ -18,7 +18,7 @@ interface dirtymoneyVaultModalProps {
   imageUrl?: string;
 }
 
-export default function dirtymoneyVaultModal({
+export default function DirtyMoneyVaultModal({
   open,
   onOpenChange,
   amount,
