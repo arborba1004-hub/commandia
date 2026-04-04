@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import { Image } from '@/components/ui/image';
+import HeaderCustomizationModal from '@/components/HeaderCustomizationModal';
 
 export default function Header() {
   const { player } = usePlayerStore();
@@ -31,6 +32,14 @@ export default function Header() {
 
   const [secondsLeft, setSecondsLeft] = useState(60);
   const [pendingGiros, setPendingGiros] = useState(0);
+  const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
+
+  // Get header customization
+  const customization = player.headerCustomization || {
+    playerNameFont: 'oswald',
+    playerNameFontSize: '1.875rem',
+    playerNameColor: '#1a1205',
+  };
 
   useEffect(() => {
     const updatePassiveTimer = () => {
@@ -108,8 +117,13 @@ export default function Header() {
 
                 <div className="min-w-0">
                   <div
-                    className="inline-block max-w-full truncate px-3 sm:px-5 py-1.5 sm:py-2 bg-[linear-gradient(90deg,#8d6422_0%,#d0aa4f_45%,#8d6422_100%)] text-[#1a1205] font-heading uppercase text-lg sm:text-3xl leading-none rounded-md"
-                    style={{ textShadow: '0 1px 0 rgba(255,255,255,0.25)' }}
+                    className="inline-block max-w-full truncate px-3 sm:px-5 py-1.5 sm:py-2 bg-[linear-gradient(90deg,#8d6422_0%,#d0aa4f_45%,#8d6422_100%)] font-heading uppercase leading-none rounded-md"
+                    style={{
+                      fontFamily: customization.playerNameFont,
+                      fontSize: customization.playerNameFontSize,
+                      color: customization.playerNameColor,
+                      textShadow: '0 1px 0 rgba(255,255,255,0.25)',
+                    }}
                   >
                     {playerName}
                   </div>
@@ -120,6 +134,16 @@ export default function Header() {
                     </div>
                   </div>
                 </div>
+
+                {isAuthenticated && (
+                  <button
+                    onClick={() => setIsCustomizationOpen(true)}
+                    className="ml-2 p-2 rounded hover:bg-white/10 transition-colors"
+                    title="Personalizar cabeçalho"
+                  >
+                    <Settings className="w-4 h-4 text-yellow-400" />
+                  </button>
+                )}
               </div>
 
               <div className="mt-2 grid grid-cols-5 gap-[1px] rounded-lg overflow-hidden border border-white/10 bg-white/10">
@@ -233,6 +257,8 @@ export default function Header() {
           </div>
         </div>
       </div>
+
+      <HeaderCustomizationModal isOpen={isCustomizationOpen} onClose={() => setIsCustomizationOpen(false)} />
     </header>
   );
 }

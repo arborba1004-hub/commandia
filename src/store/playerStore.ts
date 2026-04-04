@@ -60,6 +60,12 @@ type Niveis = {
   briberyLevel: number;
 };
 
+type HeaderCustomization = {
+  playerNameFont: string;
+  playerNameFontSize?: string;
+  playerNameColor?: string;
+};
+
 type BarracoPosition = {
   x: number;
   y: number;
@@ -139,6 +145,8 @@ export type PlayerState = {
   punishments: PunishmentsState;
 
   skillBoostMultiplier: number;
+
+  headerCustomization?: HeaderCustomization;
 };
 
 type PlayerStore = {
@@ -195,6 +203,9 @@ type PlayerStore = {
   setPower: (value: number) => void;
   setHierarchyBadge: (badge: string) => void;
   setBarracoPosition: (position: Partial<BarracoPosition>) => void;
+
+  // HEADER CUSTOMIZATION
+  setHeaderCustomization: (customization: Partial<HeaderCustomization>) => void;
 
   // LAVAGEM DE DINHEIRO
   startLaundryOperation: (operation: Omit<ActiveOperation, 'status' | 'id'>) => Promise<boolean>;
@@ -325,6 +336,12 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     barracoPosition: {
       ...initialPlayer.barracoPosition,
       ...(incoming?.barracoPosition || {}),
+    },
+
+    headerCustomization: {
+      playerNameFont: incoming?.headerCustomization?.playerNameFont || 'oswald',
+      playerNameFontSize: incoming?.headerCustomization?.playerNameFontSize || '1.875rem',
+      playerNameColor: incoming?.headerCustomization?.playerNameColor || '#1a1205',
     },
 
     laundryProgress: {
@@ -953,6 +970,22 @@ setHierarchyBadge: (badge) => {
       barracoPosition: {
         ...current.barracoPosition,
         ...position,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  setHeaderCustomization: (customization) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      headerCustomization: {
+        ...current.headerCustomization,
+        ...customization,
       },
     });
 
