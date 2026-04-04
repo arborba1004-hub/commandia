@@ -450,4 +450,59 @@ export default function Map3D() {
       camera.updateProjectionMatrix();
       renderer.setSize(
         containerRef.current.clientWidth,
-        container
+        containerRef.current.clientHeight
+      );
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      zoomDistance += event.deltaY * 0.01;
+      zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
+      updateCamera();
+    };
+
+    // ==================== EVENT LISTENERS ====================
+    window.addEventListener('resize', handleResize);
+    container.addEventListener('click', handleClick);
+    container.addEventListener('wheel', handleWheel);
+
+    container.addEventListener('mousedown', handleMouseDown);
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mouseup', handleMouseUp);
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      cancelAnimationFrame(animationId);
+
+      window.removeEventListener('resize', handleResize);
+      container.removeEventListener('click', handleClick);
+      container.removeEventListener('wheel', handleWheel);
+
+      container.removeEventListener('mousedown', handleMouseDown);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseup', handleMouseUp);
+
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+
+      // Dispose básico
+      platformGeometry.dispose();
+      topMaterial.dispose();
+      sideMaterial.dispose();
+      lineMaterial.dispose();
+      shadowPlane.geometry.dispose();
+      (shadowPlane.material as THREE.Material).dispose();
+
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+
+      renderer.dispose();
+    };
+  }, []);
+
+  return <div ref={containerRef} className="w-full h-full" />;
+}
