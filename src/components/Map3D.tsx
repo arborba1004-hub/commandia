@@ -164,14 +164,35 @@ export default function Map3D() {
     loader.load(modelUrl, (gltf) => {
       barraco = gltf.scene;
 
-      // posição no centro do mapa
-      barraco.position.set(0, 0, 0);
+      const box = new THREE.Box3().setFromObject(barraco);
+      const size = new THREE.Vector3();
+      box.getSize(size);
 
-      // escala proporcional ao tamanho (2x2 / 3x3 / 4x4)
-      const scale = barracoSize * 0.5;
-      barraco.scale.set(scale, scale, scale);
+      const maxDimension = Math.max(size.x, size.z) || 1;
 
-      // sombras
+      // reserva sempre 4x4 no chão
+      const reservedSize = 4;
+
+      // tamanho visual do modelo conforme nível
+      const visualSize = barracoSize;
+
+      const scale = visualSize / maxDimension;
+      barraco.scale.setScalar(scale);
+
+      // recentraliza
+      const scaledBox = new THREE.Box3().setFromObject(barraco);
+      const center = new THREE.Vector3();
+      scaledBox.getCenter(center);
+      barraco.position.sub(center);
+
+      // sobe o modelo para sentar no chão
+      const finalBox = new THREE.Box3().setFromObject(barraco);
+      barraco.position.y -= finalBox.min.y;
+
+      // centro do mapa
+      barraco.position.x = 0;
+      barraco.position.z = 0;
+
       barraco.traverse((child: any) => {
         if (child.isMesh) {
           child.castShadow = true;
@@ -180,6 +201,21 @@ export default function Map3D() {
       });
 
       scene.add(barraco);
+
+      // área reservada fixa 4x4
+      const reservedArea = new THREE.Mesh(
+        new THREE.PlaneGeometry(reservedSize, reservedSize),
+        new THREE.MeshBasicMaterial({
+          color: 0xffaa00,
+          transparent: true,
+          opacity: 0.22,
+          side: THREE.DoubleSide,
+        })
+      );
+
+      reservedArea.rotation.x = -Math.PI / 2;
+      reservedArea.position.set(0, 0.06, 0);
+      scene.add(reservedArea);
     });
 
     const textureLoader = new THREE.TextureLoader();
