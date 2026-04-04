@@ -33,22 +33,39 @@ export default function InteractiveTileGrid() {
     return grid;
   });
 
-  const [player, setPlayer] = useState({
-    id: 'player-1',
-    tileX: 10,
-    tileY: 5,
-    worldX: 10,
-    worldY: 5,
-  });
+  const [players, setPlayers] = useState([
+    {
+      id: 'player-1',
+      tileX: 10,
+      tileY: 5,
+      worldX: 10,
+      worldY: 5,
+      color: 'bg-cyan-400',
+    },
+    {
+      id: 'player-2',
+      tileX: 15,
+      tileY: 8,
+      worldX: 15,
+      worldY: 8,
+      color: 'bg-pink-400',
+    },
+  ]);
 
   const handleTileClick = (tile: Tile) => {
-    setPlayer({
-      id: 'player-1',
-      tileX: tile.x,
-      tileY: tile.y,
-      worldX: tile.worldX,
-      worldY: tile.worldY,
-    });
+    setPlayers(prev =>
+      prev.map(p =>
+        p.id === 'player-1'
+          ? {
+              ...p,
+              tileX: tile.x,
+              tileY: tile.y,
+              worldX: tile.worldX,
+              worldY: tile.worldY,
+            }
+          : p
+      )
+    );
   };
 
   const getTileColor = (tile: Tile) => {
@@ -74,11 +91,13 @@ export default function InteractiveTileGrid() {
             <span className="text-xs text-white font-bold opacity-70">
               {tile.type === 'locked' ? '🔒' : tile.type === 'special' ? '⭐' : ''}
             </span>
-            {player.tileX === tile.x && player.tileY === tile.y && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-4 h-4 bg-cyan-400 rounded-full" />
-              </div>
-            )}
+            {players
+              .filter(p => p.tileX === tile.x && p.tileY === tile.y)
+              .map(p => (
+                <div key={p.id} className="absolute inset-0 flex items-center justify-center">
+                  <div className={`w-4 h-4 rounded-full ${p.color}`} />
+                </div>
+              ))}
           </motion.button>
         ))}
       </div>
