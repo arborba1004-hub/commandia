@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { usePlayerStore } from '@/store/playerStore';
 
 const GRID_WIDTH = 40;
 const GRID_HEIGHT = 20;
@@ -50,6 +52,7 @@ function getBarracoModelUrl(level: number) {
 
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const player = usePlayerStore((state) => state.player);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -58,6 +61,18 @@ export default function Map3D() {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
+
+    // PEGAR nível do player
+    const level = player?.niveis?.barracoLevel ?? 1;
+
+    // DEFINIR TAMANHO DO BARRACO
+    const getBarracoSize = (level: number) => {
+      if (level >= 60) return 4;
+      if (level >= 30) return 3;
+      return 2;
+    };
+
+    const barracoSize = getBarracoSize(level);
 
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -203,6 +218,48 @@ export default function Map3D() {
     }
 
     scene.add(gridGroup);
+
+    // CARREGAR MODELO 3D DO BARRACO
+    const loader = new GLTFLoader();
+    const modelUrl = getBarracoModelUrl(level);
+    let barraco: THREE.Object3D | null = null;
+
+    loader.load(modelUrl, (gltf) => {
+      barraco = gltf.scene;
+
+      // CENTRALIZA
+      barraco.position.set(0, 0, 0);
+
+      // ESCALA BASE (ajustável)
+      const scale = barracoSize * 0.5;
+      barraco.scale.set(scale, scale, scale);
+
+      // SOMBRA
+      barraco.traverse((child: any) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+
+      scene.add(barraco);
+    });
+
+    // MARCAR ÁREA 4x4 NO CHÃO
+    const area = new THREE.Mesh(
+      new THREE.PlaneGeometry(barracoSize, barracoSize),
+      new THREE.MeshBasicMaterial({
+        color: 0xffaa00,
+        transparent: true,
+        opacity: 0.2,
+        side: THREE.DoubleSide,
+      })
+    );
+
+    area.rotation.x = -Math.PI / 2;
+    area.position.set(0, 0.05, 0);
+
+    scene.add(area);
 
     const handleClick = (event: MouseEvent) => {
       if (!containerRef.current) return;
@@ -401,7 +458,7 @@ export default function Map3D() {
         container.removeChild(renderer.domElement);
       }
     };
-  }, []);
+  }, [player?.niveis?.barracoLevel]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }
