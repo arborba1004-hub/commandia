@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { fetchAllPlayers, syncPlayerUpdate } from '@/api/playerApi';
+import { fetchAllPlayers, fetchCurrentPlayer, syncPlayerUpdate } from '@/api/playerApi';
 
 interface Tile {
   id: string;
