@@ -1,13 +1,18 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+
+// Configuração global do DRACOLoader (melhor performance no carregamento de GLB)
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
 const GRID_WIDTH = 40;
 const GRID_HEIGHT = 20;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
-  'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
+  'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09\~mv2.jpeg';
 
 const BARRACO_MODELS = [
   {
@@ -42,21 +47,6 @@ const BARRACO_MODELS = [
   },
 ];
 
-const COMPLEXO_BUILDINGS = [
-  {
-    name: 'Centro Comercial',
-    url: 'https://static.wixstatic.com/3d/50f4bf_8b894931f3c241f285c4292c4842c4f0.glb',
-    x: 17,
-    z: -5,
-  },
-  {
-    name: 'Centro Comunitário',
-    url: 'https://static.wixstatic.com/3d/50f4bf_1641be50f6a74954848cfaae281d6b15.glb',
-    x: 17,
-    z: 2,
-  },
-];
-
 function getBarracoModelUrl(level: number) {
   return (
     BARRACO_MODELS.find(model => level >= model.min && level <= model.max)?.url ??
@@ -81,6 +71,25 @@ export default function Map3D() {
     if (!containerRef.current) return;
 
     const container = containerRef.current;
+
+    // ==================== DETECÇÃO DE DISPOSITIVO ====================
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    // ==================== RENDERER OTIMIZADO ====================
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !isMobile,
+      powerPreference: 'high-performance',
+      alpha: false,
+      stencil: false,
+      depth: true,
+    });
+
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.8));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
@@ -158,12 +167,6 @@ export default function Map3D() {
 
     updateCamera();
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    container.appendChild(renderer.domElement);
-
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
 
@@ -172,82 +175,79 @@ export default function Map3D() {
     dirLight.castShadow = true;
     scene.add(dirLight);
 
-   const fillLight = new THREE.DirectionalLight(0xffe0b0, 2);
-fillLight.position.set(-15, 10, -10);
-scene.add(fillLight);
+    const fillLight = new THREE.DirectionalLight(0xffe0b0, 2);
+    fillLight.position.set(-15, 10, -10);
+    scene.add(fillLight);
 
     const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader); // Otimização de performance no carregamento
 
     const modelUrl = getBarracoModelUrl(level);
 
     let barraco: THREE.Object3D | null = null;
 
-    loader.load(modelUrl, (gltf) => {
-      barraco = gltf.scene;
+    loader.load(
+      modelUrl,
+      (gltf) => {
+        barraco = gltf.scene;
 
-      const box = new THREE.Box3().setFromObject(barraco);
-      const size = new THREE.Vector3();
-      box.getSize(size);
+        const box = new THREE.Box3().setFromObject(barraco);
+        const size = new THREE.Vector3();
+        box.getSize(size);
 
-      const maxDimension = Math.max(size.x, size.z) || 1;
+        const maxDimension = Math.max(size.x, size.z) || 1;
 
-      // reserva sempre 4x4 no chão
-      const reservedSize = 4;
+        const reservedSize = 4;
+        const visualSize = barracoSize;
 
-      // tamanho visual do modelo conforme nível
-      const visualSize = barracoSize;
+        const scale = visualSize / maxDimension;
+        barraco.scale.setScalar(scale);
 
-      const scale = visualSize / maxDimension;
-      barraco.scale.setScalar(scale);
+        const scaledBox = new THREE.Box3().setFromObject(barraco);
+        const center = new THREE.Vector3();
+        scaledBox.getCenter(center);
+        barraco.position.sub(center);
 
-      // recentraliza
-      const scaledBox = new THREE.Box3().setFromObject(barraco);
-      const center = new THREE.Vector3();
-      scaledBox.getCenter(center);
-      barraco.position.sub(center);
+        const finalBox = new THREE.Box3().setFromObject(barraco);
+        barraco.position.y -= finalBox.min.y;
 
-      // sobe o modelo para sentar no chão
-      const finalBox = new THREE.Box3().setFromObject(barraco);
-      barraco.position.y -= finalBox.min.y;
+        barraco.position.x = 0;
+        barraco.position.z = 0;
 
-      // centro do mapa
-      barraco.position.x = 0;
-      barraco.position.z = 0;
+        barraco.traverse((child: any) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
 
-      barraco.traverse((child: any) => {
-  if (child.isMesh) {
-    child.castShadow = true;
-    child.receiveShadow = true;
+            if (child.material) {
+              child.material.roughness = 0.7;
+              child.material.metalness = 0;
+              child.material.emissive = new THREE.Color(0x3a220f);
+              child.material.emissiveIntensity = 0.35;
+              child.material.needsUpdate = true;
+            }
+          }
+        });
 
-    if (child.material) {
-      child.material.roughness = 0.7;
-      child.material.metalness = 0;
+        scene.add(barraco);
 
-      child.material.emissive = new THREE.Color(0x3a220f);
-      child.material.emissiveIntensity = 0.35;
+        const reservedArea = new THREE.Mesh(
+          new THREE.PlaneGeometry(reservedSize, reservedSize),
+          new THREE.MeshBasicMaterial({
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 0.22,
+            side: THREE.DoubleSide,
+          })
+        );
 
-      child.material.needsUpdate = true;
-    }
-  }
-});
-
-      scene.add(barraco);
-
-      // área reservada fixa 4x4
-      const reservedArea = new THREE.Mesh(
-        new THREE.PlaneGeometry(reservedSize, reservedSize),
-        new THREE.MeshBasicMaterial({
-          color: 0xffaa00,
-          transparent: true,
-          opacity: 0.22,
-          side: THREE.DoubleSide,
-        })
-      );
-
-      reservedArea.rotation.x = -Math.PI / 2;
-      reservedArea.position.set(0, 0.06, 0);
-      scene.add(reservedArea);
-    });
+        reservedArea.rotation.x = -Math.PI / 2;
+        reservedArea.position.set(0, 0.06, 0);
+        scene.add(reservedArea);
+      },
+      undefined,
+      (error) => console.error('Erro ao carregar GLB:', error)
+    );
 
     const textureLoader = new THREE.TextureLoader();
     const floorTexture = textureLoader.load(FLOOR_TEXTURE);
@@ -370,6 +370,14 @@ scene.add(fillLight);
     };
 
     // PASSO 4 — touch drag (celular)
+    let lastDistance = 0;
+
+    const getDistance = (touches: TouchList) => {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 1) {
         isDragging = true;
@@ -383,23 +391,36 @@ scene.add(fillLight);
       }
     };
 
-    const handleTouchMovePan = (e: TouchEvent) => {
-      if (!isDragging || e.touches.length !== 1) return;
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
 
-      const deltaX = e.touches[0].clientX - previousMouse.x;
-      const deltaY = e.touches[0].clientY - previousMouse.y;
+      if (e.touches.length === 1 && isDragging) {
+        const deltaX = e.touches[0].clientX - previousMouse.x;
+        const deltaY = e.touches[0].clientY - previousMouse.y;
 
-      orbitAngle -= deltaX * rotateSpeed;
-      updateCamera();
+        moveCamera(deltaX, deltaY);
 
-      previousMouse = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-      };
+        previousMouse = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+        };
+      } else if (e.touches.length === 2) {
+        const distance = getDistance(e.touches);
+
+        if (lastDistance) {
+          const delta = lastDistance - distance;
+          zoomDistance += delta * 0.02;
+          zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
+          updateCamera();
+        }
+
+        lastDistance = distance;
+      }
     };
 
-    const handleTouchEndPan = () => {
+    const handleTouchEnd = () => {
       isDragging = false;
+      lastDistance = 0;
     };
 
     const shadowPlane = new THREE.Mesh(
@@ -429,92 +450,4 @@ scene.add(fillLight);
       camera.updateProjectionMatrix();
       renderer.setSize(
         containerRef.current.clientWidth,
-        containerRef.current.clientHeight
-      );
-    };
-
-    const handleWheel = (event: WheelEvent) => {
-      zoomDistance += event.deltaY * 0.01;
-
-      zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
-
-      updateCamera();
-    };
-
-    let lastDistance = 0;
-
-    const getDistance = (touches: TouchList) => {
-      const dx = touches[0].clientX - touches[1].clientX;
-      const dy = touches[0].clientY - touches[1].clientY;
-      return Math.sqrt(dx * dx + dy * dy);
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        const distance = getDistance(e.touches);
-
-        if (lastDistance) {
-          const delta = lastDistance - distance;
-          zoomDistance += delta * 0.02;
-
-          zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
-
-          updateCamera();
-        }
-
-        lastDistance = distance;
-      }
-    };
-
-    const handleTouchEnd = () => {
-      lastDistance = 0;
-    };
-
-    window.addEventListener('resize', handleResize);
-    container.addEventListener('click', handleClick);
-    container.addEventListener('wheel', handleWheel);
-    container.addEventListener('touchmove', handleTouchMove);
-    container.addEventListener('touchend', handleTouchEnd);
-
-    // PASSO 5 — registrar eventos de pan
-    container.addEventListener('mousedown', handleMouseDown);
-    container.addEventListener('mousemove', handleMouseMove);
-    container.addEventListener('mouseup', handleMouseUp);
-
-    container.addEventListener('touchstart', handleTouchStart);
-    container.addEventListener('touchmove', handleTouchMovePan);
-    container.addEventListener('touchend', handleTouchEndPan);
-
-    return () => {
-      cancelAnimationFrame(animationId);
-      window.removeEventListener('resize', handleResize);
-      container.removeEventListener('click', handleClick);
-      container.removeEventListener('wheel', handleWheel);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
-
-      // 🧹 CLEANUP — remover eventos de pan
-      container.removeEventListener('mousedown', handleMouseDown);
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('mouseup', handleMouseUp);
-
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMovePan);
-      container.removeEventListener('touchend', handleTouchEndPan);
-
-      platformGeometry.dispose();
-      topMaterial.dispose();
-      sideMaterial.dispose();
-      lineMaterial.dispose();
-      shadowPlane.geometry.dispose();
-      (shadowPlane.material as THREE.Material).dispose();
-      renderer.dispose();
-
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
-      }
-    };
-  }, []);
-
-  return <div ref={containerRef} className="w-full h-full" />;
-}
+        container
