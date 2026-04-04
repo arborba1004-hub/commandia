@@ -23,7 +23,7 @@ export default function Map3D() {
       0.1,
       1000
     );
-    camera.position.set(0, 18, 20);
+    camera.position.set(0, 22, 14);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
