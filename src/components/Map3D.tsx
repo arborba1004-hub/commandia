@@ -46,6 +46,10 @@ export default function Map3D() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
+    let zoomDistance = 18;
+    const MIN_ZOOM = 10;
+    const MAX_ZOOM = 32;
+
     const camera = new THREE.PerspectiveCamera(
       45,
       container.clientWidth / container.clientHeight,
