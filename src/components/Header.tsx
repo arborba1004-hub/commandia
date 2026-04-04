@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
@@ -28,11 +29,40 @@ export default function Header() {
     player?.avatar ||
     'https://static.wixstatic.com/media/50f4bf_5868d04681cb49d1a58d89dc4493574f~mv2.png';
 
+  const [secondsLeft, setSecondsLeft] = useState(60);
+  const [pendingGiros, setPendingGiros] = useState(0);
+
+  useEffect(() => {
+    const updatePassiveTimer = () => {
+      const lastPassiveIncomeAt = Number(player?.lastPassiveIncomeAt ?? Date.now());
+      const now = Date.now();
+
+      const elapsedMs = now - lastPassiveIncomeAt;
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      const elapsedMinutes = Math.floor(elapsedMs / 60000);
+
+      const nextTickIn = 60 - (elapsedSeconds % 60 || 60);
+
+      setSecondsLeft(nextTickIn === 60 ? 0 : nextTickIn);
+      setPendingGiros(elapsedMinutes * playerLevel);
+    };
+
+    updatePassiveTimer();
+
+    const interval = setInterval(updatePassiveTimer, 1000);
+    return () => clearInterval(interval);
+  }, [player?.lastPassiveIncomeAt, playerLevel]);
+
   const formatCompact = (value: number) => {
     if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
     if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
     if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
     return value.toLocaleString('pt-BR');
+  };
+
+  const formatCountdown = (value: number) => {
+    const safe = Math.max(0, value);
+    return `00:${safe.toString().padStart(2, '0')}`;
   };
 
   const handleLogout = () => {
@@ -146,7 +176,7 @@ export default function Header() {
                 Próximo ganho de giros em:
               </div>
               <div className="mt-1 font-heading text-white text-center text-2xl sm:text-4xl leading-none tracking-[0.18em]">
-                45:00
+                {formatCountdown(secondsLeft)}
               </div>
               <div className="mt-1 text-center text-[7px] sm:text-[9px] uppercase tracking-[0.14em] text-zinc-300 font-heading">
                 Tempo até próximo giro
