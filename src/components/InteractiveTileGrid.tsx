@@ -94,6 +94,29 @@ export default function InteractiveTileGrid() {
     loadPlayers();
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const playersData = await fetchAllPlayers();
+
+        setPlayers(prev =>
+          playersData.map((p, index) => ({
+            id: String(p.id),
+            tileX: p.tileX,
+            tileY: p.tileY,
+            worldX: p.worldX,
+            worldY: p.worldY,
+            color: index === 0 ? 'bg-cyan-400' : 'bg-pink-400',
+          }))
+        );
+      } catch (error) {
+        console.error('Erro no polling:', error);
+      }
+    }, 2000); // atualiza a cada 2s
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleTileClick = async (tile: Tile) => {
     const updatedPlayer = {
       id: 'player-1',
