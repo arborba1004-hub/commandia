@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+// IMPORTAÇÃO NOVA: O controle de câmera profissional
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 
 const dracoLoader = new DRACOLoader();
@@ -84,16 +86,14 @@ export default function Map3D() {
     highlight.visible = false;
     scene.add(highlight);
 
+    const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial); 
+    playerModel.position.set(0, 0.3, 0);
+    scene.add(playerModel);
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-
-    let isDragging = false;
-    let previousMouse = { x: 0, y: 0 };
-    let zoomDistance = 28;
-    const MIN_ZOOM = 12;
-    const MAX_ZOOM = 60;
-    let orbitAngle = Math.PI / 4;
-    let orbitTilt = 0.62;
 
     const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
     const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
@@ -101,27 +101,21 @@ export default function Map3D() {
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
+    // === NOVA CÂMERA E CONTROLES ORBIT ===
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
     const cameraTarget = new THREE.Vector3(playerWorldX, 0, playerWorldZ);
+    
+    // Posição inicial da câmera (inclinada)
+    camera.position.set(cameraTarget.x + 15, 18, cameraTarget.z + 15);
 
-    const updateCamera = () => {
-      const radius = zoomDistance;
-      const y = radius * orbitTilt;
-      const x = cameraTarget.x + Math.cos(orbitAngle) * radius;
-      const z = cameraTarget.z + Math.sin(orbitAngle) * radius;
-
-      camera.position.set(x, y, z);
-      camera.lookAt(cameraTarget);
-    };
-
-    const moveCamera = (deltaX: number, deltaY: number) => {
-      orbitAngle -= deltaX * 0.01;
-      zoomDistance += deltaY * 0.3;
-      zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
-      updateCamera();
-    };
-
-    updateCamera();
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.copy(cameraTarget); // Câmera foca no jogador
+    controls.enableDamping = true; // Ativa a inércia suave
+    controls.dampingFactor = 0.05; // Peso da inércia
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Impede a câmera de ir para debaixo do chão
+    controls.minDistance = 8; // Zoom máximo
+    controls.maxDistance = 50; // Distância máxima (afastamento)
+    // ===================================
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
@@ -142,15 +136,14 @@ export default function Map3D() {
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
 
-    // FUNÇÃO PARA CLAREAR MATERIAIS (Tira o reflexo preto e dá brilho)
     const fixDarkMaterials = (child: any) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
         if (child.material) {
-          child.material.metalness = 0; // Tira o reflexo escuro
-          child.material.roughness = 0.8; // Deixa mais fosco/natural
-          child.material.emissive = new THREE.Color(0x3a220f); // Dá uma luzinha própria quente
+          child.material.metalness = 0; 
+          child.material.roughness = 0.8; 
+          child.material.emissive = new THREE.Color(0x3a220f); 
           child.material.emissiveIntensity = 0.2;
           child.material.needsUpdate = true;
         }
@@ -183,7 +176,6 @@ export default function Map3D() {
         barraco.position.x = playerWorldX;
         barraco.position.z = playerWorldZ;
 
-        // APLICA O CLAREAMENTO AQUI
         barraco.traverse(fixDarkMaterials);
 
         scene.add(barraco);
@@ -236,7 +228,6 @@ export default function Map3D() {
               const sBoxFinal = new THREE.Box3().setFromObject(model);
               model.position.y -= sBoxFinal.min.y;
 
-              // APLICA O CLAREAMENTO NOS OUTROS JOGADORES TAMBÉM
               model.traverse(fixDarkMaterials);
   
               scene.add(model);
@@ -284,13 +275,27 @@ export default function Map3D() {
     }
     scene.add(gridGroup);
 
-    const handleClick = (event: MouseEvent) => {
+    // === SISTEMA DE CLIQUE INTELIGENTE ===
+    let pointerDownPos = { x: 0, y: 0 };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      pointerDownPos = { x: event.clientX, y: event.clientY };
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
       if (!containerRef.current) return;
+
+      // Verifica o quanto o mouse mexeu. Se mexeu muito, foi arrasto de câmera (não um clique).
+      const moveDistance = Math.abs(event.clientX - pointerDownPos.x) + Math.abs(event.clientY - pointerDownPos.y);
+      if (moveDistance > 5) return; // Ignora o clique, foi um arraste
+
       const rect = containerRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObject(platform);
+      
       if (intersects.length > 0) {
         const point = intersects[0].point;
         const tileX = Math.floor(point.x + GRID_WIDTH / 2);
@@ -298,19 +303,13 @@ export default function Map3D() {
         
         highlight.visible = true;
         highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
+        playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
       }
     };
 
-    const handleMouseDown = (e: MouseEvent) => { isDragging = true; previousMouse = { x: e.clientX, y: e.clientY }; };
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      moveCamera(e.clientX - previousMouse.x, e.clientY - previousMouse.y);
-      previousMouse = { x: e.clientX, y: e.clientY };
-    };
-    const handleMouseUp = () => { isDragging = false; };
-
     let animationId = 0;
     const animate = () => {
+      controls.update(); // Mágica da fluidez acontece aqui!
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
     };
@@ -323,28 +322,19 @@ export default function Map3D() {
       renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
     };
 
-    const handleWheel = (event: WheelEvent) => {
-      zoomDistance += event.deltaY * 0.01;
-      zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
-      updateCamera();
-    };
-
     window.addEventListener('resize', handleResize);
-    container.addEventListener('click', handleClick);
-    container.addEventListener('wheel', handleWheel);
-    container.addEventListener('mousedown', handleMouseDown);
-    container.addEventListener('mousemove', handleMouseMove);
-    container.addEventListener('mouseup', handleMouseUp);
+    // Trocamos os eventos antigos pelos novos eventos de "Pointer"
+    container.addEventListener('pointerdown', handlePointerDown);
+    container.addEventListener('pointerup', handlePointerUp);
 
     return () => {
       isMounted = false; 
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
-      container.removeEventListener('click', handleClick);
-      container.removeEventListener('wheel', handleWheel);
-      container.removeEventListener('mousedown', handleMouseDown);
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('mouseup', handleMouseUp);
+      container.removeEventListener('pointerdown', handlePointerDown);
+      container.removeEventListener('pointerup', handlePointerUp);
+      
+      controls.dispose(); // Limpa os controles da memória
 
       loadedPlayerModels.forEach(model => {
         scene.remove(model);
@@ -370,5 +360,5 @@ export default function Map3D() {
     };
   }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id]);
 
-  return <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" />;
+  return <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />;
 }
