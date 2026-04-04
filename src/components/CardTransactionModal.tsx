@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 type TransactionStatus = 'idle' | 'processing' | 'success' | 'error';
 
@@ -19,15 +19,15 @@ export default function CardTransactionModal({
 }: CardTransactionModalProps) {
   const player = usePlayerStore((state) => state.player);
   const [showSuccess, setShowSuccess] = useState(false);
-  
+
   const getStatus = (): TransactionStatus => {
     if (showSuccess) return 'success';
     if (isProcessing) return 'processing';
     return 'idle';
   };
-  
+
   const status = getStatus();
-  
+
   // Fechar modal automaticamente após sucesso
   useEffect(() => {
     if (showSuccess) {
@@ -38,23 +38,24 @@ export default function CardTransactionModal({
       return () => clearTimeout(timer);
     }
   }, [showSuccess, onClose]);
-  
+
   // Resetar estado quando modal fecha
   useEffect(() => {
     if (!isOpen) {
       setShowSuccess(false);
     }
   }, [isOpen]);
-  
-  const handleCardTap = () => {
+
+  const handleCardTap = useCallback(() => {
     if (status === 'idle' && !isProcessing) {
       onConfirm();
-      // Mostrar sucesso após processamento
+
+      // Mostrar sucesso após um tempo (simulando processamento)
       setTimeout(() => {
         setShowSuccess(true);
       }, 2500);
     }
-  };
+  }, [status, isProcessing, onConfirm]);
 
   return (
     <AnimatePresence>
@@ -96,7 +97,7 @@ export default function CardTransactionModal({
               }
               transition={{ duration: 0.5, ease: 'easeOut' }}
               onClick={handleCardTap}
-              className="absolute top-[90px] w-[240px] h-[140px] rounded-2xl bg-gradient-to-br from-neutral-800 via-neutral-700 to-black shadow-[0_0_25px_rgba(255,255,255,0.15)] flex flex-col justify-between p-4 cursor-pointer hover:shadow-[0_0_35px_rgba(255,0,127,0.3)] transition-shadow"
+              className="absolute top-[90px] w-[240px] h-[140px] rounded-2xl bg-gradient-to-br from-neutral-800 via-neutral-700 to-black shadow-[0_0_25px_rgba(255,255,255,0.15)] flex flex-col justify-between p-4 cursor-pointer hover:shadow-[0_0_35px_rgba(255,0,127,0.3)] transition-shadow active:scale-[0.97]"
             >
               {/* CHIP */}
               <div className="w-10 h-7 bg-yellow-500 rounded-sm" />
