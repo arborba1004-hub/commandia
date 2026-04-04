@@ -56,8 +56,13 @@ export default function Map3D() {
       0.1,
       1000
     );
-    camera.position.set(0, 26, 18);
-    camera.lookAt(0, 0, 0);
+
+    const updateCamera = () => {
+      camera.position.set(0, zoomDistance + 8, zoomDistance);
+      camera.lookAt(0, 0, 0);
+    };
+
+    updateCamera();
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -203,13 +208,56 @@ export default function Map3D() {
       );
     };
 
+    const handleWheel = (event: WheelEvent) => {
+      zoomDistance += event.deltaY * 0.01;
+
+      zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
+
+      updateCamera();
+    };
+
+    let lastDistance = 0;
+
+    const getDistance = (touches: TouchList) => {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const distance = getDistance(e.touches);
+
+        if (lastDistance) {
+          const delta = lastDistance - distance;
+          zoomDistance += delta * 0.02;
+
+          zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
+
+          updateCamera();
+        }
+
+        lastDistance = distance;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      lastDistance = 0;
+    };
+
     window.addEventListener('resize', handleResize);
     container.addEventListener('click', handleClick);
+    container.addEventListener('wheel', handleWheel);
+    container.addEventListener('touchmove', handleTouchMove);
+    container.addEventListener('touchend', handleTouchEnd);
 
     return () => {
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('click', handleClick);
+      container.removeEventListener('wheel', handleWheel);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
       platformGeometry.dispose();
       topMaterial.dispose();
       sideMaterial.dispose();
