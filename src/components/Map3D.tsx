@@ -157,9 +157,9 @@ export default function Map3D() {
     dirLight.castShadow = true;
     scene.add(dirLight);
 
-    const fillLight = new THREE.DirectionalLight(0xfff2d6, 1.1);
-    fillLight.position.set(-10, 12, 8);
-    scene.add(fillLight);
+   const fillLight = new THREE.DirectionalLight(0xffe0b0, 2);
+fillLight.position.set(-15, 10, -10);
+scene.add(fillLight);
 
     const loader = new GLTFLoader();
 
