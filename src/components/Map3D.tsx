@@ -34,13 +34,14 @@ export default function Map3D() {
 
     scene.add(highlight);
 
-    // Player object
-    const playerGeometry = new THREE.ConeGeometry(0.3, 0.8, 8);
-    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xff007f });
+    const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+
     const player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.castShadow = true;
-    player.receiveShadow = true;
-    player.position.set(0, 0.4, 0);
+    player.position.set(0, 0.3, 0);
+
+    const playerTarget = new THREE.Vector3(0, 0.3, 0);
+
     scene.add(player);
 
     const raycaster = new THREE.Raycaster();
