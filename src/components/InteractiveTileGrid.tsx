@@ -60,7 +60,7 @@ export default function InteractiveTileGrid() {
           <motion.button
             key={tile.id}
             onClick={() => handleTileClick(tile)}
-            className={`w-12 h-12 rounded-lg border border-white/20 transition-all cursor-pointer ${getTileColor(tile)}`}
+            className={`relative w-12 h-12 rounded-lg border border-white/20 transition-all cursor-pointer ${getTileColor(tile)}`}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             initial={{ opacity: 0, scale: 0.8 }}
@@ -70,6 +70,11 @@ export default function InteractiveTileGrid() {
             <span className="text-xs text-white font-bold opacity-70">
               {tile.type === 'locked' ? '🔒' : tile.type === 'special' ? '⭐' : ''}
             </span>
+            {player.x === tile.x && player.y === tile.y && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-4 h-4 bg-cyan-400 rounded-full" />
+              </div>
+            )}
           </motion.button>
         ))}
       </div>
