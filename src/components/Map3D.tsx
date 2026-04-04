@@ -1,3 +1,4 @@
+import { usePlayerStore } from '@/store/playerStore';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
@@ -6,6 +7,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 // Configuração global do DRACOLoader (melhor performance no carregamento de GLB)
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+
 
 const GRID_WIDTH = 40;
 const GRID_HEIGHT = 20;
@@ -56,6 +58,8 @@ function getBarracoModelUrl(level: number) {
 
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+const player = usePlayerStore((state) => state.player);
 
   const level = 1;
 
