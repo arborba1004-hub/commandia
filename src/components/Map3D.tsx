@@ -19,6 +19,9 @@ export default function Map3D() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
 
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
     const camera = new THREE.PerspectiveCamera(
       45,
       container.clientWidth / container.clientHeight,
@@ -106,6 +109,28 @@ export default function Map3D() {
 
     scene.add(gridGroup);
 
+    const handleClick = (event: MouseEvent) => {
+      if (!containerRef.current) return;
+
+      const rect = containerRef.current.getBoundingClientRect();
+
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      const intersects = raycaster.intersectObject(platform);
+
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+
+        const tileX = Math.floor(point.x + GRID_WIDTH / 2);
+        const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
+
+        console.log('CLICK NO TILE:', tileX, tileZ);
+      }
+    };
+
     const shadowPlane = new THREE.Mesh(
       new THREE.PlaneGeometry(GRID_WIDTH * 1.4, GRID_HEIGHT * 1.4),
       new THREE.MeshBasicMaterial({
@@ -138,10 +163,12 @@ export default function Map3D() {
     };
 
     window.addEventListener('resize', handleResize);
+    container.addEventListener('click', handleClick);
 
     return () => {
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
+      container.removeEventListener('click', handleClick);
       platformGeometry.dispose();
       topMaterial.dispose();
       sideMaterial.dispose();
