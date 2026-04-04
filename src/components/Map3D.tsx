@@ -42,6 +42,21 @@ const BARRACO_MODELS = [
   },
 ];
 
+const COMPLEXO_BUILDINGS = [
+  {
+    name: 'Centro Comercial',
+    url: 'https://static.wixstatic.com/3d/50f4bf_8b894931f3c241f285c4292c4842c4f0.glb',
+    x: 17,
+    z: -5,
+  },
+  {
+    name: 'Centro Comunitário',
+    url: 'https://static.wixstatic.com/3d/50f4bf_1641be50f6a74954848cfaae281d6b15.glb',
+    x: 17,
+    z: 2,
+  },
+];
+
 function getBarracoModelUrl(level: number) {
   return (
     BARRACO_MODELS.find(model => level >= model.min && level <= model.max)?.url ??
