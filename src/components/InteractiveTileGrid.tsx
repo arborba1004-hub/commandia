@@ -33,10 +33,18 @@ export default function InteractiveTileGrid() {
     return grid;
   });
 
-  const handleTileClick = (id: string) => {
-    setTiles(prev => prev.map(tile =>
-      tile.id === id ? { ...tile, isActive: !tile.isActive } : tile
-    ));
+  const [player, setPlayer] = useState({
+    id: 'player-1',
+    x: 10,
+    y: 5,
+  });
+
+  const handleTileClick = (tile: Tile) => {
+    setPlayer({
+      id: 'player-1',
+      x: tile.x,
+      y: tile.y,
+    });
   };
 
   const getTileColor = (tile: Tile) => {
@@ -51,7 +59,7 @@ export default function InteractiveTileGrid() {
         {tiles.map((tile) => (
           <motion.button
             key={tile.id}
-            onClick={() => handleTileClick(tile.id)}
+            onClick={() => handleTileClick(tile)}
             className={`w-12 h-12 rounded-lg border border-white/20 transition-all cursor-pointer ${getTileColor(tile)}`}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
