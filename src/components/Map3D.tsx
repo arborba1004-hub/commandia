@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-import { usePlayerStore } from '@/store/playerStore';
+import { usePlayerStore } from '@/store/playerStore'; // <-- ADICIONADO
 
-// Configuração global do DRACOLoader (melhor performance no carregamento de GLB)
+// Configuração global do DRACOLoader
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
@@ -16,36 +16,12 @@ const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
 const BARRACO_MODELS = [
-  {
-    min: 1,
-    max: 9,
-    url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb',
-  },
-  {
-    min: 10,
-    max: 19,
-    url: 'https://static.wixstatic.com/3d/50f4bf_e10d19cfeff147ce95eee1d04a31b04a.glb',
-  },
-  {
-    min: 20,
-    max: 29,
-    url: 'https://static.wixstatic.com/3d/50f4bf_ad7304550b404996b3b82c425be28df8.glb',
-  },
-  {
-    min: 30,
-    max: 39,
-    url: 'https://static.wixstatic.com/3d/50f4bf_d2c8efd640c24cabb3bda73016b7a6b7.glb',
-  },
-  {
-    min: 40,
-    max: 49,
-    url: 'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb',
-  },
-  {
-    min: 50,
-    max: 59,
-    url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb',
-  },
+  { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
+  { min: 10, max: 19, url: 'https://static.wixstatic.com/3d/50f4bf_e10d19cfeff147ce95eee1d04a31b04a.glb' },
+  { min: 20, max: 29, url: 'https://static.wixstatic.com/3d/50f4bf_ad7304550b404996b3b82c425be28df8.glb' },
+  { min: 30, max: 39, url: 'https://static.wixstatic.com/3d/50f4bf_d2c8efd640c24cabb3bda73016b7a6b7.glb' },
+  { min: 40, max: 49, url: 'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb' },
+  { min: 50, max: 59, url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb' },
 ];
 
 function getBarracoModelUrl(level: number) {
@@ -58,9 +34,10 @@ function getBarracoModelUrl(level: number) {
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // PUXANDO O JOGADOR DA STORE
+  // <-- ADICIONADO: Puxando o jogador da Store
   const playerState = usePlayerStore((state) => state.player);
 
+  // Pegando o nível real do jogador para o modelo base
   const level = playerState?.niveis?.barracoLevel || 1;
 
   const getBarracoSize = (level: number) => {
@@ -76,10 +53,8 @@ export default function Map3D() {
 
     const container = containerRef.current;
 
-    // ==================== DETECÇÃO DE DISPOSITIVO ====================
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    // ==================== RENDERER OTIMIZADO ====================
     const renderer = new THREE.WebGLRenderer({
       antialias: !isMobile,
       powerPreference: 'high-performance',
@@ -98,23 +73,30 @@ export default function Map3D() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
 
-    // ==================== CÂMERA E FOCO NO JOGADOR ====================
-    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
-    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
+    // MANTIDO: highlightGeometry original
+    const highlightGeometry = new THREE.PlaneGeometry(1, 1);
+    const highlightMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+    });
 
-    // Converte a posição do Grid para o mundo 3D
-    const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
-    const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
+    const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+    highlight.rotation.x = -Math.PI / 2;
+    highlight.position.y = 0.05;
+    highlight.visible = false;
+    scene.add(highlight);
 
-    const camera = new THREE.PerspectiveCamera(
-      45,
-      container.clientWidth / container.clientHeight,
-      0.1,
-      1000
-    );
+    // MANTIDO: playerGeometry original (bolinha)
+    const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial); // Renomeei para playerModel para não conflitar com a store
+    playerModel.position.set(0, 0.3, 0);
+    scene.add(playerModel);
 
-    // Agora o "alvo" da câmera é a casa do jogador, e não o centro do mapa (0,0,0)
-    const cameraTarget = new THREE.Vector3(playerWorldX, 0, playerWorldZ);
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
 
     let isDragging = false;
     let previousMouse = { x: 0, y: 0 };
@@ -126,11 +108,26 @@ export default function Map3D() {
     let orbitAngle = Math.PI / 4;
     let orbitTilt = 0.62;
 
+    // <-- ADICIONADO: Cálculo da posição inicial da câmera focada no jogador
+    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
+    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
+    const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
+    const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      1000
+    );
+
+    // <-- ADICIONADO: O alvo da câmera agora é a posição do jogador
+    const cameraTarget = new THREE.Vector3(playerWorldX, 0, playerWorldZ);
+
     const updateCamera = () => {
       const radius = zoomDistance;
       const y = radius * orbitTilt;
-      
-      // O cálculo da posição X e Z precisa somar a posição do alvo para a câmera orbitar em volta da base do jogador
+      // ADICIONADO: Soma a posição do alvo para focar e orbitar em volta
       const x = cameraTarget.x + Math.cos(orbitAngle) * radius;
       const z = cameraTarget.z + Math.sin(orbitAngle) * radius;
 
@@ -152,7 +149,7 @@ export default function Map3D() {
 
     updateCamera();
 
-    // ==================== ILUMINAÇÃO ====================
+    // MANTIDO: Luzes originais
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
 
@@ -165,11 +162,82 @@ export default function Map3D() {
     fillLight.position.set(-15, 10, -10);
     scene.add(fillLight);
 
-    // ==================== CARREGAMENTO DOS JOGADORES (BACKEND) ====================
     const loader = new GLTFLoader();
-    loader.setDRACOLoader(dracoLoader); 
+    loader.setDRACOLoader(dracoLoader);
+
+    // MANTIDO: Seu código original de carregamento do barraco principal e área laranja
+    const modelUrl = getBarracoModelUrl(level);
+    let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
 
+    loader.load(
+      modelUrl,
+      (gltf) => {
+        barraco = gltf.scene;
+
+        const box = new THREE.Box3().setFromObject(barraco);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        const maxDimension = Math.max(size.x, size.z) || 1;
+        const reservedSize = 4;
+        const visualSize = barracoSize;
+
+        const scale = visualSize / maxDimension;
+        barraco.scale.setScalar(scale);
+
+        const scaledBox = new THREE.Box3().setFromObject(barraco);
+        const center = new THREE.Vector3();
+        scaledBox.getCenter(center);
+        barraco.position.sub(center);
+
+        const finalBox = new THREE.Box3().setFromObject(barraco);
+        barraco.position.y -= finalBox.min.y;
+
+        // ADICIONADO: Posicionando o SEU barraco principal baseado na API
+        barraco.position.x = playerWorldX;
+        barraco.position.z = playerWorldZ;
+        barraco.position.y += PLATFORM_HEIGHT / 2; // Eleva para cima da plataforma
+
+        barraco.traverse((child: any) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+
+            if (child.material) {
+              child.material.roughness = 0.7;
+              child.material.metalness = 0;
+              child.material.emissive = new THREE.Color(0x3a220f);
+              child.material.emissiveIntensity = 0.35;
+              child.material.needsUpdate = true;
+            }
+          }
+        });
+
+        scene.add(barraco);
+        loadedPlayerModels.push(barraco);
+
+        const reservedArea = new THREE.Mesh(
+          new THREE.PlaneGeometry(reservedSize, reservedSize),
+          new THREE.MeshBasicMaterial({
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 0.22,
+            side: THREE.DoubleSide,
+          })
+        );
+
+        reservedArea.rotation.x = -Math.PI / 2;
+        // Posicionando a área reservada no seu barraco
+        reservedArea.position.set(playerWorldX, PLATFORM_HEIGHT / 2 + 0.06, playerWorldZ);
+        scene.add(reservedArea);
+        loadedPlayerModels.push(reservedArea);
+      },
+      undefined,
+      (error) => console.error('Erro ao carregar GLB:', error)
+    );
+
+    // <-- ADICIONADO: Buscar OS OUTROS jogadores (ignorando você, já que o seu código original carrega o seu)
     fetch('https://comando-backend.onrender.com/players', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -178,18 +246,20 @@ export default function Map3D() {
       .then(res => res.json())
       .then(players => {
         players.forEach((p: any) => {
+          // Ignora o jogador logado, pois o modelo dele é carregado pela lógica acima
+          if (p.id === playerState?._id) return;
+
           const pLevel = p.barracoLevel || 1;
           const modelInfo = BARRACO_MODELS.find(m => pLevel >= m.min && pLevel <= m.max) || BARRACO_MODELS[0];
 
           loader.load(modelInfo.url, (gltf) => {
             const model = gltf.scene;
 
-            // Escala e posição
+            const bSize = getBarracoSize(pLevel);
             const sBox = new THREE.Box3().setFromObject(model);
             const size = new THREE.Vector3();
             sBox.getSize(size);
             const maxDimension = Math.max(size.x, size.z) || 1;
-            const bSize = getBarracoSize(pLevel);
             model.scale.setScalar(bSize / maxDimension);
 
             const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
@@ -206,29 +276,12 @@ export default function Map3D() {
 
             scene.add(model);
             loadedPlayerModels.push(model);
-
-            // SE FOR O JOGADOR ATUAL, COLOCA UM ANEL VERDE BRILHANTE EM VOLTA
-            if (p.id === playerState?._id) {
-              const ringGeometry = new THREE.RingGeometry(bSize * 0.5, bSize * 0.6, 32);
-              const ringMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0x10b981, // Cor Esmeralda
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 0.8
-              });
-              const highlightRing = new THREE.Mesh(ringGeometry, ringMaterial);
-              highlightRing.rotation.x = -Math.PI / 2;
-              highlightRing.position.set(posX, (PLATFORM_HEIGHT / 2) + 0.05, posZ);
-              
-              scene.add(highlightRing);
-              loadedPlayerModels.push(highlightRing);
-            }
           });
         });
       })
       .catch(err => console.error("Erro ao buscar vizinhos do mapa:", err));
 
-    // ==================== CHÃO DO MAPA ====================
+    // MANTIDO: Plataforma e Grid
     const textureLoader = new THREE.TextureLoader();
     const floorTexture = textureLoader.load(FLOOR_TEXTURE);
     floorTexture.wrapS = THREE.ClampToEdgeWrapping;
@@ -282,7 +335,42 @@ export default function Map3D() {
 
     scene.add(gridGroup);
 
-    // ==================== CONTROLES (MOUSE / TOUCH) ====================
+    // MANTIDO: O Seu Click Handle Original
+    const handleClick = (event: MouseEvent) => {
+      if (!containerRef.current) return;
+
+      const rect = containerRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      const intersects = raycaster.intersectObject(platform);
+
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+
+        const tileX = Math.floor(point.x + GRID_WIDTH / 2);
+        const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
+
+        console.log('CLICK NO TILE:', tileX, tileZ);
+
+        highlight.visible = true;
+        highlight.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.05,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
+
+        playerModel.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.3,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
+      }
+    };
+
+    // MANTIDO: Controles e animações originais
     const handleMouseDown = (e: MouseEvent) => {
       isDragging = true;
       previousMouse = { x: e.clientX, y: e.clientY };
@@ -290,11 +378,15 @@ export default function Map3D() {
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
-      moveCamera(e.clientX - previousMouse.x, e.clientY - previousMouse.y);
+      const deltaX = e.clientX - previousMouse.x;
+      const deltaY = e.clientY - previousMouse.y;
+      moveCamera(deltaX, deltaY);
       previousMouse = { x: e.clientX, y: e.clientY };
     };
 
-    const handleMouseUp = () => { isDragging = false; };
+    const handleMouseUp = () => {
+      isDragging = false;
+    };
 
     let lastDistance = 0;
     const getDistance = (touches: TouchList) => {
@@ -334,11 +426,20 @@ export default function Map3D() {
       lastDistance = 0;
     };
 
-    const handleWheel = (event: WheelEvent) => {
-      zoomDistance += event.deltaY * 0.01;
-      zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
-      updateCamera();
+    const shadowPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(GRID_WIDTH * 1.4, GRID_HEIGHT * 1.4),
+      new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.28 })
+    );
+    shadowPlane.rotation.x = -Math.PI / 2;
+    shadowPlane.position.set(0, -PLATFORM_HEIGHT - 0.01, 0);
+    scene.add(shadowPlane);
+
+    let animationId = 0;
+    const animate = () => {
+      renderer.render(scene, camera);
+      animationId = requestAnimationFrame(animate);
     };
+    animate();
 
     const handleResize = () => {
       if (!containerRef.current) return;
@@ -347,7 +448,14 @@ export default function Map3D() {
       renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
     };
 
+    const handleWheel = (event: WheelEvent) => {
+      zoomDistance += event.deltaY * 0.01;
+      zoomDistance = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomDistance));
+      updateCamera();
+    };
+
     window.addEventListener('resize', handleResize);
+    container.addEventListener('click', handleClick);
     container.addEventListener('wheel', handleWheel);
     container.addEventListener('mousedown', handleMouseDown);
     container.addEventListener('mousemove', handleMouseMove);
@@ -356,18 +464,11 @@ export default function Map3D() {
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd);
 
-    // ==================== LOOP DE RENDERIZAÇÃO ====================
-    let animationId = 0;
-    const animate = () => {
-      renderer.render(scene, camera);
-      animationId = requestAnimationFrame(animate);
-    };
-    animate();
-
     return () => {
       cancelAnimationFrame(animationId);
 
       window.removeEventListener('resize', handleResize);
+      container.removeEventListener('click', handleClick);
       container.removeEventListener('wheel', handleWheel);
       container.removeEventListener('mousedown', handleMouseDown);
       container.removeEventListener('mousemove', handleMouseMove);
@@ -376,7 +477,6 @@ export default function Map3D() {
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
 
-      // Limpeza segura da memória
       loadedPlayerModels.forEach(model => {
         scene.remove(model);
         model.traverse((child) => {
@@ -396,13 +496,15 @@ export default function Map3D() {
       topMaterial.dispose();
       sideMaterial.dispose();
       lineMaterial.dispose();
+      shadowPlane.geometry.dispose();
+      (shadowPlane.material as THREE.Material).dispose();
 
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
       renderer.dispose();
     };
-  }, []); // Deixamos o array vazio para o Three.js montar a cena apenas 1 vez
+  }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }
