@@ -49,6 +49,7 @@ export default function Map3D() {
     // PASSO 1 — variáveis de estado para pan
     let isDragging = false;
     let previousMouse = { x: 0, y: 0 };
+    let velocity = { x: 0, z: 0 };
 
     let zoomDistance = 18;
     const MIN_ZOOM = 10;
