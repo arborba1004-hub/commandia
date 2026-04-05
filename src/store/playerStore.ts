@@ -131,6 +131,11 @@ type PurchasedAccessory = {
   purchasedAt: string;
 };
 
+type Accessories = {
+  vehicles?: Record<string, string[]>;
+  weapons?: Record<string, string[]>;
+};
+
 export type PlayerState = {
   _id?: string;
   googleId?: string;
@@ -166,6 +171,8 @@ export type PlayerState = {
   ownedVehicles?: string[];
 
   purchasedAccessories?: PurchasedAccessory[];
+
+  accessories?: Accessories;
 };
 
 type PlayerStore = {
@@ -241,6 +248,7 @@ type PlayerStore = {
   // ACESSÓRIOS DE FUGA
   purchaseAccessory: (accessoryId: string, skillType: string) => void;
   getAccessoryBonusPercent: () => number;
+  addAccessory: (type: 'vehicles' | 'weapons', itemId: string, accessoryName: string) => void;
 };
 
 const initialPlayer: PlayerState = {
@@ -1133,4 +1141,25 @@ setHierarchyBadge: (badge) => {
     // +1% até nível 50, +2% a partir de nível 51
     return playerLevel <= 50 ? 1 : 2;
   },
+
+  addAccessory: (type, itemId, accessoryName) =>
+    set((state) => {
+      const current = state.player.accessories?.[type]?.[itemId] || [];
+
+      // evitar duplicado
+      if (current.includes(accessoryName)) return state;
+
+      return {
+        player: {
+          ...state.player,
+          accessories: {
+            ...state.player.accessories,
+            [type]: {
+              ...state.player.accessories?.[type],
+              [itemId]: [...current, accessoryName],
+            },
+          },
+        },
+      };
+    }),
 }));
