@@ -43,11 +43,25 @@ export default function FugaIlustradaPage() {
     loadVehicles();
   }, []);
 
+  const calculateVehiclePrice = (level: number): number => {
+    // Fórmula exponencial: começa em 103,00 e vai até 750.000.000,00 no nível 100
+    const minPrice = 103;
+    const maxPrice = 750000000;
+    const maxLevel = 100;
+    
+    if (level <= 1) return minPrice;
+    if (level >= maxLevel) return maxPrice;
+    
+    // Fórmula exponencial: price = minPrice * (maxPrice / minPrice) ^ ((level - 1) / (maxLevel - 1))
+    const ratio = Math.pow(maxPrice / minPrice, (level - 1) / (maxLevel - 1));
+    return minPrice * ratio;
+  };
+
   const handlePurchaseVehicle = (vehicle: FugaVehicle) => {
-    const price = vehicle.price || 0;
+    const price = calculateVehiclePrice(vehicle.level || 1);
 
     if (cleanMoney < price) {
-      setPurchaseMessage('Você não tem cleanmoney suficiente!');
+      setPurchaseMessage('Você não tem dinheiro limpo suficiente!');
       setTimeout(() => setPurchaseMessage(''), 3000);
       return;
     }
@@ -112,9 +126,9 @@ export default function FugaIlustradaPage() {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="bg-custom4 p-6 rounded-lg border border-primary"
             >
-              <p className="text-secondary text-sm mb-2">Clean Money</p>
+              <p className="text-secondary text-sm mb-2">Dinheiro Limpo</p>
               <p className="font-heading text-4xl font-bold text-primary">
-                ${cleanMoney.toFixed(2)}
+                R$ {cleanMoney.toFixed(2)}
               </p>
             </motion.div>
 
@@ -169,7 +183,8 @@ export default function FugaIlustradaPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {vehicles.map((vehicle, index) => {
               const isOwned = ownedVehicles.includes(vehicle._id);
-              const canAfford = cleanMoney >= (vehicle.price || 0);
+              const price = calculateVehiclePrice(vehicle.level || 1);
+              const canAfford = cleanMoney >= price;
 
               return (
                 <motion.div
@@ -231,7 +246,7 @@ export default function FugaIlustradaPage() {
 
                     <div className="border-t border-secondary pt-3 mb-3">
                       <p className="text-primary font-heading text-xl font-bold">
-                        ${(vehicle.price || 0).toFixed(2)}
+                        R$ {price.toFixed(2)}
                       </p>
                     </div>
 
@@ -309,7 +324,7 @@ export default function FugaIlustradaPage() {
                     <div>
                       <p className="text-secondary text-sm">Preço</p>
                       <p className="font-heading text-2xl font-bold text-primary">
-                        ${(selectedVehicle.price || 0).toFixed(2)}
+                        R$ {calculateVehiclePrice(selectedVehicle.level || 1).toFixed(2)}
                       </p>
                     </div>
 
@@ -335,19 +350,19 @@ export default function FugaIlustradaPage() {
                     }}
                     disabled={
                       ownedVehicles.includes(selectedVehicle._id) ||
-                      cleanMoney < (selectedVehicle.price || 0)
+                      cleanMoney < calculateVehiclePrice(selectedVehicle.level || 1)
                     }
                     className={`w-full py-3 rounded font-heading font-bold text-lg transition-all ${
                       ownedVehicles.includes(selectedVehicle._id)
                         ? 'bg-custom4 text-secondary cursor-not-allowed'
-                        : cleanMoney >= (selectedVehicle.price || 0)
+                        : cleanMoney >= calculateVehiclePrice(selectedVehicle.level || 1)
                           ? 'bg-primary text-black hover:bg-secondary'
                           : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
                     }`}
                   >
                     {ownedVehicles.includes(selectedVehicle._id)
                       ? 'Já Possuído'
-                      : cleanMoney >= (selectedVehicle.price || 0)
+                      : cleanMoney >= calculateVehiclePrice(selectedVehicle.level || 1)
                         ? 'Comprar Agora'
                         : 'Sem Fundos Suficientes'}
                   </button>
