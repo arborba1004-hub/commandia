@@ -1,101 +1,73 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useGLTF } from '@react-three/drei';
+import * as THREE from 'three';
 
-type BuildingProps = {
-  modelPath: string;
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale?: [number, number, number];
-  route: string;
+type BuildingItem = {
+  name: string;
+  url: string;
+  x: number;
+  z: number;
 };
 
-function Building({
-  modelPath,
-  position,
-  rotation,
-  scale = [1, 1, 1],
-  route,
-}: BuildingProps) {
-  const { scene } = useGLTF(modelPath);
-  const navigate = useNavigate();
+const COMPLEXO_BUILDINGS: BuildingItem[] = [
+  {
+    name: 'QG',
+    url: 'https://static.wixstatic.com/3d/50f4bf_938928189a844f56ac340bada0b551bd.glb',
+    x: 0,
+    z: 0,
+  },
+  {
+    name: 'Centro Comercial',
+    url: 'https://static.wixstatic.com/3d/50f4bf_8b894931f3c241f285c4292c4842c4f0.glb',
+    x: 17,
+    z: -5,
+  },
+  {
+    name: 'Centro Comunitário',
+    url: 'https://static.wixstatic.com/3d/50f4bf_1641be50f6a74954848cfaae281d6b15.glb',
+    x: 17,
+    z: 2,
+  },
+];
 
-  const clonedScene = useMemo(() => scene.clone(), [scene]);
-
-  return (
-    <primitive
-      object={clonedScene}
-      position={position}
-      rotation={rotation}
-      scale={scale}
-      onClick={(e: any) => {
-        e.stopPropagation();
-        navigate(route);
-      }}
-    />
-  );
-}
-
-type MapBuildingsLayerProps = {
-  cols: number;
-  rows: number;
-  tileSize?: number;
+type BuildingModelProps = {
+  item: BuildingItem;
 };
 
-export default function MapBuildingsLayer({
-  cols,
-  rows,
-  tileSize = 1,
-}: MapBuildingsLayerProps) {
-  const halfWidth = (cols * tileSize) / 2;
-  const halfHeight = (rows * tileSize) / 2;
+function BuildingModel({ item }: BuildingModelProps) {
+  const { scene } = useGLTF(item.url);
 
-  // QG 4x4 exatamente no centro
-  const qgPosition: [number, number, number] = [0, 0, 0];
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone(true);
 
-  // Prédios 4x2 na margem direita, virados para o centro
-  // Cada um tem largura 4 tiles no eixo X e altura 2 tiles no eixo Z
-  const rightMarginCenterX = halfWidth - 2 * tileSize;
+    clone.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
 
-  // lado a lado na vertical do mapa, deixando ambos dentro da margem direita
-  const centroComercialPosition: [number, number, number] = [
-    rightMarginCenterX,
-    0,
-    -1.5 * tileSize,
-  ];
-
-  const centroComunitarioPosition: [number, number, number] = [
-    rightMarginCenterX,
-    0,
-    1.5 * tileSize,
-  ];
+    return clone;
+  }, [scene]);
 
   return (
-    <group>
-      <Building
-        modelPath="/models/qg.glb"
-        position={qgPosition}
-        rotation={[0, 0, 0]}
-        route="/qg"
-      />
-
-      <Building
-        modelPath="/models/centro-comercial.glb"
-        position={centroComercialPosition}
-        rotation={[0, Math.PI, 0]}
-        route="/centro-comercial"
-      />
-
-      <Building
-        modelPath="/models/centro-comunitario.glb"
-        position={centroComunitarioPosition}
-        rotation={[0, Math.PI, 0]}
-        route="/centro-comunitario"
-      />
+    <group position={[item.x, 0, item.z]}>
+      <primitive object={clonedScene} />
     </group>
   );
 }
 
-useGLTF.preload('/models/qg.glb');
-useGLTF.preload('/models/centro-comercial.glb');
-useGLTF.preload('/models/centro-comunitario.glb');
+export default function ComplexoBuildingsLayer() {
+  return (
+    <group name="complexo-buildings-layer">
+      {COMPLEXO_BUILDINGS.map((item) => (
+        <BuildingModel key={item.name} item={item} />
+      ))}
+    </group>
+  );
+}
+
+useGLTF.preload('https://static.wixstatic.com/3d/50f4bf_938928189a844f56ac340bada0b551bd.glb');
+useGLTF.preload('https://static.wixstatic.com/3d/50f4bf_8b894931f3c241f285c4292c4842c4f0.glb');
+useGLTF.preload('https://static.wixstatic.com/3d/50f4bf_1641be50f6a74954848cfaae281d6b15.glb');
