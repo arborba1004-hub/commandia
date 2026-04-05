@@ -8,7 +8,6 @@ import { usePlayerStore } from '@/store/playerStore';
 const GRID_WIDTH = 40;
 const GRID_HEIGHT = 20;
 const TILE_SIZE = 1;
-const BLOCK_SIZE = 4; // 4x4 tiles per block
 
 export interface TilePosition {
   tileX: number;
@@ -23,55 +22,8 @@ export interface OtherPlayer {
 }
 
 /**
- * Gets the 4x4 block coordinates for a given tile
- * Each block represents a 4x4 area of tiles
- */
-export function getTileBlock(tileX: number, tileY: number): { blockX: number; blockY: number } {
-  return {
-    blockX: Math.floor(tileX / BLOCK_SIZE),
-    blockY: Math.floor(tileY / BLOCK_SIZE),
-  };
-}
-
-/**
- * Gets all tiles within a 4x4 block
- */
-export function getBlockTiles(blockX: number, blockY: number): Array<{ x: number; y: number }> {
-  const tiles: Array<{ x: number; y: number }> = [];
-  const startX = blockX * BLOCK_SIZE;
-  const startY = blockY * BLOCK_SIZE;
-  
-  for (let x = startX; x < startX + BLOCK_SIZE && x < GRID_WIDTH; x++) {
-    for (let y = startY; y < startY + BLOCK_SIZE && y < GRID_HEIGHT; y++) {
-      tiles.push({ x, y });
-    }
-  }
-  
-  return tiles;
-}
-
-/**
- * Checks if a 4x4 block is occupied by any player
- */
-export function isBlockOccupied(blockX: number, blockY: number, occupiedTiles: Set<string>): boolean {
-  const blockTiles = getBlockTiles(blockX, blockY);
-  
-  for (const tile of blockTiles) {
-    const tileKey = `${tile.x},${tile.y}`;
-    if (occupiedTiles.has(tileKey)) {
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-/**
  * Validates if a tile is available for invasion
- * A tile is available if:
- * 1. It's within grid bounds
- * 2. The entire 4x4 block containing the tile is not occupied by another player
- * 3. It's not in the player's current 4x4 block
+ * A tile is available if it's within grid bounds, not the player's current position, and not occupied by another player
  */
 export function isValidTile(
   tileX: number,
@@ -85,17 +37,14 @@ export function isValidTile(
     return false;
   }
 
-  // Get the 4x4 blocks for both the target tile and current position
-  const targetBlock = getTileBlock(tileX, tileY);
-  const currentBlock = getTileBlock(currentTileX, currentTileY);
-
-  // Check if it's not in the current block
-  if (targetBlock.blockX === currentBlock.blockX && targetBlock.blockY === currentBlock.blockY) {
+  // Check if it's not the current position
+  if (tileX === currentTileX && tileY === currentTileY) {
     return false;
   }
 
-  // Check if the entire 4x4 block is occupied by another player
-  if (isBlockOccupied(targetBlock.blockX, targetBlock.blockY, occupiedTiles)) {
+  // Check if tile is occupied by another player
+  const tileKey = `${tileX},${tileY}`;
+  if (occupiedTiles.has(tileKey)) {
     return false;
   }
 
@@ -104,20 +53,12 @@ export function isValidTile(
 
 /**
  * Creates a set of occupied tiles from other players
- * Each player occupies a 4x4 block of tiles
  */
 export function getOccupiedTiles(otherPlayers: OtherPlayer[]): Set<string> {
   const occupied = new Set<string>();
-  
   otherPlayers.forEach(player => {
-    const block = getTileBlock(player.tileX, player.tileY);
-    const blockTiles = getBlockTiles(block.blockX, block.blockY);
-    
-    blockTiles.forEach(tile => {
-      occupied.add(`${tile.x},${tile.y}`);
-    });
+    occupied.add(`${player.tileX},${player.tileY}`);
   });
-  
   return occupied;
 }
 
@@ -133,7 +74,7 @@ export function getTileWorldPosition(tileX: number, tileY: number) {
 /**
  * Handles the tile invasion process
  * Shows a confirmation dialog and updates the player's position if confirmed
- * Validates that the entire 4x4 block is not occupied by another player
+ * Validates that the tile is not occupied by another player
  */
 export async function handleTileInvasion(
   tileX: number,
@@ -155,11 +96,11 @@ export async function handleTileInvasion(
 
   // Validate the tile
   if (!isValidTile(tileX, tileY, currentTileX, currentTileY, occupiedTiles)) {
-    // Check if the 4x4 block is occupied by another player
-    const targetBlock = getTileBlock(tileX, tileY);
-    if (isBlockOccupied(targetBlock.blockX, targetBlock.blockY, occupiedTiles)) {
-      console.warn(`❌ Bloco 4x4 contendo (${tileX}, ${tileY}) já está ocupado por outro jogador`);
-      window.alert(`❌ Este bloco 4x4 já está ocupado por outro jogador!`);
+    // Check if tile is occupied by another player
+    const tileKey = `${tileX},${tileY}`;
+    if (occupiedTiles.has(tileKey)) {
+      console.warn(`❌ Lote (${tileX}, ${tileY}) já está ocupado por outro jogador`);
+      window.alert(`❌ Este lote já está ocupado por outro jogador!`);
     } else {
       console.warn('Invalid tile selected');
       window.alert('❌ Lote inválido! Escolha outro local.');

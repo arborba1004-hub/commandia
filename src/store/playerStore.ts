@@ -170,8 +170,8 @@ type PlayerStore = {
   lastSyncAt: number;
 
   loadPlayer: () => void;
-  setPlayer: (incoming: Partial<PlayerState> | ((current: PlayerState) => PlayerState)) => void;
-  hydratePlayerFromServer: (playerData: Partial<PlayerState> | ((current: PlayerState) => PlayerState)) => void;
+  setPlayer: (incoming: Partial<PlayerState>) => void;
+  hydratePlayerFromServer: (playerData: Partial<PlayerState>) => void;
   clearPlayer: () => void;
 
   saveLocal: () => void;
@@ -440,13 +440,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   setPlayer: (incoming) => {
     const newVersion = get().localVersion + 1;
-    
-    // Suporta função callback ou objeto direto
-    const incomingData = typeof incoming === 'function' ? incoming(get().player) : incoming;
-    
     const merged = mergePlayer({
       ...get().player,
-      ...incomingData,
+      ...incoming,
     });
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
@@ -462,11 +458,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   hydratePlayerFromServer: (playerData) => {
-    // ✅ IMPORTANTE: Suporta função callback para substituição total
-    // Evita misturar com estado anterior (ex: após login)
-    const incomingData = typeof playerData === 'function' ? playerData(get().player) : playerData;
-    
-    const merged = mergePlayer(incomingData);
+    const merged = mergePlayer(playerData);
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 
