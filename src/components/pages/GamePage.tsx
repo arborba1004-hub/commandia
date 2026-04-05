@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
@@ -7,6 +7,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 import { handleTileInvasion, worldToTileCoordinates } from '@/components/game/tileInvasion';
 import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
+import { useNavigate } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -61,10 +63,33 @@ function createTextLabel(text: string): THREE.Sprite | THREE.Group {
 
 export default function GamePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const playerState = usePlayerStore((state) => state.player);
   const level = playerState?.niveis?.barracoLevel || 1;
   const displayName = playerState?.headerCustomization?.customName || playerState?.name || 'CAPO GHOST';
+
+  const pages = [
+    { name: 'Home', path: '/' },
+    { name: 'Galeria', path: '/galeria' },
+    { name: 'Perfil', path: '/profile' },
+    { name: 'Giro', path: '/giro' },
+    { name: 'Luxo Showroom', path: '/luxuryshowroom' },
+    { name: 'Lavagem de Dinheiro', path: '/lavagem-de-dinheiro' },
+    { name: 'Suborno Ilustrado', path: '/suborno-ilustrado' },
+    { name: 'Delação Premiada', path: '/delacao-premiada' },
+    { name: 'Arsenal', path: '/arsenal' },
+    { name: 'Armas', path: '/armas' },
+    { name: 'Gang', path: '/gang' },
+    { name: 'Barraco', path: '/barraco' },
+    { name: 'Fuga Ilustrada', path: '/fuga-ilustrada' },
+  ];
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    setIsMenuOpen(false);
+  };
 
   const getBarracoSize = (level: number) => {
     if (level >= 60) return 4;
@@ -421,5 +446,37 @@ export default function GamePage() {
     };
   }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id, displayName]);
 
-  return <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />;
+  return (
+    <div className="w-full h-full relative">
+      {/* Menu Button */}
+      <button
+        onClick={() => setIsMenuOpen(!isMenuOpen)}
+        className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg hover:bg-opacity-90 transition-all"
+        aria-label="Toggle menu"
+      >
+        {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {/* Navigation Menu */}
+      {isMenuOpen && (
+        <div className="absolute top-16 left-4 z-40 bg-background border border-primary rounded-lg shadow-lg p-4 max-w-xs max-h-96 overflow-y-auto">
+          <h3 className="text-primary font-heading text-lg mb-4">Páginas</h3>
+          <div className="grid grid-cols-1 gap-2">
+            {pages.map((page) => (
+              <button
+                key={page.path}
+                onClick={() => handleNavigate(page.path)}
+                className="w-full text-left px-4 py-2 rounded-lg bg-custom4 text-foreground hover:bg-primary hover:text-primary-foreground transition-colors font-paragraph text-sm"
+              >
+                {page.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Game Canvas */}
+      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />
+    </div>
+  );
 }
