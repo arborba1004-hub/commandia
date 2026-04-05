@@ -5,8 +5,10 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 // IMPORTAÇÃO NOVA: O controle de câmera profissional
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { handleTileInvasion, worldToTileCoordinates, OtherPlayer } from '@/components/game/tileInvasion';
+import { createComplexoBuildings, type ComplexoBuildingHitbox } from '@/components/map/createComplexoBuildings';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -61,6 +63,7 @@ function createTextLabel(text: string) {
 
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
 
   const playerState = usePlayerStore((state) => state.player);
   const level = playerState?.niveis?.barracoLevel || 1;
@@ -158,9 +161,32 @@ export default function Map3D() {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    const modelUrl = getBarracoModelUrl(level);
+    const complexoBuildings = createComplexoBuildings(loader);
+
+    scene.add(complexoBuildings.group);
+    loadedPlayerModels.push(complexoBuildings.group);
+    cleanupDisposables.push(...complexoBuildings.disposables);
+
+    complexoBuildings
+      .load()
+      .then(() => {
+        if (!isMounted) return;
+
+        complexoBuildings.clickableMeshes.forEach((item) => {
+          clickableBuildingMeshes.push(item.mesh);
+          clickableBuildingMeta.set(item.mesh, item);
+        });
+      })
+      .catch((error) => {
+        console.error('❌ Erro ao carregar prédios do complexo:', error);
+      });
+
+    // ... keep existing code (CARREGANDO O SEU BARRACO section)
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
+    const clickableBuildingMeshes: THREE.Object3D[] = [];
+    const clickableBuildingMeta = new Map<THREE.Object3D, ComplexoBuildingHitbox>();
+    const cleanupDisposables: Array<any> = [];
 
     const fixDarkMaterials = (child: any) => {
       if (child.isMesh) {
@@ -334,26 +360,58 @@ export default function Map3D() {
     const handlePointerUp = (event: PointerEvent) => {
       if (!containerRef.current) return;
 
-      const moveDistance = Math.abs(event.clientX - pointerDownPos.x) + Math.abs(event.clientY - pointerDownPos.y);
-      if (moveDistance > 5) return; 
+      const moveDistance =
+        Math.abs(event.clientX - pointerDownPos.x) +
+        Math.abs(event.clientY - pointerDownPos.y);
+
+      if (moveDistance > 5) return;
 
       const rect = containerRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObject(platform);
-      
-      if (intersects.length > 0) {
-        const point = intersects[0].point;
-        const tileX = Math.floor(point.x + GRID_WIDTH / 2);
-        const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
-        
-        highlight.visible = true;
-        highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
-        playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
 
-        // Handle tile invasion with other players data
+      raycaster.setFromCamera(mouse, camera);
+
+      // 1) Primeiro verifica prédios clicáveis
+      if (clickableBuildingMeshes.length > 0) {
+        const buildingIntersects = raycaster.intersectObjects(clickableBuildingMeshes, false);
+
+        if (buildingIntersects.length > 0) {
+          const clickedMesh = buildingIntersects[0].object;
+          const clickedBuilding = clickableBuildingMeta.get(clickedMesh);
+
+          if (clickedBuilding?.route) {
+            navigate(clickedBuilding.route);
+            return;
+          }
+        }
+      }
+
+      // 2) Se não clicou em prédio, trata como clique no chão
+      const floorIntersects = raycaster.intersectObject(platform);
+
+      if (floorIntersects.length > 0) {
+        const point = floorIntersects[0].point;
+
+        const rawTileX = Math.floor(point.x + GRID_WIDTH / 2);
+        const rawTileZ = Math.floor(point.z + GRID_HEIGHT / 2);
+
+        const tileX = THREE.MathUtils.clamp(rawTileX, 0, GRID_WIDTH - 1);
+        const tileZ = THREE.MathUtils.clamp(rawTileZ, 0, GRID_HEIGHT - 1);
+
+        highlight.visible = true;
+        highlight.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.05,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
+
+        playerModel.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.3,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
+
         handleTileInvasion(tileX, tileZ, otherPlayersData);
       }
     };
@@ -401,6 +459,12 @@ export default function Map3D() {
         });
       });
 
+      cleanupDisposables.forEach(disposable => {
+        if (disposable && typeof disposable.dispose === 'function') {
+          disposable.dispose();
+        }
+      });
+
       platformGeometry.dispose();
       topMaterial.dispose();
       sideMaterial.dispose();
@@ -408,7 +472,7 @@ export default function Map3D() {
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
       renderer.dispose();
     };
-  }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id, displayName]);
+  }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id, displayName, level, navigate]);
 
   return <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />;
 }
