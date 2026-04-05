@@ -126,10 +126,11 @@ export default function LuxoItemPage() {
   const [transactionStage, setTransactionStage] = useState<TransactionStage>('idle');
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const barracoLevel = player?.niveis?.barracoLevel || 1;
-  const cleanMoney = player?.balances?.cleanMoney || 0;
-  const inventoryItems = player?.inventory?.items || [];
-  const playerName = player?.name || 'COMANDANTE';
+  // ÚNICA FONTE: playerStore
+  const barracoLevel = player.niveis.barracoLevel;
+  const cleanMoney = player.balances.cleanMoney;
+  const inventoryItems = player.inventory.items;
+  const playerName = player.name || 'COMANDANTE';
 
   const luxurySystem = useMemo(() => getLuxurySystem(barracoLevel), [barracoLevel]);
   const collectionName = luxurySystem?.collectionName || `Coleção ${barracoLevel}`;

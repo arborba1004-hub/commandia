@@ -4,8 +4,9 @@ import { motion } from 'framer-motion';
 export default function BarracoPage() {
   const { player, setPlayer } = usePlayerStore();
 
-  const level = player?.niveis?.barracoLevel ?? 1;
-  const cleanMoney = player?.balances?.cleanMoney ?? 0;
+  // ÚNICA FONTE: playerStore
+  const level = player.niveis.barracoLevel;
+  const cleanMoney = player.balances.cleanMoney;
 
   const BASE_COST = 500;
   const MULTIPLIER = 1.1;

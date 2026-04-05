@@ -89,10 +89,10 @@ export default function LavagemDeDinheiroPage() {
   const { player, isLoaded, loadPlayer, startLaundryOperation, completeLaundryOperation, canOperateLaundryToday, clearFinishedLaundryOperations } = usePlayerStore();
   const { getLaundryTaxReduction } = useGangBonus();
   
-  // Usamos playerLevel (nível do jogador) como base para o multiplicador
-  const playerLevel = player?.niveis?.playerLevel || 1;
+  // ÚNICA FONTE: playerStore
+  const playerLevel = player.niveis.playerLevel;
   const levelMultiplier = Math.pow(1.1, playerLevel - 1);
-  const dirtyMoney = player?.balances?.dirtyMoney || 0;
+  const dirtyMoney = player.balances.dirtyMoney;
   const activeOperations = player?.laundryProgress?.activeOperations || [];
   const taxReduction = getLaundryTaxReduction();
 

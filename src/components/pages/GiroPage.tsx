@@ -106,9 +106,10 @@ export default function GiroPage() {
     };
   }, [isLoaded, loadPlayer]);
 
-  const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
-  const cleanMoney = player?.balances?.cleanMoney ?? 0;
-  const corre = player?.balances?.corre ?? 0;
+  // ÚNICA FONTE: playerStore
+  const dirtyMoney = player.balances.dirtyMoney;
+  const cleanMoney = player.balances.cleanMoney;
+  const corre = player.balances.corre;
   const canSpin = useMemo(() => !spinning && corre >= multiplier, [spinning, corre, multiplier]);
 
   const addHistory = (entry: string) => setHistory((prev) => [entry, ...prev].slice(0, 8));

@@ -39,9 +39,9 @@ export default function FugaIlustradaPage() {
   const [vehicleAccessories, setVehicleAccessories] = useState<Record<string, string[]>>({});
   const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] = useState<EscapeVehicles | null>(null);
 
-  const playerStore = usePlayerStore();
+  // ÚNICA FONTE: playerStore
   const player = playerStore.player;
-  const cleanMoney = player.balances.cleanMoney || 0;
+  const cleanMoney = player.balances.cleanMoney;
   const ownedVehicles = player.ownedVehicles || [];
   const purchasedAccessories = player.purchasedAccessories || [];
 

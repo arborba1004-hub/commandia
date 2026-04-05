@@ -64,12 +64,13 @@ export default function ProfilePage() {
               <p><strong>Nome:</strong> {player.name || 'Jogador'}</p>
               <p><strong>Email:</strong> {player.email || 'Não disponível'}</p>
               <p><strong>ID:</strong> {player._id || 'Não disponível'}</p>
-              <p><strong>Level:</strong> {player.niveis?.playerLevel ?? 1}</p>
-              <p><strong>Power:</strong> {player.power ?? 0}</p>
-              <p><strong>Skill Boost Multiplier:</strong> {player.skillBoostMultiplier ?? 1.0}x</p>
-              <p><strong>Commands Sujo:</strong> {(player.balances?.dirtyMoney ?? 0).toLocaleString('pt-BR')}</p>
-              <p><strong>Commands Limpo:</strong> {(player.balances?.cleanMoney ?? 0).toLocaleString('pt-BR')}</p>
-              <p><strong>Corre:</strong> {(player.balances?.corre ?? 0).toLocaleString('pt-BR')}</p>
+              <p><strong>Level:</strong> {player.niveis.playerLevel}</p>
+              <p><strong>Power:</strong> {player.power}</p>
+              <p><strong>Skill Boost Multiplier:</strong> {player.skillBoostMultiplier}x</p>
+              {/* ÚNICA FONTE: playerStore */}
+              <p><strong>Commands Sujo:</strong> {player.balances.dirtyMoney.toLocaleString('pt-BR')}</p>
+              <p><strong>Commands Limpo:</strong> {player.balances.cleanMoney.toLocaleString('pt-BR')}</p>
+              <p><strong>Corre:</strong> {player.balances.corre.toLocaleString('pt-BR')}</p>
             </div>
 
             {player.avatar && (

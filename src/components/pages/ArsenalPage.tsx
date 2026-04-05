@@ -50,7 +50,8 @@ export default function ArsenalPage() {
   const [activeTab, setActiveTab] = useState<'weapons' | 'cases'>('weapons');
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const dirtyMoney = player?.balances?.dirtyMoney || 0;
+  // ÚNICA FONTE: playerStore
+  const dirtyMoney = player.balances.dirtyMoney;
 
   // Fetch weapons and cases
   useEffect(() => {
