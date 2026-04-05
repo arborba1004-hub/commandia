@@ -9,10 +9,24 @@ import { motion } from 'framer-motion';
 import { AcessriosdeFuga, EscapeVehicles } from '@/entities';
 import { getAccessoryBonus } from '@/utils/accessoryBonus';
 
+const VEHICLE_ACCESSORIES = [
+  { name: 'Turbo Reforçado', bonus: 'agility' },
+  { name: 'Pneus de Alta Performance', bonus: 'defense' },
+  { name: 'Motor Preparado', bonus: 'attack' },
+  { name: 'Blindagem Leve', bonus: 'defense' },
+  { name: 'Sistema Anti-Rastreamento', bonus: 'intelligence' },
+  { name: 'Nitrox', bonus: 'agility' },
+];
+
 interface PurchasedAccessory {
   accessoryId: string;
   skillType: string;
   purchasedAt: string;
+}
+
+interface VehicleAccessory {
+  vehicleId: string;
+  accessories: string[];
 }
 
 export default function FugaIlustradaPage() {
@@ -22,6 +36,8 @@ export default function FugaIlustradaPage() {
   const [selectedVehicle, setSelectedVehicle] = useState<EscapeVehicles | null>(null);
   const [purchaseMessage, setPurchaseMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'vehicles' | 'accessories'>('vehicles');
+  const [vehicleAccessories, setVehicleAccessories] = useState<Record<string, string[]>>({});
+  const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] = useState<EscapeVehicles | null>(null);
 
   const playerStore = usePlayerStore();
   const player = playerStore.player;
@@ -130,6 +146,40 @@ export default function FugaIlustradaPage() {
     });
 
     setPurchaseMessage(`${accessory.itemName} comprado com sucesso!`);
+    setTimeout(() => setPurchaseMessage(''), 3000);
+  };
+
+  const handleBuyVehicleAccessory = (vehicle: EscapeVehicles, accessory: typeof VEHICLE_ACCESSORIES[0]) => {
+    const accessoryPrice = 1.99;
+
+    if (cleanMoney < accessoryPrice) {
+      setPurchaseMessage('Você não tem dinheiro suficiente!');
+      setTimeout(() => setPurchaseMessage(''), 3000);
+      return;
+    }
+
+    // Check if already owned
+    const currentAccessories = vehicleAccessories[vehicle._id] || [];
+    if (currentAccessories.includes(accessory.name)) {
+      setPurchaseMessage('Você já possui este acessório!');
+      setTimeout(() => setPurchaseMessage(''), 3000);
+      return;
+    }
+
+    // Remove clean money
+    playerStore.removeCleanMoney(accessoryPrice);
+
+    // Add accessory to vehicle
+    setVehicleAccessories({
+      ...vehicleAccessories,
+      [vehicle._id]: [...currentAccessories, accessory.name],
+    });
+
+    // Apply bonus
+    const bonus = getAccessoryBonus(player.niveis.playerLevel);
+    playerStore.addSkillBonus(accessory.bonus, bonus);
+
+    setPurchaseMessage(`${accessory.name} adicionado com sucesso!`);
     setTimeout(() => setPurchaseMessage(''), 3000);
   };
 
@@ -333,6 +383,21 @@ export default function FugaIlustradaPage() {
                         >
                           {isOwned ? 'Possuído' : canAfford ? 'Comprar' : 'Sem Fundos'}
                         </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedVehicleForAccessories(vehicle);
+                          }}
+                          disabled={!isOwned}
+                          className={`w-full mt-2 py-2 rounded font-heading font-bold transition-all ${
+                            isOwned
+                              ? 'bg-secondary text-black hover:bg-primary'
+                              : 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
+                          }`}
+                        >
+                          {isOwned ? 'Acessórios' : 'Compre Primeiro'}
+                        </button>
                       </div>
                     </motion.div>
                   );
@@ -424,7 +489,7 @@ export default function FugaIlustradaPage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8"
+              className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8 max-h-[90vh] overflow-y-auto"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="flex flex-col items-center">
@@ -509,6 +574,61 @@ export default function FugaIlustradaPage() {
                   </button>
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {selectedVehicleForAccessories && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedVehicleForAccessories(null)}
+            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8 max-h-[90vh] overflow-y-auto"
+            >
+              <h2 className="font-heading text-3xl font-bold text-primary mb-6">
+                Acessórios para {selectedVehicleForAccessories.name}
+              </h2>
+
+              <div className="space-y-3 mb-6">
+                {VEHICLE_ACCESSORIES.map((acc) => {
+                  const owned = (vehicleAccessories[selectedVehicleForAccessories._id] || []).includes(acc.name);
+
+                  return (
+                    <button
+                      key={acc.name}
+                      disabled={owned || cleanMoney < 1.99}
+                      onClick={() => handleBuyVehicleAccessory(selectedVehicleForAccessories, acc)}
+                      className={`w-full px-4 py-3 rounded font-heading font-bold transition-all text-left flex justify-between items-center ${
+                        owned
+                          ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
+                          : cleanMoney >= 1.99
+                            ? 'bg-primary text-black hover:bg-secondary'
+                            : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                      }`}
+                    >
+                      <span>{acc.name}</span>
+                      <span className="text-sm">
+                        {owned ? 'Comprado' : `R$ 1,99`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setSelectedVehicleForAccessories(null)}
+                className="w-full py-3 rounded font-heading font-bold text-lg border-2 border-secondary text-secondary hover:bg-secondary hover:text-black transition-all"
+              >
+                Fechar
+              </button>
             </motion.div>
           </motion.div>
         )}
