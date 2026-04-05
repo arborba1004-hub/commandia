@@ -6,41 +6,22 @@ import Footer from '@/components/Footer';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { motion } from 'framer-motion';
-
-interface FugaVehicle {
-  _id: string;
-  name?: string;
-  level?: number;
-  price?: number;
-  image?: string;
-  abilityBonusType?: string;
-  description?: string;
-}
-
-interface Accessory {
-  id: string;
-  name: string;
-  bonusType: string;
-  bonusAmount: number;
-  price: number;
-  vehicleId: string;
-}
+import { AcessriosdeFuga, EscapeVehicles } from '@/entities';
 
 interface PurchasedAccessory {
   accessoryId: string;
-  vehicleId: string;
   skillType: string;
   purchasedAt: string;
 }
 
 export default function FugaIlustradaPage() {
-  const [vehicles, setVehicles] = useState<FugaVehicle[]>([]);
-  const [accessories, setAccessories] = useState<Accessory[]>([]);
+  const [vehicles, setVehicles] = useState<EscapeVehicles[]>([]);
+  const [accessories, setAccessories] = useState<AcessriosdeFuga[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedVehicle, setSelectedVehicle] = useState<FugaVehicle | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<EscapeVehicles | null>(null);
   const [purchaseMessage, setPurchaseMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'vehicles' | 'accessories'>('vehicles');
-  const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] = useState<FugaVehicle | null>(null);
+  const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] = useState<EscapeVehicles | null>(null);
 
   const playerStore = usePlayerStore();
   const player = playerStore.player;
@@ -48,53 +29,24 @@ export default function FugaIlustradaPage() {
   const ownedVehicles = player.ownedVehicles || [];
   const purchasedAccessories = player.purchasedAccessories || [];
 
-  // Generate accessories for a vehicle
-  const generateAccessoriesForVehicle = (vehicleId: string, vehicleName: string): Accessory[] => {
-    const skillTypes = ['attack', 'defense', 'intelligence', 'agility', 'respect', 'vigor'];
-    const generatedAccessories: Accessory[] = [];
-
-    for (let i = 0; i < 6; i++) {
-      generatedAccessories.push({
-        id: `${vehicleId}-acc-${i}`,
-        name: `${vehicleName} - Acessório ${i + 1}`,
-        bonusType: skillTypes[i % skillTypes.length],
-        bonusAmount: 2,
-        price: 0.99,
-        vehicleId,
-      });
-    }
-
-    return generatedAccessories;
-  };
-
-  // Generate all accessories for all vehicles
-  const generateAllAccessories = (allVehicles: FugaVehicle[]): Accessory[] => {
-    const allAccessories: Accessory[] = [];
-    allVehicles.forEach((vehicle) => {
-      const vehicleAccessories = generateAccessoriesForVehicle(vehicle._id, vehicle.name || 'Veículo');
-      allAccessories.push(...vehicleAccessories);
-    });
-    return allAccessories;
-  };
-
   useEffect(() => {
-    const loadVehicles = async () => {
+    const loadData = async () => {
       try {
-        const result = await BaseCrudService.getAll<FugaVehicle>('fugavehicles', [], { limit: 100 });
-        const sortedVehicles = result.items.sort((a, b) => (a.level || 0) - (b.level || 0));
+        const vehiclesResult = await BaseCrudService.getAll<EscapeVehicles>('fugavehicles', [], { limit: 100 });
+        const sortedVehicles = vehiclesResult.items.sort((a, b) => (a.level || 0) - (b.level || 0));
         setVehicles(sortedVehicles);
         
-        // Generate accessories for all vehicles
-        const allAccessories = generateAllAccessories(sortedVehicles);
-        setAccessories(allAccessories);
+        // Load accessories from CMS
+        const accessoriesResult = await BaseCrudService.getAll<AcessriosdeFuga>('accessories', [], { limit: 100 });
+        setAccessories(accessoriesResult.items);
       } catch (error) {
-        console.error('Erro ao carregar veículos:', error);
+        console.error('Erro ao carregar dados:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadVehicles();
+    loadData();
   }, []);
 
   const calculateVehiclePrice = (level: number): number => {
@@ -109,7 +61,7 @@ export default function FugaIlustradaPage() {
     return minPrice * ratio;
   };
 
-  const handlePurchaseVehicle = (vehicle: FugaVehicle) => {
+  const handlePurchaseVehicle = (vehicle: EscapeVehicles) => {
     const price = calculateVehiclePrice(vehicle.level || 1);
 
     if (cleanMoney < price) {
@@ -139,32 +91,35 @@ export default function FugaIlustradaPage() {
     setTimeout(() => setPurchaseMessage(''), 3000);
   };
 
-  const handlePurchaseAccessory = (accessory: Accessory) => {
+  const handlePurchaseAccessory = (accessory: AcessriosdeFuga) => {
     // Check if already purchased
-    if (purchasedAccessories.some((acc) => acc.accessoryId === accessory.id)) {
+    if (purchasedAccessories.some((acc) => acc.accessoryId === accessory._id)) {
       setPurchaseMessage('Você já comprou este acessório!');
       setTimeout(() => setPurchaseMessage(''), 3000);
       return;
     }
 
-    // Check if has clean money (R$ 0.99)
-    if (cleanMoney < accessory.price) {
+    const price = accessory.itemPrice || 0;
+
+    // Check if has clean money
+    if (cleanMoney < price) {
       setPurchaseMessage('Você não tem dinheiro suficiente!');
       setTimeout(() => setPurchaseMessage(''), 3000);
       return;
     }
 
     // Remove clean money
-    playerStore.removeCleanMoney(accessory.price);
+    playerStore.removeCleanMoney(price);
 
-    // Add skill bonus (+2%)
-    playerStore.addSkillBonus(accessory.bonusType, 2);
+    // Add skill bonus based on skillType
+    if (accessory.skillType) {
+      playerStore.addSkillBonus(accessory.skillType, 2);
+    }
 
     // Record purchase
     const newAccessory: PurchasedAccessory = {
-      accessoryId: accessory.id,
-      vehicleId: accessory.vehicleId,
-      skillType: accessory.bonusType,
+      accessoryId: accessory._id,
+      skillType: accessory.skillType || 'unknown',
       purchasedAt: new Date().toISOString(),
     };
 
@@ -172,7 +127,7 @@ export default function FugaIlustradaPage() {
       purchasedAccessories: [...purchasedAccessories, newAccessory],
     });
 
-    setPurchaseMessage(`${accessory.name} comprado com sucesso!`);
+    setPurchaseMessage(`${accessory.itemName} comprado com sucesso!`);
     setTimeout(() => setPurchaseMessage(''), 3000);
   };
 
@@ -405,16 +360,17 @@ export default function FugaIlustradaPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {accessories
-                      .filter((acc) => acc.vehicleId === selectedVehicleForAccessories._id)
+                      .filter((acc) => acc.skillType && acc.skillType.toLowerCase().includes(selectedVehicleForAccessories.abilityBonusType?.toLowerCase() || ''))
                       .map((accessory) => {
                         const isPurchased = purchasedAccessories.some(
-                          (acc) => acc.accessoryId === accessory.id
+                          (acc) => acc.accessoryId === accessory._id
                         );
-                        const canAfford = cleanMoney >= accessory.price;
+                        const price = accessory.itemPrice || 0;
+                        const canAfford = cleanMoney >= price;
 
                         return (
                           <motion.div
-                            key={accessory.id}
+                            key={accessory._id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4 }}
@@ -427,19 +383,23 @@ export default function FugaIlustradaPage() {
                             }`}
                           >
                             <h4 className="font-heading text-lg font-bold text-primary mb-2">
-                              {accessory.name}
+                              {accessory.itemName}
                             </h4>
+
+                            <p className="text-secondary text-xs mb-3 line-clamp-2">
+                              {accessory.itemDescription}
+                            </p>
 
                             <div className="mb-3">
                               <p className="text-secondary text-xs mb-1">
-                                Bônus: <span className="text-primary">{accessory.bonusType}</span>
+                                Tipo: <span className="text-primary">{accessory.skillType}</span>
                               </p>
-                              <p className="text-secondary text-xs">+{accessory.bonusAmount}% em {accessory.bonusType}</p>
+                              <p className="text-secondary text-xs">+2% em {accessory.skillType}</p>
                             </div>
 
                             <div className="border-t border-secondary pt-3 mb-3">
                               <p className="text-primary font-heading text-lg font-bold">
-                                R$ {accessory.price.toFixed(2)}
+                                R$ {price.toFixed(2)}
                               </p>
                             </div>
 
@@ -497,7 +457,7 @@ export default function FugaIlustradaPage() {
                             {vehicle.name}
                           </h3>
                           <p className="text-secondary text-xs mb-3">
-                            6 acessórios disponíveis
+                            {accessories.filter((acc) => acc.skillType && acc.skillType.toLowerCase().includes(vehicle.abilityBonusType?.toLowerCase() || '')).length} acessórios disponíveis
                           </p>
                           <button className="w-full py-2 bg-primary text-black rounded font-heading font-bold hover:bg-secondary transition-all">
                             Ver Acessórios
