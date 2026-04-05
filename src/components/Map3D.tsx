@@ -2,17 +2,19 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+// IMPORTAÇÃO NOVA: O controle de câmera profissional
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 
-// IMPORTAÇÃO DAS SUAS UTILIDADES (Certifique-se que o arquivo mapUtils.ts está na mesma pasta)
-import { fixDarkMaterials, createTextLabel, GRID_CONFIG } from './mapUtils';
-
-// CONFIGURAÇÃO TÉCNICA DO LOADER
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
-const FLOOR_TEXTURE = 'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
+const GRID_WIDTH = 40;
+const GRID_HEIGHT = 20;
+const TILE_SIZE = 1;
+const PLATFORM_HEIGHT = 1.2;
+const FLOOR_TEXTURE =
+  'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
 const BARRACO_MODELS = [
   { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
@@ -23,211 +25,374 @@ const BARRACO_MODELS = [
   { min: 50, max: 59, url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb' },
 ];
 
-function getBarracoUrl(level: number) {
-  return BARRACO_MODELS.find((m) => level >= m.min && level <= m.max)?.url ?? BARRACO_MODELS[0].url;
+function getBarracoModelUrl(level: number) {
+  return (
+    BARRACO_MODELS.find((model) => level >= model.min && level <= model.max)?.url ??
+    BARRACO_MODELS[0].url
+  );
+}
+
+// === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
+function createTextLabel(text: string) {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) return new THREE.Group();
+
+  canvas.width = 512;
+  canvas.height = 128;
+
+  context.fillStyle = 'rgba(0, 0, 0, 0.5)'; 
+  context.roundRect(0, 0, 512, 128, 20);
+  context.fill();
+
+  context.font = 'bold 54px Oswald, Impact, Arial';
+  context.textAlign = 'center';
+  context.fillStyle = '#d9b764'; // Cor dourada padrão
+  context.fillText(text.toUpperCase(), 256, 85);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.scale.set(3.2, 0.8, 1);
+  return sprite;
 }
 
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+
   const playerState = usePlayerStore((state) => state.player);
-  
+  const level = playerState?.niveis?.barracoLevel || 1;
   const displayName = playerState?.headerCustomization?.customName || playerState?.name || 'CAPO GHOST';
-  const myLevel = playerState?.niveis?.barracoLevel || 1;
+
+  const getBarracoSize = (level: number) => {
+    if (level >= 60) return 4;
+    if (level >= 30) return 3;
+    return 2;
+  };
+
+  const barracoSize = getBarracoSize(level);
 
   useEffect(() => {
     if (!containerRef.current) return;
     
     let isMounted = true; 
-    const container = containerRef.current;
 
-    // 1. RENDERER
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const container = containerRef.current;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !isMobile,
+      powerPreference: 'high-performance',
+      alpha: false,
+      stencil: false,
+      depth: true,
+    });
+
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.8));
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
 
-    // 2. CÁLCULO DE POSIÇÃO INICIAL (Baseado no GRID_CONFIG)
-    const myTileX = playerState?.mapPosition?.tileX ?? 20;
-    const myTileY = playerState?.mapPosition?.tileY ?? 10;
-    const worldX = (myTileX - GRID_CONFIG.WIDTH / 2) * GRID_CONFIG.TILE_SIZE;
-    const worldZ = (myTileY - GRID_CONFIG.HEIGHT / 2) * GRID_CONFIG.TILE_SIZE;
+    const highlightGeometry = new THREE.PlaneGeometry(1, 1);
+    const highlightMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+    });
 
-    // 3. CÂMERA E FOCO
+    const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+    highlight.rotation.x = -Math.PI / 2;
+    highlight.position.y = 0.05;
+    highlight.visible = false;
+    scene.add(highlight);
+
+    const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial); 
+    playerModel.position.set(0, 0.3, 0);
+    scene.add(playerModel);
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
+    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
+
+    const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
+    const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+    // === NOVA CÂMERA E CONTROLES ORBIT ===
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    const cameraTarget = new THREE.Vector3(worldX, 0, worldZ);
+    const cameraTarget = new THREE.Vector3(playerWorldX, 0, playerWorldZ);
+    
     camera.position.set(cameraTarget.x + 15, 18, cameraTarget.z + 15);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.copy(cameraTarget); 
     controls.enableDamping = true; 
-    controls.maxPolarAngle = Math.PI / 2 - 0.1; 
+    controls.dampingFactor = 0.05; 
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; 
+    controls.minDistance = 8; 
+    controls.maxDistance = 50; 
 
-    // 4. LUZES
-    scene.add(new THREE.AmbientLight(0xffffff, 2.5));
-    const dLight = new THREE.DirectionalLight(0xffffff, 2.2);
-    dLight.position.set(10, 20, 10);
-    dLight.castShadow = true;
-    scene.add(dLight);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
+    scene.add(ambientLight);
 
-    const loader = new GLTFLoader().setDRACOLoader(dracoLoader);
-    const loadedModels: THREE.Object3D[] = [];
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    dirLight.position.set(8, 20, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
 
-    // 5. FUNÇÃO INTERNA PARA SPAWN (Usa mapUtils)
-    const spawn = (name: string, lvl: number, x: number, z: number, isMe: boolean) => {
-      loader.load(getBarracoUrl(lvl), (gltf) => {
-        if (!isMounted) return;
-        const model = gltf.scene;
-        
-        // Ajuste de Escala conforme o nível
-        const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const s = lvl >= 60 ? 4 : lvl >= 30 ? 3 : 2;
-        model.scale.setScalar(s / (Math.max(size.x, size.z) || 1));
+    const fillLight = new THREE.DirectionalLight(0xffe0b0, 2);
+    fillLight.position.set(-15, 10, -10);
+    scene.add(fillLight);
 
-        // Posição no chão
-        const finalBox = new THREE.Box3().setFromObject(model);
-        model.position.set(x, -finalBox.min.y, z);
-        
-        // Aplica o clareamento do mapUtils
-        model.traverse(fixDarkMaterials);
-        scene.add(model);
-        loadedModels.push(model);
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
 
-        // Adiciona o nome do mapUtils
-        const label = createTextLabel(name);
-        label.position.set(x, finalBox.max.y + 1.2, z);
-        scene.add(label);
-        loadedModels.push(label);
+    const modelUrl = getBarracoModelUrl(level);
+    let barraco: THREE.Object3D | null = null;
+    const loadedPlayerModels: THREE.Object3D[] = [];
 
-        if (isMe) {
-          const area = new THREE.Mesh(
-            new THREE.PlaneGeometry(4, 4),
-            new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.15, side: THREE.DoubleSide })
-          );
-          area.rotation.x = -Math.PI / 2;
-          area.position.set(x, 0.05, z);
-          scene.add(area);
-          loadedModels.push(area);
+    const fixDarkMaterials = (child: any) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (child.material) {
+          child.material.metalness = 0; 
+          child.material.roughness = 0.8; 
+          child.material.emissive = new THREE.Color(0x3a220f); 
+          child.material.emissiveIntensity = 0.2;
+          child.material.needsUpdate = true;
         }
-      });
-    };
-
-    // Spawn do Jogador e Vizinhos
-    spawn(displayName, myLevel, worldX, worldZ, true);
-
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      fetch('https://comando-backend.onrender.com/players', { headers: { 'Authorization': `Bearer ${token}` } })
-        .then(res => res.json())
-        .then(players => {
-          if (!isMounted) return;
-          players.forEach((p: any) => {
-            if (p.id === playerState?._id) return;
-            const vx = (p.tileX - GRID_CONFIG.WIDTH / 2) * GRID_CONFIG.TILE_SIZE;
-            const vz = (p.tileY - GRID_CONFIG.HEIGHT / 2) * GRID_CONFIG.TILE_SIZE;
-            spawn(p.name, p.barracoLevel || 1, vx, vz, false);
-          });
-        }).catch(() => console.log("Erro vizinhos"));
-    }
-
-    // 6. CHÃO E GRID
-    const textureLoader = new THREE.TextureLoader();
-    const floorTex = textureLoader.load(FLOOR_TEXTURE);
-    const platform = new THREE.Mesh(
-      new THREE.BoxGeometry(GRID_CONFIG.WIDTH, GRID_CONFIG.PLATFORM_Y, GRID_CONFIG.HEIGHT),
-      [
-        new THREE.MeshStandardMaterial({ color: '#6e5742' }),
-        new THREE.MeshStandardMaterial({ color: '#6e5742' }),
-        new THREE.MeshStandardMaterial({ map: floorTex }),
-        new THREE.MeshStandardMaterial({ color: '#6e5742' }),
-        new THREE.MeshStandardMaterial({ color: '#6e5742' }),
-        new THREE.MeshStandardMaterial({ color: '#6e5742' }),
-      ]
-    );
-    platform.position.y = -GRID_CONFIG.PLATFORM_Y / 2;
-    platform.receiveShadow = true;
-    scene.add(platform);
-
-    // Grid Visual
-    const lineMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1 });
-    for (let i = 0; i <= GRID_CONFIG.WIDTH; i++) {
-      const g = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(i - 20, 0.01, -10), 
-        new THREE.Vector3(i - 20, 0.01, 10)
-      ]);
-      scene.add(new THREE.Line(g, lineMat));
-    }
-    for (let i = 0; i <= GRID_CONFIG.HEIGHT; i++) {
-      const g = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-20, 0.01, i - 10), 
-        new THREE.Vector3(20, 0.01, i - 10)
-      ]);
-      scene.add(new THREE.Line(g, lineMat));
-    }
-
-    // 7. HIGHLIGHT DE CLIQUE (Quadrado Amarelo)
-    const highlight = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
-    );
-    highlight.rotation.x = -Math.PI / 2;
-    highlight.position.y = 0.06;
-    highlight.visible = false;
-    scene.add(highlight);
-
-    // 8. EVENTOS DE PONTEIRO
-    let downPos = { x: 0, y: 0 };
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    const onDown = (e: PointerEvent) => { downPos = { x: e.clientX, y: e.clientY }; };
-    const onUp = (e: PointerEvent) => {
-      const dist = Math.abs(e.clientX - downPos.x) + Math.abs(e.clientY - downPos.y);
-      if (dist > 5) return; // Foi arrasto de câmera
-      
-      const rect = container.getBoundingClientRect();
-      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-      const hits = raycaster.intersectObject(platform);
-      if (hits.length > 0) {
-        highlight.visible = true;
-        highlight.position.set(Math.floor(hits[0].point.x + 0.5), 0.06, Math.floor(hits[0].point.z + 0.5));
-        
-        // Aqui você pode disparar o Teleporte se quiser depois
-        console.log("Alvo para invasão:", Math.floor(hits[0].point.x + 20), Math.floor(hits[0].point.z + 10));
       }
     };
 
-    container.addEventListener('pointerdown', onDown);
-    container.addEventListener('pointerup', onUp);
+    // CARREGANDO O SEU BARRACO
+    loader.load(
+      modelUrl,
+      (gltf) => {
+        if (!isMounted) return; 
 
-    // 9. ANIMATE
-    let animId = 0;
+        barraco = gltf.scene;
+        const box = new THREE.Box3().setFromObject(barraco);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        const maxDimension = Math.max(size.x, size.z) || 1;
+        const scale = barracoSize / maxDimension;
+        barraco.scale.setScalar(scale);
+
+        const scaledBox = new THREE.Box3().setFromObject(barraco);
+        const center = new THREE.Vector3();
+        scaledBox.getCenter(center);
+        barraco.position.sub(center);
+
+        const finalBox = new THREE.Box3().setFromObject(barraco);
+        barraco.position.y -= finalBox.min.y;
+
+        barraco.position.x = playerWorldX;
+        barraco.position.z = playerWorldZ;
+
+        barraco.traverse(fixDarkMaterials);
+
+        scene.add(barraco);
+        loadedPlayerModels.push(barraco);
+
+        // NOME DO JOGADOR LOGADO
+        const label = createTextLabel(displayName);
+        label.position.set(playerWorldX, finalBox.max.y + 1.2, playerWorldZ);
+        scene.add(label);
+        loadedPlayerModels.push(label);
+
+        const reservedArea = new THREE.Mesh(
+          new THREE.PlaneGeometry(4, 4),
+          new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+        );
+        reservedArea.rotation.x = -Math.PI / 2;
+        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ); 
+        
+        scene.add(reservedArea);
+        loadedPlayerModels.push(reservedArea);
+      },
+      undefined,
+      (error) => console.error('❌ Erro crítico ao carregar o modelo:', error)
+    );
+
+    // CARREGANDO OS OUTROS JOGADORES DO BACKEND
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      fetch('https://comando-backend.onrender.com/players', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(players => {
+          if (!isMounted) return;
+
+          players.forEach((p: any) => {
+            if (p.id === playerState?._id) return; 
+  
+            const pLevel = p.barracoLevel || 1;
+            const mInfo = BARRACO_MODELS.find(m => pLevel >= m.min && pLevel <= m.max) || BARRACO_MODELS[0];
+  
+            loader.load(mInfo.url, (gltf) => {
+              if (!isMounted) return;
+              const model = gltf.scene;
+  
+              const bSize = getBarracoSize(pLevel);
+              const sBox = new THREE.Box3().setFromObject(model);
+              const size = new THREE.Vector3();
+              sBox.getSize(size);
+              model.scale.setScalar(bSize / (Math.max(size.x, size.z) || 1));
+  
+              const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+              const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+  
+              model.position.set(posX, 0, posZ);
+              const sBoxFinal = new THREE.Box3().setFromObject(model);
+              model.position.y -= sBoxFinal.min.y;
+
+              model.traverse(fixDarkMaterials);
+  
+              scene.add(model);
+              loadedPlayerModels.push(model);
+
+              // NOMES DOS VIZINHOS
+              const vLabel = createTextLabel(p.name || 'VIZINHO');
+              vLabel.position.set(posX, 3.5, posZ);
+              scene.add(vLabel);
+              loadedPlayerModels.push(vLabel);
+            });
+          });
+        })
+        .catch(err => console.error("❌ Erro ao buscar vizinhos do backend:", err));
+    }
+
+    const textureLoader = new THREE.TextureLoader();
+    const floorTexture = textureLoader.load(FLOOR_TEXTURE);
+    floorTexture.wrapS = THREE.ClampToEdgeWrapping;
+    floorTexture.wrapT = THREE.ClampToEdgeWrapping;
+    floorTexture.repeat.set(1, 1);
+
+    const topMaterial = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 1, metalness: 0 });
+    const sideMaterial = new THREE.MeshStandardMaterial({ color: '#6e5742', roughness: 1, metalness: 0 });
+
+    const platformGeometry = new THREE.BoxGeometry(GRID_WIDTH, PLATFORM_HEIGHT, GRID_HEIGHT);
+    const platform = new THREE.Mesh(platformGeometry, [
+      sideMaterial, sideMaterial, topMaterial, sideMaterial, sideMaterial, sideMaterial,
+    ]);
+    platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
+    platform.receiveShadow = true;
+    platform.castShadow = true;
+    scene.add(platform);
+
+    const gridGroup = new THREE.Group();
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 });
+
+    for (let x = 0; x <= GRID_WIDTH; x++) {
+      const geo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, -GRID_HEIGHT / 2),
+        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, GRID_HEIGHT / 2),
+      ]);
+      gridGroup.add(new THREE.Line(geo, lineMaterial));
+    }
+    for (let z = 0; z <= GRID_HEIGHT; z++) {
+      const geo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
+        new THREE.Vector3(GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
+      ]);
+      gridGroup.add(new THREE.Line(geo, lineMaterial));
+    }
+    scene.add(gridGroup);
+
+    // === SISTEMA DE CLIQUE INTELIGENTE ===
+    let pointerDownPos = { x: 0, y: 0 };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      pointerDownPos = { x: event.clientX, y: event.clientY };
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!containerRef.current) return;
+
+      const moveDistance = Math.abs(event.clientX - pointerDownPos.x) + Math.abs(event.clientY - pointerDownPos.y);
+      if (moveDistance > 5) return; 
+
+      const rect = containerRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(platform);
+      
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+        const tileX = Math.floor(point.x + GRID_WIDTH / 2);
+        const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
+        
+        highlight.visible = true;
+        highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
+        playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
+      }
+    };
+
+    let animationId = 0;
     const animate = () => {
-      if (!isMounted) return;
-      controls.update();
+      controls.update(); 
       renderer.render(scene, camera);
-      animId = requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
     };
     animate();
 
-    return () => {
-      isMounted = false;
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', () => {});
-      container.removeEventListener('pointerdown', onDown);
-      container.removeEventListener('pointerup', onUp);
-      controls.dispose();
-      renderer.dispose();
-      loadedModels.forEach(m => scene.remove(m));
+    const handleResize = () => {
+      if (!containerRef.current) return;
+      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
     };
-  }, [playerState?.mapPosition, displayName, myLevel]);
 
-  return <div ref={containerRef} className="w-full h-full outline-none" />;
+    window.addEventListener('resize', handleResize);
+    container.addEventListener('pointerdown', handlePointerDown);
+    container.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      isMounted = false; 
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('resize', handleResize);
+      container.removeEventListener('pointerdown', handlePointerDown);
+      container.removeEventListener('pointerup', handlePointerUp);
+      
+      controls.dispose(); 
+
+      loadedPlayerModels.forEach(model => {
+        scene.remove(model);
+        model.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.geometry.dispose();
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(mat => mat.dispose());
+            } else if (mesh.material) {
+              mesh.material.dispose();
+            }
+          }
+        });
+      });
+
+      platformGeometry.dispose();
+      topMaterial.dispose();
+      sideMaterial.dispose();
+      lineMaterial.dispose();
+      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+      renderer.dispose();
+    };
+  }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id, displayName]);
+
+  return <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />;
 }
