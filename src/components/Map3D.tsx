@@ -248,7 +248,7 @@ export default function Map3D() {
           model.position.x -= scaledCenter.x;
           model.position.y -= scaledBox.min.y;
           model.position.z -= scaledCenter.z;
-
+          model.rotation.y = building.rotationY;
           wrapper.add(model);
 
           const hitboxHeight = Math.max(scaledSize.y + 1, 4);
