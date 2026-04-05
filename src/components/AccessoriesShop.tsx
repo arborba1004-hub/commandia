@@ -4,6 +4,7 @@ import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 import { Image } from '@/components/ui/image';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { getAccessoryBonus } from '@/utils/accessoryBonus';
 
 interface Accessory {
   _id: string;
@@ -42,7 +43,6 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
   const cleanMoney = player.balances.cleanMoney || 0;
   const playerLevel = player.niveis.playerLevel || 1;
   const purchasedAccessories = player.purchasedAccessories || [];
-  const bonusPercent = playerStore.getAccessoryBonusPercent();
 
   useEffect(() => {
     const loadAccessories = async () => {
@@ -80,9 +80,12 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
     // Atualizar playerStore
     playerStore.removeCleanMoney(price);
     playerStore.purchaseAccessory(accessory._id, skillType);
-    playerStore.addSkillBonus(skillType, bonusPercent);
+    
+    // Apply bonus based on player level
+    const bonus = getAccessoryBonus(player.niveis.playerLevel);
+    playerStore.addSkillBonus(skillType, bonus);
 
-    setPurchaseMessage(`${accessory.itemName} adquirido com sucesso! +${bonusPercent}% em ${skillType}`);
+    setPurchaseMessage(`${accessory.itemName} adquirido com sucesso! +${bonus}% em ${skillType}`);
     setTimeout(() => setPurchaseMessage(''), 3000);
   };
 
@@ -110,7 +113,7 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
           Acessórios Disponíveis
         </h3>
         <p className="text-secondary text-sm">
-          Nível do Jogador: {playerLevel} | Bônus por Acessório: +{bonusPercent}%
+          Nível do Jogador: {playerLevel} | Bônus por Acessório: +{getAccessoryBonus(playerLevel)}%
         </p>
         <p className="text-secondary text-sm mt-2">
           Você possui {ownedVehicles.length} veículo(s). Compre acessórios apenas para os veículos que já possui!
@@ -140,6 +143,7 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
           const price = accessory.itemPrice || 1.99;
           const canAfford = cleanMoney >= price;
           const skillType = accessory.skillType || 'attack';
+          const bonus = getAccessoryBonus(playerLevel);
           // Verificar se o jogador possui algum veículo
           const canPurchase = ownedVehicles.length > 0;
 
@@ -199,7 +203,7 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
                     Habilidade: <span className="text-primary font-bold">{skillType}</span>
                   </p>
                   <p className="text-primary text-xs font-bold">
-                    +{bonusPercent}% em {skillType}
+                    +{bonus}% em {skillType}
                   </p>
                 </div>
 
@@ -291,7 +295,7 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
                   <div>
                     <p className="text-secondary text-sm">Bônus</p>
                     <p className="font-heading text-lg font-bold text-primary">
-                      +{bonusPercent}% em {selectedAccessory.skillType}
+                      +{getAccessoryBonus(playerLevel)}% em {selectedAccessory.skillType}
                     </p>
                   </div>
 

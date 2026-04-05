@@ -7,6 +7,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { motion } from 'framer-motion';
 import { AcessriosdeFuga, EscapeVehicles } from '@/entities';
+import { getAccessoryBonus } from '@/utils/accessoryBonus';
 
 interface PurchasedAccessory {
   accessoryId: string;
@@ -81,9 +82,10 @@ export default function FugaIlustradaPage() {
     // Add owned vehicle
     playerStore.addOwnedVehicle(vehicle._id);
 
-    // Add skill bonus (+1%)
+    // Apply bonus based on player level
     if (vehicle.abilityBonusType) {
-      playerStore.addSkillBonus(vehicle.abilityBonusType, 1);
+      const bonus = getAccessoryBonus(player.niveis.playerLevel);
+      playerStore.addSkillBonus(vehicle.abilityBonusType, bonus);
     }
 
     setPurchaseMessage(`${vehicle.name} adquirido com sucesso!`);
@@ -110,9 +112,10 @@ export default function FugaIlustradaPage() {
     // Remove clean money
     playerStore.removeCleanMoney(price);
 
-    // Add skill bonus based on skillType
+    // Apply bonus based on player level
     if (accessory.skillType) {
-      playerStore.addSkillBonus(accessory.skillType, 2);
+      const bonus = getAccessoryBonus(player.niveis.playerLevel);
+      playerStore.addSkillBonus(accessory.skillType, bonus);
     }
 
     // Record purchase
@@ -462,7 +465,7 @@ export default function FugaIlustradaPage() {
                     <div>
                       <p className="text-secondary text-sm">Bônus de Habilidade</p>
                       <p className="font-heading text-lg font-bold text-primary">
-                        +1% em {selectedVehicle.abilityBonusType}
+                        +{getAccessoryBonus(player.niveis.playerLevel)}% em {selectedVehicle.abilityBonusType}
                       </p>
                     </div>
 
