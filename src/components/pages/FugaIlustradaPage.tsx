@@ -605,7 +605,7 @@ export default function FugaIlustradaPage() {
                     <button
                       key={acc.name}
                       disabled={owned || cleanMoney < 1.99}
-                      onClick={() => handleBuyVehicleAccessory(selectedVehicleForAccessories, acc)}
+                      onClick={() => handleBuyVehicleAccessoryPix(selectedVehicleForAccessories, acc)}
                       className={`w-full px-4 py-3 rounded font-heading font-bold transition-all text-left flex justify-between items-center ${
                         owned
                           ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
