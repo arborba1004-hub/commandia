@@ -217,7 +217,7 @@ export default function Map3D() {
           const wrapper = new THREE.Group();
           wrapper.name = `${building.name}-wrapper`;
           wrapper.position.set(building.x, 0, building.z);
-          wrapper.rotation.y = building.rotationY;
+          wrapper.rotation.y = 0;
 
           const model = gltf.scene;
           model.traverse(fixDarkMaterials);
