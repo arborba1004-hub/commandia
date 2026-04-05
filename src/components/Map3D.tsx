@@ -1,22 +1,19 @@
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+// IMPORTAÇÃO NOVA: O controle de câmera profissional
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
-
-// IMPORTAÇÃO DAS UTILIDADES (Isso limpa o arquivo sem perder as funções)
-import { fixDarkMaterials, createTextLabel, GRID_CONFIG } from './mapUtils';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
-// MAPEAMENTO DAS CONSTANTES (Para manter a compatibilidade com seu código abaixo)
-const GRID_WIDTH = GRID_CONFIG.WIDTH;
-const GRID_HEIGHT = GRID_CONFIG.HEIGHT;
-const TILE_SIZE = GRID_CONFIG.TILE_SIZE;
-const PLATFORM_HEIGHT = GRID_CONFIG.PLATFORM_Y;
-
+const GRID_WIDTH = 40;
+const GRID_HEIGHT = 20;
+const TILE_SIZE = 1;
+const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
@@ -36,7 +33,30 @@ function getBarracoModelUrl(level: number) {
   );
 }
 
-// REMOVIDA A FUNÇÃO createTextLabel DAQUI (JÁ ESTÁ NO MAPUTILS)
+// === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
+function createTextLabel(text: string) {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) return new THREE.Group();
+
+  canvas.width = 512;
+  canvas.height = 128;
+
+  context.fillStyle = 'rgba(0, 0, 0, 0.5)'; 
+  context.roundRect(0, 0, 512, 128, 20);
+  context.fill();
+
+  context.font = 'bold 54px Oswald, Impact, Arial';
+  context.textAlign = 'center';
+  context.fillStyle = '#d9b764'; // Cor dourada padrão
+  context.fillText(text.toUpperCase(), 256, 85);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.scale.set(3.2, 0.8, 1);
+  return sprite;
+}
 
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -93,7 +113,11 @@ export default function Map3D() {
     highlight.visible = false;
     scene.add(highlight);
 
-    // BOLINHA AZUL REMOVIDA DAQUI
+    const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial); 
+    playerModel.position.set(0, 0.3, 0);
+    scene.add(playerModel);
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -104,6 +128,7 @@ export default function Map3D() {
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
+    // === NOVA CÂMERA E CONTROLES ORBIT ===
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
     const cameraTarget = new THREE.Vector3(playerWorldX, 0, playerWorldZ);
     
@@ -136,7 +161,19 @@ export default function Map3D() {
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
 
-    // REMOVIDA A DEFINIÇÃO INTERNA DE fixDarkMaterials (JÁ ESTÁ NO MAPUTILS)
+    const fixDarkMaterials = (child: any) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (child.material) {
+          child.material.metalness = 0; 
+          child.material.roughness = 0.8; 
+          child.material.emissive = new THREE.Color(0x3a220f); 
+          child.material.emissiveIntensity = 0.2;
+          child.material.needsUpdate = true;
+        }
+      }
+    };
 
     // CARREGANDO O SEU BARRACO
     loader.load(
@@ -164,12 +201,13 @@ export default function Map3D() {
         barraco.position.x = playerWorldX;
         barraco.position.z = playerWorldZ;
 
-        barraco.traverse(fixDarkMaterials); // Usa a função importada
+        barraco.traverse(fixDarkMaterials);
 
         scene.add(barraco);
         loadedPlayerModels.push(barraco);
 
-        const label = createTextLabel(displayName); // Usa a função importada
+        // NOME DO JOGADOR LOGADO
+        const label = createTextLabel(displayName);
         label.position.set(playerWorldX, finalBox.max.y + 1.2, playerWorldZ);
         scene.add(label);
         loadedPlayerModels.push(label);
@@ -221,12 +259,13 @@ export default function Map3D() {
               const sBoxFinal = new THREE.Box3().setFromObject(model);
               model.position.y -= sBoxFinal.min.y;
 
-              model.traverse(fixDarkMaterials); // Usa a função importada
+              model.traverse(fixDarkMaterials);
   
               scene.add(model);
               loadedPlayerModels.push(model);
 
-              const vLabel = createTextLabel(p.name || 'VIZINHO'); // Usa a função importada
+              // NOMES DOS VIZINHOS
+              const vLabel = createTextLabel(p.name || 'VIZINHO');
               vLabel.position.set(posX, 3.5, posZ);
               scene.add(vLabel);
               loadedPlayerModels.push(vLabel);
@@ -273,13 +312,16 @@ export default function Map3D() {
     }
     scene.add(gridGroup);
 
+    // === SISTEMA DE CLIQUE INTELIGENTE ===
     let pointerDownPos = { x: 0, y: 0 };
+
     const handlePointerDown = (event: PointerEvent) => {
       pointerDownPos = { x: event.clientX, y: event.clientY };
     };
 
     const handlePointerUp = (event: PointerEvent) => {
       if (!containerRef.current) return;
+
       const moveDistance = Math.abs(event.clientX - pointerDownPos.x) + Math.abs(event.clientY - pointerDownPos.y);
       if (moveDistance > 5) return; 
 
@@ -297,7 +339,7 @@ export default function Map3D() {
         
         highlight.visible = true;
         highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
-        // MOVIMENTO DA BOLINHA REMOVIDO DAQUI
+        playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
       }
     };
 
@@ -326,6 +368,7 @@ export default function Map3D() {
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('pointerdown', handlePointerDown);
       container.removeEventListener('pointerup', handlePointerUp);
+      
       controls.dispose(); 
 
       loadedPlayerModels.forEach(model => {
