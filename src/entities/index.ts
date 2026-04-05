@@ -25,6 +25,29 @@ export interface ConceptArtGallery {
 
 
 /**
+ * Collection ID: fugavehicles
+ * Interface for EscapeVehicles
+ */
+export interface EscapeVehicles {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType text */
+  name?: string;
+  /** @wixFieldType number */
+  level?: number;
+  /** @wixFieldType number */
+  price?: number;
+  /** @wixFieldType image - Contains image URL, render with <Image> component, NOT as text */
+  image?: string;
+  /** @wixFieldType text */
+  abilityBonusType?: string;
+  /** @wixFieldType text */
+  description?: string;
+}
+
+
+/**
  * Collection ID: gamemechanics
  * Interface for GameMechanics
  */

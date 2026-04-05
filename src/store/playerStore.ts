@@ -156,6 +156,8 @@ export type PlayerState = {
   skillBoostMultiplier: number;
 
   headerCustomization?: HeaderCustomization;
+
+  ownedVehicles?: string[];
 };
 
 type PlayerStore = {
@@ -221,6 +223,12 @@ type PlayerStore = {
   completeLaundryOperation: (operationId: string) => Promise<boolean>;
   clearFinishedLaundryOperations: () => void;
   canOperateLaundryToday: (businessId: number) => Promise<boolean>;
+
+  // VEÍCULOS DE FUGA
+  addOwnedVehicle: (vehicleId: string) => void;
+  removeOwnedVehicle: (vehicleId: string) => void;
+  setCleanMoney: (amount: number) => void;
+  addSkillBonus: (skillType: string, percent: number) => void;
 };
 
 const initialPlayer: PlayerState = {
@@ -1005,6 +1013,72 @@ setHierarchyBadge: (badge) => {
       headerCustomization: {
         ...current.headerCustomization,
         ...customization,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  // ==========================================
+  // VEÍCULOS DE FUGA
+  // ==========================================
+  addOwnedVehicle: (vehicleId) => {
+    const current = get().player;
+    const ownedVehicles = current.ownedVehicles || [];
+
+    if (!ownedVehicles.includes(vehicleId)) {
+      const updated = mergePlayer({
+        ...current,
+        ownedVehicles: [...ownedVehicles, vehicleId],
+      });
+
+      set({ player: updated });
+      get().saveLocal();
+      get().scheduleSync();
+    }
+  },
+
+  removeOwnedVehicle: (vehicleId) => {
+    const current = get().player;
+    const ownedVehicles = current.ownedVehicles || [];
+
+    const updated = mergePlayer({
+      ...current,
+      ownedVehicles: ownedVehicles.filter((id) => id !== vehicleId),
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  setCleanMoney: (amount) => {
+    const current = get().player;
+
+    const updated = mergePlayer({
+      ...current,
+      balances: {
+        ...current.balances,
+        cleanMoney: amount,
+      },
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  addSkillBonus: (skillType, percent) => {
+    const current = get().player;
+    const currentValue = current.skills[skillType] || 0;
+
+    const updated = mergePlayer({
+      ...current,
+      skills: {
+        ...current.skills,
+        [skillType]: currentValue + percent,
       },
     });
 

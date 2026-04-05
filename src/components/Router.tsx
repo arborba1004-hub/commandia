@@ -15,6 +15,7 @@ import ArmasPage from '@/components/pages/ArmasPage';
 import GangPage from '@/components/gang/GangPage';
 import LuxoItemPage from '@/components/pages/LuxoItemPage';
 import BarracoPage from '@/components/pages/BarracoPage';
+import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 
 function Layout() {
   return (
@@ -45,6 +46,7 @@ const router = createBrowserRouter([
       { path: 'gang', element: <GangPage /> },
       { path: 'luxo-item', element: <LuxoItemPage /> },
       { path: 'barraco', element: <BarracoPage /> },
+      { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
