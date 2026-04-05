@@ -43,7 +43,7 @@ const COMPLEXO_BUILDINGS = [
     name: 'Centro Comercial',
     url: 'https://static.wixstatic.com/3d/50f4bf_122d344399914dd7b74c6e9c166a2d57.glb',
     x: 17,
-    z: -5,
+    z: -3,
     width: 4,
     depth: 2,
     route: '/centro-comercial',
