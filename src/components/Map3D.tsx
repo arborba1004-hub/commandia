@@ -57,7 +57,7 @@ const COMPLEXO_BUILDINGS = [
     width: 4,
     depth: 2,
     route: '/centro-comunitario',
-    rotationY: -Math.PI/2,
+    rotationY: 0,
   },
 ] as const;
 
