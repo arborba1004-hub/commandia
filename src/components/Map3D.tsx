@@ -444,6 +444,14 @@ export default function Map3D() {
       
       controls.dispose(); 
 
+      // Dispose specific geometries and materials
+      highlightGeometry.dispose();
+      highlightMaterial.dispose();
+      playerGeometry.dispose();
+      playerMaterial.dispose();
+      floorTexture.dispose();
+
+      // Dispose loaded player models
       loadedPlayerModels.forEach(model => {
         scene.remove(model);
         model.traverse((child) => {
@@ -459,9 +467,33 @@ export default function Map3D() {
         });
       });
 
-      cleanupDisposables.forEach(disposable => {
-        if (disposable && typeof disposable.dispose === 'function') {
-          disposable.dispose();
+      // Dispose cleanup disposables with comprehensive handling
+      cleanupDisposables.forEach((item) => {
+        if (!item) return;
+
+        if (item instanceof THREE.Texture) {
+          item.dispose();
+          return;
+        }
+
+        if (item instanceof THREE.Material) {
+          item.dispose();
+          return;
+        }
+
+        if ((item as any).isObject3D) {
+          (item as THREE.Object3D).traverse((child) => {
+            const mesh = child as THREE.Mesh;
+            if (!mesh.isMesh) return;
+
+            if (mesh.geometry) mesh.geometry.dispose();
+
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((mat) => mat.dispose());
+            } else if (mesh.material) {
+              mesh.material.dispose();
+            }
+          });
         }
       });
 
