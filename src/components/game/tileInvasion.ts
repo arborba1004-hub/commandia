@@ -14,11 +14,24 @@ export interface TilePosition {
   tileY: number;
 }
 
+export interface OtherPlayer {
+  id: string;
+  tileX: number;
+  tileY: number;
+  name?: string;
+}
+
 /**
  * Validates if a tile is available for invasion
- * A tile is available if it's within grid bounds and not the player's current position
+ * A tile is available if it's within grid bounds, not the player's current position, and not occupied by another player
  */
-export function isValidTile(tileX: number, tileY: number, currentTileX: number, currentTileY: number): boolean {
+export function isValidTile(
+  tileX: number,
+  tileY: number,
+  currentTileX: number,
+  currentTileY: number,
+  occupiedTiles: Set<string> = new Set()
+): boolean {
   // Check if tile is within grid bounds
   if (tileX < 0 || tileX >= GRID_WIDTH || tileY < 0 || tileY >= GRID_HEIGHT) {
     return false;
@@ -29,7 +42,24 @@ export function isValidTile(tileX: number, tileY: number, currentTileX: number, 
     return false;
   }
 
+  // Check if tile is occupied by another player
+  const tileKey = `${tileX},${tileY}`;
+  if (occupiedTiles.has(tileKey)) {
+    return false;
+  }
+
   return true;
+}
+
+/**
+ * Creates a set of occupied tiles from other players
+ */
+export function getOccupiedTiles(otherPlayers: OtherPlayer[]): Set<string> {
+  const occupied = new Set<string>();
+  otherPlayers.forEach(player => {
+    occupied.add(`${player.tileX},${player.tileY}`);
+  });
+  return occupied;
 }
 
 /**
@@ -44,8 +74,13 @@ export function getTileWorldPosition(tileX: number, tileY: number) {
 /**
  * Handles the tile invasion process
  * Shows a confirmation dialog and updates the player's position if confirmed
+ * Validates that the tile is not occupied by another player
  */
-export async function handleTileInvasion(tileX: number, tileY: number): Promise<boolean> {
+export async function handleTileInvasion(
+  tileX: number,
+  tileY: number,
+  otherPlayers: OtherPlayer[] = []
+): Promise<boolean> {
   const { player, setPlayer } = usePlayerStore.getState();
 
   if (!player) {
@@ -56,15 +91,26 @@ export async function handleTileInvasion(tileX: number, tileY: number): Promise<
   const currentTileX = player.mapPosition?.tileX ?? GRID_WIDTH / 2;
   const currentTileY = player.mapPosition?.tileY ?? GRID_HEIGHT / 2;
 
+  // Get occupied tiles from other players
+  const occupiedTiles = getOccupiedTiles(otherPlayers);
+
   // Validate the tile
-  if (!isValidTile(tileX, tileY, currentTileX, currentTileY)) {
-    console.warn('Invalid tile selected');
+  if (!isValidTile(tileX, tileY, currentTileX, currentTileY, occupiedTiles)) {
+    // Check if tile is occupied by another player
+    const tileKey = `${tileX},${tileY}`;
+    if (occupiedTiles.has(tileKey)) {
+      console.warn(`❌ Lote (${tileX}, ${tileY}) já está ocupado por outro jogador`);
+      window.alert(`❌ Este lote já está ocupado por outro jogador!`);
+    } else {
+      console.warn('Invalid tile selected');
+      window.alert('❌ Lote inválido! Escolha outro local.');
+    }
     return false;
   }
 
   // Show confirmation dialog
   const confirmed = window.confirm(
-    `Deseja invadir o lote em (${tileX}, ${tileY})?\n\nSeu barraco será teleportado para esta localização.`
+    `Deseja invadir o lote em (${tileX}, ${tileY})?\\n\\nSeu barraco será teleportado para esta localização.`
   );
 
   if (!confirmed) {

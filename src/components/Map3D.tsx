@@ -6,7 +6,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 // IMPORTAÇÃO NOVA: O controle de câmera profissional
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
-import { handleTileInvasion, worldToTileCoordinates } from '@/components/game/tileInvasion';
+import { handleTileInvasion, worldToTileCoordinates, OtherPlayer } from '@/components/game/tileInvasion';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -228,6 +228,7 @@ export default function Map3D() {
     );
 
     // CARREGANDO OS OUTROS JOGADORES DO BACKEND
+    let otherPlayersData: OtherPlayer[] = [];
     const token = localStorage.getItem('authToken');
     if (token) {
       fetch('https://comando-backend.onrender.com/players', {
@@ -236,6 +237,16 @@ export default function Map3D() {
         .then(res => res.json())
         .then(players => {
           if (!isMounted) return;
+
+          // Store other players data for tile availability check
+          otherPlayersData = players
+            .filter((p: any) => p.id !== playerState?._id)
+            .map((p: any) => ({
+              id: p.id,
+              tileX: p.tileX,
+              tileY: p.tileY,
+              name: p.name
+            }));
 
           players.forEach((p: any) => {
             if (p.id === playerState?._id) return; 
@@ -342,8 +353,8 @@ export default function Map3D() {
         highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
         playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
 
-        // Handle tile invasion
-        handleTileInvasion(tileX, tileZ);
+        // Handle tile invasion with other players data
+        handleTileInvasion(tileX, tileZ, otherPlayersData);
       }
     };
 
