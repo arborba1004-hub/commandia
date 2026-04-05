@@ -95,64 +95,66 @@ export default function LavagemDeDinheiroPage() {
   const dirtyMoney = player?.balances?.dirtyMoney || 0;
   const activeOperations = player?.laundryProgress?.activeOperations || [];
   const taxReduction = getLaundryTaxReduction();
-// Carrega os dados do jogador e limpa operações diárias antigas
-useEffect(() => {
-  if (!isLoaded) {
-    loadPlayer();
-  } else {
-    // Limpa operações diárias de dias anteriores (mantém só hoje)
-    clearFinishedLaundryOperations();
-  }
-}, [isLoaded, loadPlayer, clearFinishedLaundryOperations]);
 
-// Timer para atualizar a contagem regressiva baseada em endsAt (vindo do backend)
-useEffect(() => {
-  if (activeOperations.length === 0) return;
+  // Carrega os dados do jogador e limpa operações diárias antigas
+  useEffect(() => {
+    if (!isLoaded) {
+      loadPlayer();
+    } else {
+      // Limpa operações diárias de dias anteriores (mantém só hoje)
+      clearFinishedLaundryOperations();
+    }
+  }, [isLoaded, loadPlayer, clearFinishedLaundryOperations]);
 
-  const interval = setInterval(() => {
-    setTimerStates(prev => {
-      const updated = { ...prev };
-      let hasChanges = false;
+  // Timer para atualizar a contagem regressiva baseada em endsAt (vindo do backend)
+  useEffect(() => {
+    if (activeOperations.length === 0) return;
 
-      activeOperations.forEach(op => {
-        if (op.status !== 'processing') return;
-        
-        const endsAt = new Date(op.endsAt);
-        const now = new Date();
-        const timeRemaining = Math.max(0, Math.floor((endsAt.getTime() - now.getTime()) / 1000));
+    const interval = setInterval(() => {
+      setTimerStates(prev => {
+        const updated = { ...prev };
+        let hasChanges = false;
 
-        if (timeRemaining !== (prev[op.businessId] ?? -1)) {
-          updated[op.businessId] = timeRemaining;
-          hasChanges = true;
+        activeOperations.forEach(op => {
+          if (op.status !== 'processing') return;
+          
+          const endsAt = new Date(op.endsAt);
+          const now = new Date();
+          const timeRemaining = Math.max(0, Math.floor((endsAt.getTime() - now.getTime()) / 1000));
 
-          // Quando o tempo chegar a 0, completa a operação chamando o backend
-          if (timeRemaining === 0) {
-            completeLaundryOperation(op.operationId);
+          if (timeRemaining !== (prev[op.businessId] ?? -1)) {
+            updated[op.businessId] = timeRemaining;
+            hasChanges = true;
+
+            // Quando o tempo chegar a 0, completa a operação chamando o backend
+            if (timeRemaining === 0) {
+              completeLaundryOperation(op.operationId);
+            }
           }
-        }
+        });
+
+        return hasChanges ? updated : prev;
       });
+    }, 1000);
 
-      return hasChanges ? updated : prev;
-    });
-  }, 1000);
+    return () => clearInterval(interval);
+  }, [activeOperations, completeLaundryOperation]);
 
-  return () => clearInterval(interval);
-}, [activeOperations, completeLaundryOperation]);
+  // Função para escalar valores com base no nível do jogador
+  const getScaledValues = (business: Business) => {
+    const scaledMoney = business.initialMoney * levelMultiplier;
+    const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
+    const fee = (scaledMoney * business.feePercentage) / 100;
+    const finalFee = fee * (1 - taxReduction / 100);
+    const netAmount = scaledMoney - finalFee;
+    return { scaledMoney, scaledTime, fee: finalFee, netAmount };
+  };
 
-// Função para escalar valores com base no nível do jogador
-const getScaledValues = (business: Business) => {
-  const scaledMoney = business.initialMoney * levelMultiplier;
-  const scaledTime = Math.ceil(business.operationTimeSeconds * levelMultiplier);
-  const fee = (scaledMoney * business.feePercentage) / 100;
-  const finalFee = fee * (1 - taxReduction / 100);
-  const netAmount = scaledMoney - finalFee;
-  return { scaledMoney, scaledTime, fee: finalFee, netAmount };
-};
+  // Obtém a operação ativa para um negócio
+  const getActiveOperation = (businessId: number) => {
+    return activeOperations.find(op => op.businessId === businessId && op.status === 'processing');
+  };
 
-// Obtém a operação ativa para um negócio
-const getActiveOperation = (businessId: number) => {
-  return activeOperations.find(op => op.businessId === businessId && op.status === 'processing');
-};
   const handleLaunder = async (businessId: number) => {
     const business = businesses.find(b => b.id === businessId);
     if (!business) return;
