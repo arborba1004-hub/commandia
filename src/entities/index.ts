@@ -26,6 +26,51 @@ export interface AcessriosdeFuga {
 
 
 /**
+ * Collection ID: armasarsenal
+ * Interface for ArmasArsenal
+ */
+export interface ArmasArsenal {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType text */
+  weaponName?: string;
+  /** @wixFieldType text */
+  description?: string;
+  /** @wixFieldType number */
+  level?: number;
+  /** @wixFieldType number */
+  dirtyMoneyPrice?: number;
+  /** @wixFieldType text */
+  abilityBonus?: string;
+  /** @wixFieldType image - Contains image URL, render with <Image> component, NOT as text */
+  weaponImage?: string;
+}
+
+
+/**
+ * Collection ID: casesdearmas
+ * @catalog This collection is an eCommerce catalog
+ * Interface for WeaponCases
+ */
+export interface WeaponCases {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType text */
+  itemName?: string;
+  /** @wixFieldType number */
+  itemPrice?: number;
+  /** @wixFieldType image - Contains image URL, render with <Image> component, NOT as text */
+  itemImage?: string;
+  /** @wixFieldType text */
+  itemDescription?: string;
+  /** @wixFieldType text */
+  abilityBonusType?: string;
+}
+
+
+/**
  * Collection ID: conceptart
  * Interface for ConceptArtGallery
  */
