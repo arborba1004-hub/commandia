@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { motion } from 'framer-motion';
+import AccessoriesShop from '@/components/AccessoriesShop';
 
 interface FugaVehicle {
   _id: string;
@@ -22,10 +23,12 @@ export default function FugaIlustradaPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedVehicle, setSelectedVehicle] = useState<FugaVehicle | null>(null);
   const [purchaseMessage, setPurchaseMessage] = useState('');
+  const [activeTab, setActiveTab] = useState<'vehicles' | 'accessories'>('vehicles');
 
   const playerStore = usePlayerStore();
-  const cleanMoney = playerStore.cleanMoney || 0;
-  const ownedVehicles = playerStore.ownedVehicles || [];
+  const player = playerStore.player;
+  const cleanMoney = player.balances.cleanMoney || 0;
+  const ownedVehicles = player.ownedVehicles || [];
 
   useEffect(() => {
     const loadVehicles = async () => {
@@ -73,7 +76,7 @@ export default function FugaIlustradaPage() {
     }
 
     // Atualizar playerStore
-    playerStore.setCleanMoney(cleanMoney - price);
+    playerStore.removeCleanMoney(price);
     playerStore.addOwnedVehicle(vehicle._id);
 
     // Aplicar bônus de habilidade
@@ -174,108 +177,151 @@ export default function FugaIlustradaPage() {
           )}
         </section>
 
-        {/* Vehicles Grid */}
-        <section>
-          <h2 className="font-heading text-4xl font-bold mb-8 text-center">
-            Catálogo de Veículos
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {vehicles.map((vehicle, index) => {
-              const isOwned = ownedVehicles.includes(vehicle._id);
-              const price = calculateVehiclePrice(vehicle.level || 1);
-              const canAfford = cleanMoney >= price;
-
-              return (
-                <motion.div
-                  key={vehicle._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.05 }}
-                  className={`rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                    isOwned
-                      ? 'border-primary bg-custom4 opacity-75'
-                      : canAfford
-                        ? 'border-secondary hover:border-primary bg-custom4'
-                        : 'border-destructive bg-custom4 opacity-60'
-                  }`}
-                  onClick={() => setSelectedVehicle(vehicle)}
-                >
-                  {/* Vehicle Image */}
-                  <div className="relative h-40 bg-black overflow-hidden">
-                    {vehicle.image ? (
-                      <Image
-                        src={vehicle.image}
-                        alt={vehicle.name || 'Veículo'}
-                        className="w-full h-full object-cover"
-                        width={300}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-custom4">
-                        <span className="text-secondary text-sm">Sem imagem</span>
-                      </div>
-                    )}
-                    {isOwned && (
-                      <div className="absolute top-2 right-2 bg-primary px-3 py-1 rounded text-black font-bold text-sm">
-                        POSSUÍDO
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Vehicle Info */}
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-heading text-lg font-bold text-primary">
-                        {vehicle.name}
-                      </h3>
-                      <span className="bg-primary text-black px-2 py-1 rounded text-xs font-bold">
-                        Nv. {vehicle.level}
-                      </span>
-                    </div>
-
-                    <p className="text-secondary text-xs mb-3 line-clamp-2">
-                      {vehicle.description}
-                    </p>
-
-                    <div className="mb-3">
-                      <p className="text-secondary text-xs mb-1">
-                        Bônus: <span className="text-primary">{vehicle.abilityBonusType}</span>
-                      </p>
-                      <p className="text-secondary text-xs">+1% em {vehicle.abilityBonusType}</p>
-                    </div>
-
-                    <div className="border-t border-secondary pt-3 mb-3">
-                      <p className="text-primary font-heading text-xl font-bold">
-                        R$ {price.toFixed(2)}
-                      </p>
-                    </div>
-
-                    {/* Purchase Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePurchaseVehicle(vehicle);
-                      }}
-                      disabled={isOwned || !canAfford}
-                      className={`w-full py-2 rounded font-heading font-bold transition-all ${
-                        isOwned
-                          ? 'bg-custom4 text-secondary cursor-not-allowed'
-                          : canAfford
-                            ? 'bg-primary text-black hover:bg-secondary'
-                            : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
-                      }`}
-                    >
-                      {isOwned ? 'Possuído' : canAfford ? 'Comprar' : 'Sem Fundos'}
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })}
+        {/* Tabs */}
+        <section className="mb-12">
+          <div className="flex gap-4 mb-8 border-b border-secondary">
+            <button
+              onClick={() => setActiveTab('vehicles')}
+              className={`px-6 py-3 font-heading font-bold text-lg transition-all ${
+                activeTab === 'vehicles'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-secondary hover:text-primary'
+              }`}
+            >
+              Veículos
+            </button>
+            <button
+              onClick={() => setActiveTab('accessories')}
+              className={`px-6 py-3 font-heading font-bold text-lg transition-all ${
+                activeTab === 'accessories'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-secondary hover:text-primary'
+              }`}
+            >
+              Acessórios
+            </button>
           </div>
+
+          {/* Vehicles Tab */}
+          {activeTab === 'vehicles' && (
+            <div>
+              <h2 className="font-heading text-4xl font-bold mb-8 text-center">
+                Catálogo de Veículos
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {vehicles.map((vehicle, index) => {
+                  const isOwned = ownedVehicles.includes(vehicle._id);
+                  const price = calculateVehiclePrice(vehicle.level || 1);
+                  const canAfford = cleanMoney >= price;
+
+                  return (
+                    <motion.div
+                      key={vehicle._id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: index * 0.05 }}
+                      className={`rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                        isOwned
+                          ? 'border-primary bg-custom4 opacity-75'
+                          : canAfford
+                            ? 'border-secondary hover:border-primary bg-custom4'
+                            : 'border-destructive bg-custom4 opacity-60'
+                      }`}
+                      onClick={() => setSelectedVehicle(vehicle)}
+                    >
+                      {/* Vehicle Image */}
+                      <div className="relative h-40 bg-black overflow-hidden">
+                        {vehicle.image ? (
+                          <Image
+                            src={vehicle.image}
+                            alt={vehicle.name || 'Veículo'}
+                            className="w-full h-full object-cover"
+                            width={300}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-custom4">
+                            <span className="text-secondary text-sm">Sem imagem</span>
+                          </div>
+                        )}
+                        {isOwned && (
+                          <div className="absolute top-2 right-2 bg-primary px-3 py-1 rounded text-black font-bold text-sm">
+                            POSSUÍDO
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Vehicle Info */}
+                      <div className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-heading text-lg font-bold text-primary">
+                            {vehicle.name}
+                          </h3>
+                          <span className="bg-primary text-black px-2 py-1 rounded text-xs font-bold">
+                            Nv. {vehicle.level}
+                          </span>
+                        </div>
+
+                        <p className="text-secondary text-xs mb-3 line-clamp-2">
+                          {vehicle.description}
+                        </p>
+
+                        <div className="mb-3">
+                          <p className="text-secondary text-xs mb-1">
+                            Bônus: <span className="text-primary">{vehicle.abilityBonusType}</span>
+                          </p>
+                          <p className="text-secondary text-xs">+1% em {vehicle.abilityBonusType}</p>
+                        </div>
+
+                        <div className="border-t border-secondary pt-3 mb-3">
+                          <p className="text-primary font-heading text-xl font-bold">
+                            R$ {price.toFixed(2)}
+                          </p>
+                        </div>
+
+                        {/* Purchase Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePurchaseVehicle(vehicle);
+                          }}
+                          disabled={isOwned || !canAfford}
+                          className={`w-full py-2 rounded font-heading font-bold transition-all ${
+                            isOwned
+                              ? 'bg-custom4 text-secondary cursor-not-allowed'
+                              : canAfford
+                                ? 'bg-primary text-black hover:bg-secondary'
+                                : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                          }`}
+                        >
+                          {isOwned ? 'Possuído' : canAfford ? 'Comprar' : 'Sem Fundos'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Accessories Tab */}
+          {activeTab === 'accessories' && selectedVehicle ? (
+            <AccessoriesShop vehicleId={selectedVehicle._id} vehicleName={selectedVehicle.name} />
+          ) : activeTab === 'accessories' ? (
+            <div className="text-center py-12">
+              <p className="text-secondary text-lg mb-4">Selecione um veículo para ver seus acessórios</p>
+              <button
+                onClick={() => setActiveTab('vehicles')}
+                className="px-6 py-3 bg-primary text-black font-heading font-bold rounded hover:bg-secondary transition-all"
+              >
+                Ver Veículos
+              </button>
+            </div>
+          ) : null}
         </section>
 
         {/* Vehicle Detail Modal */}
-        {selectedVehicle && (
+        {selectedVehicle && activeTab === 'vehicles' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

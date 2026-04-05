@@ -125,6 +125,12 @@ type PunishmentsState = {
   lastVehicleLost?: boolean;
 };
 
+type PurchasedAccessory = {
+  accessoryId: string;
+  skillType: string;
+  purchasedAt: string;
+};
+
 export type PlayerState = {
   _id?: string;
   googleId?: string;
@@ -158,6 +164,8 @@ export type PlayerState = {
   headerCustomization?: HeaderCustomization;
 
   ownedVehicles?: string[];
+
+  purchasedAccessories?: PurchasedAccessory[];
 };
 
 type PlayerStore = {
@@ -229,6 +237,10 @@ type PlayerStore = {
   removeOwnedVehicle: (vehicleId: string) => void;
   setCleanMoney: (amount: number) => void;
   addSkillBonus: (skillType: string, percent: number) => void;
+
+  // ACESSÓRIOS DE FUGA
+  purchaseAccessory: (accessoryId: string, skillType: string) => void;
+  getAccessoryBonusPercent: () => number;
 };
 
 const initialPlayer: PlayerState = {
@@ -402,6 +414,8 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     },
 
     skillBoostMultiplier: incoming?.skillBoostMultiplier ?? initialPlayer.skillBoostMultiplier,
+
+  purchasedAccessories: incoming?.purchasedAccessories || initialPlayer.purchasedAccessories || [],
   };
 }
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
@@ -1085,5 +1099,38 @@ setHierarchyBadge: (badge) => {
     set({ player: updated });
     get().saveLocal();
     get().scheduleSync();
+  },
+
+  purchaseAccessory: (accessoryId, skillType) => {
+    const current = get().player;
+    const purchasedAccessories = current.purchasedAccessories || [];
+
+    // Evita compras duplicadas
+    if (purchasedAccessories.some((acc) => acc.accessoryId === accessoryId)) {
+      return;
+    }
+
+    const newAccessory: PurchasedAccessory = {
+      accessoryId,
+      skillType,
+      purchasedAt: new Date().toISOString(),
+    };
+
+    const updated = mergePlayer({
+      ...current,
+      purchasedAccessories: [...purchasedAccessories, newAccessory],
+    });
+
+    set({ player: updated });
+    get().saveLocal();
+    get().scheduleSync();
+  },
+
+  getAccessoryBonusPercent: () => {
+    const current = get().player;
+    const playerLevel = current.niveis.playerLevel || 1;
+
+    // +1% até nível 50, +2% a partir de nível 51
+    return playerLevel <= 50 ? 1 : 2;
   },
 }));

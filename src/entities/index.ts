@@ -4,6 +4,28 @@
  */
 
 /**
+ * Collection ID: accessories
+ * @catalog This collection is an eCommerce catalog
+ * Interface for AcessriosdeFuga
+ */
+export interface AcessriosdeFuga {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType text */
+  itemName?: string;
+  /** @wixFieldType text */
+  itemDescription?: string;
+  /** @wixFieldType number */
+  itemPrice?: number;
+  /** @wixFieldType image - Contains image URL, render with <Image> component, NOT as text */
+  itemImage?: string;
+  /** @wixFieldType text */
+  skillType?: string;
+}
+
+
+/**
  * Collection ID: conceptart
  * Interface for ConceptArtGallery
  */
