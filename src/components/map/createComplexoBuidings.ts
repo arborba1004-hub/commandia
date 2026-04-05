@@ -27,7 +27,7 @@ export type ComplexoBuildingHitbox = {
 export type CreateComplexoBuildingsResult = {
   group: THREE.Group;
   clickableMeshes: ComplexoBuildingHitbox[];
-  disposables: Array<THREE.Object3D | THREE.Material | THREE.Texture>;
+  disposables: Array<any>;
   load: () => Promise<void>;
 };
 
@@ -73,22 +73,22 @@ function fixDarkMaterials(child: any) {
   child.castShadow = true;
   child.receiveShadow = true;
 
-  if (child.material) {
-    if (Array.isArray(child.material)) {
-      child.material.forEach((mat: any) => {
-        mat.metalness = 0;
-        mat.roughness = 0.85;
-        mat.emissive = new THREE.Color(0x2a190b);
-        mat.emissiveIntensity = 0.12;
-        mat.needsUpdate = true;
-      });
-    } else {
-      child.material.metalness = 0;
-      child.material.roughness = 0.85;
-      child.material.emissive = new THREE.Color(0x2a190b);
-      child.material.emissiveIntensity = 0.12;
-      child.material.needsUpdate = true;
-    }
+  if (!child.material) return;
+
+  if (Array.isArray(child.material)) {
+    child.material.forEach((mat: any) => {
+      mat.metalness = 0;
+      mat.roughness = 0.85;
+      mat.emissive = new THREE.Color(0x2a190b);
+      mat.emissiveIntensity = 0.12;
+      mat.needsUpdate = true;
+    });
+  } else {
+    child.material.metalness = 0;
+    child.material.roughness = 0.85;
+    child.material.emissive = new THREE.Color(0x2a190b);
+    child.material.emissiveIntensity = 0.12;
+    child.material.needsUpdate = true;
   }
 }
 
@@ -106,6 +106,7 @@ function loadGLTF(loader: GLTFLoader, url: string): Promise<THREE.Group> {
 function createTextLabel(text: string) {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
+
   if (!context) {
     return {
       sprite: new THREE.Sprite(),
@@ -148,84 +149,96 @@ export function createComplexoBuildings(loader: GLTFLoader): CreateComplexoBuild
   group.name = 'complexo-buildings-group';
 
   const clickableMeshes: ComplexoBuildingHitbox[] = [];
-  const disposables: Array<THREE.Object3D | THREE.Material | THREE.Texture> = [];
+  const disposables: Array<any> = [];
 
   const load = async () => {
     for (const building of COMPLEXO_BUILDINGS) {
-      const model = await loadGLTF(loader, building.url);
+      try {
+        const model = await loadGLTF(loader, building.url);
+        model.traverse(fixDarkMaterials);
 
-      model.traverse(fixDarkMaterials);
+        const sourceBox = new THREE.Box3().setFromObject(model);
+        const sourceSize = new THREE.Vector3();
+        const sourceCenter = new THREE.Vector3();
 
-      const initialBox = new THREE.Box3().setFromObject(model);
-      const initialSize = new THREE.Vector3();
-      initialBox.getSize(initialSize);
+        sourceBox.getSize(sourceSize);
+        sourceBox.getCenter(sourceCenter);
 
-      const currentMaxX = Math.max(initialSize.x, 0.001);
-      const currentMaxZ = Math.max(initialSize.z, 0.001);
+        const safeX = Math.max(sourceSize.x, 0.001);
+        const safeZ = Math.max(sourceSize.z, 0.001);
 
-      const scaleX = building.width / currentMaxX;
-      const scaleZ = building.depth / currentMaxZ;
-      const uniformScale = Math.min(scaleX, scaleZ) * (building.scaleMultiplier ?? 1);
+        const scaleX = building.width / safeX;
+        const scaleZ = building.depth / safeZ;
+        const uniformScale = Math.min(scaleX, scaleZ) * (building.scaleMultiplier ?? 1);
 
-      model.scale.setScalar(uniformScale);
+        model.scale.setScalar(uniformScale);
 
-      const scaledBox = new THREE.Box3().setFromObject(model);
-      const center = new THREE.Vector3();
-      scaledBox.getCenter(center);
+        const scaledBox = new THREE.Box3().setFromObject(model);
+        const scaledCenter = new THREE.Vector3();
+        const scaledSize = new THREE.Vector3();
 
-      model.position.sub(center);
+        scaledBox.getCenter(scaledCenter);
+        scaledBox.getSize(scaledSize);
 
-      const groundedBox = new THREE.Box3().setFromObject(model);
-      model.position.y -= groundedBox.min.y;
+        // centraliza o modelo no próprio pivô local
+        model.position.x -= scaledCenter.x;
+        model.position.y -= scaledBox.min.y;
+        model.position.z -= scaledCenter.z;
 
-      model.position.x = building.x;
-      model.position.z = building.z;
-      model.rotation.y = building.rotationY ?? 0;
+        const wrapper = new THREE.Group();
+        wrapper.name = `${building.name}-wrapper`;
+        wrapper.position.set(building.x, 0, building.z);
+        wrapper.rotation.y = building.rotationY ?? 0;
 
-      group.add(model);
-      disposables.push(model);
+        wrapper.add(model);
+        group.add(wrapper);
 
-      const finalBox = new THREE.Box3().setFromObject(model);
-      const finalSize = new THREE.Vector3();
-      finalBox.getSize(finalSize);
+        disposables.push(wrapper);
+        disposables.push(model);
 
-      const hitboxHeight = Math.max(finalSize.y + 1, 4);
+        const hitboxHeight = Math.max(scaledSize.y + 1, 4);
 
-      const hitbox = new THREE.Mesh(
-        new THREE.BoxGeometry(building.width, hitboxHeight, building.depth),
-        new THREE.MeshBasicMaterial({
-          transparent: true,
-          opacity: 0,
-          depthWrite: false,
-        })
-      );
+        const hitbox = new THREE.Mesh(
+          new THREE.BoxGeometry(building.width, hitboxHeight, building.depth),
+          new THREE.MeshBasicMaterial({
+            transparent: true,
+            opacity: 0,
+            depthWrite: false,
+          })
+        );
 
-      hitbox.name = `${building.name}-hitbox`;
-      hitbox.position.set(building.x, hitboxHeight / 2, building.z);
-      hitbox.userData = {
-        buildingName: building.name,
-        route: building.route,
-        isComplexoBuilding: true,
-      };
+        hitbox.name = `${building.name}-hitbox`;
+        hitbox.position.set(0, hitboxHeight / 2, 0);
+        hitbox.userData = {
+          buildingName: building.name,
+          route: building.route,
+          isComplexoBuilding: true,
+        };
 
-      group.add(hitbox);
-      clickableMeshes.push({
-        name: building.name,
-        route: building.route,
-        mesh: hitbox,
-      });
+        wrapper.add(hitbox);
 
-      disposables.push(hitbox);
-      disposables.push(hitbox.geometry);
-      disposables.push(hitbox.material);
+        clickableMeshes.push({
+          name: building.name,
+          route: building.route,
+          mesh: hitbox,
+        });
 
-      const { sprite, texture, material } = createTextLabel(building.name);
-      sprite.position.set(building.x, finalBox.max.y + 1.4, building.z);
-      group.add(sprite);
-      disposables.push(sprite);
+        disposables.push(hitbox);
+        disposables.push(hitbox.geometry);
+        disposables.push(hitbox.material);
 
-      if (texture) disposables.push(texture);
-      if (material) disposables.push(material);
+        const { sprite, texture, material } = createTextLabel(building.name);
+        sprite.position.set(0, scaledSize.y + 1.4, 0);
+        wrapper.add(sprite);
+
+        disposables.push(sprite);
+        if (texture) disposables.push(texture);
+        if (material) disposables.push(material);
+
+        console.log(`✅ ${building.name} carregado em x:${building.x} z:${building.z}`);
+      } catch (error) {
+        console.error(`❌ Erro ao carregar ${building.name}:`, error);
+      }
     }
   };
 
