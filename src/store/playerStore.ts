@@ -10,6 +10,8 @@ import { generateUUID } from '@/lib/uuid';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
+const GRID_WIDTH = 40;
+const GRID_HEIGHT = 20;
 
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
@@ -70,6 +72,11 @@ type BarracoPosition = {
   x: number;
   y: number;
   z: number;
+};
+
+type MapPosition = {
+  tileX: number;
+  tileY: number;
 };
 
 type ActiveOperation = {
@@ -139,6 +146,8 @@ export type PlayerState = {
   hierarchyBadge: string;
 
   barracoPosition: BarracoPosition;
+
+  mapPosition?: MapPosition;
 
   laundryProgress: LaundryProgress;
 
@@ -274,6 +283,11 @@ const initialPlayer: PlayerState = {
     z: 0,
   },
 
+  mapPosition: {
+    tileX: GRID_WIDTH / 2,
+    tileY: GRID_HEIGHT / 2,
+  },
+
   laundryProgress: {
     activeOperations: [],
     dailyOperations: [],
@@ -336,6 +350,11 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     barracoPosition: {
       ...initialPlayer.barracoPosition,
       ...(incoming?.barracoPosition || {}),
+    },
+
+    mapPosition: {
+      tileX: incoming?.mapPosition?.tileX ?? initialPlayer.mapPosition?.tileX ?? GRID_WIDTH / 2,
+      tileY: incoming?.mapPosition?.tileY ?? initialPlayer.mapPosition?.tileY ?? GRID_HEIGHT / 2,
     },
 
     headerCustomization: {

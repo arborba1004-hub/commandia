@@ -6,6 +6,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 // IMPORTAÇÃO NOVA: O controle de câmera profissional
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
+import { handleTileInvasion, worldToTileCoordinates } from '@/components/game/tileInvasion';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -340,6 +341,9 @@ export default function Map3D() {
         highlight.visible = true;
         highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
         playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
+
+        // Handle tile invasion
+        handleTileInvasion(tileX, tileZ);
       }
     };
 
