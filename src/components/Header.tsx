@@ -1,130 +1,142 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
-import { LogOut, Settings } from 'lucide-react';
-import { Image } from '@/components/ui/image';
-import HeaderCustomizationModal from '@/components/HeaderCustomizationModal';
+import { LogOut, User } from 'lucide-react';
 
 export default function Header() {
   const { player } = usePlayerStore();
-  const { logout } = useGoogleAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { playerData, logout } = useGoogleAuth();
 
   const isAuthenticated = !!player?._id;
+  const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
+  const cleanMoney = player?.balances?.cleanMoney ?? 0;
+  const corre = player?.balances?.corre ?? 0;
+  const playerName = playerData?.name || 'Jogador';
 
-  // LÓGICA DO NOME: Prioriza o nome personalizado do Header, depois o nome da conta, e por fim o padrão.
-  const playerName = (
-    player?.headerCustomization?.customName || 
-    player?.name || 
-    'CAPO GHOST'
-  ).toUpperCase();
-
-  const dirtyMoney = Number(player?.balances?.dirtyMoney ?? 0);
-  const cleanMoney = Number(player?.balances?.cleanMoney ?? 0);
-  const corre = Number(player?.balances?.corre ?? 0);
-  const playerLevel = Number(player?.niveis?.playerLevel ?? 1);
-
-  const power = Number(player?.power ?? 0);
-  const hierarchyBadge = (player?.hierarchyBadge || 'RECRUTA').toUpperCase();
-
-  const avatar =
-    player?.avatar ||
-    'https://static.wixstatic.com/media/50f4bf_5868d04681cb49d1a58d89dc4493574f~mv2.png';
+  // Ensure values are numbers for toLocaleString
+  const formatMoney = (value: any) => {
+    const num = typeof value === 'number' ? value : 0;
+    return num.toLocaleString('pt-BR');
+  };
 
   const handleLogout = () => {
     logout();
-  };
-
-  // Estilos dinâmicos vindos da personalização
-  const nameStyle = {
-    fontFamily: player?.headerCustomization?.playerNameFont || 'oswald',
-    fontSize: player?.headerCustomization?.playerNameFontSize || '1.875rem',
-    color: player?.headerCustomization?.playerNameColor || '#d9b764',
+    window.location.href = '/';
   };
 
   return (
-    <header className="w-full bg-black border-b border-white/10 z-50">
-      <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-        
-        {/* LADO ESQUERDO: AVATAR E INFOS */}
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Image 
-              src={avatar} 
-              alt="Avatar" 
-              className="w-12 h-12 rounded-full border-2 border-[#d9b764] object-cover" 
-            />
-            <div className="absolute -bottom-1 -right-1 bg-[#d9b764] text-black text-[10px] font-bold px-1 rounded">
-              LVL {playerLevel}
+    <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-custom4">
+      <div className="max-w-[120rem] mx-auto px-6 lg:px-12 py-6 flex items-center justify-between gap-6">
+        <Link
+          to="/"
+          className="font-heading text-2xl lg:text-3xl uppercase tracking-wider text-foreground hover:text-primary transition-colors whitespace-nowrap"
+        >
+          Domínio do Comando
+        </Link>
+
+        {isAuthenticated && (
+          <div className="hidden lg:flex items-center gap-3">
+            <div className="px-4 py-2 rounded-xl border border-red-500/20 bg-red-900/30 text-sm font-heading uppercase tracking-wider text-red-200">
+              Commands Sujo: {formatMoney(dirtyMoney)}
+            </div>
+
+            <div className="px-4 py-2 rounded-xl border border-emerald-500/20 bg-emerald-900/30 text-sm font-heading uppercase tracking-wider text-emerald-200">
+              Commands Limpo: {formatMoney(cleanMoney)}
+            </div>
+
+            <div className="px-4 py-2 rounded-xl border border-blue-500/20 bg-blue-900/30 text-sm font-heading uppercase tracking-wider text-blue-200">
+              Corre: {formatMoney(corre)}
             </div>
           </div>
-          
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span style={nameStyle} className="font-bold tracking-tighter leading-none">
-                {playerName}
-              </span>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="p-1 hover:bg-white/10 rounded-full transition-colors"
-              >
-                <Settings className="w-4 h-4 text-white/50" />
-              </button>
-            </div>
-            <span className="text-[10px] text-[#d9b764] font-bold tracking-[0.2em]">
-              {hierarchyBadge}
-            </span>
-          </div>
-        </div>
+        )}
 
-        {/* CENTRO: SALDOS (Desktop) */}
-        <div className="hidden md:flex items-center gap-8">
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] text-white/40 uppercase font-bold">Dinheiro Sujo</span>
-            <span className="text-red-500 font-mono font-bold">R$ {dirtyMoney.toLocaleString('pt-BR')}</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] text-white/40 uppercase font-bold">Dinheiro Limpo</span>
-            <span className="text-emerald-400 font-mono font-bold">R$ {cleanMoney.toLocaleString('pt-BR')}</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] text-white/40 uppercase font-bold">Corre</span>
-            <span className="text-purple-400 font-mono font-bold">{corre}</span>
-          </div>
-        </div>
+        <nav className="flex items-center gap-8">
+          <Link
+            to="/"
+            className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
+          >
+            Início
+          </Link>
 
-        {/* LADO DIREITO: BOTÕES */}
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-[9px] text-white/40 uppercase font-bold">Poder de Fogo</span>
-            <span className="text-white font-bold">{power.toLocaleString('pt-BR')}</span>
-          </div>
+          <Link
+            to="/galeria"
+            className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
+          >
+            Galeria
+          </Link>
 
-          {!isAuthenticated ? (
+          {isAuthenticated && (
             <Link
-              to="/"
-              className="px-6 py-2 rounded-lg bg-[#d9b764] text-black font-bold uppercase text-xs tracking-widest hover:bg-[#c4a45a] transition-colors"
+              to="/gang"
+              className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
             >
-              Entrar
+              Quadrilha
             </Link>
-          ) : (
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-lg bg-red-900/20 text-red-500 hover:bg-red-900/40 transition-colors"
-              title="Sair"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
           )}
-        </div>
+
+          {!isAuthenticated && (
+            <a
+              href="#missoes"
+              className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
+            >
+              Missões
+            </a>
+          )}
+
+          <div className="flex items-center gap-4">
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to="/game"
+                  className="flex items-center gap-2 font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
+                >
+                  <User className="w-4 h-4" />
+                  {playerName}
+                </Link>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 bg-destructive text-destructive-foreground font-heading text-sm uppercase tracking-wider px-4 py-2 rounded-full hover:opacity-90 transition-opacity"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sair
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/"
+                  className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
+                >
+                  Entrar
+                </Link>
+
+                <button className="bg-primary text-primary-foreground font-heading text-sm uppercase tracking-wider px-6 py-3 rounded-full hover:opacity-90 transition-opacity">
+                  Jogar
+                </button>
+              </>
+            )}
+          </div>
+        </nav>
       </div>
 
-      {/* MODAL DE PERSONALIZAÇÃO */}
-      <HeaderCustomizationModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-      />
+      {isAuthenticated && (
+        <div className="lg:hidden px-6 pb-4">
+          <div className="flex flex-col gap-2">
+            <div className="px-4 py-2 rounded-xl border border-red-500/20 bg-red-900/30 text-xs font-heading uppercase tracking-wider text-red-200">
+              Commands Sujo: {player?.balances?.dirtyMoney ?? 0}
+            </div>
+
+            <div className="px-4 py-2 rounded-xl border border-emerald-500/20 bg-emerald-900/30 text-xs font-heading uppercase tracking-wider text-emerald-200">
+              Commands Limpo: {player?.balances?.cleanMoney ?? 0}
+            </div>
+
+            <div className="px-4 py-2 rounded-xl border border-blue-500/20 bg-blue-900/30 text-xs font-heading uppercase tracking-wider text-blue-200">
+              Corre: {player?.balances?.corre ?? 0}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
