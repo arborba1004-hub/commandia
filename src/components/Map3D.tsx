@@ -8,7 +8,6 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { handleTileInvasion, worldToTileCoordinates, OtherPlayer } from '@/components/game/tileInvasion';
-import { createComplexoBuildings, type ComplexoBuildingHitbox } from '@/components/map/createComplexoBuildings';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -28,6 +27,39 @@ const BARRACO_MODELS = [
   { min: 40, max: 49, url: 'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb' },
   { min: 50, max: 59, url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb' },
 ];
+
+const COMPLEXO_BUILDINGS = [
+  {
+    name: 'QG',
+    url: 'https://static.wixstatic.com/3d/50f4bf_938928189a844f56ac340bada0b551bd.glb',
+    x: 0,
+    z: 0,
+    width: 4,
+    depth: 4,
+    route: '/qg',
+    rotationY: 0,
+  },
+  {
+    name: 'Centro Comercial',
+    url: 'https://static.wixstatic.com/3d/50f4bf_8b894931f3c241f285c4292c4842c4f0.glb',
+    x: 17,
+    z: -5,
+    width: 4,
+    depth: 2,
+    route: '/centro-comercial',
+    rotationY: Math.PI,
+  },
+  {
+    name: 'Centro Comunitário',
+    url: 'https://static.wixstatic.com/3d/50f4bf_1641be50f6a74954848cfaae281d6b15.glb',
+    x: 17,
+    z: 2,
+    width: 4,
+    depth: 2,
+    route: '/centro-comunitario',
+    rotationY: Math.PI,
+  },
+] as const;
 
 function getBarracoModelUrl(level: number) {
   return (
@@ -60,6 +92,12 @@ function createTextLabel(text: string) {
   sprite.scale.set(3.2, 0.8, 1);
   return sprite;
 }
+
+type ClickableBuilding = {
+  mesh: THREE.Mesh;
+  route: string;
+  name: string;
+};
 
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -165,31 +203,97 @@ export default function Map3D() {
 
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
-    const clickableBuildingMeshes: THREE.Object3D[] = [];
-    const clickableBuildingMeta = new Map<THREE.Object3D, ComplexoBuildingHitbox>();
     const cleanupDisposables: Array<any> = [];
+    const clickableBuildings: ClickableBuilding[] = [];
 
-    const complexoBuildings = createComplexoBuildings(loader);
+    const loadComplexoBuilding = (
+      building: typeof COMPLEXO_BUILDINGS[number]
+    ) => {
+      loader.load(
+        building.url,
+        (gltf) => {
+          if (!isMounted) return;
 
-    scene.add(complexoBuildings.group);
-    loadedPlayerModels.push(complexoBuildings.group);
-    cleanupDisposables.push(...complexoBuildings.disposables);
+          const wrapper = new THREE.Group();
+          wrapper.name = `${building.name}-wrapper`;
+          wrapper.position.set(building.x, 0, building.z);
+          wrapper.rotation.y = building.rotationY;
 
-    complexoBuildings
-      .load()
-      .then(() => {
-        if (!isMounted) return;
+          const model = gltf.scene;
+          model.traverse(fixDarkMaterials);
 
-        complexoBuildings.clickableMeshes.forEach((item) => {
-          clickableBuildingMeshes.push(item.mesh);
-          clickableBuildingMeta.set(item.mesh, item);
-        });
+          const sourceBox = new THREE.Box3().setFromObject(model);
+          const sourceSize = new THREE.Vector3();
+          const sourceCenter = new THREE.Vector3();
 
-        console.log('✅ Prédios do complexo carregados:', complexoBuildings.clickableMeshes);
-      })
-      .catch((error) => {
-        console.error('❌ Erro ao carregar prédios do complexo:', error);
-      });
+          sourceBox.getSize(sourceSize);
+          sourceBox.getCenter(sourceCenter);
+
+          const safeX = Math.max(sourceSize.x, 0.001);
+          const safeZ = Math.max(sourceSize.z, 0.001);
+
+          const scaleX = building.width / safeX;
+          const scaleZ = building.depth / safeZ;
+          const uniformScale = Math.min(scaleX, scaleZ);
+
+          model.scale.setScalar(uniformScale);
+
+          const scaledBox = new THREE.Box3().setFromObject(model);
+          const scaledCenter = new THREE.Vector3();
+          const scaledSize = new THREE.Vector3();
+
+          scaledBox.getCenter(scaledCenter);
+          scaledBox.getSize(scaledSize);
+
+          model.position.x -= scaledCenter.x;
+          model.position.y -= scaledBox.min.y;
+          model.position.z -= scaledCenter.z;
+
+          wrapper.add(model);
+
+          const hitboxHeight = Math.max(scaledSize.y + 1, 4);
+          const hitbox = new THREE.Mesh(
+            new THREE.BoxGeometry(building.width, hitboxHeight, building.depth),
+            new THREE.MeshBasicMaterial({
+              transparent: true,
+              opacity: 0,
+              depthWrite: false,
+            })
+          );
+
+          hitbox.position.set(0, hitboxHeight / 2, 0);
+          hitbox.userData = {
+            route: building.route,
+            buildingName: building.name,
+            isComplexoBuilding: true,
+          };
+
+          wrapper.add(hitbox);
+          clickableBuildings.push({
+            mesh: hitbox,
+            route: building.route,
+            name: building.name,
+          });
+
+          const { sprite, texture, material } = createTextLabel(building.name);
+          sprite.position.set(0, scaledSize.y + 1.4, 0);
+          wrapper.add(sprite);
+
+          scene.add(wrapper);
+          loadedPlayerModels.push(wrapper);
+
+          cleanupDisposables.push(hitbox.geometry, hitbox.material);
+          if (texture) cleanupDisposables.push(texture);
+          if (material) cleanupDisposables.push(material);
+        },
+        undefined,
+        (error) => {
+          console.error(`❌ Erro ao carregar ${building.name}:`, error);
+        }
+      );
+    };
+
+    COMPLEXO_BUILDINGS.forEach(loadComplexoBuilding);
 
     const fixDarkMaterials = (child: any) => {
       if (child.isMesh) {
@@ -376,12 +480,17 @@ export default function Map3D() {
       raycaster.setFromCamera(mouse, camera);
 
       // 1) Primeiro verifica prédios clicáveis
-      if (clickableBuildingMeshes.length > 0) {
-        const buildingIntersects = raycaster.intersectObjects(clickableBuildingMeshes, false);
+      if (clickableBuildings.length > 0) {
+        const buildingIntersects = raycaster.intersectObjects(
+          clickableBuildings.map((item) => item.mesh),
+          false
+        );
 
         if (buildingIntersects.length > 0) {
-          const clickedMesh = buildingIntersects[0].object;
-          const clickedBuilding = clickableBuildingMeta.get(clickedMesh);
+          const clickedMesh = buildingIntersects[0].object as THREE.Mesh;
+          const clickedBuilding = clickableBuildings.find(
+            (item) => item.mesh === clickedMesh
+          );
 
           if (clickedBuilding?.route) {
             navigate(clickedBuilding.route);
