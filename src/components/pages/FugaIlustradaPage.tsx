@@ -305,19 +305,9 @@ export default function FugaIlustradaPage() {
           )}
 
           {/* Accessories Tab */}
-          {activeTab === 'accessories' && selectedVehicle ? (
-            <AccessoriesShop vehicleId={selectedVehicle._id} vehicleName={selectedVehicle.name} />
-          ) : activeTab === 'accessories' ? (
-            <div className="text-center py-12">
-              <p className="text-secondary text-lg mb-4">Selecione um veículo para ver seus acessórios</p>
-              <button
-                onClick={() => setActiveTab('vehicles')}
-                className="px-6 py-3 bg-primary text-black font-heading font-bold rounded hover:bg-secondary transition-all"
-              >
-                Ver Veículos
-              </button>
-            </div>
-          ) : null}
+          {activeTab === 'accessories' && (
+            <AccessoriesShop ownedVehicles={ownedVehicles} vehicles={vehicles} />
+          )}
         </section>
 
         {/* Vehicle Detail Modal */}

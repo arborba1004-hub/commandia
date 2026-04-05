@@ -14,14 +14,24 @@ interface Accessory {
   skillType?: string;
 }
 
+interface FugaVehicle {
+  _id: string;
+  name?: string;
+  level?: number;
+  price?: number;
+  image?: string;
+  abilityBonusType?: string;
+  description?: string;
+}
+
 interface AccessoriesShopProps {
-  vehicleId: string;
-  vehicleName?: string;
+  ownedVehicles: string[];
+  vehicles: FugaVehicle[];
 }
 
 const SKILL_TYPES = ['attack', 'defense', 'intelligence', 'agility', 'respect', 'vigor'];
 
-export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesShopProps) {
+export default function AccessoriesShop({ ownedVehicles, vehicles }: AccessoriesShopProps) {
   const [accessories, setAccessories] = useState<Accessory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [purchaseMessage, setPurchaseMessage] = useState('');
@@ -38,11 +48,7 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
     const loadAccessories = async () => {
       try {
         const result = await BaseCrudService.getAll<Accessory>('accessories', [], { limit: 100 });
-        
-        // Filtrar acessórios para este veículo (assumindo que há 6 por veículo)
-        // Para simplificar, vamos usar os primeiros 6 acessórios como exemplo
-        const vehicleAccessories = result.items.slice(0, 6);
-        setAccessories(vehicleAccessories);
+        setAccessories(result.items);
       } catch (error) {
         console.error('Erro ao carregar acessórios:', error);
       } finally {
@@ -51,7 +57,7 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
     };
 
     loadAccessories();
-  }, [vehicleId]);
+  }, []);
 
   const handlePurchaseAccessory = (accessory: Accessory) => {
     const price = accessory.itemPrice || 1.99;
@@ -91,7 +97,7 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
   if (accessories.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-secondary text-lg">Nenhum acessório disponível para este veículo.</p>
+        <p className="text-secondary text-lg">Nenhum acessório disponível.</p>
       </div>
     );
   }
@@ -101,10 +107,13 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
       {/* Header */}
       <div className="mb-8">
         <h3 className="font-heading text-3xl font-bold text-primary mb-2">
-          Acessórios para {vehicleName}
+          Acessórios Disponíveis
         </h3>
         <p className="text-secondary text-sm">
           Nível do Jogador: {playerLevel} | Bônus por Acessório: +{bonusPercent}%
+        </p>
+        <p className="text-secondary text-sm mt-2">
+          Você possui {ownedVehicles.length} veículo(s). Compre acessórios apenas para os veículos que já possui!
         </p>
       </div>
 
@@ -131,6 +140,8 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
           const price = accessory.itemPrice || 1.99;
           const canAfford = cleanMoney >= price;
           const skillType = accessory.skillType || 'attack';
+          // Verificar se o jogador possui algum veículo
+          const canPurchase = ownedVehicles.length > 0;
 
           return (
             <motion.div
@@ -141,7 +152,7 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
               className={`rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                 isPurchased
                   ? 'border-primary bg-custom4 opacity-75'
-                  : canAfford
+                  : canAfford && canPurchase
                     ? 'border-secondary hover:border-primary bg-custom4'
                     : 'border-destructive bg-custom4 opacity-60'
               }`}
@@ -164,6 +175,11 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
                 {isPurchased && (
                   <div className="absolute top-2 right-2 bg-primary px-3 py-1 rounded text-black font-bold text-xs">
                     COMPRADO
+                  </div>
+                )}
+                {!canPurchase && (
+                  <div className="absolute top-2 right-2 bg-destructive px-3 py-1 rounded text-white font-bold text-xs">
+                    SEM VEÍCULO
                   </div>
                 )}
               </div>
@@ -199,16 +215,18 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
                     e.stopPropagation();
                     handlePurchaseAccessory(accessory);
                   }}
-                  disabled={isPurchased || !canAfford}
+                  disabled={isPurchased || !canAfford || !canPurchase}
                   className={`w-full py-2 rounded font-heading font-bold transition-all text-sm ${
                     isPurchased
                       ? 'bg-custom4 text-secondary cursor-not-allowed'
-                      : canAfford
-                        ? 'bg-primary text-black hover:bg-secondary'
-                        : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                      : !canPurchase
+                        ? 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                        : canAfford
+                          ? 'bg-primary text-black hover:bg-secondary'
+                          : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
                   }`}
                 >
-                  {isPurchased ? 'Comprado' : canAfford ? 'Comprar' : 'Sem Fundos'}
+                  {isPurchased ? 'Comprado' : !canPurchase ? 'Sem Veículo' : canAfford ? 'Comprar' : 'Sem Fundos'}
                 </button>
               </div>
             </motion.div>
@@ -291,6 +309,9 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
                         ? 'Bônus: +1% por acessório (até nível 50)'
                         : 'Bônus: +2% por acessório (nível 51+)'}
                     </p>
+                    <p className="text-secondary text-xs mt-2">
+                      Veículos Possuídos: {ownedVehicles.length}
+                    </p>
                   </div>
                 </div>
 
@@ -301,21 +322,26 @@ export default function AccessoriesShop({ vehicleId, vehicleName }: AccessoriesS
                   }}
                   disabled={
                     purchasedAccessories.some((acc) => acc.accessoryId === selectedAccessory._id) ||
-                    cleanMoney < (selectedAccessory.itemPrice || 1.99)
+                    cleanMoney < (selectedAccessory.itemPrice || 1.99) ||
+                    ownedVehicles.length === 0
                   }
                   className={`w-full py-3 rounded font-heading font-bold text-lg transition-all ${
                     purchasedAccessories.some((acc) => acc.accessoryId === selectedAccessory._id)
                       ? 'bg-custom4 text-secondary cursor-not-allowed'
-                      : cleanMoney >= (selectedAccessory.itemPrice || 1.99)
-                        ? 'bg-primary text-black hover:bg-secondary'
-                        : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                      : ownedVehicles.length === 0
+                        ? 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                        : cleanMoney >= (selectedAccessory.itemPrice || 1.99)
+                          ? 'bg-primary text-black hover:bg-secondary'
+                          : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
                   }`}
                 >
                   {purchasedAccessories.some((acc) => acc.accessoryId === selectedAccessory._id)
                     ? 'Já Comprado'
-                    : cleanMoney >= (selectedAccessory.itemPrice || 1.99)
-                      ? 'Comprar Agora'
-                      : 'Sem Fundos Suficientes'}
+                    : ownedVehicles.length === 0
+                      ? 'Compre um Veículo Primeiro'
+                      : cleanMoney >= (selectedAccessory.itemPrice || 1.99)
+                        ? 'Comprar Agora'
+                        : 'Sem Fundos Suficientes'}
                 </button>
 
                 <button
