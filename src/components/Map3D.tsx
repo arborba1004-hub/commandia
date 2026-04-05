@@ -5,11 +5,14 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 
-// IMPORTAÇÃO DAS UTILIDADES
+// Importando suas funções e constantes do arquivo que criamos
 import { fixDarkMaterials, createTextLabel, GRID_CONFIG } from './mapUtils';
 
+// Configuração do Loader (Isso não pode sair do topo)
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+
+const FLOOR_TEXTURE = 'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
 const BARRACO_MODELS = [
   { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
@@ -20,27 +23,16 @@ const BARRACO_MODELS = [
   { min: 50, max: 59, url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb' },
 ];
 
-const FLOOR_TEXTURE = 'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
-
 function getBarracoModelUrl(level: number) {
-  return (
-    BARRACO_MODELS.find((model) => level >= model.min && level <= model.max)?.url ??
-    BARRACO_MODELS[0].url
-  );
+  return BARRACO_MODELS.find((m) => level >= m.min && level <= m.max)?.url ?? BARRACO_MODELS[0].url;
 }
 
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-
   const playerState = usePlayerStore((state) => state.player);
+  
   const level = playerState?.niveis?.barracoLevel || 1;
   const displayName = playerState?.headerCustomization?.customName || playerState?.name || 'CAPO GHOST';
-
-  const getBarracoSize = (level: number) => {
-    if (level >= 60) return 4;
-    if (level >= 30) return 3;
-    return 2;
-  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -54,31 +46,16 @@ export default function Map3D() {
       antialias: !isMobile,
       powerPreference: 'high-performance',
       alpha: false,
-      stencil: false,
-      depth: true,
     });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.8));
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
 
-    // 2. ELEMENTOS DE CENA
-    const highlight = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
-    );
-    highlight.rotation.x = -Math.PI / 2;
-    highlight.position.y = 0.05;
-    highlight.visible = false;
-    scene.add(highlight);
-
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
+    // 2. CÁLCULO DE POSIÇÃO (Usando GRID_CONFIG do mapUtils)
     const myTileX = playerState?.mapPosition?.tileX ?? (GRID_CONFIG.WIDTH / 2);
     const myTileY = playerState?.mapPosition?.tileY ?? (GRID_CONFIG.HEIGHT / 2);
     const playerWorldX = (myTileX - GRID_CONFIG.WIDTH / 2) * GRID_CONFIG.TILE_SIZE;
@@ -92,12 +69,9 @@ export default function Map3D() {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.copy(cameraTarget); 
     controls.enableDamping = true; 
-    controls.dampingFactor = 0.05; 
     controls.maxPolarAngle = Math.PI / 2 - 0.05; 
-    controls.minDistance = 8; 
-    controls.maxDistance = 50; 
 
-    // 4. ILUMINAÇÃO
+    // 4. LUZES
     scene.add(new THREE.AmbientLight(0xffffff, 2.5));
     const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
     dirLight.position.set(8, 20, 10);
@@ -107,7 +81,7 @@ export default function Map3D() {
     const loader = new GLTFLoader().setDRACOLoader(dracoLoader);
     const loadedPlayerModels: THREE.Object3D[] = [];
 
-    // 5. CARREGAMENTO REUTILIZÁVEL (Bairros e Nomes)
+    // 5. FUNÇÃO INTERNA PARA SPAWN DE BARRACOS (Usando fixDarkMaterials e createTextLabel)
     const spawnBarraco = (name: string, lvl: number, x: number, z: number, isMe: boolean) => {
       loader.load(getBarracoModelUrl(lvl), (gltf) => {
         if (!isMounted) return;
@@ -116,15 +90,18 @@ export default function Map3D() {
         const box = new THREE.Box3().setFromObject(model);
         const size = new THREE.Vector3();
         box.getSize(size);
-        const bSize = getBarracoSize(lvl);
+        const bSize = lvl >= 60 ? 4 : lvl >= 30 ? 3 : 2;
         model.scale.setScalar(bSize / (Math.max(size.x, size.z) || 1));
 
         const finalBox = new THREE.Box3().setFromObject(model);
         model.position.set(x, -finalBox.min.y, z);
+        
+        // Usa a função do mapUtils
         model.traverse(fixDarkMaterials);
         scene.add(model);
         loadedPlayerModels.push(model);
 
+        // Usa a criação de nome do mapUtils
         const label = createTextLabel(name);
         label.position.set(x, finalBox.max.y + 1.2, z);
         scene.add(label);
@@ -143,15 +120,12 @@ export default function Map3D() {
       });
     };
 
-    // Spawn Meu Barraco
+    // Spawn do meu e dos outros
     spawnBarraco(displayName, level, playerWorldX, playerWorldZ, true);
 
-    // Carregar Outros Jogadores
     const token = localStorage.getItem('authToken');
     if (token) {
-      fetch('https://comando-backend.onrender.com/players', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
+      fetch('https://comando-backend.onrender.com/players', { headers: { 'Authorization': `Bearer ${token}` } })
       .then(res => res.json())
       .then(players => {
         if (!isMounted) return;
@@ -167,8 +141,6 @@ export default function Map3D() {
     // 6. CHÃO E GRID
     const textureLoader = new THREE.TextureLoader();
     const floorTexture = textureLoader.load(FLOOR_TEXTURE);
-    floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
-
     const platform = new THREE.Mesh(
       new THREE.BoxGeometry(GRID_CONFIG.WIDTH, GRID_CONFIG.PLATFORM_Y, GRID_CONFIG.HEIGHT),
       [
@@ -187,47 +159,53 @@ export default function Map3D() {
     const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 });
     for (let x = 0; x <= GRID_CONFIG.WIDTH; x++) {
       const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(x - GRID_CONFIG.WIDTH / 2, 0.03, -GRID_CONFIG.HEIGHT / 2),
-        new THREE.Vector3(x - GRID_CONFIG.WIDTH / 2, 0.03, GRID_CONFIG.HEIGHT / 2),
+        new THREE.Vector3(x - 20, 0.03, -10),
+        new THREE.Vector3(x - 20, 0.03, 10),
       ]);
       scene.add(new THREE.Line(geo, lineMaterial));
     }
     for (let z = 0; z <= GRID_CONFIG.HEIGHT; z++) {
       const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-GRID_CONFIG.WIDTH / 2, 0.03, z - GRID_CONFIG.HEIGHT / 2),
-        new THREE.Vector3(GRID_CONFIG.WIDTH / 2, 0.03, z - GRID_CONFIG.HEIGHT / 2),
+        new THREE.Vector3(-20, 0.03, z - 10),
+        new THREE.Vector3(20, 0.03, z - 10),
       ]);
       scene.add(new THREE.Line(geo, lineMaterial));
     }
 
-    // 7. CLIQUES
+    // 7. HIGHLIGHT DE CLIQUE
+    const highlight = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+    );
+    highlight.rotation.x = -Math.PI / 2;
+    highlight.position.y = 0.05;
+    highlight.visible = false;
+    scene.add(highlight);
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
     let pointerDownPos = { x: 0, y: 0 };
-    const handlePointerDown = (event: PointerEvent) => { pointerDownPos = { x: event.clientX, y: event.clientY }; };
-    const handlePointerUp = (event: PointerEvent) => {
-      if (!containerRef.current) return;
-      const moveDistance = Math.abs(event.clientX - pointerDownPos.x) + Math.abs(event.clientY - pointerDownPos.y);
-      if (moveDistance > 5) return; 
+
+    const onPointerDown = (e: PointerEvent) => { pointerDownPos = { x: e.clientX, y: e.clientY }; };
+    const onPointerUp = (e: PointerEvent) => {
+      const dist = Math.abs(e.clientX - pointerDownPos.x) + Math.abs(e.clientY - pointerDownPos.y);
+      if (dist > 5) return; 
 
       const rect = container.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObject(platform);
-      
       if (intersects.length > 0) {
-        const point = intersects[0].point;
         highlight.visible = true;
-        highlight.position.set(Math.floor(point.x + 0.5), 0.05, Math.floor(point.z + 0.5));
-        
-        // Espaço para lógica de teleporte/ação futura
+        highlight.position.set(Math.floor(intersects[0].point.x + 0.5), 0.05, Math.floor(intersects[0].point.z + 0.5));
       }
     };
 
-    container.addEventListener('pointerdown', handlePointerDown);
-    container.addEventListener('pointerup', handlePointerUp);
+    container.addEventListener('pointerdown', onPointerDown);
+    container.addEventListener('pointerup', onPointerUp);
 
-    // 8. LOOP E CLEANUP
+    // 8. LOOP
     let animationId = 0;
     const animate = () => {
       controls.update(); 
@@ -236,24 +214,16 @@ export default function Map3D() {
     };
     animate();
 
-    const handleResize = () => {
-      camera.aspect = container.clientWidth / container.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
-    };
-    window.addEventListener('resize', handleResize);
-
     return () => {
       isMounted = false; 
       cancelAnimationFrame(animationId);
-      window.removeEventListener('resize', handleResize);
-      container.removeEventListener('pointerdown', handlePointerDown);
-      container.removeEventListener('pointerup', handlePointerUp);
+      container.removeEventListener('pointerdown', onPointerDown);
+      container.removeEventListener('pointerup', onPointerUp);
       controls.dispose(); 
-      loadedPlayerModels.forEach(model => scene.remove(model));
       renderer.dispose();
+      loadedPlayerModels.forEach(m => scene.remove(m));
     };
   }, [playerState?.mapPosition, displayName]);
 
-  return <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />;
+  return <div ref={containerRef} className="w-full h-full outline-none" />;
 }
