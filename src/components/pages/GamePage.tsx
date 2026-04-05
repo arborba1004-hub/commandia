@@ -129,18 +129,26 @@ export default function Map3D() {
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
     // === NOVA CÂMERA E CONTROLES ORBIT ===
-    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    const cameraTarget = new THREE.Vector3(playerWorldX, 0, playerWorldZ);
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      1000
+    );
 
-    camera.position.set(cameraTarget.x + 15, 18, cameraTarget.z + 15);
+    // mirar no centro do complexo, não no jogador
+    const cameraTarget = new THREE.Vector3(8, 0, 0);
+
+    camera.position.set(26, 24, 18);
+    camera.lookAt(cameraTarget);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.copy(cameraTarget); 
-    controls.enableDamping = true; 
-    controls.dampingFactor = 0.05; 
-    controls.maxPolarAngle = Math.PI / 2 - 0.05; 
-    controls.minDistance = 8; 
-    controls.maxDistance = 50; 
+    controls.target.copy(cameraTarget);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
+    controls.minDistance = 10;
+    controls.maxDistance = 70; 
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
