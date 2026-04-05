@@ -35,7 +35,7 @@ function getBarracoModelUrl(level: number) {
 }
 
 // === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
-function createTextLabel(text: string) {
+function createTextLabel(text: string): THREE.Sprite | THREE.Group {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   if (!context) return new THREE.Group();
