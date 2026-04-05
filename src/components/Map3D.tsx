@@ -47,7 +47,7 @@ const COMPLEXO_BUILDINGS = [
     width: 4,
     depth: 2,
     route: '/centro-comercial',
-    rotationY: Math.PI,
+    rotationY: Math.PI/2,
   },
   {
     name: 'Centro Comunitário',
@@ -57,7 +57,7 @@ const COMPLEXO_BUILDINGS = [
     width: 4,
     depth: 2,
     route: '/centro-comunitario',
-    rotationY: Math.PI,
+    rotationY: Math.PI/2,
   },
 ] as const;
 
