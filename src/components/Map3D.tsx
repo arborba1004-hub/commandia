@@ -217,7 +217,7 @@ export default function Map3D() {
           const wrapper = new THREE.Group();
           wrapper.name = `${building.name}-wrapper`;
           wrapper.position.set(building.x, 0, building.z);
-          wrapper.rotation.y = 0;
+          wrapper.rotation.y = building.rotationY;
 
           const model = gltf.scene;
           model.traverse(fixDarkMaterials);
@@ -232,8 +232,14 @@ export default function Map3D() {
           const safeX = Math.max(sourceSize.x, 0.001);
           const safeZ = Math.max(sourceSize.z, 0.001);
 
-          const scaleX = building.width / safeX;
-          const scaleZ = building.depth / safeZ;
+          const isQuarterTurn =
+            Math.abs(Math.abs(building.rotationY) - Math.PI / 2) < 0.001;
+
+          const fitWidth = isQuarterTurn ? building.depth : building.width;
+          const fitDepth = isQuarterTurn ? building.width : building.depth;
+
+          const scaleX = fitWidth / safeX;
+          const scaleZ = fitDepth / safeZ;
           const uniformScale = Math.min(scaleX, scaleZ);
 
           model.scale.setScalar(uniformScale);
@@ -248,12 +254,11 @@ export default function Map3D() {
           model.position.x -= scaledCenter.x;
           model.position.y -= scaledBox.min.y;
           model.position.z -= scaledCenter.z;
-          model.rotation.y = building.rotationY;
           wrapper.add(model);
 
           const hitboxHeight = Math.max(scaledSize.y + 1, 4);
           const hitbox = new THREE.Mesh(
-            new THREE.BoxGeometry(building.width, hitboxHeight, building.depth),
+            new THREE.BoxGeometry(fitWidth, hitboxHeight, fitDepth),
             new THREE.MeshBasicMaterial({
               transparent: true,
               opacity: 0,
