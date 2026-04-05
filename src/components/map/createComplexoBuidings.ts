@@ -157,6 +157,9 @@ export function createComplexoBuildings(loader: GLTFLoader): CreateComplexoBuild
         const model = await loadGLTF(loader, building.url);
         model.traverse(fixDarkMaterials);
 
+        // 🔥 ROTACIONA ANTES DE CALCULAR TAMANHO
+        model.rotation.y = building.rotationY ?? 0;
+
         const sourceBox = new THREE.Box3().setFromObject(model);
         const sourceSize = new THREE.Vector3();
         const sourceCenter = new THREE.Vector3();
