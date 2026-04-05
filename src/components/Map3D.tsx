@@ -6,13 +6,12 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 
+// IMPORTAÇÃO DAS UTILIDADES
+import { fixDarkMaterials, createTextLabel, GRID_CONFIG } from './mapUtils';
+
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
-const GRID_WIDTH = 40;
-const GRID_HEIGHT = 20;
-const TILE_SIZE = 1;
-const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
@@ -30,31 +29,6 @@ function getBarracoModelUrl(level: number) {
     BARRACO_MODELS.find((model) => level >= model.min && level <= model.max)?.url ??
     BARRACO_MODELS[0].url
   );
-}
-
-// === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
-function createTextLabel(text: string) {
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  if (!context) return new THREE.Group();
-
-  canvas.width = 512;
-  canvas.height = 128;
-
-  context.fillStyle = 'rgba(0, 0, 0, 0.5)'; 
-  context.roundRect(0, 0, 512, 128, 20);
-  context.fill();
-
-  context.font = 'bold 54px Oswald, Impact, Arial';
-  context.textAlign = 'center';
-  context.fillStyle = '#d9b764'; // Cor dourada padrão
-  context.fillText(text.toUpperCase(), 256, 85);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
-  const sprite = new THREE.Sprite(spriteMaterial);
-  sprite.scale.set(3.2, 0.8, 1);
-  return sprite;
 }
 
 export default function Map3D() {
@@ -112,20 +86,14 @@ export default function Map3D() {
     highlight.visible = false;
     scene.add(highlight);
 
-    const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial); 
-    playerModel.position.set(0, 0.3, 0);
-    scene.add(playerModel);
-
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
-    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
+    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_CONFIG.WIDTH / 2);
+    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_CONFIG.HEIGHT / 2);
 
-    const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
-    const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
+    const playerWorldX = (myTileX - GRID_CONFIG.WIDTH / 2) * GRID_CONFIG.TILE_SIZE;
+    const playerWorldZ = (myTileY - GRID_CONFIG.HEIGHT / 2) * GRID_CONFIG.TILE_SIZE;
 
     // === NOVA CÂMERA E CONTROLES ORBIT ===
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
@@ -159,20 +127,6 @@ export default function Map3D() {
     const modelUrl = getBarracoModelUrl(level);
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
-
-    const fixDarkMaterials = (child: any) => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-        if (child.material) {
-          child.material.metalness = 0; 
-          child.material.roughness = 0.8; 
-          child.material.emissive = new THREE.Color(0x3a220f); 
-          child.material.emissiveIntensity = 0.2;
-          child.material.needsUpdate = true;
-        }
-      }
-    };
 
     // CARREGANDO O SEU BARRACO
     loader.load(
@@ -251,8 +205,8 @@ export default function Map3D() {
               sBox.getSize(size);
               model.scale.setScalar(bSize / (Math.max(size.x, size.z) || 1));
   
-              const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
-              const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+              const posX = (p.tileX - GRID_CONFIG.WIDTH / 2) * GRID_CONFIG.TILE_SIZE;
+              const posZ = (p.tileY - GRID_CONFIG.HEIGHT / 2) * GRID_CONFIG.TILE_SIZE;
   
               model.position.set(posX, 0, posZ);
               const sBoxFinal = new THREE.Box3().setFromObject(model);
@@ -283,11 +237,11 @@ export default function Map3D() {
     const topMaterial = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 1, metalness: 0 });
     const sideMaterial = new THREE.MeshStandardMaterial({ color: '#6e5742', roughness: 1, metalness: 0 });
 
-    const platformGeometry = new THREE.BoxGeometry(GRID_WIDTH, PLATFORM_HEIGHT, GRID_HEIGHT);
+    const platformGeometry = new THREE.BoxGeometry(GRID_CONFIG.WIDTH, GRID_CONFIG.PLATFORM_Y, GRID_CONFIG.HEIGHT);
     const platform = new THREE.Mesh(platformGeometry, [
       sideMaterial, sideMaterial, topMaterial, sideMaterial, sideMaterial, sideMaterial,
     ]);
-    platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
+    platform.position.set(0, -GRID_CONFIG.PLATFORM_Y / 2, 0);
     platform.receiveShadow = true;
     platform.castShadow = true;
     scene.add(platform);
@@ -295,17 +249,17 @@ export default function Map3D() {
     const gridGroup = new THREE.Group();
     const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 });
 
-    for (let x = 0; x <= GRID_WIDTH; x++) {
+    for (let x = 0; x <= GRID_CONFIG.WIDTH; x++) {
       const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, -GRID_HEIGHT / 2),
-        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, GRID_HEIGHT / 2),
+        new THREE.Vector3(x - GRID_CONFIG.WIDTH / 2, 0.03, -GRID_CONFIG.HEIGHT / 2),
+        new THREE.Vector3(x - GRID_CONFIG.WIDTH / 2, 0.03, GRID_CONFIG.HEIGHT / 2),
       ]);
       gridGroup.add(new THREE.Line(geo, lineMaterial));
     }
-    for (let z = 0; z <= GRID_HEIGHT; z++) {
+    for (let z = 0; z <= GRID_CONFIG.HEIGHT; z++) {
       const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
-        new THREE.Vector3(GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
+        new THREE.Vector3(-GRID_CONFIG.WIDTH / 2, 0.03, z - GRID_CONFIG.HEIGHT / 2),
+        new THREE.Vector3(GRID_CONFIG.WIDTH / 2, 0.03, z - GRID_CONFIG.HEIGHT / 2),
       ]);
       gridGroup.add(new THREE.Line(geo, lineMaterial));
     }
@@ -333,12 +287,11 @@ export default function Map3D() {
       
       if (intersects.length > 0) {
         const point = intersects[0].point;
-        const tileX = Math.floor(point.x + GRID_WIDTH / 2);
-        const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
+        const tileX = Math.floor(point.x + GRID_CONFIG.WIDTH / 2);
+        const tileZ = Math.floor(point.z + GRID_CONFIG.HEIGHT / 2);
         
         highlight.visible = true;
-        highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
-        playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
+        highlight.position.set(tileX - GRID_CONFIG.WIDTH / 2 + 0.5, 0.05, tileZ - GRID_CONFIG.HEIGHT / 2 + 0.5);
       }
     };
 
