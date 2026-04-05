@@ -6,6 +6,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 import { handleTileInvasion, worldToTileCoordinates } from '@/components/game/tileInvasion';
+import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -168,6 +169,13 @@ export default function Map3D() {
     const modelUrl = getBarracoModelUrl(level);
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
+
+    // === CARREGANDO OS EDIFÍCIOS DO COMPLEXO ===
+    const complexoResult = createComplexoBuildings(loader);
+    scene.add(complexoResult.group);
+    loadedPlayerModels.push(complexoResult.group);
+
+    complexoResult.load().catch(err => console.error('❌ Erro ao carregar edifícios do complexo:', err));
 
     const fixDarkMaterials = (child: any) => {
       if (child.isMesh) {
@@ -381,6 +389,13 @@ export default function Map3D() {
       container.removeEventListener('pointerup', handlePointerUp);
 
       controls.dispose(); 
+
+      // Limpar disposables do complexo
+      complexoResult.disposables.forEach(disposable => {
+        if (disposable.dispose) {
+          disposable.dispose();
+        }
+      });
 
       loadedPlayerModels.forEach(model => {
         scene.remove(model);
