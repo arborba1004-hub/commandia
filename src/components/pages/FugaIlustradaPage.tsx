@@ -641,12 +641,10 @@ export default function FugaIlustradaPage() {
                       disabled={owned}
                       onClick={() => handleBuyVehicleAccessoryPix(selectedVehicleForAccessories, acc)}
                       className={`w-full px-4 py-3 rounded font-heading font-bold transition-all text-left flex justify-between items-center ${
-                        owned
-                          ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
-                          : cleanMoney >= 1.99
-                            ? 'bg-primary text-black hover:bg-secondary'
-                            : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
-                      }`}
+  owned
+    ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
+    : 'bg-primary text-black hover:bg-secondary'
+}`}
                     >
                       <span>{acc.name}</span>
                       <span className="text-sm">
