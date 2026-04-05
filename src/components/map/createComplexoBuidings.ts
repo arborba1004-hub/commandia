@@ -45,7 +45,7 @@ const COMPLEXO_BUILDINGS: ComplexoBuildingConfig[] = [
   },
   {
     name: 'Centro Comercial',
-    url: 'https://static.wixstatic.com/3d/50f4bf_8b894931f3c241f285c4292c4842c4f0.glb',
+    url: 'https://static.wixstatic.com/3d/50f4bf_122d344399914dd7b74c6e9c166a2d57.glb',
     x: 17,
     z: -5,
     width: 4,
