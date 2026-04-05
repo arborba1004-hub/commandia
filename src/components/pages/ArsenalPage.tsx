@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { useCart } from '@/integrations';
-import { useShallow } from 'zustand/react';
 
 interface Weapon {
   _id: string;
@@ -32,13 +31,9 @@ interface WeaponCase {
 
 export default function ArsenalPage() {
   const navigate = useNavigate();
-  const { player, setPlayer, addSkillBonus } = usePlayerStore(
-    useShallow((state) => ({
-      player: state.player,
-      setPlayer: state.setPlayer,
-      addSkillBonus: state.addSkillBonus,
-    }))
-  );
+  const player = usePlayerStore((state) => state.player);
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
+  const addSkillBonus = usePlayerStore((state) => state.addSkillBonus);
   const { addToCart } = useCart();
 
   const [weapons, setWeapons] = useState<Weapon[]>([]);
