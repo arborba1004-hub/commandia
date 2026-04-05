@@ -59,7 +59,7 @@ function createTextLabel(text: string) {
   return sprite;
 }
 
-export default function Map3D() {
+export default function GamePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const playerState = usePlayerStore((state) => state.player);
