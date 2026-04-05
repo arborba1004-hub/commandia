@@ -31,10 +31,7 @@ export default function FugaIlustradaPage() {
     const loadVehicles = async () => {
       try {
         const result = await BaseCrudService.getAll<FugaVehicle>('fugavehicles', [], { limit: 100 });
-        const playerLevel = playerStore.player.niveis.playerLevel || 1;
-        // Filtra apenas veículos do mesmo nível do jogador
-        const filteredVehicles = result.items.filter((vehicle) => vehicle.level === playerLevel);
-        const sortedVehicles = filteredVehicles.sort((a, b) => (a.level || 0) - (b.level || 0));
+        const sortedVehicles = result.items.sort((a, b) => (a.level || 0) - (b.level || 0));
         setVehicles(sortedVehicles);
       } catch (error) {
         console.error('Erro ao carregar veículos:', error);
@@ -44,7 +41,7 @@ export default function FugaIlustradaPage() {
     };
 
     loadVehicles();
-  }, [playerStore.player.niveis.playerLevel]);
+  }, []);
 
   const calculateVehiclePrice = (level: number): number => {
     // Fórmula exponencial: começa em 103,00 e vai até 750.000.000,00 no nível 100
