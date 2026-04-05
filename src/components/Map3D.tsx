@@ -161,6 +161,14 @@ export default function Map3D() {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
+    const modelUrl = getBarracoModelUrl(level);
+
+    let barraco: THREE.Object3D | null = null;
+    const loadedPlayerModels: THREE.Object3D[] = [];
+    const clickableBuildingMeshes: THREE.Object3D[] = [];
+    const clickableBuildingMeta = new Map<THREE.Object3D, ComplexoBuildingHitbox>();
+    const cleanupDisposables: Array<any> = [];
+
     const complexoBuildings = createComplexoBuildings(loader);
 
     scene.add(complexoBuildings.group);
@@ -176,17 +184,12 @@ export default function Map3D() {
           clickableBuildingMeshes.push(item.mesh);
           clickableBuildingMeta.set(item.mesh, item);
         });
+
+        console.log('✅ Prédios do complexo carregados:', complexoBuildings.clickableMeshes);
       })
       .catch((error) => {
         console.error('❌ Erro ao carregar prédios do complexo:', error);
       });
-
-    // ... keep existing code (CARREGANDO O SEU BARRACO section)
-    let barraco: THREE.Object3D | null = null;
-    const loadedPlayerModels: THREE.Object3D[] = [];
-    const clickableBuildingMeshes: THREE.Object3D[] = [];
-    const clickableBuildingMeta = new Map<THREE.Object3D, ComplexoBuildingHitbox>();
-    const cleanupDisposables: Array<any> = [];
 
     const fixDarkMaterials = (child: any) => {
       if (child.isMesh) {
