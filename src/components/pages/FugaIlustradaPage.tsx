@@ -21,7 +21,6 @@ export default function FugaIlustradaPage() {
   const [selectedVehicle, setSelectedVehicle] = useState<EscapeVehicles | null>(null);
   const [purchaseMessage, setPurchaseMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'vehicles' | 'accessories'>('vehicles');
-  const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] = useState<EscapeVehicles | null>(null);
 
   const playerStore = usePlayerStore();
   const player = playerStore.player;
@@ -342,132 +341,69 @@ export default function FugaIlustradaPage() {
           {activeTab === 'accessories' && (
             <div>
               <h2 className="font-heading text-4xl font-bold mb-8 text-center">
-                Acessórios de Veículos
+                Loja de Acessórios
               </h2>
 
-              {selectedVehicleForAccessories ? (
-                <div>
-                  <button
-                    onClick={() => setSelectedVehicleForAccessories(null)}
-                    className="mb-6 px-4 py-2 bg-secondary text-black rounded font-heading font-bold hover:bg-primary"
-                  >
-                    ← Voltar
-                  </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {accessories.map((accessory, index) => {
+                  const isPurchased = purchasedAccessories.some(
+                    (acc) => acc.accessoryId === accessory._id
+                  );
+                  const price = accessory.itemPrice || 0;
+                  const canAfford = cleanMoney >= price;
 
-                  <h3 className="font-heading text-2xl font-bold mb-6 text-primary">
-                    Acessórios para {selectedVehicleForAccessories.name}
-                  </h3>
+                  return (
+                    <motion.div
+                      key={accessory._id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: index * 0.05 }}
+                      className={`rounded-lg overflow-hidden border-2 p-4 transition-all ${
+                        isPurchased
+                          ? 'border-primary bg-custom4 opacity-75'
+                          : canAfford
+                            ? 'border-secondary hover:border-primary bg-custom4'
+                            : 'border-destructive bg-custom4 opacity-60'
+                      }`}
+                    >
+                      <h4 className="font-heading text-lg font-bold text-primary mb-2">
+                        {accessory.itemName}
+                      </h4>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {accessories
-                      .filter((acc) => acc.skillType && acc.skillType.toLowerCase().includes(selectedVehicleForAccessories.abilityBonusType?.toLowerCase() || ''))
-                      .map((accessory) => {
-                        const isPurchased = purchasedAccessories.some(
-                          (acc) => acc.accessoryId === accessory._id
-                        );
-                        const price = accessory.itemPrice || 0;
-                        const canAfford = cleanMoney >= price;
+                      <p className="text-secondary text-xs mb-3 line-clamp-2">
+                        {accessory.itemDescription}
+                      </p>
 
-                        return (
-                          <motion.div
-                            key={accessory._id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4 }}
-                            className={`rounded-lg overflow-hidden border-2 p-4 transition-all ${
-                              isPurchased
-                                ? 'border-primary bg-custom4 opacity-75'
-                                : canAfford
-                                  ? 'border-secondary hover:border-primary bg-custom4'
-                                  : 'border-destructive bg-custom4 opacity-60'
-                            }`}
-                          >
-                            <h4 className="font-heading text-lg font-bold text-primary mb-2">
-                              {accessory.itemName}
-                            </h4>
+                      <div className="mb-3">
+                        <p className="text-secondary text-xs mb-1">
+                          Tipo: <span className="text-primary">{accessory.skillType}</span>
+                        </p>
+                        <p className="text-secondary text-xs">+1% em {accessory.skillType}</p>
+                      </div>
 
-                            <p className="text-secondary text-xs mb-3 line-clamp-2">
-                              {accessory.itemDescription}
-                            </p>
+                      <div className="border-t border-secondary pt-3 mb-3">
+                        <p className="text-primary font-heading text-lg font-bold">
+                          R$ {price.toFixed(2)}
+                        </p>
+                      </div>
 
-                            <div className="mb-3">
-                              <p className="text-secondary text-xs mb-1">
-                                Tipo: <span className="text-primary">{accessory.skillType}</span>
-                              </p>
-                              <p className="text-secondary text-xs">+2% em {accessory.skillType}</p>
-                            </div>
-
-                            <div className="border-t border-secondary pt-3 mb-3">
-                              <p className="text-primary font-heading text-lg font-bold">
-                                R$ {price.toFixed(2)}
-                              </p>
-                            </div>
-
-                            <button
-                              onClick={() => handlePurchaseAccessory(accessory)}
-                              disabled={isPurchased || !canAfford}
-                              className={`w-full py-2 rounded font-heading font-bold transition-all ${
-                                isPurchased
-                                  ? 'bg-custom4 text-secondary cursor-not-allowed'
-                                  : canAfford
-                                    ? 'bg-primary text-black hover:bg-secondary'
-                                    : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
-                              }`}
-                            >
-                              {isPurchased ? 'Comprado' : canAfford ? 'Comprar' : 'Sem Fundos'}
-                            </button>
-                          </motion.div>
-                        );
-                      })}
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-secondary text-center mb-8">
-                    Selecione um veículo para ver seus acessórios
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {vehicles.map((vehicle) => (
-                      <motion.div
-                        key={vehicle._id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4 }}
-                        className="rounded-lg overflow-hidden border-2 border-secondary hover:border-primary bg-custom4 cursor-pointer transition-all"
-                        onClick={() => setSelectedVehicleForAccessories(vehicle)}
+                      <button
+                        onClick={() => handlePurchaseAccessory(accessory)}
+                        disabled={isPurchased || !canAfford}
+                        className={`w-full py-2 rounded font-heading font-bold transition-all ${
+                          isPurchased
+                            ? 'bg-custom4 text-secondary cursor-not-allowed'
+                            : canAfford
+                              ? 'bg-primary text-black hover:bg-secondary'
+                              : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                        }`}
                       >
-                        <div className="relative h-40 bg-black overflow-hidden">
-                          {vehicle.image ? (
-                            <Image
-                              src={vehicle.image}
-                              alt={vehicle.name || 'Veículo'}
-                              className="w-full h-full object-cover"
-                              width={300}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-custom4">
-                              <span className="text-secondary text-sm">Sem imagem</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="p-4">
-                          <h3 className="font-heading text-lg font-bold text-primary mb-2">
-                            {vehicle.name}
-                          </h3>
-                          <p className="text-secondary text-xs mb-3">
-                            {accessories.filter((acc) => acc.skillType && acc.skillType.toLowerCase().includes(vehicle.abilityBonusType?.toLowerCase() || '')).length} acessórios disponíveis
-                          </p>
-                          <button className="w-full py-2 bg-primary text-black rounded font-heading font-bold hover:bg-secondary transition-all">
-                            Ver Acessórios
-                          </button>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                        {isPurchased ? 'Comprado' : canAfford ? 'Comprar' : 'Sem Fundos'}
+                      </button>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </section>
