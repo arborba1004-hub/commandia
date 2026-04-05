@@ -96,8 +96,9 @@ export function useGoogleAuth() {
       localStorage.setItem(STORAGE_KEY_TOKEN, data.token);
       localStorage.setItem(STORAGE_KEY_PLAYER, JSON.stringify(data.player));
 
-      // hidrata store com dados do servidor (não dispara sync)
-      hydratePlayerFromServer(data.player);
+      // ✅ IMPORTANTE: Substitui totalmente pelo backend, não mistura com estado anterior
+      // Usa função callback para garantir que o estado anterior é descartado
+      hydratePlayerFromServer(() => data.player);
 
       // Inicia polling após login bem-sucedido
       startPolling();
