@@ -183,6 +183,40 @@ export default function FugaIlustradaPage() {
     setTimeout(() => setPurchaseMessage(''), 3000);
   };
 
+  async function handleBuyVehicleAccessoryPix(vehicle: any, acc: any) {
+    try {
+      const response = await fetch(
+        'https://comando-backend.onrender.com/create-payment',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: `Acessório ${acc.name} - ${vehicle.name || 'Veículo'}`,
+            amount: 1.99,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Erro ao gerar pagamento');
+      }
+
+      if (data.ticket_url) {
+        window.open(data.ticket_url, '_blank');
+        return;
+      }
+
+      alert('Pagamento gerado, mas não veio link.');
+    } catch (error) {
+      console.error('Erro ao gerar PIX do acessório:', error);
+      alert('Erro ao gerar pagamento PIX');
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
