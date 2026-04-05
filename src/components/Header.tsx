@@ -1,21 +1,17 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Image } from '@/components/ui/image';
-import HeaderCustomizationModal from '@/components/HeaderCustomizationModal';
 
 export default function Header() {
   const { player } = usePlayerStore();
   const { logout } = useGoogleAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const isAuthenticated = !!player?._id;
 
-  // LÓGICA DO NOME: Prioriza o nome personalizado do Header, depois o nome da conta, e por fim o padrão.
+  // LÓGICA DO NOME: Prioriza o nome da conta, e por fim o padrão.
   const playerName = (
-    player?.headerCustomization?.customName || 
     player?.name || 
     'CAPO GHOST'
   ).toUpperCase();
@@ -34,13 +30,6 @@ export default function Header() {
 
   const handleLogout = () => {
     logout();
-  };
-
-  // Estilos dinâmicos vindos da personalização
-  const nameStyle = {
-    fontFamily: player?.headerCustomization?.playerNameFont || 'oswald',
-    fontSize: player?.headerCustomization?.playerNameFontSize || '1.875rem',
-    color: player?.headerCustomization?.playerNameColor || '#d9b764',
   };
 
   return (
@@ -62,15 +51,9 @@ export default function Header() {
           
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span style={nameStyle} className="font-bold tracking-tighter leading-none">
+              <span className="font-heading font-bold tracking-tighter leading-none text-[1.875rem] text-[#d9b764]">
                 {playerName}
               </span>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="p-1 hover:bg-white/10 rounded-full transition-colors"
-              >
-                <Settings className="w-4 h-4 text-white/50" />
-              </button>
             </div>
             <span className="text-[10px] text-[#d9b764] font-bold tracking-[0.2em]">
               {hierarchyBadge}
@@ -119,12 +102,6 @@ export default function Header() {
           )}
         </div>
       </div>
-
-      {/* MODAL DE PERSONALIZAÇÃO */}
-      <HeaderCustomizationModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-      />
     </header>
   );
 }
