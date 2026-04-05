@@ -41,7 +41,7 @@ const COMPLEXO_BUILDINGS = [
   },
   {
     name: 'Centro Comercial',
-    url: 'https://static.wixstatic.com/3d/50f4bf_8b894931f3c241f285c4292c4842c4f0.glb',
+    url: 'https://static.wixstatic.com/3d/50f4bf_122d344399914dd7b74c6e9c166a2d57.glb',
     x: 17,
     z: -5,
     width: 4,
@@ -51,8 +51,7 @@ const COMPLEXO_BUILDINGS = [
   },
   {
     name: 'Centro Comunitário',
-    url: 
-'https://static.wixstatic.com/3d/50f4bf_12c7c9436c2c453aa4335e45cc020dd2.glb',
+    url: 'https://static.wixstatic.com/3d/50f4bf_1641be50f6a74954848cfaae281d6b15.glb',
     x: 17,
     z: 2,
     width: 4,
