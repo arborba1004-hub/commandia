@@ -6,7 +6,6 @@ import Footer from '@/components/Footer';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { motion } from 'framer-motion';
-import AccessoriesShop from '@/components/AccessoriesShop';
 
 interface FugaVehicle {
   _id: string;
@@ -25,25 +24,58 @@ interface Accessory {
   bonusAmount: number;
   price: number;
   vehicleId: string;
-  maxLevel: number;
+}
+
+interface PurchasedAccessory {
+  accessoryId: string;
+  vehicleId: string;
+  skillType: string;
+  purchasedAt: string;
 }
 
 export default function FugaIlustradaPage() {
   const [vehicles, setVehicles] = useState<FugaVehicle[]>([]);
+  const [accessories, setAccessories] = useState<Accessory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedVehicle, setSelectedVehicle] = useState<FugaVehicle | null>(null);
   const [purchaseMessage, setPurchaseMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'vehicles' | 'accessories'>('vehicles');
+  const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] = useState<FugaVehicle | null>(null);
 
   const playerStore = usePlayerStore();
   const player = playerStore.player;
   const cleanMoney = player.balances.cleanMoney || 0;
   const ownedVehicles = player.ownedVehicles || [];
-  const playerLevel = player?.niveis?.playerLevel || 1;
+  const purchasedAccessories = player.purchasedAccessories || [];
 
-  const visibleVehicles = vehicles.filter(
-    (vehicle) => (vehicle.level || 1) === playerLevel
-  );
+  // Generate accessories for a vehicle
+  const generateAccessoriesForVehicle = (vehicleId: string, vehicleName: string): Accessory[] => {
+    const skillTypes = ['attack', 'defense', 'intelligence', 'agility', 'respect', 'vigor'];
+    const generatedAccessories: Accessory[] = [];
+
+    for (let i = 0; i < 6; i++) {
+      generatedAccessories.push({
+        id: `${vehicleId}-acc-${i}`,
+        name: `${vehicleName} - Acessório ${i + 1}`,
+        bonusType: skillTypes[i % skillTypes.length],
+        bonusAmount: 2,
+        price: 0.99,
+        vehicleId,
+      });
+    }
+
+    return generatedAccessories;
+  };
+
+  // Generate all accessories for all vehicles
+  const generateAllAccessories = (allVehicles: FugaVehicle[]): Accessory[] => {
+    const allAccessories: Accessory[] = [];
+    allVehicles.forEach((vehicle) => {
+      const vehicleAccessories = generateAccessoriesForVehicle(vehicle._id, vehicle.name || 'Veículo');
+      allAccessories.push(...vehicleAccessories);
+    });
+    return allAccessories;
+  };
 
   useEffect(() => {
     const loadVehicles = async () => {
@@ -51,6 +83,10 @@ export default function FugaIlustradaPage() {
         const result = await BaseCrudService.getAll<FugaVehicle>('fugavehicles', [], { limit: 100 });
         const sortedVehicles = result.items.sort((a, b) => (a.level || 0) - (b.level || 0));
         setVehicles(sortedVehicles);
+        
+        // Generate accessories for all vehicles
+        const allAccessories = generateAllAccessories(sortedVehicles);
+        setAccessories(allAccessories);
       } catch (error) {
         console.error('Erro ao carregar veículos:', error);
       } finally {
@@ -88,14 +124,55 @@ export default function FugaIlustradaPage() {
       return;
     }
 
+    // Remove clean money
     playerStore.removeCleanMoney(price);
+    
+    // Add owned vehicle
     playerStore.addOwnedVehicle(vehicle._id);
 
+    // Add skill bonus (+1%)
     if (vehicle.abilityBonusType) {
       playerStore.addSkillBonus(vehicle.abilityBonusType, 1);
     }
 
     setPurchaseMessage(`${vehicle.name} adquirido com sucesso!`);
+    setTimeout(() => setPurchaseMessage(''), 3000);
+  };
+
+  const handlePurchaseAccessory = (accessory: Accessory) => {
+    // Check if already purchased
+    if (purchasedAccessories.some((acc) => acc.accessoryId === accessory.id)) {
+      setPurchaseMessage('Você já comprou este acessório!');
+      setTimeout(() => setPurchaseMessage(''), 3000);
+      return;
+    }
+
+    // Check if has clean money (R$ 0.99)
+    if (cleanMoney < accessory.price) {
+      setPurchaseMessage('Você não tem dinheiro suficiente!');
+      setTimeout(() => setPurchaseMessage(''), 3000);
+      return;
+    }
+
+    // Remove clean money
+    playerStore.removeCleanMoney(accessory.price);
+
+    // Add skill bonus (+2%)
+    playerStore.addSkillBonus(accessory.bonusType, 2);
+
+    // Record purchase
+    const newAccessory: PurchasedAccessory = {
+      accessoryId: accessory.id,
+      vehicleId: accessory.vehicleId,
+      skillType: accessory.bonusType,
+      purchasedAt: new Date().toISOString(),
+    };
+
+    playerStore.setPlayer({
+      purchasedAccessories: [...purchasedAccessories, newAccessory],
+    });
+
+    setPurchaseMessage(`${accessory.name} comprado com sucesso!`);
     setTimeout(() => setPurchaseMessage(''), 3000);
   };
 
@@ -164,7 +241,7 @@ export default function FugaIlustradaPage() {
             >
               <p className="text-secondary text-sm mb-2">Total de Veículos</p>
               <p className="font-heading text-4xl font-bold text-primary">
-                {visibleVehicles.length}
+                {vehicles.length}
               </p>
             </motion.div>
           </div>
@@ -216,7 +293,7 @@ export default function FugaIlustradaPage() {
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {visibleVehicles.map((vehicle, index) => {
+                {vehicles.map((vehicle, index) => {
                   const isOwned = ownedVehicles.includes(vehicle._id);
                   const price = calculateVehiclePrice(vehicle.level || 1);
                   const canAfford = cleanMoney >= price;
@@ -308,7 +385,130 @@ export default function FugaIlustradaPage() {
           )}
 
           {activeTab === 'accessories' && (
-            <AccessoriesShop ownedVehicles={ownedVehicles} vehicles={vehicles} />
+            <div>
+              <h2 className="font-heading text-4xl font-bold mb-8 text-center">
+                Acessórios de Veículos
+              </h2>
+
+              {selectedVehicleForAccessories ? (
+                <div>
+                  <button
+                    onClick={() => setSelectedVehicleForAccessories(null)}
+                    className="mb-6 px-4 py-2 bg-secondary text-black rounded font-heading font-bold hover:bg-primary"
+                  >
+                    ← Voltar
+                  </button>
+
+                  <h3 className="font-heading text-2xl font-bold mb-6 text-primary">
+                    Acessórios para {selectedVehicleForAccessories.name}
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {accessories
+                      .filter((acc) => acc.vehicleId === selectedVehicleForAccessories._id)
+                      .map((accessory) => {
+                        const isPurchased = purchasedAccessories.some(
+                          (acc) => acc.accessoryId === accessory.id
+                        );
+                        const canAfford = cleanMoney >= accessory.price;
+
+                        return (
+                          <motion.div
+                            key={accessory.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4 }}
+                            className={`rounded-lg overflow-hidden border-2 p-4 transition-all ${
+                              isPurchased
+                                ? 'border-primary bg-custom4 opacity-75'
+                                : canAfford
+                                  ? 'border-secondary hover:border-primary bg-custom4'
+                                  : 'border-destructive bg-custom4 opacity-60'
+                            }`}
+                          >
+                            <h4 className="font-heading text-lg font-bold text-primary mb-2">
+                              {accessory.name}
+                            </h4>
+
+                            <div className="mb-3">
+                              <p className="text-secondary text-xs mb-1">
+                                Bônus: <span className="text-primary">{accessory.bonusType}</span>
+                              </p>
+                              <p className="text-secondary text-xs">+{accessory.bonusAmount}% em {accessory.bonusType}</p>
+                            </div>
+
+                            <div className="border-t border-secondary pt-3 mb-3">
+                              <p className="text-primary font-heading text-lg font-bold">
+                                R$ {accessory.price.toFixed(2)}
+                              </p>
+                            </div>
+
+                            <button
+                              onClick={() => handlePurchaseAccessory(accessory)}
+                              disabled={isPurchased || !canAfford}
+                              className={`w-full py-2 rounded font-heading font-bold transition-all ${
+                                isPurchased
+                                  ? 'bg-custom4 text-secondary cursor-not-allowed'
+                                  : canAfford
+                                    ? 'bg-primary text-black hover:bg-secondary'
+                                    : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                              }`}
+                            >
+                              {isPurchased ? 'Comprado' : canAfford ? 'Comprar' : 'Sem Fundos'}
+                            </button>
+                          </motion.div>
+                        );
+                      })}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-secondary text-center mb-8">
+                    Selecione um veículo para ver seus acessórios
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {vehicles.map((vehicle) => (
+                      <motion.div
+                        key={vehicle._id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="rounded-lg overflow-hidden border-2 border-secondary hover:border-primary bg-custom4 cursor-pointer transition-all"
+                        onClick={() => setSelectedVehicleForAccessories(vehicle)}
+                      >
+                        <div className="relative h-40 bg-black overflow-hidden">
+                          {vehicle.image ? (
+                            <Image
+                              src={vehicle.image}
+                              alt={vehicle.name || 'Veículo'}
+                              className="w-full h-full object-cover"
+                              width={300}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-custom4">
+                              <span className="text-secondary text-sm">Sem imagem</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="p-4">
+                          <h3 className="font-heading text-lg font-bold text-primary mb-2">
+                            {vehicle.name}
+                          </h3>
+                          <p className="text-secondary text-xs mb-3">
+                            6 acessórios disponíveis
+                          </p>
+                          <button className="w-full py-2 bg-primary text-black rounded font-heading font-bold hover:bg-secondary transition-all">
+                            Ver Acessórios
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </section>
 

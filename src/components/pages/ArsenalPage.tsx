@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { useCart } from '@/integrations';
+import { useShallow } from 'zustand/react';
 
 interface Weapon {
   _id: string;
@@ -31,7 +32,13 @@ interface WeaponCase {
 
 export default function ArsenalPage() {
   const navigate = useNavigate();
-  const { player, setPlayer } = usePlayerStore();
+  const { player, setPlayer, addSkillBonus } = usePlayerStore(
+    useShallow((state) => ({
+      player: state.player,
+      setPlayer: state.setPlayer,
+      addSkillBonus: state.addSkillBonus,
+    }))
+  );
   const { addToCart } = useCart();
 
   const [weapons, setWeapons] = useState<Weapon[]>([]);
@@ -91,15 +98,19 @@ export default function ArsenalPage() {
       // Simula processamento
       await new Promise(resolve => setTimeout(resolve, 1000));
 
+      // Remove dirty money
+      const newDirtyMoney = dirtyMoney - price;
+      
+      // Update player store with new dirty money
       const updated = {
         ...player,
         balances: {
-          ...player!.balances,
-          dirtyMoney: dirtyMoney - price,
+          ...player.balances,
+          dirtyMoney: newDirtyMoney,
         },
         inventory: {
-          ...player!.inventory,
-          items: [...(player!.inventory?.items || []), {
+          ...player.inventory,
+          items: [...(player.inventory?.items || []), {
             id: crypto.randomUUID(),
             name: selectedWeapon.weaponName,
             level: selectedWeapon.level,
@@ -110,6 +121,12 @@ export default function ArsenalPage() {
       };
 
       setPlayer(updated);
+      
+      // Add skill bonus if weapon has ability bonus
+      if (selectedWeapon.abilityBonus) {
+        addSkillBonus(selectedWeapon.abilityBonus, 1);
+      }
+      
       setResultMessage(`✅ ${selectedWeapon.weaponName} comprada com sucesso!`);
       setShowResult(true);
       setShowWeaponModal(false);
