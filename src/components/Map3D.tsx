@@ -2,15 +2,20 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-// IMPORTAÇÃO NOVA: O controle de câmera profissional
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 
-// IMPORTAÇÃO DAS UTILIDADES
+// IMPORTAÇÃO DAS UTILIDADES (Isso limpa o arquivo sem perder as funções)
 import { fixDarkMaterials, createTextLabel, GRID_CONFIG } from './mapUtils';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+
+// MAPEAMENTO DAS CONSTANTES (Para manter a compatibilidade com seu código abaixo)
+const GRID_WIDTH = GRID_CONFIG.WIDTH;
+const GRID_HEIGHT = GRID_CONFIG.HEIGHT;
+const TILE_SIZE = GRID_CONFIG.TILE_SIZE;
+const PLATFORM_HEIGHT = GRID_CONFIG.PLATFORM_Y;
 
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
@@ -30,6 +35,8 @@ function getBarracoModelUrl(level: number) {
     BARRACO_MODELS[0].url
   );
 }
+
+// REMOVIDA A FUNÇÃO createTextLabel DAQUI (JÁ ESTÁ NO MAPUTILS)
 
 export default function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -86,16 +93,17 @@ export default function Map3D() {
     highlight.visible = false;
     scene.add(highlight);
 
+    // BOLINHA AZUL REMOVIDA DAQUI
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_CONFIG.WIDTH / 2);
-    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_CONFIG.HEIGHT / 2);
+    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
+    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
 
-    const playerWorldX = (myTileX - GRID_CONFIG.WIDTH / 2) * GRID_CONFIG.TILE_SIZE;
-    const playerWorldZ = (myTileY - GRID_CONFIG.HEIGHT / 2) * GRID_CONFIG.TILE_SIZE;
+    const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
+    const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
-    // === NOVA CÂMERA E CONTROLES ORBIT ===
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
     const cameraTarget = new THREE.Vector3(playerWorldX, 0, playerWorldZ);
     
@@ -128,6 +136,8 @@ export default function Map3D() {
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
 
+    // REMOVIDA A DEFINIÇÃO INTERNA DE fixDarkMaterials (JÁ ESTÁ NO MAPUTILS)
+
     // CARREGANDO O SEU BARRACO
     loader.load(
       modelUrl,
@@ -154,13 +164,12 @@ export default function Map3D() {
         barraco.position.x = playerWorldX;
         barraco.position.z = playerWorldZ;
 
-        barraco.traverse(fixDarkMaterials);
+        barraco.traverse(fixDarkMaterials); // Usa a função importada
 
         scene.add(barraco);
         loadedPlayerModels.push(barraco);
 
-        // NOME DO JOGADOR LOGADO
-        const label = createTextLabel(displayName);
+        const label = createTextLabel(displayName); // Usa a função importada
         label.position.set(playerWorldX, finalBox.max.y + 1.2, playerWorldZ);
         scene.add(label);
         loadedPlayerModels.push(label);
@@ -205,20 +214,19 @@ export default function Map3D() {
               sBox.getSize(size);
               model.scale.setScalar(bSize / (Math.max(size.x, size.z) || 1));
   
-              const posX = (p.tileX - GRID_CONFIG.WIDTH / 2) * GRID_CONFIG.TILE_SIZE;
-              const posZ = (p.tileY - GRID_CONFIG.HEIGHT / 2) * GRID_CONFIG.TILE_SIZE;
+              const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+              const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
   
               model.position.set(posX, 0, posZ);
               const sBoxFinal = new THREE.Box3().setFromObject(model);
               model.position.y -= sBoxFinal.min.y;
 
-              model.traverse(fixDarkMaterials);
+              model.traverse(fixDarkMaterials); // Usa a função importada
   
               scene.add(model);
               loadedPlayerModels.push(model);
 
-              // NOMES DOS VIZINHOS
-              const vLabel = createTextLabel(p.name || 'VIZINHO');
+              const vLabel = createTextLabel(p.name || 'VIZINHO'); // Usa a função importada
               vLabel.position.set(posX, 3.5, posZ);
               scene.add(vLabel);
               loadedPlayerModels.push(vLabel);
@@ -237,11 +245,11 @@ export default function Map3D() {
     const topMaterial = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 1, metalness: 0 });
     const sideMaterial = new THREE.MeshStandardMaterial({ color: '#6e5742', roughness: 1, metalness: 0 });
 
-    const platformGeometry = new THREE.BoxGeometry(GRID_CONFIG.WIDTH, GRID_CONFIG.PLATFORM_Y, GRID_CONFIG.HEIGHT);
+    const platformGeometry = new THREE.BoxGeometry(GRID_WIDTH, PLATFORM_HEIGHT, GRID_HEIGHT);
     const platform = new THREE.Mesh(platformGeometry, [
       sideMaterial, sideMaterial, topMaterial, sideMaterial, sideMaterial, sideMaterial,
     ]);
-    platform.position.set(0, -GRID_CONFIG.PLATFORM_Y / 2, 0);
+    platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
     platform.receiveShadow = true;
     platform.castShadow = true;
     scene.add(platform);
@@ -249,32 +257,29 @@ export default function Map3D() {
     const gridGroup = new THREE.Group();
     const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 });
 
-    for (let x = 0; x <= GRID_CONFIG.WIDTH; x++) {
+    for (let x = 0; x <= GRID_WIDTH; x++) {
       const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(x - GRID_CONFIG.WIDTH / 2, 0.03, -GRID_CONFIG.HEIGHT / 2),
-        new THREE.Vector3(x - GRID_CONFIG.WIDTH / 2, 0.03, GRID_CONFIG.HEIGHT / 2),
+        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, -GRID_HEIGHT / 2),
+        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, GRID_HEIGHT / 2),
       ]);
       gridGroup.add(new THREE.Line(geo, lineMaterial));
     }
-    for (let z = 0; z <= GRID_CONFIG.HEIGHT; z++) {
+    for (let z = 0; z <= GRID_HEIGHT; z++) {
       const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-GRID_CONFIG.WIDTH / 2, 0.03, z - GRID_CONFIG.HEIGHT / 2),
-        new THREE.Vector3(GRID_CONFIG.WIDTH / 2, 0.03, z - GRID_CONFIG.HEIGHT / 2),
+        new THREE.Vector3(-GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
+        new THREE.Vector3(GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
       ]);
       gridGroup.add(new THREE.Line(geo, lineMaterial));
     }
     scene.add(gridGroup);
 
-    // === SISTEMA DE CLIQUE INTELIGENTE ===
     let pointerDownPos = { x: 0, y: 0 };
-
     const handlePointerDown = (event: PointerEvent) => {
       pointerDownPos = { x: event.clientX, y: event.clientY };
     };
 
     const handlePointerUp = (event: PointerEvent) => {
       if (!containerRef.current) return;
-
       const moveDistance = Math.abs(event.clientX - pointerDownPos.x) + Math.abs(event.clientY - pointerDownPos.y);
       if (moveDistance > 5) return; 
 
@@ -287,11 +292,12 @@ export default function Map3D() {
       
       if (intersects.length > 0) {
         const point = intersects[0].point;
-        const tileX = Math.floor(point.x + GRID_CONFIG.WIDTH / 2);
-        const tileZ = Math.floor(point.z + GRID_CONFIG.HEIGHT / 2);
+        const tileX = Math.floor(point.x + GRID_WIDTH / 2);
+        const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
         
         highlight.visible = true;
-        highlight.position.set(tileX - GRID_CONFIG.WIDTH / 2 + 0.5, 0.05, tileZ - GRID_CONFIG.HEIGHT / 2 + 0.5);
+        highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
+        // MOVIMENTO DA BOLINHA REMOVIDO DAQUI
       }
     };
 
@@ -320,7 +326,6 @@ export default function Map3D() {
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('pointerdown', handlePointerDown);
       container.removeEventListener('pointerup', handlePointerUp);
-      
       controls.dispose(); 
 
       loadedPlayerModels.forEach(model => {
