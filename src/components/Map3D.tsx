@@ -51,7 +51,8 @@ const COMPLEXO_BUILDINGS = [
   },
   {
     name: 'Centro Comunitário',
-    url: 'https://static.wixstatic.com/3d/50f4bf_1641be50f6a74954848cfaae281d6b15.glb',
+    url: 
+'https://static.wixstatic.com/3d/50f4bf_12c7c9436c2c453aa4335e45cc020dd2.glb',
     x: 17,
     z: 2,
     width: 4,
