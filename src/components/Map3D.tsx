@@ -7,6 +7,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 import { handleTileInvasion, worldToTileCoordinates, OtherPlayer } from '@/components/game/tileInvasion';
+import ComplexoBuildingsLayer from '@/components/map/ComplexoBuildingsLayer';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
