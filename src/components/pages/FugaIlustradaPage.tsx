@@ -39,6 +39,11 @@ export default function FugaIlustradaPage() {
   const player = playerStore.player;
   const cleanMoney = player.balances.cleanMoney || 0;
   const ownedVehicles = player.ownedVehicles || [];
+  const playerLevel = player?.niveis?.playerLevel || 1;
+
+  const visibleVehicles = vehicles.filter(
+    (vehicle) => (vehicle.level || 1) === playerLevel
+  );
 
   useEffect(() => {
     const loadVehicles = async () => {
@@ -159,7 +164,7 @@ export default function FugaIlustradaPage() {
             >
               <p className="text-secondary text-sm mb-2">Total de Veículos</p>
               <p className="font-heading text-4xl font-bold text-primary">
-                {vehicles.length}
+                {visibleVehicles.length}
               </p>
             </motion.div>
           </div>
@@ -211,7 +216,7 @@ export default function FugaIlustradaPage() {
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {vehicles.map((vehicle, index) => {
+                {visibleVehicles.map((vehicle, index) => {
                   const isOwned = ownedVehicles.includes(vehicle._id);
                   const price = calculateVehiclePrice(vehicle.level || 1);
                   const canAfford = cleanMoney >= price;
