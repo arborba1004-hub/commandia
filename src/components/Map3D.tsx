@@ -275,16 +275,14 @@ export default function Map3D() {
             name: building.name,
           });
 
-          const { sprite, texture, material } = createTextLabel(building.name);
-          sprite.position.set(0, scaledSize.y + 1.4, 0);
-          wrapper.add(sprite);
+          const buildingLabel = createTextLabel(building.name);
+          buildingLabel.position.set(0, scaledSize.y + 1.4, 0);
+          wrapper.add(buildingLabel);
 
           scene.add(wrapper);
           loadedPlayerModels.push(wrapper);
 
           cleanupDisposables.push(hitbox.geometry, hitbox.material);
-          if (texture) cleanupDisposables.push(texture);
-          if (material) cleanupDisposables.push(material);
         },
         undefined,
         (error) => {
