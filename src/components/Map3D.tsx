@@ -47,7 +47,7 @@ const COMPLEXO_BUILDINGS = [
     width: 4,
     depth: 2,
     route: '/centro-comercial',
-    rotationY: -Math.PI / 2,
+    rotationY: Math.PI / 2,
   },
   {
     name: 'Centro Comunitário',
@@ -77,7 +77,7 @@ function createTextLabel(text: string) {
   canvas.width = 512;
   canvas.height = 128;
 
-  context.fillStyle = 'rgba(0, 0, 0, 0.5)'; 
+  context.fillStyle = 'rgba(0, 0, 0, 0.5)';
   context.roundRect(0, 0, 512, 128, 20);
   context.fill();
 
@@ -117,8 +117,8 @@ export default function Map3D() {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    
-    let isMounted = true; 
+
+    let isMounted = true;
 
     const container = containerRef.current;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -157,7 +157,7 @@ export default function Map3D() {
 
     const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial); 
+    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial);
     playerModel.position.set(0, 0.3, 0);
     scene.add(playerModel);
 
@@ -173,16 +173,16 @@ export default function Map3D() {
     // === NOVA CÂMERA E CONTROLES ORBIT ===
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
     const cameraTarget = new THREE.Vector3(playerWorldX, 0, playerWorldZ);
-    
+
     camera.position.set(cameraTarget.x + 15, 18, cameraTarget.z + 15);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.copy(cameraTarget); 
-    controls.enableDamping = true; 
-    controls.dampingFactor = 0.05; 
-    controls.maxPolarAngle = Math.PI / 2 - 0.05; 
-    controls.minDistance = 8; 
-    controls.maxDistance = 50; 
+    controls.target.copy(cameraTarget);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
+    controls.minDistance = 8;
+    controls.maxDistance = 50;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
@@ -303,9 +303,9 @@ export default function Map3D() {
         child.castShadow = true;
         child.receiveShadow = true;
         if (child.material) {
-          child.material.metalness = 0; 
-          child.material.roughness = 0.8; 
-          child.material.emissive = new THREE.Color(0x3a220f); 
+          child.material.metalness = 0;
+          child.material.roughness = 0.8;
+          child.material.emissive = new THREE.Color(0x3a220f);
           child.material.emissiveIntensity = 0.2;
           child.material.needsUpdate = true;
         }
@@ -316,7 +316,7 @@ export default function Map3D() {
     loader.load(
       modelUrl,
       (gltf) => {
-        if (!isMounted) return; 
+        if (!isMounted) return;
 
         barraco = gltf.scene;
         const box = new THREE.Box3().setFromObject(barraco);
@@ -354,8 +354,8 @@ export default function Map3D() {
           new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
         );
         reservedArea.rotation.x = -Math.PI / 2;
-        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ); 
-        
+        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ);
+
         scene.add(reservedArea);
         loadedPlayerModels.push(reservedArea);
       },
@@ -385,30 +385,30 @@ export default function Map3D() {
             }));
 
           players.forEach((p: any) => {
-            if (p.id === playerState?._id) return; 
-  
+            if (p.id === playerState?._id) return;
+
             const pLevel = p.barracoLevel || 1;
             const mInfo = BARRACO_MODELS.find(m => pLevel >= m.min && pLevel <= m.max) || BARRACO_MODELS[0];
-  
+
             loader.load(mInfo.url, (gltf) => {
               if (!isMounted) return;
               const model = gltf.scene;
-  
+
               const bSize = getBarracoSize(pLevel);
               const sBox = new THREE.Box3().setFromObject(model);
               const size = new THREE.Vector3();
               sBox.getSize(size);
               model.scale.setScalar(bSize / (Math.max(size.x, size.z) || 1));
-  
+
               const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
               const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-  
+
               model.position.set(posX, 0, posZ);
               const sBoxFinal = new THREE.Box3().setFromObject(model);
               model.position.y -= sBoxFinal.min.y;
 
               model.traverse(fixDarkMaterials);
-  
+
               scene.add(model);
               loadedPlayerModels.push(model);
 
@@ -533,7 +533,7 @@ export default function Map3D() {
 
     let animationId = 0;
     const animate = () => {
-      controls.update(); 
+      controls.update();
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
     };
@@ -551,13 +551,13 @@ export default function Map3D() {
     container.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      isMounted = false; 
+      isMounted = false;
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('pointerdown', handlePointerDown);
       container.removeEventListener('pointerup', handlePointerUp);
-      
-      controls.dispose(); 
+
+      controls.dispose();
 
       // Dispose specific geometries and materials
       highlightGeometry.dispose();
