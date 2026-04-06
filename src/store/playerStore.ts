@@ -451,6 +451,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
           player: initialPlayer,
           isLoaded: true,
           syncError: null,
+          lastSyncAt: Date.now(),
         });
         return;
       }
@@ -462,6 +463,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         player: merged,
         isLoaded: true,
         syncError: null,
+        lastSyncAt: Date.now(),
       });
     } catch (error) {
       console.error('Erro ao carregar playerData:', error);
@@ -469,6 +471,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         player: initialPlayer,
         isLoaded: true,
         syncError: 'Erro ao carregar player local',
+        lastSyncAt: Date.now(),
       });
     }
   },
@@ -501,6 +504,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       player: merged,
       syncError: null,
       lastSyncAt: Date.now(),
+      pollingAttempts: 0,
     });
 
     // Não dispara scheduleSync para evitar loop de sincronização
