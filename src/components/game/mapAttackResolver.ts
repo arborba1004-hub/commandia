@@ -93,3 +93,30 @@ export function resolveMapAttack({
     critical,
   };
 }
+
+export function resolveCombat() {
+  const { state } = require('@/store/mapAttackStore').useMapAttackStore.getState();
+  const { pushAttackFeed } = require('@/components/game/mapAttackFeed');
+
+  if (!state.target) return;
+
+  const result = resolveMapAttack({
+    attacker: {
+      attack: 50,
+      agility: 30,
+      weaponBonus: 10,
+    },
+    defender: {
+      defense: 40,
+      resistance: 25,
+      protectionBonus: 5,
+    },
+    targetDirtyMoney: state.target.dirtyMoney || 100000,
+  });
+
+  pushAttackFeed(
+    result.success
+      ? `🔥 Você dominou ${state.target.playerName}`
+      : `💀 ${state.target.playerName} resistiu ao ataque`
+  );
+}
