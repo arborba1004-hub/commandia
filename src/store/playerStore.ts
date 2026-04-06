@@ -696,22 +696,19 @@ removeDirtyMoney: (value) => {
 
 removeDirtyMoneyPercent: (percent) => {
   const current = get().player;
-
   if (isDirtyMoneyBlocked(current)) return;
 
-  const loss = current.balances.dirtyMoney * (percent / 100);
+  get().applyPlayerUpdate((player) => {
+    const loss = player.balances.dirtyMoney * (percent / 100);
 
-  const updated = mergePlayer({
-    ...current,
-    balances: {
-      ...current.balances,
-      dirtyMoney: Math.max(0, current.balances.dirtyMoney - loss),
-    },
+    return {
+      ...player,
+      balances: {
+        ...player.balances,
+        dirtyMoney: Math.max(0, player.balances.dirtyMoney - loss),
+      },
+    };
   });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
 },
 
 addCleanMoney: (amount) => {
