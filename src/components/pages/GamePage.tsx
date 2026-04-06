@@ -584,6 +584,16 @@ export default function GamePage() {
 
       controls.dispose(); 
 
+      // Parar animação ativa e remover squad da cena
+      if (activeAnimationRef.current?.stop) {
+        activeAnimationRef.current.stop();
+      }
+
+      if (sceneRef.current && squadRef.current) {
+        sceneRef.current.remove(squadRef.current);
+        squadRef.current = null;
+      }
+
       // Limpar disposables do complexo
       complexoResult.disposables.forEach(disposable => {
         if (disposable.dispose) {
