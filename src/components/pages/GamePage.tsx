@@ -119,6 +119,9 @@ export default function GamePage() {
   const enemyBarracoMapRef = useRef<Record<string, THREE.Object3D>>({});
   const squadRef = useRef<THREE.Object3D | null>(null);
   const activeAnimationRef = useRef<any>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
