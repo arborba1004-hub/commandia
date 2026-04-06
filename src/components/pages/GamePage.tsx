@@ -174,6 +174,8 @@ export default function GamePage() {
       depth: true,
     });
 
+    rendererRef.current = renderer;
+
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.8));
     renderer.shadowMap.enabled = true;
@@ -182,6 +184,7 @@ export default function GamePage() {
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
+    sceneRef.current = scene;
     scene.background = new THREE.Color('#000000');
 
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
@@ -220,6 +223,8 @@ export default function GamePage() {
       0.1,
       1000
     );
+
+    cameraRef.current = camera;
 
     // mirar no centro do complexo, não no jogador
     const cameraTarget = new THREE.Vector3(8, 0, 0);
