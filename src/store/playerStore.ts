@@ -500,6 +500,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     set({
       player: merged,
       syncError: null,
+      lastSyncAt: Date.now(),
     });
 
     // Não dispara scheduleSync para evitar loop de sincronização
