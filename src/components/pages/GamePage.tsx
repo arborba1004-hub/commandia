@@ -644,6 +644,33 @@ export default function GamePage() {
         </div>
       )}
 
+      {/* Invadir Barraco Modal */}
+      {useMapAttackStore.getState().previewOpen && (
+        <div className="absolute inset-0 z-50 bg-black/60 flex items-end justify-center">
+          <div className="w-full max-w-md rounded-t-3xl bg-[#090909] border border-red-500/30 p-5">
+            <h2 className="text-2xl font-black text-white mb-4">
+              Invadir barraco
+            </h2>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => useMapAttackStore.getState().closePreview()}
+                className="flex-1 rounded-2xl bg-zinc-700 px-4 py-4 font-bold text-white"
+              >
+                Cancelar
+              </button>
+
+              <button
+                onClick={executeMapAttack}
+                className="flex-1 rounded-2xl bg-red-600 px-4 py-4 font-black text-white"
+              >
+                INVADIR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Game Canvas */}
       <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />
     </div>
