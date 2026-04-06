@@ -548,7 +548,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   syncPlayerToBackend: async () => {
-    // Ignora novos agendamentos durante a sincronização
     if (get().isSyncing) return;
 
     const player = get().player;
@@ -560,16 +559,17 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       });
 
       const data = await syncPlayerUpdate(player);
-
       const merged = mergePlayer(data.player);
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 
-      set({
+      set((state) => ({
         player: merged,
         isSyncing: false,
         syncError: null,
-      });
+        lastSyncAt: Date.now(),
+        localVersion: Math.max(state.localVersion, ((data.player as any)?.version ?? state.localVersion)),
+      }));
     } catch (error) {
       console.error('Erro sync player:', error);
       set({
