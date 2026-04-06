@@ -616,40 +616,30 @@ pollPlayerFromBackend: async () => {
     return;
   }
 
+  if (get().isSyncing) return;
+
   try {
     const serverPlayer = await fetchCurrentPlayer();
+    if (!serverPlayer) return;
 
-    if (serverPlayer) {
-      const serverVersion = (serverPlayer as any).version || 0;
-      const localVersion = get().localVersion;
+    const merged = mergePlayer(serverPlayer);
 
-      // Se o backend tem dados mais novos, substitui
-      if (serverVersion > localVersion) {
-        const merged = mergePlayer(serverPlayer);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 
-        set({
-          player: merged,
-          syncError: null,
-          pollingAttempts: 0,
-          localVersion: serverVersion,
-        });
-      } else {
-        // Backend está desatualizado, mantém local e agenda sync
-        get().scheduleSync();
-      }
-    }
+    set({
+      player: merged,
+      syncError: null,
+      pollingAttempts: 0,
+      lastSyncAt: Date.now(),
+    });
   } catch (error: any) {
     console.error('Erro ao fazer polling do player:', error);
-    
+
     const newAttempts = get().pollingAttempts + 1;
     set({ pollingAttempts: newAttempts });
 
-    // Para o polling se atingiu o máximo de tentativas ou se for erro de autenticação (401)
     if (newAttempts >= get().maxPollingAttempts || error?.status === 401) {
-      console.warn('Polling interrompido: máximo de tentativas atingido ou erro de autenticação');
       get().stopPolling();
-      // Opcional: disparar logout automático em caso de 401
       if (error?.status === 401) {
         localStorage.removeItem('authToken');
       }
