@@ -24,6 +24,7 @@ import {
 } from '@/components/game/mapAttackEffects';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
+import { useFactionStore } from '@/store/factionStore';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -40,7 +41,7 @@ const BARRACO_MODELS = [
   { min: 10, max: 19, url: 'https://static.wixstatic.com/3d/50f4bf_e10d19cfeff147ce95eee1d04a31b04a.glb' },
   { min: 20, max: 29, url: 'https://static.wixstatic.com/3d/50f4bf_ad7304550b404996b3b82c425be28df8.glb' },
   { min: 30, max: 39, url: 'https://static.wixstatic.com/3d/50f4bf_d2c8efd640c24cabb3bda73016b7a6b7.glb' },
-  { min: 40, max: 49, url: 'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb' },
+  { min: 40, max: 49, url:  'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb' },
   { min: 50, max: 59, url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb' },
 ];
 
@@ -91,10 +92,21 @@ export default function GamePage() {
 
   // === FUNÇÃO DE ATAQUE ===
   function executeMapAttack() {
-    const state = useMapAttackStore.getState();
-    const scene = sceneRef.current;
+  const state = useMapAttackStore.getState();
+  const scene = sceneRef.current;
+  const isSameFaction = useFactionStore.getState().isSameFaction;
 
-    if (!scene || !state.origin || !state.target) return;
+  if (!scene || !state.origin || !state.target) return;
+
+  const targetId =
+  state.target?.playerId ||
+  state.target?.id ||
+  state.target?._id;;
+
+  if (targetId && isSameFaction(targetId)) {
+    pushAttackFeed('🚫 Não pode atacar membro da sua facção');
+    return;
+  }
 
     const route = buildManhattanAttackRoute({
       fromTileX: state.origin.tileX,
