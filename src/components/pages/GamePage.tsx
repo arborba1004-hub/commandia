@@ -622,6 +622,11 @@ export default function GamePage() {
       lineMaterial.dispose();
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
       renderer.dispose();
+
+      // Zerar refs no final do cleanup
+      sceneRef.current = null;
+      cameraRef.current = null;
+      rendererRef.current = null;
     };
   }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id, displayName]);
 
