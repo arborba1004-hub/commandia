@@ -10,14 +10,11 @@ type ChatStore = {
   complexoMessages: ChatMessage[];
   faccaoMessages: ChatMessage[];
   mailMessages: ChatMessage[];
-
   activeChannel: ChatChannelType;
-
   isLoading: boolean;
   syncError: string | null;
 
   setActiveChannel: (channel: ChatChannelType) => void;
-
   setComplexoMessages: (messages: ChatMessage[]) => void;
   setFaccaoMessages: (messages: ChatMessage[]) => void;
   setMailMessages: (messages: ChatMessage[]) => void;
@@ -51,7 +48,6 @@ type ChatStore = {
   }) => Promise<void>;
 
   markMailAsRead: (messageId: string) => Promise<void>;
-
   clearChannel: (channel: ChatChannelType) => void;
   saveChat: () => void;
 };
@@ -63,11 +59,15 @@ function getAuthToken() {
 async function makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
 
+  if (!token) {
+    throw new Error('Sem token de autenticação');
+  }
+
   const response = await fetch(`${BACKEND_URL}${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: token ? `Bearer ${token}` : '',
+      Authorization: `Bearer ${token}`,
       ...(options.headers || {}),
     },
   });
@@ -109,9 +109,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   complexoMessages: [],
   faccaoMessages: [],
   mailMessages: [],
-
   activeChannel: 'complexo',
-
   isLoading: false,
   syncError: null,
 
@@ -126,9 +124,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   fetchMessages: async (channel) => {
     const selectedChannel = channel || get().activeChannel;
-    const token = getAuthToken();
-
-    if (!token) return;
 
     try {
       set({ isLoading: true, syncError: null });
@@ -160,9 +155,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   loadChat: async () => {
-    const token = getAuthToken();
-    if (!token) return;
-
     try {
       set({ isLoading: true, syncError: null });
 
@@ -172,14 +164,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         makeRequest<any[]>('/chat/messages?channel=mail'),
       ]);
 
-      const complexoMessages = normalizeMessages(c1);
-      const faccaoMessages = normalizeMessages(c2);
-      const mailMessages = normalizeMessages(c3);
-
       set({
-        complexoMessages,
-        faccaoMessages,
-        mailMessages,
+        complexoMessages: normalizeMessages(c1),
+        faccaoMessages: normalizeMessages(c2),
+        mailMessages: normalizeMessages(c3),
         isLoading: false,
       });
 
@@ -299,10 +287,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ syncError: null });
 
-      await makeRequest(`/chat/read/${messageId}`, {
-        method: 'PATCH',
-      });
-
+      // backend atual não tem /chat/read/:id
       set((state) => ({
         mailMessages: state.mailMessages.map((msg) =>
           msg.id === messageId ? { ...msg, read: true } : msg
