@@ -298,6 +298,13 @@ export default function GamePage() {
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
+    // === TEMPORARY TEST: Load squad model ===
+    loadSquadModel((model) => {
+      model.position.set(playerWorldX + 2, 0, playerWorldZ);
+      scene.add(model);
+      console.log('TRIO TESTE carregado');
+    }, 20);
+
     // === NOVA CÂMERA E CONTROLES ORBIT ===
     const camera = new THREE.PerspectiveCamera(
       45,
