@@ -88,6 +88,23 @@ async function makeRequest<T>(endpoint: string, options: RequestInit = {}): Prom
   return response.json();
 }
 
+function normalizeMessages(messages: any[]): ChatMessage[] {
+  return messages.map((msg) => ({
+    id: msg._id || msg.id,
+    channel: msg.channel,
+    senderId: msg.senderId,
+    senderName: msg.senderName,
+    recipientId: msg.recipientId ?? null,
+    recipientName: msg.recipientName ?? null,
+    factionId: msg.factionId ?? null,
+    subject: msg.subject ?? null,
+    body: msg.body,
+    createdAt: msg.createdAt,
+    read: msg.read ?? false,
+    system: msg.system ?? false,
+  }));
+}
+
 export const useChatStore = create<ChatStore>((set, get) => ({
   complexoMessages: [],
   faccaoMessages: [],
@@ -116,9 +133,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ isLoading: true, syncError: null });
 
-      const messages = await makeRequest<ChatMessage[]>(
+      const raw = await makeRequest<any[]>(
         `/chat/messages?channel=${selectedChannel}`
       );
+
+      const messages = normalizeMessages(raw);
 
       if (selectedChannel === 'complexo') {
         set({ complexoMessages: messages, isLoading: false });
@@ -147,11 +166,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ isLoading: true, syncError: null });
 
-      const [complexoMessages, faccaoMessages, mailMessages] = await Promise.all([
-        makeRequest<ChatMessage[]>('/chat/messages?channel=complexo'),
-        makeRequest<ChatMessage[]>('/chat/messages?channel=faccao'),
-        makeRequest<ChatMessage[]>('/chat/messages?channel=mail'),
+      const [c1, c2, c3] = await Promise.all([
+        makeRequest<any[]>('/chat/messages?channel=complexo'),
+        makeRequest<any[]>('/chat/messages?channel=faccao'),
+        makeRequest<any[]>('/chat/messages?channel=mail'),
       ]);
+
+      const complexoMessages = normalizeMessages(c1);
+      const faccaoMessages = normalizeMessages(c2);
+      const mailMessages = normalizeMessages(c3);
 
       set({
         complexoMessages,
@@ -308,6 +331,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   saveChat: () => {
-    // agora o backend é a fonte real
+    // backend é a fonte de verdade
   },
 }));
