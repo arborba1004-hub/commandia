@@ -674,19 +674,13 @@ pollPlayerFromBackend: async () => {
 // SALDOS
 // ==========================================
 setBalances: (balances) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     balances: {
-      ...current.balances,
+      ...player.balances,
       ...balances,
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 addDirtyMoney: (amount) => {
