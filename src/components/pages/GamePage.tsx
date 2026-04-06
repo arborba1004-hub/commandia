@@ -77,6 +77,10 @@ function createTextLabel(text: string): THREE.Sprite | THREE.Group {
 
 export default function GamePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const enemyBarracosRef = useRef<THREE.Object3D[]>([]);
+  const enemyBarracoMapRef = useRef<Record<string, THREE.Object3D>>({});
+  const squadRef = useRef<THREE.Object3D | null>(null);
+  const activeAnimationRef = useRef<any>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -318,6 +322,20 @@ export default function GamePage() {
 
               scene.add(model);
               loadedPlayerModels.push(model);
+
+              // REGISTRAR DADOS DO BARRACO INIMIGO
+              attachEnemyBarracoData(model, {
+                playerId: p.id || p._id,
+                playerName: p.name || 'VIZINHO',
+                tileX: p.tileX,
+                tileY: p.tileY,
+                barracoLevel: p.barracoLevel || 1,
+                power: p.power || 100,
+                dirtyMoney: p.dirtyMoney || 100000,
+              });
+
+              enemyBarracosRef.current.push(model);
+              enemyBarracoMapRef.current[p.id || p._id] = model;
 
               // NOMES DOS VIZINHOS
               const vLabel = createTextLabel(p.name || 'VIZINHO');
