@@ -920,9 +920,10 @@ setHierarchyBadge: (badge) => {
       get().hydratePlayerFromServer(updated);
 
       return true;
-    } catch (error) {
-      console.error('Erro ao iniciar operação de lavagem:', error);
-      return false;
+   } catch (error: any) {
+  console.error('Erro ao iniciar operação de lavagem:', error);
+  throw error;
+}
     }
   },
 
