@@ -149,8 +149,23 @@ squad.rotation.y = Math.PI;
     if (!state.target || !scene) return;
 
     const result = resolveMapAttack({
-      attacker: { attack: 120, agility: 80, weaponBonus: 30 },
-      defender: { defense: 100, resistance: 90, protectionBonus: 20 },
+      attacker: {
+        attack: 120,
+        agility: 80,
+        weaponBonus: 30,
+        prestige: 0,
+        corre: 0,
+        level: playerState?.niveis?.playerLevel || playerState?.niveis?.barracoLevel || 1,
+      },
+      defender: {
+        defense: 100,
+        resistance: 90,
+        protectionBonus: 20,
+        prestige: 0,
+        corre: 0,
+        level: state.target?.barracoLevel || 1,
+        luxuryItems: [],
+      },
       targetDirtyMoney: state.target.dirtyMoney || 0,
     });
 
