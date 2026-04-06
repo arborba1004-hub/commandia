@@ -23,6 +23,7 @@ import {
   shakeObject,
 } from '@/components/game/mapAttackEffects';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
+import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -703,6 +704,9 @@ squad.rotation.y = Math.PI;
           </div>
         </div>
       )}
+
+      {/* Attack Result Overlay */}
+      <AttackResultOverlay />
 
       {/* Invadir Barraco Modal */}
       {previewOpen && (
