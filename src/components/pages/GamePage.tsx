@@ -100,7 +100,10 @@ export default function GamePage() {
       fromTileY: state.origin.tileY,
       toTileX: state.target.tileX,
       toTileY: state.target.tileY,
+      includeOrigin: true,
     });
+
+    if (!route.length) return;
 
     const squad = createSquadVisual({ level: 20 });
 
@@ -111,6 +114,14 @@ export default function GamePage() {
     scene.add(squad);
 
     squadRef.current = squad;
+
+    useMapAttackStore.getState().startAttack({
+      origin: state.origin,
+      target: state.target,
+      routeToTarget: route,
+      routeBack: [...route].reverse(),
+      squadWorldPosition: { x: startX, y: 0.3, z: startZ },
+    });
 
     activeAnimationRef.current = animateSquadOnRoute({
       squad,
