@@ -40,23 +40,10 @@ function tileToWorldPosition(
 
 function rotateSquadTowards(from: THREE.Vector3, to: THREE.Vector3, squad: THREE.Object3D) {
   const direction = new THREE.Vector3().subVectors(to, from);
-
   if (direction.lengthSq() === 0) return;
 
   const angle = Math.atan2(direction.x, direction.z);
   squad.rotation.y = angle;
-}
-
-export function setSquadToTile(
-  squad: THREE.Object3D,
-  tile: RouteTile,
-  tileSize: number,
-  gridWidth: number,
-  gridHeight: number,
-  y = 0
-) {
-  const world = tileToWorldPosition(tile.tileX, tile.tileY, tileSize, gridWidth, gridHeight, y);
-  squad.position.set(world.x, world.y, world.z);
 }
 
 export function animateSquadOnRoute({
@@ -65,7 +52,7 @@ export function animateSquadOnRoute({
   tileSize,
   gridWidth,
   gridHeight,
-  y,
+  y = 0,
   stepDuration = 260,
   onStepChange,
   onComplete,
@@ -82,7 +69,7 @@ export function animateSquadOnRoute({
   let currentStep = 0;
   let animationFrameId = 0;
 
-  const fixedY = y ?? squad.position.y ?? 0;
+  const getY = () => squad.position.y;
 
   const firstWorld = tileToWorldPosition(
     route[0].tileX,
@@ -90,10 +77,10 @@ export function animateSquadOnRoute({
     tileSize,
     gridWidth,
     gridHeight,
-    fixedY
+    getY()
   );
 
-  squad.position.set(firstWorld.x, firstWorld.y, firstWorld.z);
+  squad.position.set(firstWorld.x, getY(), firstWorld.z);
   onStepChange?.(0, route[0]);
 
   const runStep = () => {
@@ -113,7 +100,7 @@ export function animateSquadOnRoute({
       tileSize,
       gridWidth,
       gridHeight,
-      fixedY
+      getY()
     );
 
     const end = tileToWorldPosition(
@@ -122,7 +109,7 @@ export function animateSquadOnRoute({
       tileSize,
       gridWidth,
       gridHeight,
-      fixedY
+      getY()
     );
 
     const startVec = new THREE.Vector3(start.x, start.y, start.z);
@@ -140,15 +127,17 @@ export function animateSquadOnRoute({
       const eased = 1 - Math.pow(1 - progress, 3);
 
       squad.position.x = THREE.MathUtils.lerp(start.x, end.x, eased);
-      squad.position.y = THREE.MathUtils.lerp(start.y, end.y, eased);
       squad.position.z = THREE.MathUtils.lerp(start.z, end.z, eased);
+
+      // FIX: nunca mexe no Y
+      squad.position.y = getY();
 
       if (progress < 1) {
         animationFrameId = requestAnimationFrame(tick);
         return;
       }
 
-      squad.position.set(end.x, end.y, end.z);
+      squad.position.set(end.x, getY(), end.z);
       currentStep += 1;
       onStepChange?.(currentStep, nextTile);
       runStep();
@@ -162,9 +151,7 @@ export function animateSquadOnRoute({
   return {
     stop: () => {
       stopped = true;
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
     },
     isRunning: () => !stopped,
   };
