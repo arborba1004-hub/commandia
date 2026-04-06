@@ -724,38 +724,28 @@ removeDirtyMoneyPercent: (percent) => {
 
 addCleanMoney: (amount) => {
   const current = get().player;
-
   if (isCleanMoneyBlocked(current)) return;
 
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     balances: {
-      ...current.balances,
-      cleanMoney: current.balances.cleanMoney + amount,
+      ...player.balances,
+      cleanMoney: player.balances.cleanMoney + amount,
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 removeCleanMoney: (amount) => {
   const current = get().player;
-
   if (isCleanMoneyBlocked(current)) return;
 
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     balances: {
-      ...current.balances,
-      cleanMoney: Math.max(0, current.balances.cleanMoney - amount),
+      ...player.balances,
+      cleanMoney: Math.max(0, player.balances.cleanMoney - amount),
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 addCorre: (amount) => {
