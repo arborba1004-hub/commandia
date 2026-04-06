@@ -59,13 +59,13 @@ function createTextLabel(text: string): THREE.Sprite | THREE.Group {
   canvas.width = 512;
   canvas.height = 128;
 
-  context.fillStyle = 'rgba(0, 0, 0, 0.5)'; 
+  context.fillStyle = 'rgba(0, 0, 0, 0.5)';
   context.roundRect(0, 0, 512, 128, 20);
   context.fill();
 
   context.font = 'bold 54px Oswald, Impact, Arial';
   context.textAlign = 'center';
-  context.fillStyle = '#d9b764'; // Cor dourada padrão
+  context.fillStyle = '#d9b764';
   context.fillText(text.toUpperCase(), 256, 85);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -110,10 +110,12 @@ export default function GamePage() {
       const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
       squad.position.x = startX;
-squad.position.z = startZ;
-squad.position.y = 0;
-      scene.add(squad);
+      squad.position.z = startZ;
+      squad.position.y = 0.25;
 
+      const squadY = squad.position.y;
+
+      scene.add(squad);
       squadRef.current = squad;
 
       useMapAttackStore.getState().startAttack({
@@ -121,7 +123,7 @@ squad.position.y = 0;
         target: state.target,
         routeToTarget: route,
         routeBack: [...route].reverse(),
-        squadWorldPosition: { x: startX, y: 0.3, z: startZ },
+        squadWorldPosition: { x: startX, y: squadY, z: startZ },
       });
 
       activeAnimationRef.current = animateSquadOnRoute({
@@ -130,6 +132,7 @@ squad.position.y = 0;
         tileSize: TILE_SIZE,
         gridWidth: GRID_WIDTH,
         gridHeight: GRID_HEIGHT,
+        y: squadY,
         onComplete: () => {
           resolveCombat();
         },
@@ -177,10 +180,11 @@ squad.position.y = 0;
   // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
   function returnSquad() {
     const state = useMapAttackStore.getState();
-
     const backRoute = [...state.routeToTarget].reverse();
 
     if (!squadRef.current) return;
+
+    const squadY = squadRef.current.position.y;
 
     activeAnimationRef.current = animateSquadOnRoute({
       squad: squadRef.current,
@@ -188,6 +192,7 @@ squad.position.y = 0;
       tileSize: TILE_SIZE,
       gridWidth: GRID_WIDTH,
       gridHeight: GRID_HEIGHT,
+      y: squadY,
       onComplete: () => {
         finishAttack();
       },
@@ -245,7 +250,7 @@ squad.position.y = 0;
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let isMounted = true; 
+    let isMounted = true;
 
     const container = containerRef.current;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -287,7 +292,7 @@ squad.position.y = 0;
 
     const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial); 
+    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial);
     playerModel.position.set(0, 0.3, 0);
     scene.add(playerModel);
 
@@ -299,13 +304,6 @@ squad.position.y = 0;
 
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-    // === TEMPORARY TEST: Load squad model ===
-    loadSquadModel((model) => {
-      model.position.set(playerWorldX + 2, 0, playerWorldZ);
-      scene.add(model);
-      console.log('TRIO TESTE carregado');
-    }, 20);
 
     // === NOVA CÂMERA E CONTROLES ORBIT ===
     const camera = new THREE.PerspectiveCamera(
@@ -329,7 +327,7 @@ squad.position.y = 0;
     controls.dampingFactor = 0.05;
     controls.maxPolarAngle = Math.PI / 2 - 0.05;
     controls.minDistance = 10;
-    controls.maxDistance = 70; 
+    controls.maxDistance = 70;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
@@ -350,6 +348,16 @@ squad.position.y = 0;
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
 
+    // === TEMPORARY TEST: Load squad model ===
+    loadSquadModel((model) => {
+      model.position.x = playerWorldX + 2;
+      model.position.z = playerWorldZ;
+      model.position.y = 0.25;
+      scene.add(model);
+      loadedPlayerModels.push(model);
+      console.log('TRIO TESTE carregado');
+    }, 20);
+
     // === CARREGANDO OS EDIFÍCIOS DO COMPLEXO ===
     const complexoResult = createComplexoBuildings(loader);
     scene.add(complexoResult.group);
@@ -362,9 +370,9 @@ squad.position.y = 0;
         child.castShadow = true;
         child.receiveShadow = true;
         if (child.material) {
-          child.material.metalness = 0; 
-          child.material.roughness = 0.8; 
-          child.material.emissive = new THREE.Color(0x3a220f); 
+          child.material.metalness = 0;
+          child.material.roughness = 0.8;
+          child.material.emissive = new THREE.Color(0x3a220f);
           child.material.emissiveIntensity = 0.2;
           child.material.needsUpdate = true;
         }
@@ -375,7 +383,7 @@ squad.position.y = 0;
     loader.load(
       modelUrl,
       (gltf) => {
-        if (!isMounted) return; 
+        if (!isMounted) return;
 
         barraco = gltf.scene;
         const box = new THREE.Box3().setFromObject(barraco);
@@ -413,16 +421,14 @@ squad.position.y = 0;
           new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
         );
         reservedArea.rotation.x = -Math.PI / 2;
-        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ); 
+        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ);
 
         scene.add(reservedArea);
         loadedPlayerModels.push(reservedArea);
       },
       undefined,
       (error) => console.error('❌ Erro crítico ao carregar o modelo:', error)
-    );
-
-    // CARREGANDO OS OUTROS JOGADORES DO BACKEND
+    );// CARREGANDO OS OUTROS JOGADORES DO BACKEND
     const token = localStorage.getItem('authToken');
     if (token) {
       fetch('https://comando-backend.onrender.com/players', {
@@ -433,7 +439,7 @@ squad.position.y = 0;
           if (!isMounted) return;
 
           players.forEach((p: any) => {
-            if (p.id === playerState?._id) return; 
+            if (p.id === playerState?._id) return;
 
             const pLevel = p.barracoLevel || 1;
             const mInfo = BARRACO_MODELS.find(m => pLevel >= m.min && pLevel <= m.max) || BARRACO_MODELS[0];
@@ -482,7 +488,7 @@ squad.position.y = 0;
             });
           });
         })
-        .catch(err => console.error("❌ Erro ao buscar vizinhos do backend:", err));
+        .catch(err => console.error('❌ Erro ao buscar vizinhos do backend:', err));
     }
 
     const textureLoader = new THREE.TextureLoader();
@@ -533,7 +539,7 @@ squad.position.y = 0;
       if (!containerRef.current) return;
 
       const moveDistance = Math.abs(event.clientX - pointerDownPos.x) + Math.abs(event.clientY - pointerDownPos.y);
-      if (moveDistance > 5) return; 
+      if (moveDistance > 5) return;
 
       const rect = containerRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -558,10 +564,9 @@ squad.position.y = 0;
           estimatedChance: 0.6,
         });
 
-        return; // 🚨 IMPORTANTE
+        return;
       }
 
-      // ... keep existing code (ground click handling)
       const intersects = raycaster.intersectObject(platform);
 
       if (intersects.length > 0) {
@@ -573,14 +578,13 @@ squad.position.y = 0;
         highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
         playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
 
-        // Handle tile invasion
         handleTileInvasion(tileX, tileZ);
       }
     };
 
     let animationId = 0;
     const animate = () => {
-      controls.update(); 
+      controls.update();
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
     };
@@ -598,15 +602,14 @@ squad.position.y = 0;
     container.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      isMounted = false; 
+      isMounted = false;
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('pointerdown', handlePointerDown);
       container.removeEventListener('pointerup', handlePointerUp);
 
-      controls.dispose(); 
+      controls.dispose();
 
-      // Parar animação ativa e remover squad da cena
       if (activeAnimationRef.current?.stop) {
         activeAnimationRef.current.stop();
       }
@@ -642,10 +645,13 @@ squad.position.y = 0;
       topMaterial.dispose();
       sideMaterial.dispose();
       lineMaterial.dispose();
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+
       renderer.dispose();
 
-      // Zerar refs no final do cleanup
       sceneRef.current = null;
       cameraRef.current = null;
       rendererRef.current = null;
