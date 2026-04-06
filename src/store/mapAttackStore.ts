@@ -37,6 +37,16 @@ export type AttackOrigin = {
   tileY: number;
 };
 
+export type SpoilsResult = {
+  dirtyMoneyLoot: number;
+  correLoot: number;
+  prestigeLoot: number;
+  brokenLuxuryItemId?: string | null;
+  brokenLuxuryItemName?: string | null;
+  brokenLuxuryItemValue?: number | null;
+  luxuryConvertedDirtyMoney: number;
+};
+
 export type AttackResolution = {
   success: boolean;
   loot: number;
@@ -44,6 +54,8 @@ export type AttackResolution = {
   attackerPower: number;
   defenderPower: number;
   message: string;
+  critical?: boolean;
+  spoils: SpoilsResult;
 };
 
 type PreviewPayload = {
@@ -101,6 +113,16 @@ type MapAttackState = {
   resetAttack: () => void;
 };
 
+const emptySpoils: SpoilsResult = {
+  dirtyMoneyLoot: 0,
+  correLoot: 0,
+  prestigeLoot: 0,
+  brokenLuxuryItemId: null,
+  brokenLuxuryItemName: null,
+  brokenLuxuryItemValue: null,
+  luxuryConvertedDirtyMoney: 0,
+};
+
 const initialState = {
   active: false,
   phase: 'idle' as MapAttackPhase,
@@ -140,17 +162,23 @@ export const useMapAttackStore = create<MapAttackState>((set, get) => ({
       active: false,
       resolution: null,
       finishedAt: null,
+      routeToTarget: [],
+      routeBack: [],
+      currentRoute: [],
+      currentStep: 0,
+      squadWorldPosition: null,
+      squadVisible: false,
     }),
 
   closePreview: () =>
     set((state) => ({
       previewOpen: false,
       phase: state.active ? state.phase : 'idle',
-      estimatedLoot: state.active ? state.estimatedLoot : 0,
-      estimatedChance: state.active ? state.estimatedChance : 0,
       ...(state.active
         ? {}
         : {
+            estimatedLoot: 0,
+            estimatedChance: 0,
             origin: null,
             target: null,
           }),
@@ -192,12 +220,23 @@ export const useMapAttackStore = create<MapAttackState>((set, get) => ({
 
   advanceStep: () =>
     set((state) => ({
-      currentStep: Math.min(state.currentStep + 1, Math.max(state.currentRoute.length - 1, 0)),
+      currentStep: Math.min(
+        state.currentStep + 1,
+        Math.max(state.currentRoute.length - 1, 0)
+      ),
     })),
 
   setResolution: (resolution) =>
     set({
-      resolution,
+      resolution: resolution
+        ? {
+            ...resolution,
+            spoils: {
+              ...emptySpoils,
+              ...resolution.spoils,
+            },
+          }
+        : null,
       phase: 'resolving',
     }),
 
@@ -212,13 +251,16 @@ export const useMapAttackStore = create<MapAttackState>((set, get) => ({
   },
 
   finishAttack: () =>
-    set({
+    set((state) => ({
       active: false,
       previewOpen: false,
       phase: 'finished',
       squadVisible: false,
+      squadWorldPosition: null,
       finishedAt: Date.now(),
-    }),
+      currentRoute: state.routeBack.length ? state.routeBack : state.currentRoute,
+      currentStep: 0,
+    })),
 
   resetAttack: () =>
     set({
