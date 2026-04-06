@@ -276,6 +276,54 @@ squad.rotation.y = Math.PI;
 
   const barracoSize = getBarracoSize(level);
 
+
+function getRandomSpawnPosition(existingPlayers: any[] = []) {
+  const margin = 3;
+  const minDistance = 2;
+
+  let attempts = 0;
+  let valid = false;
+
+  let tileX = GRID_WIDTH / 2;
+  let tileY = GRID_HEIGHT / 2;
+
+  const centerX = GRID_WIDTH / 2;
+  const centerY = GRID_HEIGHT / 2;
+
+  while (!valid && attempts < 50) {
+    tileX = Math.floor(Math.random() * (GRID_WIDTH - margin * 2)) + margin;
+    tileY = Math.floor(Math.random() * (GRID_HEIGHT - margin * 2)) + margin;
+
+    valid = true;
+
+    // 🚫 NÃO NASCER NO CENTRO
+    const distFromCenter = Math.sqrt(
+      (tileX - centerX) ** 2 + (tileY - centerY) ** 2
+    );
+
+    if (distFromCenter < 6) {
+      valid = false;
+    }
+
+    // 🚫 NÃO NASCER EM CIMA DE OUTROS
+    for (const p of existingPlayers) {
+      const dx = p.tileX - tileX;
+      const dy = p.tileY - tileY;
+
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < minDistance) {
+        valid = false;
+        break;
+      }
+    }
+
+    attempts++;
+  }
+
+  return { tileX, tileY };
+}
+
   useEffect(() => {
     if (!containerRef.current) return;
 
