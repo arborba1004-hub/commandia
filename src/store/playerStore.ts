@@ -526,11 +526,25 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   clearPlayer: () => {
     localStorage.removeItem(STORAGE_KEY);
 
+    if (syncTimeout) {
+      clearTimeout(syncTimeout);
+      syncTimeout = null;
+    }
+
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+
     set({
       player: initialPlayer,
       isLoaded: true,
       isSyncing: false,
       syncError: null,
+      isPolling: false,
+      pollingAttempts: 0,
+      localVersion: 0,
+      lastSyncAt: 0,
     });
   },
 
