@@ -111,7 +111,7 @@ export default function GamePage() {
 
       squad.position.x = startX;
 squad.position.z = startZ;
-squad.position.y += 0.08;
+squad.position.y = 0;
       scene.add(squad);
 
       squadRef.current = squad;
