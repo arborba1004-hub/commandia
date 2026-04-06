@@ -198,12 +198,16 @@ export default function LavagemDeDinheiroPage() {
       if (!success) {
         alert('Erro ao iniciar operação. Tente novamente.');
       }
-    } catch (error) {
-      console.error('Erro ao iniciar operação:', error);
-      alert('Erro ao iniciar operação. Tente novamente.');
-    } finally {
-      setIsProcessing(null);
-    }
+    } catch (error: any) {
+  console.error('Erro ao iniciar operação:', error);
+  alert(
+    `Erro ao iniciar operação.\n` +
+    `Mensagem: ${error?.message || 'desconhecida'}\n` +
+    `Status: ${error?.status || 'sem status'}`
+  );
+} finally {
+  setIsProcessing(null);
+}
   };
 
   return (
