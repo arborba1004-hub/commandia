@@ -10,8 +10,8 @@ import { generateUUID } from '@/lib/uuid';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
-const GRID_WIDTH = 40;
-const GRID_HEIGHT = 20;
+const GRID_WIDTH = 80;
+const GRID_HEIGHT = 40;
 
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
