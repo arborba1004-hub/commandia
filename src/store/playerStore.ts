@@ -749,35 +749,23 @@ removeCleanMoney: (amount) => {
 },
 
 addCorre: (amount) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     balances: {
-      ...current.balances,
-      corre: current.balances.corre + amount,
+      ...player.balances,
+      corre: player.balances.corre + amount,
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 removeCorre: (amount) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     balances: {
-      ...current.balances,
-      corre: Math.max(0, current.balances.corre - amount),
+      ...player.balances,
+      corre: Math.max(0, player.balances.corre - amount),
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 // ==========================================
