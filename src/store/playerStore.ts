@@ -426,7 +426,9 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
 
     skillBoostMultiplier: incoming?.skillBoostMultiplier ?? initialPlayer.skillBoostMultiplier,
 
-  purchasedAccessories: incoming?.purchasedAccessories || initialPlayer.purchasedAccessories || [],
+    ownedVehicles: incoming?.ownedVehicles || initialPlayer.ownedVehicles || [],
+    accessories: incoming?.accessories || initialPlayer.accessories || {},
+    purchasedAccessories: incoming?.purchasedAccessories || initialPlayer.purchasedAccessories || [],
   };
 }
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
