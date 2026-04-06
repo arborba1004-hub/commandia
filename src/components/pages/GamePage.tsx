@@ -51,79 +51,6 @@ function getBarracoModelUrl(level: number) {
   );
 }
 
-// === FUNÇÃO DE ATAQUE (FORA DO useEffect) ===
-function executeMapAttack() {
-  const state = useMapAttackStore.getState();
-  const scene = sceneRef.current;
-
-  if (!scene || !state.origin || !state.target) return;
-
-  const route = buildManhattanAttackRoute({
-    fromTileX: state.origin.tileX,
-    fromTileY: state.origin.tileY,
-    toTileX: state.target.tileX,
-    toTileY: state.target.tileY,
-  });
-
-  const squad = createSquadVisual({ level: 20 });
-
-  const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
-  const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-  squad.position.set(startX, 0.3, startZ);
-  scene.add(squad);
-
-  squadRef.current = squad;
-
-  activeAnimationRef.current = animateSquadOnRoute({
-    squad,
-    route,
-    tileSize: TILE_SIZE,
-    gridWidth: GRID_WIDTH,
-    gridHeight: GRID_HEIGHT,
-    onComplete: () => {
-      resolveCombat();
-    },
-  });
-}
-
-// === FUNÇÃO PARA RESOLVER O COMBATE ===
-function resolveCombat() {
-  const state = useMapAttackStore.getState();
-  const scene = sceneRef.current;
-
-  if (!state.target || !scene) return;
-
-  const result = resolveMapAttack({
-    attacker: { attack: 120, agility: 80, weaponBonus: 30 },
-    defender: { defense: 100, resistance: 90, protectionBonus: 20 },
-    targetDirtyMoney: state.target.dirtyMoney || 0,
-  });
-
-  pushAttackFeed(
-    result.success
-      ? `🔥 Você dominou ${state.target.playerName}`
-      : `💀 ${state.target.playerName} resistiu ao ataque`
-  );
-
-  const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
-  const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-  createImpactFlash({
-    scene,
-    position: new THREE.Vector3(posX, 0.6, posZ),
-  });
-
-  const obj = enemyBarracoMapRef.current[state.target.playerId];
-  if (obj) shakeObject(obj);
-
-  useMapAttackStore.getState().setResolution(result);
-
-  setTimeout(() => {
-    returnSquad();
-  }, 800);
-}
-
 // === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
 function createTextLabel(text: string): THREE.Sprite | THREE.Group {
   const canvas = document.createElement('canvas');
@@ -160,6 +87,79 @@ export default function GamePage() {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // === FUNÇÃO DE ATAQUE ===
+  function executeMapAttack() {
+    const state = useMapAttackStore.getState();
+    const scene = sceneRef.current;
+
+    if (!scene || !state.origin || !state.target) return;
+
+    const route = buildManhattanAttackRoute({
+      fromTileX: state.origin.tileX,
+      fromTileY: state.origin.tileY,
+      toTileX: state.target.tileX,
+      toTileY: state.target.tileY,
+    });
+
+    const squad = createSquadVisual({ level: 20 });
+
+    const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
+    const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+    squad.position.set(startX, 0.3, startZ);
+    scene.add(squad);
+
+    squadRef.current = squad;
+
+    activeAnimationRef.current = animateSquadOnRoute({
+      squad,
+      route,
+      tileSize: TILE_SIZE,
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      onComplete: () => {
+        resolveCombat();
+      },
+    });
+  }
+
+  // === FUNÇÃO PARA RESOLVER O COMBATE ===
+  function resolveCombat() {
+    const state = useMapAttackStore.getState();
+    const scene = sceneRef.current;
+
+    if (!state.target || !scene) return;
+
+    const result = resolveMapAttack({
+      attacker: { attack: 120, agility: 80, weaponBonus: 30 },
+      defender: { defense: 100, resistance: 90, protectionBonus: 20 },
+      targetDirtyMoney: state.target.dirtyMoney || 0,
+    });
+
+    pushAttackFeed(
+      result.success
+        ? `🔥 Você dominou ${state.target.playerName}`
+        : `💀 ${state.target.playerName} resistiu ao ataque`
+    );
+
+    const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+    const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+    createImpactFlash({
+      scene,
+      position: new THREE.Vector3(posX, 0.6, posZ),
+    });
+
+    const obj = enemyBarracoMapRef.current[state.target.playerId];
+    if (obj) shakeObject(obj);
+
+    useMapAttackStore.getState().setResolution(result);
+
+    setTimeout(() => {
+      returnSquad();
+    }, 800);
+  }
 
   // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
   function returnSquad() {
