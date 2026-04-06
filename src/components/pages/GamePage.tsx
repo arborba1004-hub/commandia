@@ -23,6 +23,7 @@ import {
   highlightTile,
   shakeObject,
 } from '@/components/game/mapAttackEffects';
+import { resolveCombat } from '@/components/game/mapAttackResolver';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -48,6 +49,42 @@ function getBarracoModelUrl(level: number) {
     BARRACO_MODELS.find((model) => level >= model.min && level <= model.max)?.url ??
     BARRACO_MODELS[0].url
   );
+}
+
+// === FUNÇÃO DE ATAQUE (FORA DO useEffect) ===
+function executeMapAttack() {
+  const state = useMapAttackStore.getState();
+  const scene = sceneRef.current;
+
+  if (!scene || !state.origin || !state.target) return;
+
+  const route = buildManhattanAttackRoute({
+    fromTileX: state.origin.tileX,
+    fromTileY: state.origin.tileY,
+    toTileX: state.target.tileX,
+    toTileY: state.target.tileY,
+  });
+
+  const squad = createSquadVisual({ level: 20 });
+
+  const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
+  const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+  squad.position.set(startX, 0.3, startZ);
+  scene.add(squad);
+
+  squadRef.current = squad;
+
+  activeAnimationRef.current = animateSquadOnRoute({
+    squad,
+    route,
+    tileSize: TILE_SIZE,
+    gridWidth: GRID_WIDTH,
+    gridHeight: GRID_HEIGHT,
+    onComplete: () => {
+      resolveCombat();
+    },
+  });
 }
 
 // === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
@@ -403,6 +440,28 @@ export default function GamePage() {
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
+
+      // 🔥 DETECÇÃO DE CLIQUE EM BARRACOS INIMIGOS (ANTES DO CLIQUE NO CHÃO)
+      const enemyHits = raycaster.intersectObjects(enemyBarracosRef.current, true);
+      const target = pickEnemyBarracoFromIntersections(enemyHits);
+
+      if (target && playerState) {
+        useMapAttackStore.getState().openPreview({
+          origin: {
+            playerId: playerState._id,
+            playerName: playerState.name,
+            tileX: playerState.mapPosition.tileX,
+            tileY: playerState.mapPosition.tileY,
+          },
+          target,
+          estimatedLoot: Math.floor((target.dirtyMoney || 0) * 0.2),
+          estimatedChance: 0.6,
+        });
+
+        return; // 🚨 IMPORTANTE
+      }
+
+      // ... keep existing code (ground click handling)
       const intersects = raycaster.intersectObject(platform);
 
       if (intersects.length > 0) {
