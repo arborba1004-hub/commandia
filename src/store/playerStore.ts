@@ -678,38 +678,28 @@ setBalances: (balances) => {
 
 addDirtyMoney: (amount) => {
   const current = get().player;
-
   if (isDirtyMoneyBlocked(current)) return;
 
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     balances: {
-      ...current.balances,
-      dirtyMoney: current.balances.dirtyMoney + amount,
+      ...player.balances,
+      dirtyMoney: player.balances.dirtyMoney + amount,
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 removeDirtyMoney: (value) => {
   const current = get().player;
-
   if (isDirtyMoneyBlocked(current)) return;
 
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     balances: {
-      ...current.balances,
-      dirtyMoney: Math.max(0, current.balances.dirtyMoney - value),
+      ...player.balances,
+      dirtyMoney: Math.max(0, player.balances.dirtyMoney - value),
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 removeDirtyMoneyPercent: (percent) => {
