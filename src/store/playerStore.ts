@@ -1154,24 +1154,21 @@ setHierarchyBadge: (badge) => {
     return playerLevel <= 50 ? 1 : 2;
   },
 
-  addAccessory: (type, itemId, accessoryName) =>
-    set((state) => {
-      const current = state.player.accessories?.[type]?.[itemId] || [];
+  addAccessory: (type, itemId, accessoryName) => {
+    const current = get().player;
+    const existing = current.accessories?.[type]?.[itemId] || [];
 
-      // evitar duplicado
-      if (current.includes(accessoryName)) return state;
+    if (existing.includes(accessoryName)) return;
 
-      return {
-        player: {
-          ...state.player,
-          accessories: {
-            ...state.player.accessories,
-            [type]: {
-              ...state.player.accessories?.[type],
-              [itemId]: [...current, accessoryName],
-            },
-          },
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      accessories: {
+        ...player.accessories,
+        [type]: {
+          ...player.accessories?.[type],
+          [itemId]: [...existing, accessoryName],
         },
-      };
-    }),
+      },
+    }));
+  },
 }));
