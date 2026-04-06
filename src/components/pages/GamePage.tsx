@@ -109,7 +109,9 @@ export default function GamePage() {
       const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
       const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
-      squad.position.set(startX, 0.3, startZ);
+      squad.position.x = startX;
+squad.position.z = startZ;
+squad.position.y += 0.02;
       scene.add(squad);
 
       squadRef.current = squad;
