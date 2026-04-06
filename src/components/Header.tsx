@@ -36,7 +36,7 @@ export default function Header() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { player, setPlayer } = usePlayerStore();
-  const { playerData, logout } = useGoogleAuth();
+  const { playerData, authToken, logout } = useGoogleAuth();
 
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
   const mailMessages = useChatStore((state) => state.mailMessages);
@@ -44,7 +44,7 @@ export default function Header() {
   const startChatPolling = useChatStore((state) => state.startChatPolling);
   const stopChatPolling = useChatStore((state) => state.stopChatPolling);
 
-  const isAuthenticated = !!player?._id;
+  const isAuthenticated = !!player?._id && !!authToken;
 
   const unreadCount = useMemo(() => {
     const myId = player?._id || '';
@@ -91,7 +91,7 @@ export default function Header() {
   }, [player?.avatar]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !authToken) return;
 
     void loadChat();
     startChatPolling();
@@ -99,7 +99,7 @@ export default function Header() {
     return () => {
       stopChatPolling();
     };
-  }, [isAuthenticated, loadChat, startChatPolling, stopChatPolling]);
+  }, [isAuthenticated, authToken, loadChat, startChatPolling, stopChatPolling]);
 
   const handleLogout = () => {
     stopChatPolling();
