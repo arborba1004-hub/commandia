@@ -187,11 +187,13 @@ export default function GamePage() {
       sceneRef.current.remove(squadRef.current);
       squadRef.current = null;
     }
-    if (activeAnimationRef.current) {
-      cancelAnimationFrame(activeAnimationRef.current);
-      activeAnimationRef.current = null;
+
+    if (activeAnimationRef.current?.stop) {
+      activeAnimationRef.current.stop();
     }
-    useMapAttackStore.getState().closePreview();
+
+    activeAnimationRef.current = null;
+    useMapAttackStore.getState().finishAttack();
   }
 
   const playerState = usePlayerStore((state) => state.player);
