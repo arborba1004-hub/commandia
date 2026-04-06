@@ -29,8 +29,8 @@ import { useFactionStore } from '@/store/factionStore';
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
-const GRID_WIDTH = 40;
-const GRID_HEIGHT = 20;
+const GRID_WIDTH = 80;
+const GRID_HEIGHT = 40;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
