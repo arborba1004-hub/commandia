@@ -184,16 +184,16 @@ export default function LavagemDeDinheiroPage() {
 
       // Inicia a operação no backend
       const success = await startLaundryOperation({
-  businessId,
-  businessName: business.name,
-  startedAt: new Date().toISOString(),
-  endsAt: '',
-  grossAmount: scaledMoney,
-  feePercentage: business.feePercentage,
-  feeAmount: fee,
-  netAmount,
-  operationId: '',
-});
+        businessId,
+        businessName: business.name,
+        startedAt: new Date().toISOString(),
+        endsAt: '',
+        grossAmount: scaledMoney,
+        feePercentage: business.feePercentage,
+        feeAmount: fee,
+        netAmount,
+        operationId: '',
+      });
 
       if (!success) {
         alert('Erro ao iniciar operação. Tente novamente.');

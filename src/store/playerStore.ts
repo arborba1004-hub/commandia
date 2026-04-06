@@ -883,13 +883,11 @@ setHierarchyBadge: (badge) => {
 
     const { dirtyMoney } = current.balances;
 
-    // Verifica se tem dinheiro sujo suficiente
     if (dirtyMoney < operation.grossAmount) {
       return false;
     }
 
     try {
-      // Chama o backend para iniciar a operação
       const response = await laundryStart({
         businessId: operation.businessId,
         businessName: operation.businessName,
@@ -899,7 +897,6 @@ setHierarchyBadge: (badge) => {
         netAmount: operation.netAmount,
       });
 
-      // Cria a operação local baseada na resposta do backend
       const newOperation: ActiveOperation = {
         ...operation,
         id: generateUUID(),
@@ -908,22 +905,23 @@ setHierarchyBadge: (badge) => {
         status: 'processing',
       };
 
-      // Atualiza o estado local com os dados retornados pelo backend
       const updated = mergePlayer({
         ...response.player,
         laundryProgress: {
           ...response.player.laundryProgress,
-          activeOperations: [...response.player.laundryProgress.activeOperations, newOperation],
+          activeOperations: [
+            ...response.player.laundryProgress.activeOperations,
+            newOperation,
+          ],
         },
       });
 
       get().hydratePlayerFromServer(updated);
 
       return true;
-   } catch (error: any) {
-  console.error('Erro ao iniciar operação de lavagem:', error);
-  throw error;
-}
+    } catch (error: any) {
+      console.error('Erro ao iniciar operação de lavagem:', error);
+      throw error;
     }
   },
 
