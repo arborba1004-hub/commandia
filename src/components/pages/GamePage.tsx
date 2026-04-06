@@ -112,6 +112,7 @@ export default function GamePage() {
       squad.position.x = startX;
       squad.position.z = startZ;
       squad.position.y = 0.25;
+squad.rotation.y = Math.PI;
 
       const squadY = squad.position.y;
 
