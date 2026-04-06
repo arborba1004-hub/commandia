@@ -40,18 +40,26 @@ export default function Header() {
 
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
   const mailMessages = useChatStore((state) => state.mailMessages);
-
-  const unreadCount = useMemo(
-    () => mailMessages.filter((msg) => !msg.read).length,
-    [mailMessages]
-  );
+  const loadChat = useChatStore((state) => state.loadChat);
+  const startChatPolling = useChatStore((state) => state.startChatPolling);
+  const stopChatPolling = useChatStore((state) => state.stopChatPolling);
 
   const isAuthenticated = !!player?._id;
+
+  const unreadCount = useMemo(() => {
+    const myId = player?._id || '';
+
+    return mailMessages.filter(
+      (msg) => msg.recipientId === myId && !msg.read
+    ).length;
+  }, [mailMessages, player?._id]);
 
   const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
   const cleanMoney = Number(player?.balances?.cleanMoney || 0);
   const corre = Number(player?.balances?.corre || 0);
-  const level = Number(player?.niveis?.playerLevel || player?.niveis?.barracoLevel || 1);
+  const level = Number(
+    player?.niveis?.playerLevel || player?.niveis?.barracoLevel || 1
+  );
   const power = Number(player?.power || 0);
   const hierarchyBadge = player?.hierarchyBadge || 'Antena';
 
@@ -82,7 +90,19 @@ export default function Header() {
     setAvatarPreview(nextAvatar);
   }, [player?.avatar]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    void loadChat();
+    startChatPolling();
+
+    return () => {
+      stopChatPolling();
+    };
+  }, [isAuthenticated, loadChat, startChatPolling, stopChatPolling]);
+
   const handleLogout = () => {
+    stopChatPolling();
     logout();
     window.location.href = '/';
   };
@@ -192,7 +212,6 @@ export default function Header() {
 
       <div className="relative max-w-[120rem] mx-auto px-2 md:px-4 lg:px-8 py-2">
         <div className="flex items-stretch gap-2 md:gap-3">
-          {/* LOGO */}
           <Link
             to="/"
             className="w-[110px] md:w-[150px] lg:w-[180px] shrink-0 rounded-2xl border border-[#6e4218] bg-[linear-gradient(180deg,rgba(38,10,10,0.95)_0%,rgba(14,5,5,0.98)_100%)] px-2 py-2 flex items-center justify-center"
@@ -206,10 +225,8 @@ export default function Header() {
             />
           </Link>
 
-          {/* CENTRO */}
           <div className="min-w-0 flex-1 rounded-2xl border border-[#6e4218] bg-[linear-gradient(180deg,rgba(73,23,13,0.98)_0%,rgba(18,8,8,0.98)_100%)] shadow-[0_0_40px_rgba(0,0,0,0.35)]">
             <div className="flex items-center gap-3 px-3 py-2 md:px-4">
-              {/* AVATAR */}
               <div className="shrink-0">
                 <button
                   onClick={handleOpenGallery}
@@ -238,7 +255,6 @@ export default function Header() {
                 />
               </div>
 
-              {/* TEXTO + STATS */}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -273,7 +289,6 @@ export default function Header() {
             </div>
           </div>
 
-          {/* CHAT + SAIR */}
           <div className="w-[108px] md:w-[130px] lg:w-[160px] shrink-0 rounded-2xl border border-[#272727] bg-[linear-gradient(180deg,rgba(10,10,10,0.98)_0%,rgba(24,24,24,0.98)_100%)] p-2 flex flex-col justify-between">
             <div className="text-center text-[10px] md:text-[11px] font-black uppercase tracking-[0.18em] text-white/90 mb-2">
               Comunicações
