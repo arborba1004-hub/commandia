@@ -12,7 +12,7 @@ import { Menu, X } from 'lucide-react';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { buildManhattanAttackRoute } from '@/components/game/mapAttackPath';
 import { resolveMapAttack } from '@/components/game/mapAttackResolver';
-import { createSquadVisual } from '@/components/game/createSquadVisual';
+import { loadSquadModel } from '@/components/game/createSquadVisual';
 import { animateSquadOnRoute } from '@/components/game/animateSquadOnRoute';
 import {
   attachEnemyBarracoData,
@@ -105,34 +105,34 @@ export default function GamePage() {
 
     if (!route.length) return;
 
-    const squad = createSquadVisual({ level: 20 });
+    loadSquadModel((squad) => {
+      const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
+      const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
-    const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
-    const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+      squad.position.set(startX, 0.3, startZ);
+      scene.add(squad);
 
-    squad.position.set(startX, 0.3, startZ);
-    scene.add(squad);
+      squadRef.current = squad;
 
-    squadRef.current = squad;
+      useMapAttackStore.getState().startAttack({
+        origin: state.origin,
+        target: state.target,
+        routeToTarget: route,
+        routeBack: [...route].reverse(),
+        squadWorldPosition: { x: startX, y: 0.3, z: startZ },
+      });
 
-    useMapAttackStore.getState().startAttack({
-      origin: state.origin,
-      target: state.target,
-      routeToTarget: route,
-      routeBack: [...route].reverse(),
-      squadWorldPosition: { x: startX, y: 0.3, z: startZ },
-    });
-
-    activeAnimationRef.current = animateSquadOnRoute({
-      squad,
-      route,
-      tileSize: TILE_SIZE,
-      gridWidth: GRID_WIDTH,
-      gridHeight: GRID_HEIGHT,
-      onComplete: () => {
-        resolveCombat();
-      },
-    });
+      activeAnimationRef.current = animateSquadOnRoute({
+        squad,
+        route,
+        tileSize: TILE_SIZE,
+        gridWidth: GRID_WIDTH,
+        gridHeight: GRID_HEIGHT,
+        onComplete: () => {
+          resolveCombat();
+        },
+      });
+    }, 20);
   }
 
   // === FUNÇÃO PARA RESOLVER O COMBATE ===

@@ -4,6 +4,14 @@ type CreateSquadParams = {
   level?: number;
 };
 
+export function loadSquadModel(callback: (squad: THREE.Group) => void, level: number = 20) {
+  // Simulate async loading with requestAnimationFrame
+  requestAnimationFrame(() => {
+    const squad = createSquadVisual({ level });
+    callback(squad);
+  });
+}
+
 export function createSquadVisual({ level = 1 }: CreateSquadParams = {}) {
   const group = new THREE.Group();
 
