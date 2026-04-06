@@ -1,153 +1,105 @@
 import { create } from 'zustand';
-import type { ChatMessage, ChatChannelType } from '@/types/chat';
+
+export type ChatChannel = 'complexo' | 'faccao' | 'mail';
+
+export type ChatMessage = {
+  id: string;
+  channel: ChatChannel;
+  senderId: string;
+  senderName: string;
+  recipientId?: string;
+  recipientName?: string;
+  factionId?: string;
+  subject?: string;
+  body: string;
+  createdAt: string;
+  read?: boolean;
+};
+
+const STORAGE_KEY = 'chat_data';
 
 type ChatStore = {
+  activeChannel: ChatChannel;
+
   complexoMessages: ChatMessage[];
   faccaoMessages: ChatMessage[];
   mailMessages: ChatMessage[];
 
-  activeChannel: ChatChannelType;
+  setActiveChannel: (c: ChatChannel) => void;
 
-  setActiveChannel: (channel: ChatChannelType) => void;
+  sendMessage: (msg: Omit<ChatMessage, 'id' | 'createdAt'>) => void;
 
-  setComplexoMessages: (messages: ChatMessage[]) => void;
-  setFaccaoMessages: (messages: ChatMessage[]) => void;
-  setMailMessages: (messages: ChatMessage[]) => void;
-
-  addMessage: (message: ChatMessage) => void;
-
-  sendComplexoMessage: (payload: {
-    senderId: string;
-    senderName: string;
-    body: string;
-  }) => void;
-
-  sendFaccaoMessage: (payload: {
-    senderId: string;
-    senderName: string;
-    factionId: string;
-    body: string;
-  }) => void;
-
-  sendMailMessage: (payload: {
-    senderId: string;
-    senderName: string;
-    recipientId: string;
-    recipientName: string;
-    subject?: string;
-    body: string;
-  }) => void;
-
-  markMailAsRead: (messageId: string) => void;
-
-  clearChannel: (channel: ChatChannelType) => void;
+  loadChat: () => void;
 };
 
+function save(state: any) {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      complexoMessages: state.complexoMessages,
+      faccaoMessages: state.faccaoMessages,
+      mailMessages: state.mailMessages,
+    })
+  );
+}
+
 export const useChatStore = create<ChatStore>((set, get) => ({
+  activeChannel: 'complexo',
+
   complexoMessages: [],
   faccaoMessages: [],
   mailMessages: [],
 
-  activeChannel: 'complexo',
+  setActiveChannel: (c) => set({ activeChannel: c }),
 
-  setActiveChannel: (channel) => set({ activeChannel: channel }),
-
-  setComplexoMessages: (messages) => set({ complexoMessages: messages }),
-  setFaccaoMessages: (messages) => set({ faccaoMessages: messages }),
-  setMailMessages: (messages) => set({ mailMessages: messages }),
-
-  addMessage: (message) => {
-    if (message.channel === 'complexo') {
-      set((state) => ({
-        complexoMessages: [...state.complexoMessages, message],
-      }));
-      return;
-    }
-
-    if (message.channel === 'faccao') {
-      set((state) => ({
-        faccaoMessages: [...state.faccaoMessages, message],
-      }));
-      return;
-    }
-
-    set((state) => ({
-      mailMessages: [...state.mailMessages, message],
-    }));
-  },
-
-  sendComplexoMessage: ({ senderId, senderName, body }) => {
-    const message: ChatMessage = {
+  sendMessage: (msg) => {
+    const newMsg: ChatMessage = {
+      ...msg,
       id: crypto.randomUUID(),
-      channel: 'complexo',
-      senderId,
-      senderName,
-      body,
       createdAt: new Date().toISOString(),
-      read: true,
     };
 
-    get().addMessage(message);
-  },
-
-  sendFaccaoMessage: ({ senderId, senderName, factionId, body }) => {
-    const message: ChatMessage = {
-      id: crypto.randomUUID(),
-      channel: 'faccao',
-      senderId,
-      senderName,
-      factionId,
-      body,
-      createdAt: new Date().toISOString(),
-      read: true,
-    };
-
-    get().addMessage(message);
-  },
-
-  sendMailMessage: ({
-    senderId,
-    senderName,
-    recipientId,
-    recipientName,
-    subject,
-    body,
-  }) => {
-    const message: ChatMessage = {
-      id: crypto.randomUUID(),
-      channel: 'mail',
-      senderId,
-      senderName,
-      recipientId,
-      recipientName,
-      subject: subject || 'Sem assunto',
-      body,
-      createdAt: new Date().toISOString(),
-      read: false,
-    };
-
-    get().addMessage(message);
-  },
-
-  markMailAsRead: (messageId) => {
-    set((state) => ({
-      mailMessages: state.mailMessages.map((msg) =>
-        msg.id === messageId ? { ...msg, read: true } : msg
-      ),
-    }));
-  },
-
-  clearChannel: (channel) => {
-    if (channel === 'complexo') {
-      set({ complexoMessages: [] });
+    if (msg.channel === 'complexo') {
+      set((state) => {
+        const newState = {
+          complexoMessages: [...state.complexoMessages, newMsg],
+        };
+        save({ ...state, ...newState });
+        return newState;
+      });
       return;
     }
 
-    if (channel === 'faccao') {
-      set({ faccaoMessages: [] });
+    if (msg.channel === 'faccao') {
+      set((state) => {
+        const newState = {
+          faccaoMessages: [...state.faccaoMessages, newMsg],
+        };
+        save({ ...state, ...newState });
+        return newState;
+      });
       return;
     }
 
-    set({ mailMessages: [] });
+    set((state) => {
+      const newState = {
+        mailMessages: [...state.mailMessages, newMsg],
+      };
+      save({ ...state, ...newState });
+      return newState;
+    });
+  },
+
+  loadChat: () => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw);
+
+    set({
+      complexoMessages: parsed.complexoMessages || [],
+      faccaoMessages: parsed.faccaoMessages || [],
+      mailMessages: parsed.mailMessages || [],
+    });
   },
 }));
