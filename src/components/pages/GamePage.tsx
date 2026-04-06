@@ -5,7 +5,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 // IMPORTAÇÃO NOVA: O controle de câmera profissional
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
-import { handleTileInvasion, worldToTileCoordinates } from '@/components/game/tileInvasion';
+import { handleTileInvasion } from '@/components/game/tileInvasion';
 import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
@@ -20,7 +20,6 @@ import {
 } from '@/components/game/EnemyBarracoSelector';
 import {
   createImpactFlash,
-  highlightTile,
   shakeObject,
 } from '@/components/game/mapAttackEffects';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
