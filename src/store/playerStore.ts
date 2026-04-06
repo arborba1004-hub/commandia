@@ -901,8 +901,7 @@ setHierarchyBadge: (badge) => {
         },
       });
 
-      set({ player: updated });
-      get().saveLocal();
+      get().hydratePlayerFromServer(updated);
 
       return true;
     } catch (error) {
@@ -928,8 +927,7 @@ setHierarchyBadge: (badge) => {
       // Atualiza o estado local com os dados retornados pelo backend
       const updated = mergePlayer(response.player);
 
-      set({ player: updated });
-      get().saveLocal();
+      get().hydratePlayerFromServer(updated);
 
       // Limpa operações diárias antigas para manter apenas as do dia atual
       get().clearFinishedLaundryOperations();
