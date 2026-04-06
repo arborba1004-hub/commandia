@@ -86,6 +86,7 @@ export default function GamePage() {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const previewOpen = useMapAttackStore((state) => state.previewOpen);
 
   // === FUNÇÃO DE ATAQUE ===
   function executeMapAttack() {
@@ -661,7 +662,7 @@ export default function GamePage() {
       )}
 
       {/* Invadir Barraco Modal */}
-      {useMapAttackStore.getState().previewOpen && (
+      {previewOpen && (
         <div className="absolute inset-0 z-50 bg-black/60 flex items-end justify-center">
           <div className="w-full max-w-md rounded-t-3xl bg-[#090909] border border-red-500/30 p-5">
             <h2 className="text-2xl font-black text-white mb-4">
