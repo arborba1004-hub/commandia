@@ -1,141 +1,75 @@
 import { create } from 'zustand';
-import { Faction, FactionMember } from '@/types/faction';
 
-interface FactionState {
+type FactionMember = {
+  playerId: string;
+  name: string;
+  power: number;
+  role: 'leader' | 'captain' | 'member';
+};
+
+type Faction = {
+  id: string;
+  name: string;
+  tag: string;
+  leaderId: string;
+  members: FactionMember[];
+};
+
+type FactionStore = {
   faction: Faction | null;
 
-  createFaction: (player: any, name: string, tag: string) => void;
-  joinFaction: (player: any, faction: Faction) => void;
+  createFaction: (name: string, tag: string, leader: FactionMember) => void;
+
+  joinFaction: (faction: Faction, member: FactionMember) => void;
+
   leaveFaction: (playerId: string) => void;
 
-  addMember: (member: FactionMember) => void;
-  removeMember: (playerId: string) => void;
+  isSameFaction: (playerId: string) => boolean;
+};
 
-  addContribution: (playerId: string, value: number) => void;
-
-  clearFaction: () => void;
-}
-
-export const useFactionStore = create<FactionState>((set, get) => ({
+export const useFactionStore = create<FactionStore>((set, get) => ({
   faction: null,
 
-  createFaction: (player, name, tag) => {
+  createFaction: (name, tag, leader) => {
     const newFaction: Faction = {
       id: crypto.randomUUID(),
       name,
       tag,
-      leaderId: player._id,
-      leaderName: player.name,
-
-      members: [
-        {
-          playerId: player._id,
-          playerName: player.name,
-          role: 'leader',
-          joinedAt: new Date().toISOString(),
-          contribution: 0,
-          power: player.power || 100,
-        },
-      ],
-
-      memberCount: 1,
-      createdAt: new Date().toISOString(),
-
-      prestige: 0,
-      power: player.power || 100,
-
-      treasuryDirtyMoney: 0,
-      treasuryCleanMoney: 0,
-
-      eventPoints: 0,
-
-      isOpen: true,
+      leaderId: leader.playerId,
+      members: [leader],
     };
 
     set({ faction: newFaction });
   },
 
-  joinFaction: (player, faction) => {
-    const member: FactionMember = {
-      playerId: player._id,
-      playerName: player.name,
-      role: 'member',
-      joinedAt: new Date().toISOString(),
-      contribution: 0,
-      power: player.power || 100,
-    };
+  joinFaction: (faction, member) => {
+    const exists = faction.members.some(m => m.playerId === member.playerId);
+    if (exists) return;
 
-    const updated = {
-      ...faction,
-      members: [...faction.members, member],
-      memberCount: faction.members.length + 1,
-    };
-
-    set({ faction: updated });
+    set({
+      faction: {
+        ...faction,
+        members: [...faction.members, member],
+      },
+    });
   },
 
   leaveFaction: (playerId) => {
     const faction = get().faction;
     if (!faction) return;
 
-    const members = faction.members.filter((m) => m.playerId !== playerId);
-
     set({
       faction: {
         ...faction,
-        members,
-        memberCount: members.length,
+        members: faction.members.filter(m => m.playerId !== playerId),
       },
     });
   },
 
-  addMember: (member) => {
+  isSameFaction: (playerId) => {
     const faction = get().faction;
-    if (!faction) return;
+    if (!faction) return false;
 
-    set({
-      faction: {
-        ...faction,
-        members: [...faction.members, member],
-        memberCount: faction.members.length + 1,
-      },
-    });
+    return faction.members.some(m => m.playerId === playerId);
   },
-
-  removeMember: (playerId) => {
-    const faction = get().faction;
-    if (!faction) return;
-
-    const members = faction.members.filter((m) => m.playerId !== playerId);
-
-    set({
-      faction: {
-        ...faction,
-        members,
-        memberCount: members.length,
-      },
-    });
-  },
-
-  addContribution: (playerId, value) => {
-    const faction = get().faction;
-    if (!faction) return;
-
-    const members = faction.members.map((m) => {
-      if (m.playerId === playerId) {
-        return { ...m, contribution: m.contribution + value };
-      }
-      return m;
-    });
-
-    set({
-      faction: {
-        ...faction,
-        members,
-        eventPoints: faction.eventPoints + value,
-      },
-    });
-  },
-
-  clearFaction: () => set({ faction: null }),
 }));
