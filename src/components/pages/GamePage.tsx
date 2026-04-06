@@ -23,7 +23,6 @@ import {
   highlightTile,
   shakeObject,
 } from '@/components/game/mapAttackEffects';
-import { resolveCombat } from '@/components/game/mapAttackResolver';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 
 const dracoLoader = new DRACOLoader();
@@ -88,6 +87,43 @@ function executeMapAttack() {
   });
 }
 
+// === FUNÇÃO PARA RESOLVER O COMBATE ===
+function resolveCombat() {
+  const state = useMapAttackStore.getState();
+  const scene = sceneRef.current;
+
+  if (!state.target || !scene) return;
+
+  const result = resolveMapAttack({
+    attacker: { attack: 120, agility: 80, weaponBonus: 30 },
+    defender: { defense: 100, resistance: 90, protectionBonus: 20 },
+    targetDirtyMoney: state.target.dirtyMoney || 0,
+  });
+
+  pushAttackFeed(
+    result.success
+      ? `🔥 Você dominou ${state.target.playerName}`
+      : `💀 ${state.target.playerName} resistiu ao ataque`
+  );
+
+  const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+  const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+  createImpactFlash({
+    scene,
+    position: new THREE.Vector3(posX, 0.6, posZ),
+  });
+
+  const obj = enemyBarracoMapRef.current[state.target.playerId];
+  if (obj) shakeObject(obj);
+
+  useMapAttackStore.getState().setResolution(result);
+
+  setTimeout(() => {
+    returnSquad();
+  }, 800);
+}
+
 // === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
 function createTextLabel(text: string): THREE.Sprite | THREE.Group {
   const canvas = document.createElement('canvas');
@@ -124,6 +160,18 @@ export default function GamePage() {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Função para retornar o squad após o combate
+  const returnSquad = () => {
+    if (squadRef.current && sceneRef.current) {
+      sceneRef.current.remove(squadRef.current);
+      squadRef.current = null;
+    }
+    if (activeAnimationRef.current) {
+      cancelAnimationFrame(activeAnimationRef.current);
+      activeAnimationRef.current = null;
+    }
+  };
 
   const playerState = usePlayerStore((state) => state.player);
   const level = playerState?.niveis?.barracoLevel || 1;
