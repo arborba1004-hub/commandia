@@ -19,9 +19,10 @@ export function loadSquadModel(callback: (squad: THREE.Group) => void, _level: n
   loader.load(
     SQUAD_GLB_URL,
     (gltf) => {
-      const squad = gltf.scene as THREE.Group;
+      const container = new THREE.Group();
+      const model = gltf.scene;
 
-      squad.traverse((child: any) => {
+      model.traverse((child: any) => {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
@@ -46,20 +47,31 @@ export function loadSquadModel(callback: (squad: THREE.Group) => void, _level: n
         }
       });
 
-      const box = new THREE.Box3().setFromObject(squad);
+      const box = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3();
       box.getSize(size);
 
       const desiredWidth = 1.6;
       const scale = desiredWidth / Math.max(size.x, size.z, 1);
-      squad.scale.setScalar(scale);
+      model.scale.setScalar(scale);
 
-      const finalBox = new THREE.Box3().setFromObject(squad);
-      squad.position.y -= finalBox.min.y;
+      const scaledBox = new THREE.Box3().setFromObject(model);
+      const center = new THREE.Vector3();
+      scaledBox.getCenter(center);
 
-      squad.name = 'SQUAD_ENTITY';
+      model.position.x -= center.x;
+      model.position.z -= center.z;
 
-      callback(squad);
+      const finalBox = new THREE.Box3().setFromObject(model);
+
+      // 🔥 corrige o "afundamento" no modelo filho, não no container
+      model.position.y -= finalBox.min.y;
+      model.position.y += 0.02;
+
+      container.add(model);
+      container.name = 'SQUAD_ENTITY';
+
+      callback(container);
     },
     undefined,
     (error) => {
