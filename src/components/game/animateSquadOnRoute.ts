@@ -53,7 +53,7 @@ export function setSquadToTile(
   tileSize: number,
   gridWidth: number,
   gridHeight: number,
-  y = 0.35
+  y = 0
 ) {
   const world = tileToWorldPosition(tile.tileX, tile.tileY, tileSize, gridWidth, gridHeight, y);
   squad.position.set(world.x, world.y, world.z);
@@ -65,7 +65,7 @@ export function animateSquadOnRoute({
   tileSize,
   gridWidth,
   gridHeight,
-  y = 0.35,
+  y,
   stepDuration = 260,
   onStepChange,
   onComplete,
@@ -82,13 +82,15 @@ export function animateSquadOnRoute({
   let currentStep = 0;
   let animationFrameId = 0;
 
+  const fixedY = y ?? squad.position.y ?? 0;
+
   const firstWorld = tileToWorldPosition(
     route[0].tileX,
     route[0].tileY,
     tileSize,
     gridWidth,
     gridHeight,
-    y
+    fixedY
   );
 
   squad.position.set(firstWorld.x, firstWorld.y, firstWorld.z);
@@ -111,7 +113,7 @@ export function animateSquadOnRoute({
       tileSize,
       gridWidth,
       gridHeight,
-      y
+      fixedY
     );
 
     const end = tileToWorldPosition(
@@ -120,7 +122,7 @@ export function animateSquadOnRoute({
       tileSize,
       gridWidth,
       gridHeight,
-      y
+      fixedY
     );
 
     const startVec = new THREE.Vector3(start.x, start.y, start.z);
