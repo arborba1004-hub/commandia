@@ -3,12 +3,18 @@ import Footer from '@/components/Footer';
 import ChatMessageList from '@/components/chat/ChatMessageList';
 import ChatComposer from '@/components/chat/ChatComposer';
 import { useChatStore } from '@/store/chatStore';
+import { useEffect } from 'react';
+
 
 export default function ChatPage() {
   const activeChannel = useChatStore((state) => state.activeChannel);
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
   const mailMessages = useChatStore((state) => state.mailMessages);
+const loadChat = useChatStore((state) => state.loadChat);
 
+useEffect(() => {
+  loadChat();
+}, [loadChat]);
   const unreadCount = mailMessages.filter((msg) => !msg.read).length;
 
   const channelTitle =
