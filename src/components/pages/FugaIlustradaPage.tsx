@@ -40,7 +40,12 @@ export default function FugaIlustradaPage() {
   const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] = useState<EscapeVehicles | null>(null);
 
   // ÚNICA FONTE: playerStore
-  const player = playerStore.player;
+  const player = usePlayerStore((s) => s.player);
+  const removeCleanMoney = usePlayerStore((s) => s.removeCleanMoney);
+  const addOwnedVehicle = usePlayerStore((s) => s.addOwnedVehicle);
+  const addSkillBonus = usePlayerStore((s) => s.addSkillBonus);
+  const setPlayer = usePlayerStore((s) => s.setPlayer);
+  
   const cleanMoney = player.balances.cleanMoney;
   const ownedVehicles = player.ownedVehicles || [];
   const purchasedAccessories = player.purchasedAccessories || [];
@@ -93,15 +98,15 @@ export default function FugaIlustradaPage() {
     }
 
     // Remove clean money
-    playerStore.removeCleanMoney(price);
+    removeCleanMoney(price);
     
     // Add owned vehicle
-    playerStore.addOwnedVehicle(vehicle._id);
+    addOwnedVehicle(vehicle._id);
 
     // Apply bonus based on player level
     if (vehicle.abilityBonusType) {
       const bonus = getAccessoryBonus(player.niveis.playerLevel);
-      playerStore.addSkillBonus(vehicle.abilityBonusType, bonus);
+      addSkillBonus(vehicle.abilityBonusType, bonus);
     }
 
     setPurchaseMessage(`${vehicle.name} adquirido com sucesso!`);
@@ -126,12 +131,12 @@ export default function FugaIlustradaPage() {
     }
 
     // Remove clean money
-    playerStore.removeCleanMoney(price);
+    removeCleanMoney(price);
 
     // Apply bonus based on player level
     if (accessory.skillType) {
       const bonus = getAccessoryBonus(player.niveis.playerLevel);
-      playerStore.addSkillBonus(accessory.skillType, bonus);
+      addSkillBonus(accessory.skillType, bonus);
     }
 
     // Record purchase
@@ -141,7 +146,7 @@ export default function FugaIlustradaPage() {
       purchasedAt: new Date().toISOString(),
     };
 
-    playerStore.setPlayer({
+    setPlayer({
       purchasedAccessories: [...purchasedAccessories, newAccessory],
     });
 
@@ -167,7 +172,7 @@ export default function FugaIlustradaPage() {
     }
 
     // Remove clean money
-    playerStore.removeCleanMoney(accessoryPrice);
+    removeCleanMoney(accessoryPrice);
 
     // Add accessory to vehicle
     setVehicleAccessories({
@@ -177,7 +182,7 @@ export default function FugaIlustradaPage() {
 
     // Apply bonus
     const bonus = getAccessoryBonus(player.niveis.playerLevel);
-    playerStore.addSkillBonus(accessory.bonus, bonus);
+    addSkillBonus(accessory.bonus, bonus);
 
     setPurchaseMessage(`${accessory.name} adicionado com sucesso!`);
     setTimeout(() => setPurchaseMessage(''), 3000);
@@ -641,10 +646,10 @@ export default function FugaIlustradaPage() {
                       disabled={owned}
                       onClick={() => handleBuyVehicleAccessoryPix(selectedVehicleForAccessories, acc)}
                       className={`w-full px-4 py-3 rounded font-heading font-bold transition-all text-left flex justify-between items-center ${
-  owned
-    ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
-    : 'bg-primary text-black hover:bg-secondary'
-}`}
+                        owned
+                          ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
+                          : 'bg-primary text-black hover:bg-secondary'
+                      }`}
                     >
                       <span>{acc.name}</span>
                       <span className="text-sm">
