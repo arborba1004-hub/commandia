@@ -1,21 +1,76 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 
 type CreateSquadParams = {
   level?: number;
 };
 
-export function loadSquadModel(callback: (squad: THREE.Group) => void, level: number = 20) {
-  // Simulate async loading with requestAnimationFrame
-  requestAnimationFrame(() => {
-    const squad = createSquadVisual({ level });
-    callback(squad);
-  });
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+
+const SQUAD_GLB_URL =
+  'https://static.wixstatic.com/3d/50f4bf_471a8eec1715484ebc36bdd3b9002999.glb';
+
+export function loadSquadModel(callback: (squad: THREE.Group) => void, _level: number = 20) {
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+
+  loader.load(
+    SQUAD_GLB_URL,
+    (gltf) => {
+      const squad = gltf.scene as THREE.Group;
+
+      squad.traverse((child: any) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach((mat: any) => {
+                if ('metalness' in mat) mat.metalness = 0;
+                if ('roughness' in mat) mat.roughness = 0.9;
+                if ('emissive' in mat) mat.emissive = new THREE.Color(0x220000);
+                if ('emissiveIntensity' in mat) mat.emissiveIntensity = 0.12;
+                mat.needsUpdate = true;
+              });
+            } else {
+              if ('metalness' in child.material) child.material.metalness = 0;
+              if ('roughness' in child.material) child.material.roughness = 0.9;
+              if ('emissive' in child.material) child.material.emissive = new THREE.Color(0x220000);
+              if ('emissiveIntensity' in child.material) child.material.emissiveIntensity = 0.12;
+              child.material.needsUpdate = true;
+            }
+          }
+        }
+      });
+
+      const box = new THREE.Box3().setFromObject(squad);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+
+      const desiredWidth = 1.6;
+      const scale = desiredWidth / Math.max(size.x, size.z, 1);
+      squad.scale.setScalar(scale);
+
+      const finalBox = new THREE.Box3().setFromObject(squad);
+      squad.position.y -= finalBox.min.y;
+
+      squad.name = 'SQUAD_ENTITY';
+
+      callback(squad);
+    },
+    undefined,
+    (error) => {
+      console.error('Erro ao carregar squad 3D:', error);
+    }
+  );
 }
 
 export function createSquadVisual({ level = 1 }: CreateSquadParams = {}) {
   const group = new THREE.Group();
 
-  // ===== CONFIG POR NÍVEL (ESCALA VISUAL) =====
   const memberCount =
     level < 5 ? 2 :
     level < 15 ? 3 :
@@ -25,7 +80,6 @@ export function createSquadVisual({ level = 1 }: CreateSquadParams = {}) {
   const hasVehicle = level >= 20;
   const isHighLevel = level >= 50;
 
-  // ===== MATERIAIS =====
   const bodyMaterial = new THREE.MeshStandardMaterial({
     color: isHighLevel ? 0xff2a2a : 0xffffff,
     emissive: isHighLevel ? 0x550000 : 0x000000,
@@ -49,25 +103,21 @@ export function createSquadVisual({ level = 1 }: CreateSquadParams = {}) {
     opacity: 0.25,
   });
 
-  // ===== FUNÇÃO PRA CRIAR UM MEMBRO =====
   function createMember(index: number) {
     const member = new THREE.Group();
 
-    // Corpo
     const body = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.12, 0.3, 4, 8),
       bodyMaterial
     );
     body.position.y = 0.25;
 
-    // Cabeça
     const head = new THREE.Mesh(
       new THREE.SphereGeometry(0.12, 16, 16),
       headMaterial
     );
     head.position.y = 0.55;
 
-    // Arma simples
     const weapon = new THREE.Mesh(
       new THREE.BoxGeometry(0.25, 0.05, 0.05),
       weaponMaterial
@@ -76,7 +126,6 @@ export function createSquadVisual({ level = 1 }: CreateSquadParams = {}) {
 
     member.add(body, head, weapon);
 
-    // Posicionamento em formação
     const spacing = 0.35;
     const row = Math.floor(index / 3);
     const col = index % 3;
@@ -87,12 +136,10 @@ export function createSquadVisual({ level = 1 }: CreateSquadParams = {}) {
     return member;
   }
 
-  // ===== MEMBROS =====
   for (let i = 0; i < memberCount; i++) {
     group.add(createMember(i));
   }
 
-  // ===== VEÍCULO (MID/HIGH LEVEL) =====
   if (hasVehicle) {
     const vehicle = new THREE.Group();
 
@@ -117,13 +164,10 @@ export function createSquadVisual({ level = 1 }: CreateSquadParams = {}) {
     cabin.position.y = 0.35;
 
     vehicle.add(base, cabin);
-
     vehicle.position.z = -0.6;
-
     group.add(vehicle);
   }
 
-  // ===== AURA / INTIMIDAÇÃO =====
   if (isHighLevel) {
     const aura = new THREE.Mesh(
       new THREE.CircleGeometry(1.2, 32),
@@ -135,7 +179,6 @@ export function createSquadVisual({ level = 1 }: CreateSquadParams = {}) {
     group.add(aura);
   }
 
-  // ===== SOMBRA =====
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.8, 24),
     new THREE.MeshBasicMaterial({
@@ -149,7 +192,7 @@ export function createSquadVisual({ level = 1 }: CreateSquadParams = {}) {
 
   group.add(shadow);
 
-  group.name = 'SQUAD_ENTITY';
+  group.name = 'SQUAD_ENTITY_FALLBACK';
 
   return group;
 }
