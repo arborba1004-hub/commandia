@@ -201,7 +201,9 @@ type PlayerStore = {
   pollPlayerFromBackend: () => Promise<void>;
 
   // BALANCES
+  setBalances: (balances: Partial<Balances>) => void;
   addDirtyMoney: (amount: number) => void;
+  removeDirtyMoney: (value: number) => void;
   removeDirtyMoneyPercent: (percent: number) => void;
 
   addCleanMoney: (amount: number) => void;
@@ -640,6 +642,22 @@ pollPlayerFromBackend: async () => {
 // ==========================================
 // SALDOS
 // ==========================================
+setBalances: (balances) => {
+  const current = get().player;
+
+  const updated = mergePlayer({
+    ...current,
+    balances: {
+      ...current.balances,
+      ...balances,
+    },
+  });
+
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
+
 addDirtyMoney: (amount) => {
   const current = get().player;
 
@@ -650,6 +668,24 @@ addDirtyMoney: (amount) => {
     balances: {
       ...current.balances,
       dirtyMoney: current.balances.dirtyMoney + amount,
+    },
+  });
+
+  set({ player: updated });
+  get().saveLocal();
+  get().scheduleSync();
+},
+
+removeDirtyMoney: (value) => {
+  const current = get().player;
+
+  if (isDirtyMoneyBlocked(current)) return;
+
+  const updated = mergePlayer({
+    ...current,
+    balances: {
+      ...current.balances,
+      dirtyMoney: Math.max(0, current.balances.dirtyMoney - value),
     },
   });
 
