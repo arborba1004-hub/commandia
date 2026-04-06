@@ -9,6 +9,20 @@ import { handleTileInvasion, worldToTileCoordinates } from '@/components/game/ti
 import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
+import { useMapAttackStore } from '@/store/mapAttackStore';
+import { buildManhattanAttackRoute } from '@/components/game/mapAttackPath';
+import { resolveMapAttack } from '@/components/game/mapAttackResolver';
+import { createSquadVisual } from '@/components/game/createSquadVisual';
+import { animateSquadOnRoute } from '@/components/game/animateSquadOnRoute';
+import {
+  attachEnemyBarracoData,
+  pickEnemyBarracoFromIntersections,
+} from '@/components/game/EnemyBarracoSelector';
+import {
+  createImpactFlash,
+  highlightTile,
+  shakeObject,
+} from '@/components/game/mapAttackEffects';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
