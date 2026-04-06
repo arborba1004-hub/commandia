@@ -620,6 +620,12 @@ pollPlayerFromBackend: async () => {
 
   if (get().isSyncing) return;
 
+  const now = Date.now();
+  const msSinceLastLocalChange = now - get().lastSyncAt;
+
+  // evita sobrescrever alterações locais muito recentes
+  if (msSinceLastLocalChange < 1500) return;
+
   try {
     const serverPlayer = await fetchCurrentPlayer();
     if (!serverPlayer) return;
