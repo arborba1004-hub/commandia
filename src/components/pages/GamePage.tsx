@@ -161,8 +161,28 @@ export default function GamePage() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Função para retornar o squad após o combate
-  const returnSquad = () => {
+  // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
+  function returnSquad() {
+    const state = useMapAttackStore.getState();
+
+    const backRoute = [...state.routeToTarget].reverse();
+
+    if (!squadRef.current) return;
+
+    activeAnimationRef.current = animateSquadOnRoute({
+      squad: squadRef.current,
+      route: backRoute,
+      tileSize: TILE_SIZE,
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      onComplete: () => {
+        finishAttack();
+      },
+    });
+  }
+
+  // === FUNÇÃO PARA FINALIZAR O ATAQUE ===
+  function finishAttack() {
     if (squadRef.current && sceneRef.current) {
       sceneRef.current.remove(squadRef.current);
       squadRef.current = null;
@@ -171,7 +191,8 @@ export default function GamePage() {
       cancelAnimationFrame(activeAnimationRef.current);
       activeAnimationRef.current = null;
     }
-  };
+    useMapAttackStore.getState().closePreview();
+  }
 
   const playerState = usePlayerStore((state) => state.player);
   const level = playerState?.niveis?.barracoLevel || 1;
