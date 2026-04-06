@@ -24,6 +24,7 @@ import {
   shakeObject,
 } from '@/components/game/mapAttackEffects';
 import { resolveCombat } from '@/components/game/mapAttackResolver';
+import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
