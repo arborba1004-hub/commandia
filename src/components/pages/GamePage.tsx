@@ -354,7 +354,7 @@ squad.rotation.y = Math.PI;
       model.position.x = playerWorldX + 2;
       model.position.z = playerWorldZ;
       model.position.y = 0.25;
-      squad.rotation.y = Math.PI;
+      model.rotation.y = Math.PI;
       scene.add(model);
       loadedPlayerModels.push(model);
       console.log('TRIO TESTE carregado');
