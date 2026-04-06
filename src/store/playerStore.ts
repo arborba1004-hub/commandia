@@ -190,6 +190,7 @@ type PlayerStore = {
   setPlayer: (incoming: Partial<PlayerState>) => void;
   hydratePlayerFromServer: (playerData: Partial<PlayerState>) => void;
   clearPlayer: () => void;
+  applyPlayerUpdate: (updater: (current: PlayerState) => PlayerState) => void;
 
   saveLocal: () => void;
   scheduleSync: () => void;
@@ -500,6 +501,23 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     });
 
     // Não dispara scheduleSync para evitar loop de sincronização
+  },
+
+  applyPlayerUpdate: (updater) => {
+    const current = get().player;
+    const updated = mergePlayer(updater(current));
+    const newVersion = get().localVersion + 1;
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    set({
+      player: updated,
+      syncError: null,
+      localVersion: newVersion,
+      lastSyncAt: Date.now(),
+    });
+
+    get().scheduleSync();
   },
 
   clearPlayer: () => {
