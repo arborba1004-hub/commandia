@@ -764,146 +764,95 @@ removeCorre: (amount) => {
 // INVENTÁRIO
 // ==========================================
 removeInventoryItem: (itemId) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     inventory: {
-      ...current.inventory,
-      items: current.inventory.items.filter((item: any) => item?.id !== itemId && item?._id !== itemId),
+      ...player.inventory,
+      items: player.inventory.items.filter((item: any) => item?.id !== itemId && item?._id !== itemId),
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 addGift: (gift) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     inventory: {
-      ...current.inventory,
-      gifts: [...current.inventory.gifts, gift],
+      ...player.inventory,
+      gifts: [...player.inventory.gifts, gift],
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 addReward: (reward) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     inventory: {
-      ...current.inventory,
-      rewards: [...current.inventory.rewards, reward],
+      ...player.inventory,
+      rewards: [...player.inventory.rewards, reward],
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 // ==========================================
 // NÍVEIS E SKILLS
 // ==========================================
 setNiveis: (incoming) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     niveis: {
-      ...current.niveis,
+      ...player.niveis,
       ...incoming,
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 setPageLevel: (page, level) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     pageLevels: {
-      ...current.pageLevels,
+      ...player.pageLevels,
       [page]: level,
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 setSkills: (incoming) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     skills: {
-      ...current.skills,
+      ...player.skills,
       ...incoming,
     },
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 addSkillPercent: (skill, percent) => {
-  const current = get().player;
-  const currentValue = current.skills[skill] || 0;
-  const increase = currentValue * (percent / 100);
+  get().applyPlayerUpdate((player) => {
+    const currentValue = player.skills[skill] || 0;
+    const increase = currentValue * (percent / 100);
 
-  const updated = mergePlayer({
-    ...current,
-    skills: {
-      ...current.skills,
-      [skill]: currentValue + increase,
-    },
+    return {
+      ...player,
+      skills: {
+        ...player.skills,
+        [skill]: currentValue + increase,
+      },
+    };
   });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
 },
 
 setPower: (value) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     power: value,
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
 setHierarchyBadge: (badge) => {
-  const current = get().player;
-
-  const updated = mergePlayer({
-    ...current,
+  get().applyPlayerUpdate((player) => ({
+    ...player,
     hierarchyBadge: badge,
-  });
-
-  set({ player: updated });
-  get().saveLocal();
-  get().scheduleSync();
+  }));
 },
 
   // ==========================================
@@ -993,25 +942,22 @@ setHierarchyBadge: (badge) => {
   },
 
   clearFinishedLaundryOperations: () => {
-    const current = get().player;
-    const today = new Date().toISOString().split('T')[0];
+    get().applyPlayerUpdate((player) => {
+      const today = new Date().toISOString().split('T')[0];
 
-    // Remove operações diárias de dias anteriores
-    const recentDailyOps = current.laundryProgress.dailyOperations.filter(
-      (op) => op.date === today
-    );
+      // Remove operações diárias de dias anteriores
+      const recentDailyOps = player.laundryProgress.dailyOperations.filter(
+        (op) => op.date === today
+      );
 
-    const updated = mergePlayer({
-      ...current,
-      laundryProgress: {
-        ...current.laundryProgress,
-        dailyOperations: recentDailyOps,
-      },
+      return {
+        ...player,
+        laundryProgress: {
+          ...player.laundryProgress,
+          dailyOperations: recentDailyOps,
+        },
+      };
     });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
   },
 
   canOperateLaundryToday: async (businessId) => {
@@ -1026,126 +972,94 @@ setHierarchyBadge: (badge) => {
   },
 
   setBarracoPosition: (position) => {
-    const current = get().player;
-
-    const updated = mergePlayer({
-      ...current,
+    get().applyPlayerUpdate((player) => ({
+      ...player,
       barracoPosition: {
-        ...current.barracoPosition,
+        ...player.barracoPosition,
         ...position,
       },
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
+    }));
   },
 
   setHeaderCustomization: (customization) => {
-    const current = get().player;
-
-    const updated = mergePlayer({
-      ...current,
+    get().applyPlayerUpdate((player) => ({
+      ...player,
       headerCustomization: {
-        ...current.headerCustomization,
+        ...player.headerCustomization,
         ...customization,
       },
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
+    }));
   },
 
   // ==========================================
   // VEÍCULOS DE FUGA
   // ==========================================
   addOwnedVehicle: (vehicleId) => {
-    const current = get().player;
-    const ownedVehicles = current.ownedVehicles || [];
+    get().applyPlayerUpdate((player) => {
+      const ownedVehicles = player.ownedVehicles || [];
 
-    if (!ownedVehicles.includes(vehicleId)) {
-      const updated = mergePlayer({
-        ...current,
-        ownedVehicles: [...ownedVehicles, vehicleId],
-      });
+      if (!ownedVehicles.includes(vehicleId)) {
+        return {
+          ...player,
+          ownedVehicles: [...ownedVehicles, vehicleId],
+        };
+      }
 
-      set({ player: updated });
-      get().saveLocal();
-      get().scheduleSync();
-    }
+      return player;
+    });
   },
 
   removeOwnedVehicle: (vehicleId) => {
-    const current = get().player;
-    const ownedVehicles = current.ownedVehicles || [];
-
-    const updated = mergePlayer({
-      ...current,
-      ownedVehicles: ownedVehicles.filter((id) => id !== vehicleId),
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      ownedVehicles: (player.ownedVehicles || []).filter((id) => id !== vehicleId),
+    }));
   },
 
   setCleanMoney: (amount) => {
-    const current = get().player;
-
-    const updated = mergePlayer({
-      ...current,
+    get().applyPlayerUpdate((player) => ({
+      ...player,
       balances: {
-        ...current.balances,
+        ...player.balances,
         cleanMoney: amount,
       },
-    });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
+    }));
   },
 
   addSkillBonus: (skillType, percent) => {
-    const current = get().player;
-    const currentValue = current.skills[skillType] || 0;
+    get().applyPlayerUpdate((player) => {
+      const currentValue = player.skills[skillType] || 0;
 
-    const updated = mergePlayer({
-      ...current,
-      skills: {
-        ...current.skills,
-        [skillType]: currentValue + percent,
-      },
+      return {
+        ...player,
+        skills: {
+          ...player.skills,
+          [skillType]: currentValue + percent,
+        },
+      };
     });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
   },
 
   purchaseAccessory: (accessoryId, skillType) => {
-    const current = get().player;
-    const purchasedAccessories = current.purchasedAccessories || [];
+    get().applyPlayerUpdate((player) => {
+      const purchasedAccessories = player.purchasedAccessories || [];
 
-    // Evita compras duplicadas
-    if (purchasedAccessories.some((acc) => acc.accessoryId === accessoryId)) {
-      return;
-    }
+      // Evita compras duplicadas
+      if (purchasedAccessories.some((acc) => acc.accessoryId === accessoryId)) {
+        return player;
+      }
 
-    const newAccessory: PurchasedAccessory = {
-      accessoryId,
-      skillType,
-      purchasedAt: new Date().toISOString(),
-    };
+      const newAccessory: PurchasedAccessory = {
+        accessoryId,
+        skillType,
+        purchasedAt: new Date().toISOString(),
+      };
 
-    const updated = mergePlayer({
-      ...current,
-      purchasedAccessories: [...purchasedAccessories, newAccessory],
+      return {
+        ...player,
+        purchasedAccessories: [...purchasedAccessories, newAccessory],
+      };
     });
-
-    set({ player: updated });
-    get().saveLocal();
-    get().scheduleSync();
   },
 
   getAccessoryBonusPercent: () => {
