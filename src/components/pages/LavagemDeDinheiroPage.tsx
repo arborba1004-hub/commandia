@@ -25,7 +25,8 @@ const businesses: Business[] = [
   {
     id: 1,
     name: "Lava Jato do Zé",
-initialMoney: 500,
+    city: "São Paulo",
+    initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_f42d528276564481a42597abd5b44820~mv2.png",
     description: "Lava tudo que é carro, moto, bicicleta... até reputação!",
@@ -35,7 +36,7 @@ initialMoney: 500,
   {
     id: 2,
     name: "Barbearia do Malandrão",
-    
+    city: "Rio de Janeiro",
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_333f49de4e3c4276a53d8b3c425f8c1d~mv2.png",
@@ -46,7 +47,7 @@ initialMoney: 500,
   {
     id: 3,
     name: "Pizzaria do Clandestino",
-    
+    city: "Belo Horizonte",
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_5aa149b5e2c34efd89ee1abf55b13f3d~mv2.png",
@@ -57,7 +58,7 @@ initialMoney: 500,
   {
     id: 4,
     name: "Suqueria da Galera",
-    
+    city: "Salvador",
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_2b009cc726f84c459f799b591a61dea7~mv2.png",
@@ -68,7 +69,7 @@ initialMoney: 500,
   {
     id: 5,
     name: "Lavanderia da Dona Maria",
-    
+    city: "Brasília",
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_0f1c29477d6344de97650e9485372983~mv2.png",
@@ -199,15 +200,13 @@ export default function LavagemDeDinheiroPage() {
         alert('Erro ao iniciar operação. Tente novamente.');
       }
     } catch (error: any) {
-  console.error('Erro ao iniciar operação:', error);
-  alert(
-    `Erro ao iniciar operação.\n` +
-    `Mensagem: ${error?.message || 'desconhecida'}\n` +
-    `Status: ${error?.status || 'sem status'}`
-  );
-} finally {
-  setIsProcessing(null);
-}
+      console.error('Erro ao iniciar operação:', error);
+      alert(
+        `Erro ao iniciar operação.\nMensagem: ${error?.message || 'desconhecida'}\nStatus: ${error?.status || 'sem status'}`
+      );
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
   return (
