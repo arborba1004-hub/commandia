@@ -25,8 +25,7 @@ const businesses: Business[] = [
   {
     id: 1,
     name: "Lava Jato do Zé",
-    city: "São Paulo",
-    initialMoney: 500,
+initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_f42d528276564481a42597abd5b44820~mv2.png",
     description: "Lava tudo que é carro, moto, bicicleta... até reputação!",
@@ -36,7 +35,7 @@ const businesses: Business[] = [
   {
     id: 2,
     name: "Barbearia do Malandrão",
-    city: "Rio de Janeiro",
+    
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_333f49de4e3c4276a53d8b3c425f8c1d~mv2.png",
@@ -47,7 +46,7 @@ const businesses: Business[] = [
   {
     id: 3,
     name: "Pizzaria do Clandestino",
-    city: "São Paulo",
+    
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_5aa149b5e2c34efd89ee1abf55b13f3d~mv2.png",
@@ -58,7 +57,7 @@ const businesses: Business[] = [
   {
     id: 4,
     name: "Suqueria da Galera",
-    city: "Rio de Janeiro",
+    
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_2b009cc726f84c459f799b591a61dea7~mv2.png",
@@ -69,7 +68,7 @@ const businesses: Business[] = [
   {
     id: 5,
     name: "Lavanderia da Dona Maria",
-    city: "São Paulo",
+    
     initialMoney: 500,
     level: 1,
     image: "https://static.wixstatic.com/media/50f4bf_0f1c29477d6344de97650e9485372983~mv2.png",
@@ -185,17 +184,16 @@ export default function LavagemDeDinheiroPage() {
 
       // Inicia a operação no backend
       const success = await startLaundryOperation({
-        businessId,
-        businessName: business.name,
-        startedAt: new Date().toISOString(),
-        endsAt: '', // será preenchido pelo backend
-        grossAmount: scaledMoney,
-        feePercentage: business.feePercentage,
-        feeAmount: fee,
-        netAmount,
-        operationId: '',
-        status: 'processing',
-      });
+  businessId,
+  businessName: business.name,
+  startedAt: new Date().toISOString(),
+  endsAt: '',
+  grossAmount: scaledMoney,
+  feePercentage: business.feePercentage,
+  feeAmount: fee,
+  netAmount,
+  operationId: '',
+});
 
       if (!success) {
         alert('Erro ao iniciar operação. Tente novamente.');
