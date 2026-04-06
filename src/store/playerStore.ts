@@ -136,6 +136,30 @@ type Accessories = {
   weapons?: Record<string, string[]>;
 };
 
+type AttackNotification = {
+  id: string;
+  type: 'attack_received' | 'attack_success' | 'revenge_available';
+  attackerId?: string;
+  attackerName?: string;
+  targetId?: string;
+  targetName?: string;
+  success: boolean;
+  loot: number;
+  createdAt: string;
+  read: boolean;
+};
+
+type AttackHistoryItem = {
+  id: string;
+  attackerId: string;
+  attackerName: string;
+  targetId: string;
+  targetName: string;
+  success: boolean;
+  loot: number;
+  createdAt: string;
+};
+
 export type PlayerState = {
   _id?: string;
   googleId?: string;
@@ -173,6 +197,10 @@ export type PlayerState = {
   purchasedAccessories?: PurchasedAccessory[];
 
   accessories?: Accessories;
+
+  notifications?: AttackNotification[];
+
+  attackHistory?: AttackHistoryItem[];
 };
 
 type PlayerStore = {
@@ -343,6 +371,10 @@ const initialPlayer: PlayerState = {
   },
 
   skillBoostMultiplier: 1.0,
+
+  notifications: [],
+
+  attackHistory: [],
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
@@ -429,6 +461,8 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     ownedVehicles: incoming?.ownedVehicles || initialPlayer.ownedVehicles || [],
     accessories: incoming?.accessories || initialPlayer.accessories || {},
     purchasedAccessories: incoming?.purchasedAccessories || initialPlayer.purchasedAccessories || [],
+    notifications: incoming?.notifications || initialPlayer.notifications || [],
+    attackHistory: incoming?.attackHistory || initialPlayer.attackHistory || [],
   };
 }
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
