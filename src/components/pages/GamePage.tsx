@@ -30,6 +30,7 @@ import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import AttackNotificationOverlay from '@/components/game/AttackNotificationOverlay';
 import { useFactionStore } from '@/store/factionStore';
 import { realtime } from 'wix-realtime-frontend';
+import { publishPlayerMovement } from '@/api/movementApi';
 
 
 
