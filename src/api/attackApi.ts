@@ -1,6 +1,5 @@
-// src/api/attackApi.ts
 import { useGangStore } from '@/store/gangStore';
-import { useGangBattleStore } from '@/stores/gangBattleStore'; // vamos criar agora
+import { useGangBattleStore } from '@/stores/gangBattleStore';
 import { fetchCurrentPlayer } from './playerApi';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
@@ -38,19 +37,16 @@ export function calculateGangBattlePower() {
   let lootBonus = 0;
 
   for (const member of activeMembers) {
-    // Poder base: nível * 10 + bônus por raridade
     let power = member.level * 10;
     if (member.rarity === 'Raro') power += 20;
     if (member.rarity === 'Épico') power += 50;
     if (member.rarity === 'Lendário') power += 100;
     if (member.rarity === 'Mítico') power += 200;
+    totalPower += power;
 
-    // Bônus por classe
     if (member.class === 'Executor') attackBonus += 5;
     if (member.class === 'Capanga') defenseBonus += 5;
     if (member.class === 'Ladrão') lootBonus += 5;
-
-    totalPower += power;
   }
 
   const formationBonus = getFormationBonus(formation);
@@ -62,7 +58,7 @@ export function calculateGangBattlePower() {
 }
 
 // ==========================================
-// Função principal de ataque
+// Função principal de ataque (com suporte a gangPower)
 // ==========================================
 export interface AttackResult {
   success: boolean;
@@ -74,20 +70,19 @@ export interface AttackResult {
   message: string;
   attacker: any;
   defender: any;
+  spoils?: any;
 }
 
-export async function initiateAttack(targetId: string): Promise<AttackResult> {
-  // Se o backend ainda não tiver a rota, usamos simulação local (para testes)
-  const useMock = false; // mude para false quando o backend estiver pronto
+export async function initiateAttack(targetId: string, options?: { gangPower?: any }): Promise<AttackResult> {
+  // Modo simulação (mude para false quando o backend estiver pronto)
+  const useMock = true; // ⚠️ ALTERE PARA false APÓS IMPLEMENTAR O BACKEND
 
   if (useMock) {
-    // Simulação local (apenas para desenvolvimento frontend)
+    // Simulação local completa (inclui bônus da gangue)
     const player = await fetchCurrentPlayer();
-    const target = await fetchCurrentPlayer(); // mock, substituir por busca real
     const { totalPower: gangPower, attackBonus, defenseBonus, lootBonus } = calculateGangBattlePower();
-
     const attackerPower = (player?.power || 100) + gangPower + attackBonus;
-    const defenderPower = (target?.power || 100) + defenseBonus;
+    const defenderPower = (player?.power || 100) + defenseBonus; // mock: alvo usa mesmo poder do atacante
     const chance = Math.min(0.9, Math.max(0.3, attackerPower / (attackerPower + defenderPower)));
     const success = Math.random() < chance;
     const isCritical = success && Math.random() < 0.15;
@@ -100,15 +95,25 @@ export async function initiateAttack(targetId: string): Promise<AttackResult> {
       chance,
       attackerPower,
       defenderPower,
-      message: success ? (isCritical ? 'Ataque crítico!' : 'Ataque bem-sucedido!') : 'Falha no ataque.',
+      message: success ? (isCritical ? 'ATAQUE CRÍTICO!' : 'Ataque bem-sucedido!') : 'Falha no ataque.',
       attacker: player,
-      defender: target,
+      defender: player, // mock
+      spoils: {
+        dirtyMoneyLoot: success ? loot : 0,
+        correLoot: success ? Math.floor(Math.random() * 100) : 0,
+        prestigeLoot: success ? 10 : 0,
+      },
     };
   }
 
-  // Chamada real ao backend (quando as rotas estiverem prontas)
+  // Chamada real ao backend (envia gangPower se fornecido)
+  const body: any = { targetId };
+  if (options?.gangPower) {
+    body.gangPower = options.gangPower;
+  }
+
   return request<AttackResult>('/attack/initiate', {
     method: 'POST',
-    body: JSON.stringify({ targetId }),
+    body: JSON.stringify(body),
   });
 }
