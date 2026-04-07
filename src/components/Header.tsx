@@ -5,6 +5,7 @@ import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useChatStore } from '@/store/chatStore';
 import { LogOut } from 'lucide-react';
 import { Image } from '@/components/ui/image';
+import AdminResetPanel from '@/components/AdminResetPanel';
 
 const LOGO_URL =
   'https://static.wixstatic.com/media/50f4bf_7140cdf76a2742628049849ce89b7560~mv2.png';
@@ -336,6 +337,7 @@ export default function Header() {
           </div>
         </div>
       </div>
+      <AdminPanel />
     </header>
   );
 }
@@ -416,4 +418,13 @@ function ChatHeaderButton({
       </span>
     </button>
   );
+}
+
+// Admin panel only visible in development
+function AdminPanel() {
+  if (process.env.NODE_ENV !== 'development') {
+    return null;
+  }
+
+  return <AdminResetPanel />;
 }

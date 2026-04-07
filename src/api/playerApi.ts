@@ -446,3 +446,30 @@ export async function gameAction(payload: {
     player: extractPlayerPayload(data),
   };
 }
+
+// ==========================================
+// ADMIN ENDPOINTS - DATABASE RESET
+// ==========================================
+
+/**
+ * Zera completamente o banco de dados de todos os jogadores
+ * Endpoint: POST /admin/reset-all-players
+ * CUIDADO: Esta ação é irreversível!
+ */
+export async function resetAllPlayersDatabase(): Promise<{ success: boolean; message: string }> {
+  const data = await makeRequest<any>('/admin/reset-all-players', {
+    method: 'POST',
+    body: JSON.stringify({ confirmReset: true }),
+  });
+
+  const obj = ensureObject(data);
+
+  if (!obj) {
+    throw buildApiError('Resposta inválida ao resetar banco de dados');
+  }
+
+  return {
+    success: Boolean(obj.success ?? true),
+    message: String(obj.message || 'Banco de dados resetado com sucesso'),
+  };
+}
