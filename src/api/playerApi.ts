@@ -448,6 +448,45 @@ export async function gameAction(payload: {
 }
 
 // ==========================================
+// ATTACK ENDPOINTS (PVP)
+// ==========================================
+
+export async function initiateAttack(targetId: string): Promise<{
+  success: boolean;
+  attackResult: {
+    didWin: boolean;
+    winChance: number;
+    finalAtk: number;
+    finalDef: number;
+    spoils: {
+      dirtyMoney: number;
+      cleanMoney: number;
+      items: any[];
+    };
+  };
+  attacker: PlayerState;
+  defender: PlayerState;
+}> {
+  const data = await makeRequest<any>('/attack/initiate', {
+    method: 'POST',
+    body: JSON.stringify({ targetId }),
+  });
+
+  const obj = ensureObject(data);
+
+  if (!obj) {
+    throw buildApiError('Resposta inválida ao iniciar ataque');
+  }
+
+  return {
+    success: Boolean(obj.success ?? true),
+    attackResult: obj.attackResult || {},
+    attacker: extractPlayerPayload(obj.attacker || obj),
+    defender: extractPlayerPayload(obj.defender || obj),
+  };
+}
+
+// ==========================================
 // ADMIN ENDPOINTS - DATABASE RESET
 // ==========================================
 
