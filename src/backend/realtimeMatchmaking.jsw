@@ -1,0 +1,221 @@
+/**
+ * Backend Realtime API - Matchmaking Lobby
+ * 
+ * Este módulo demonstra como usar Wix Realtime Backend para:
+ * 1. Publicar mensagens em canais (channels)
+ * 2. Publicar em recursos de canal específicos (channel resources)
+ * 3. Gerenciar filas de matchmaking
+ */
+
+import { Realtime } from 'wix-realtime-backend';
+
+/**
+ * CONCEITO: Channel vs Channel Resource
+ * 
+ * Channel: Um "tópico" geral onde múltiplos usuários se inscrevem
+ *   - Exemplo: 'lobby_jogos' - todos os jogadores procurando partida
+ *   - Todos recebem as mesmas mensagens
+ * 
+ * Channel Resource: Um canal específico para um recurso particular
+ *   - Exemplo: 'canalPartida_12345' - apenas jogadores dessa partida
+ *   - Permite comunicação isolada entre jogadores de uma partida
+ */
+
+// Simulando uma fila de matchmaking (em produção, usar banco de dados)
+let filaJogadores = [];
+let partidasAtivas = {};
+
+/**
+ * Função: Inscrever jogador na fila de matchmaking
+ * 
+ * Chamada pelo frontend quando o jogador clica "Encontrar Jogo"
+ * Publica uma mensagem no canal 'lobby_jogos' para notificar outros jogadores
+ */
+export async function inscreverNoLobby(jogadorData) {
+  try {
+    // Validar dados
+    if (!jogadorData.jogadorId || !jogadorData.nome) {
+      throw new Error('Dados do jogador inválidos');
+    }
+
+    // Adicionar à fila
+    filaJogadores.push({
+      jogadorId: jogadorData.jogadorId,
+      nome: jogadorData.nome,
+      nivel: jogadorData.nivel || 1,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log(`[Lobby] Jogador ${jogadorData.nome} entrou na fila. Total: ${filaJogadores.length}`);
+
+    // ✅ PUBLICAR NO CHANNEL (todos os jogadores recebem)
+    // Notificar que um novo jogador entrou no lobby
+    await Realtime.publish('lobby_jogos', {
+      tipo: 'jogador_entrou',
+      jogador: jogadorData.nome,
+      totalNaFila: filaJogadores.length,
+      timestamp: new Date().toISOString()
+    });
+
+    // Tentar fazer matchmaking se houver 2+ jogadores
+    if (filaJogadores.length >= 2) {
+      await fazerMatchmaking();
+    }
+
+    return {
+      sucesso: true,
+      mensagem: 'Inscrito no lobby',
+      posicaoFila: filaJogadores.length
+    };
+  } catch (erro) {
+    console.error('[Lobby] Erro ao inscrever:', erro);
+    throw erro;
+  }
+}
+
+/**
+ * Função: Fazer matchmaking entre jogadores
+ * 
+ * Quando 2+ jogadores estão na fila, cria uma partida
+ * Publica mensagens em CHANNEL RESOURCES específicos para cada partida
+ */
+async function fazerMatchmaking() {
+  try {
+    if (filaJogadores.length < 2) return;
+
+    // Pegar os 2 primeiros jogadores
+    const jogador1 = filaJogadores.shift();
+    const jogador2 = filaJogadores.shift();
+
+    // Criar ID único para a partida
+    const idPartida = `partida_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Armazenar dados da partida
+    partidasAtivas[idPartida] = {
+      id: idPartida,
+      jogador1: jogador1,
+      jogador2: jogador2,
+      status: 'iniciada',
+      criadaEm: new Date().toISOString()
+    };
+
+    console.log(`[Matchmaking] Partida criada: ${idPartida}`);
+    console.log(`  Jogador 1: ${jogador1.nome}`);
+    console.log(`  Jogador 2: ${jogador2.nome}`);
+
+    // ✅ PUBLICAR NO CHANNEL RESOURCE (apenas para essa partida)
+    // Notificar os 2 jogadores que foram matchados
+    const nomeCanal = `canalPartida_${idPartida}`;
+    
+    await Realtime.publish(nomeCanal, {
+      tipo: 'jogador_encontrado',
+      idPartida: idPartida,
+      seuOponente: {
+        jogador1Id: jogador1.jogadorId,
+        jogador1Nome: jogador1.nome,
+        jogador2Id: jogador2.jogadorId,
+        jogador2Nome: jogador2.nome
+      },
+      mensagem: `Você foi matchado com ${jogador1.nome} vs ${jogador2.nome}!`,
+      timestamp: new Date().toISOString()
+    });
+
+    // Também publicar no canal geral que uma partida foi criada
+    await Realtime.publish('lobby_jogos', {
+      tipo: 'partida_criada',
+      idPartida: idPartida,
+      jogador1: jogador1.nome,
+      jogador2: jogador2.nome,
+      totalNaFila: filaJogadores.length,
+      timestamp: new Date().toISOString()
+    });
+
+    return {
+      sucesso: true,
+      idPartida: idPartida,
+      jogadores: [jogador1.nome, jogador2.nome]
+    };
+  } catch (erro) {
+    console.error('[Matchmaking] Erro:', erro);
+    throw erro;
+  }
+}
+
+/**
+ * Função: Publicar mensagem em um channel resource específico
+ * 
+ * Exemplo: Enviar atualização de status da partida apenas para os jogadores envolvidos
+ */
+export async function publicarNoCanal(idPartida, mensagem) {
+  try {
+    if (!idPartida || !mensagem) {
+      throw new Error('ID da partida e mensagem são obrigatórios');
+    }
+
+    const nomeCanal = `canalPartida_${idPartida}`;
+
+    // ✅ PUBLICAR NO CHANNEL RESOURCE
+    await Realtime.publish(nomeCanal, {
+      tipo: 'atualizacao_partida',
+      idPartida: idPartida,
+      conteudo: mensagem,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log(`[Canal] Mensagem publicada em ${nomeCanal}`);
+
+    return {
+      sucesso: true,
+      canal: nomeCanal,
+      mensagem: 'Publicado com sucesso'
+    };
+  } catch (erro) {
+    console.error('[Canal] Erro ao publicar:', erro);
+    throw erro;
+  }
+}
+
+/**
+ * Função: Remover jogador da fila
+ * 
+ * Chamada quando o jogador cancela a busca
+ */
+export async function removerDoLobby(jogadorId) {
+  try {
+    const indice = filaJogadores.findIndex(j => j.jogadorId === jogadorId);
+    
+    if (indice !== -1) {
+      const jogador = filaJogadores.splice(indice, 1)[0];
+      
+      // Notificar que um jogador saiu
+      await Realtime.publish('lobby_jogos', {
+        tipo: 'jogador_saiu',
+        jogador: jogador.nome,
+        totalNaFila: filaJogadores.length,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(`[Lobby] Jogador ${jogador.nome} saiu da fila`);
+    }
+
+    return {
+      sucesso: true,
+      totalNaFila: filaJogadores.length
+    };
+  } catch (erro) {
+    console.error('[Lobby] Erro ao remover:', erro);
+    throw erro;
+  }
+}
+
+/**
+ * Função: Obter status do lobby (para debug)
+ */
+export function obterStatusLobby() {
+  return {
+    totalNaFila: filaJogadores.length,
+    jogadores: filaJogadores.map(j => ({ id: j.jogadorId, nome: j.nome })),
+    partidasAtivas: Object.keys(partidasAtivas).length,
+    timestamp: new Date().toISOString()
+  };
+}

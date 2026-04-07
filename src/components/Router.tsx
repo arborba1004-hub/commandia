@@ -18,6 +18,7 @@ import LuxoItemPage from '@/components/pages/LuxoItemPage';
 import BarracoPage from '@/components/pages/BarracoPage';
 import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 import ChatPage from '@/components/pages/ChatPage'; // NOVA ROTA
+import MatchmakingPage from '@/components/pages/MatchmakingPage';
 
 function Layout() {
   return (
@@ -50,6 +51,7 @@ const router = createBrowserRouter([
       { path: 'barraco', element: <BarracoPage /> },
       { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
       { path: 'chat', element: <ChatPage /> }, // ROTA DO CHAT ADICIONADA
+      { path: 'matchmaking', element: <MatchmakingPage /> }, // ROTA DO MATCHMAKING
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
