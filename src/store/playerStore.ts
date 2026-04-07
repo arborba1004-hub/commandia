@@ -735,12 +735,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     const now = Date.now();
     const msSinceLastLocalChange = now - get().lastSyncAt;
 
-    // evita sobrescrever alterações locais muito recentes
-    if (msSinceLastLocalChange < 1500) return;
+    // aumenta para 3s - evita sobrescrever alterações locais muito recentes
+    if (msSinceLastLocalChange < 3000) return;
 
     try {
       const serverPlayer = await fetchCurrentPlayer();
       if (!serverPlayer) return;
+
+      const localVersion = get().player.version || 0;
+      const serverVersion = serverPlayer.version || 0;
+
+      // Só sobrescreve se o servidor tiver versão mais nova
+      if (serverVersion <= localVersion) return;
 
       const currentPlayer = get().player;
       
