@@ -29,7 +29,6 @@ import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import AttackNotificationOverlay from '@/components/game/AttackNotificationOverlay';
 import { useFactionStore } from '@/store/factionStore';
-import Wix from 'wix-api';
 import { realtime } from 'wix-realtime-frontend';
 
 
