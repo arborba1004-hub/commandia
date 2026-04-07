@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { fetchCurrentPlayer, syncPlayerUpdate, laundryStart, laundryComplete, canOperateLaundry } from '@/api/playerApi';
 import { clearExpiredPunishments, isMoneyLaunderingBlocked, isDirtyMoneyBlocked, isCleanMoneyBlocked } from '@/Services/punishmentService';
 import { generateUUID } from '@/lib/uuid';
+import { initiateAttack, calculateGangBattlePower } from '@/api/attackApi';
+import { useGangBattleStore } from '@/stores/gangBattleStore';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 5000;
