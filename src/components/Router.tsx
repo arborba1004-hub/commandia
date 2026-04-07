@@ -19,6 +19,7 @@ import BarracoPage from '@/components/pages/BarracoPage';
 import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 import ChatPage from '@/components/pages/ChatPage'; // NOVA ROTA
 import MatchmakingPage from '@/components/pages/MatchmakingPage';
+import MatchPage from '@/components/pages/MatchPage';
 
 function Layout() {
   return (
@@ -52,6 +53,7 @@ const router = createBrowserRouter([
       { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
       { path: 'chat', element: <ChatPage /> }, // ROTA DO CHAT ADICIONADA
       { path: 'matchmaking', element: <MatchmakingPage /> }, // ROTA DO MATCHMAKING
+      { path: 'match/:matchId', element: <MatchPage /> }, // ROTA DA PARTIDA
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

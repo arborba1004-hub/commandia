@@ -135,3 +135,30 @@ export interface GameMechanics {
   /** @wixFieldType text */
   reward?: string;
 }
+
+
+/**
+ * Collection ID: partidas
+ * Interface for Matches
+ */
+export interface Matches {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType text */
+  matchId?: string;
+  /** @wixFieldType text */
+  players?: string;
+  /** @wixFieldType text */
+  status?: string;
+  /** @wixFieldType text */
+  currentTurnPlayerId?: string;
+  /** @wixFieldType text */
+  gameData?: string;
+  /** @wixFieldType datetime */
+  createdAt?: Date | string;
+  /** @wixFieldType datetime */
+  updatedAt?: Date | string;
+  /** @wixFieldType text */
+  winnerId?: string;
+}
