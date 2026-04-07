@@ -1,0 +1,342 @@
+// collectionPermissions.jsw - Configuração de Permissões de Coleções
+// Este arquivo contém instruções e funções para configurar permissões de coleções no Wix
+
+/**
+ * GUIA DE CONFIGURAÇÃO DE PERMISSÕES DE COLEÇÕES
+ * 
+ * Para cada coleção, configure as permissões conforme abaixo:
+ * 
+ * 1. PLAYERS (Perfis de Jogadores)
+ *    - Read: ANYONE (para visualizar perfis públicos)
+ *    - Create: ANYONE (para criar novo perfil)
+ *    - Update: OWNER (apenas o dono pode atualizar seu perfil)
+ *    - Delete: ADMIN (apenas admin pode deletar)
+ * 
+ * 2. GAME_TRANSACTIONS (Transações de Jogo)
+ *    - Read: OWNER (apenas o dono vê suas transações)
+ *    - Create: BACKEND_ONLY (apenas backend pode criar)
+ *    - Update: BACKEND_ONLY
+ *    - Delete: ADMIN
+ * 
+ * 3. PLAYER_INVENTORY (Inventário do Jogador)
+ *    - Read: OWNER (apenas o dono vê seu inventário)
+ *    - Create: BACKEND_ONLY
+ *    - Update: BACKEND_ONLY
+ *    - Delete: BACKEND_ONLY
+ * 
+ * 4. GANG_MEMBERS (Membros de Gang)
+ *    - Read: ANYONE (para visualizar membros públicos)
+ *    - Create: BACKEND_ONLY
+ *    - Update: BACKEND_ONLY
+ *    - Delete: BACKEND_ONLY
+ * 
+ * 5. LEADERBOARDS (Ranking)
+ *    - Read: ANYONE (público)
+ *    - Create: BACKEND_ONLY
+ *    - Update: BACKEND_ONLY
+ *    - Delete: ADMIN
+ * 
+ * 6. PLAYER_ACHIEVEMENTS (Conquistas)
+ *    - Read: OWNER (apenas o dono vê suas conquistas)
+ *    - Create: BACKEND_ONLY
+ *    - Update: BACKEND_ONLY
+ *    - Delete: ADMIN
+ */
+
+/**
+ * Função auxiliar para validar permissões de leitura
+ * Verifica se o usuário tem permissão para ler um item
+ * @param {string} collectionName - Nome da coleção
+ * @param {string} itemId - ID do item
+ * @param {string} currentMemberId - ID do membro atual
+ * @returns {Promise<boolean>}
+ */
+export async function canReadItem(collectionName, itemId, currentMemberId) {
+  try {
+    // Coleções públicas (qualquer um pode ler)
+    const publicCollections = ['Players', 'GangMembers', 'Leaderboards'];
+    
+    if (publicCollections.includes(collectionName)) {
+      return true;
+    }
+
+    // Coleções privadas (apenas o dono pode ler)
+    const privateCollections = ['GameTransactions', 'PlayerInventory', 'PlayerAchievements'];
+    
+    if (privateCollections.includes(collectionName)) {
+      // Aqui você precisaria buscar o item e verificar se memberId === currentMemberId
+      // Exemplo:
+      // const item = await wixData.get(collectionName, itemId);
+      // return item.memberId === currentMemberId;
+      return true; // Placeholder
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Erro ao verificar permissão de leitura:', error);
+    return false;
+  }
+}
+
+/**
+ * Função auxiliar para validar permissões de escrita
+ * Verifica se o usuário tem permissão para escrever em um item
+ * @param {string} collectionName - Nome da coleção
+ * @param {string} itemId - ID do item (null para criar novo)
+ * @param {string} currentMemberId - ID do membro atual
+ * @param {boolean} isAdmin - Se o usuário é admin
+ * @returns {Promise<boolean>}
+ */
+export async function canWriteItem(collectionName, itemId, currentMemberId, isAdmin) {
+  try {
+    // Coleções que apenas backend pode escrever
+    const backendOnlyCollections = ['GameTransactions', 'PlayerInventory', 'GangMembers', 'Leaderboards', 'PlayerAchievements'];
+    
+    if (backendOnlyCollections.includes(collectionName)) {
+      // Apenas backend pode escrever (esta função é chamada do backend)
+      return true;
+    }
+
+    // Coleção Players - apenas o dono pode atualizar
+    if (collectionName === 'Players') {
+      if (!itemId) {
+        // Criar novo perfil é permitido
+        return true;
+      }
+      
+      // Para atualizar, precisa ser o dono
+      // const item = await wixData.get('Players', itemId);
+      // return item.memberId === currentMemberId;
+      return true; // Placeholder
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Erro ao verificar permissão de escrita:', error);
+    return false;
+  }
+}
+
+/**
+ * Função auxiliar para validar permissões de deleção
+ * Verifica se o usuário tem permissão para deletar um item
+ * @param {string} collectionName - Nome da coleção
+ * @param {boolean} isAdmin - Se o usuário é admin
+ * @returns {Promise<boolean>}
+ */
+export async function canDeleteItem(collectionName, isAdmin) {
+  try {
+    // Apenas admins podem deletar
+    return isAdmin;
+  } catch (error) {
+    console.error('Erro ao verificar permissão de deleção:', error);
+    return false;
+  }
+}
+
+/**
+ * INSTRUÇÕES PARA CRIAR COLEÇÕES NO WIX
+ * 
+ * 1. Acesse o Wix Dashboard
+ * 2. Vá para Database (Banco de Dados)
+ * 3. Clique em "Create Collection" (Criar Coleção)
+ * 4. Para cada coleção abaixo, crie com os campos especificados:
+ * 
+ * COLEÇÃO: Players
+ * Campos:
+ *   - memberId (Text) - ID do membro Wix
+ *   - playerName (Text) - Nome do jogador
+ *   - level (Number) - Nível atual
+ *   - experience (Number) - Experiência total
+ *   - cleanMoney (Number) - Dinheiro limpo
+ *   - dirtyMoney (Number) - Dinheiro sujo
+ *   - faction (Text) - Facção do jogador
+ *   - bio (Text) - Biografia
+ *   - avatar (Text) - URL da imagem do avatar
+ *   - isActive (Boolean) - Se o jogador está ativo
+ *   - createdDate (Date) - Data de criação
+ *   - lastActivityDate (Date) - Última atividade
+ *   - stats (Object) - Estatísticas do jogador
+ * 
+ * COLEÇÃO: GameTransactions
+ * Campos:
+ *   - memberId (Text) - ID do membro
+ *   - playerId (Text) - ID do perfil do jogador
+ *   - transactionType (Text) - Tipo (robbery, heist, bounty, etc)
+ *   - amount (Number) - Valor da transação
+ *   - currency (Text) - Tipo de moeda (clean/dirty)
+ *   - description (Text) - Descrição
+ *   - timestamp (Date) - Data/hora
+ *   - status (Text) - Status (pending, completed, failed)
+ * 
+ * COLEÇÃO: PlayerInventory
+ * Campos:
+ *   - memberId (Text) - ID do membro
+ *   - playerId (Text) - ID do perfil
+ *   - itemId (Text) - ID do item
+ *   - itemName (Text) - Nome do item
+ *   - quantity (Number) - Quantidade
+ *   - itemType (Text) - Tipo (weapon, vehicle, accessory)
+ *   - acquiredDate (Date) - Data de aquisição
+ * 
+ * COLEÇÃO: GangMembers
+ * Campos:
+ *   - gangId (Text) - ID da gang
+ *   - memberId (Text) - ID do membro
+ *   - playerId (Text) - ID do perfil
+ *   - playerName (Text) - Nome do jogador
+ *   - role (Text) - Papel na gang (leader, officer, member)
+ *   - joinedDate (Date) - Data de entrada
+ *   - level (Number) - Nível do membro
+ * 
+ * COLEÇÃO: Leaderboards
+ * Campos:
+ *   - playerId (Text) - ID do perfil
+ *   - playerName (Text) - Nome do jogador
+ *   - category (Text) - Categoria (level, kills, money, etc)
+ *   - rank (Number) - Posição no ranking
+ *   - value (Number) - Valor (nível, kills, etc)
+ *   - lastUpdated (Date) - Última atualização
+ * 
+ * COLEÇÃO: PlayerAchievements
+ * Campos:
+ *   - memberId (Text) - ID do membro
+ *   - playerId (Text) - ID do perfil
+ *   - achievementId (Text) - ID da conquista
+ *   - achievementName (Text) - Nome da conquista
+ *   - description (Text) - Descrição
+ *   - unlockedDate (Date) - Data de desbloqueio
+ *   - reward (Number) - Recompensa em experiência
+ */
+
+export function getCollectionSchema() {
+  return {
+    Players: {
+      fields: [
+        { key: 'memberId', type: 'text', required: true },
+        { key: 'playerName', type: 'text', required: true },
+        { key: 'level', type: 'number', required: true },
+        { key: 'experience', type: 'number', required: true },
+        { key: 'cleanMoney', type: 'number', required: true },
+        { key: 'dirtyMoney', type: 'number', required: true },
+        { key: 'faction', type: 'text', required: false },
+        { key: 'bio', type: 'text', required: false },
+        { key: 'avatar', type: 'text', required: false },
+        { key: 'isActive', type: 'boolean', required: true },
+        { key: 'createdDate', type: 'date', required: true },
+        { key: 'lastActivityDate', type: 'date', required: true },
+        { key: 'stats', type: 'object', required: false }
+      ],
+      permissions: {
+        read: 'ANYONE',
+        create: 'ANYONE',
+        update: 'OWNER',
+        delete: 'ADMIN'
+      }
+    },
+    GameTransactions: {
+      fields: [
+        { key: 'memberId', type: 'text', required: true },
+        { key: 'playerId', type: 'text', required: true },
+        { key: 'transactionType', type: 'text', required: true },
+        { key: 'amount', type: 'number', required: true },
+        { key: 'currency', type: 'text', required: true },
+        { key: 'description', type: 'text', required: false },
+        { key: 'timestamp', type: 'date', required: true },
+        { key: 'status', type: 'text', required: true }
+      ],
+      permissions: {
+        read: 'OWNER',
+        create: 'BACKEND_ONLY',
+        update: 'BACKEND_ONLY',
+        delete: 'ADMIN'
+      }
+    },
+    PlayerInventory: {
+      fields: [
+        { key: 'memberId', type: 'text', required: true },
+        { key: 'playerId', type: 'text', required: true },
+        { key: 'itemId', type: 'text', required: true },
+        { key: 'itemName', type: 'text', required: true },
+        { key: 'quantity', type: 'number', required: true },
+        { key: 'itemType', type: 'text', required: true },
+        { key: 'acquiredDate', type: 'date', required: true }
+      ],
+      permissions: {
+        read: 'OWNER',
+        create: 'BACKEND_ONLY',
+        update: 'BACKEND_ONLY',
+        delete: 'BACKEND_ONLY'
+      }
+    },
+    GangMembers: {
+      fields: [
+        { key: 'gangId', type: 'text', required: true },
+        { key: 'memberId', type: 'text', required: true },
+        { key: 'playerId', type: 'text', required: true },
+        { key: 'playerName', type: 'text', required: true },
+        { key: 'role', type: 'text', required: true },
+        { key: 'joinedDate', type: 'date', required: true },
+        { key: 'level', type: 'number', required: true }
+      ],
+      permissions: {
+        read: 'ANYONE',
+        create: 'BACKEND_ONLY',
+        update: 'BACKEND_ONLY',
+        delete: 'BACKEND_ONLY'
+      }
+    },
+    Leaderboards: {
+      fields: [
+        { key: 'playerId', type: 'text', required: true },
+        { key: 'playerName', type: 'text', required: true },
+        { key: 'category', type: 'text', required: true },
+        { key: 'rank', type: 'number', required: true },
+        { key: 'value', type: 'number', required: true },
+        { key: 'lastUpdated', type: 'date', required: true }
+      ],
+      permissions: {
+        read: 'ANYONE',
+        create: 'BACKEND_ONLY',
+        update: 'BACKEND_ONLY',
+        delete: 'ADMIN'
+      }
+    },
+    PlayerAchievements: {
+      fields: [
+        { key: 'memberId', type: 'text', required: true },
+        { key: 'playerId', type: 'text', required: true },
+        { key: 'achievementId', type: 'text', required: true },
+        { key: 'achievementName', type: 'text', required: true },
+        { key: 'description', type: 'text', required: false },
+        { key: 'unlockedDate', type: 'date', required: true },
+        { key: 'reward', type: 'number', required: true }
+      ],
+      permissions: {
+        read: 'OWNER',
+        create: 'BACKEND_ONLY',
+        update: 'BACKEND_ONLY',
+        delete: 'ADMIN'
+      }
+    }
+  };
+}
+
+export function getPermissionsGuide() {
+  return `
+    GUIA DE PERMISSÕES WIX
+    
+    Permissões disponíveis:
+    - ANYONE: Qualquer um (autenticado ou não)
+    - OWNER: Apenas o dono do item
+    - ADMIN: Apenas administradores
+    - BACKEND_ONLY: Apenas código backend (Velo)
+    
+    Recomendações de segurança:
+    1. Dados sensíveis (inventário, transações) devem ser OWNER ou BACKEND_ONLY
+    2. Dados públicos (perfis, rankings) podem ser ANYONE
+    3. Operações de escrita críticas devem ser BACKEND_ONLY
+    4. Sempre validar permissões no backend antes de operações
+    5. Usar OWNER para dados pessoais do usuário
+  `;
+}
