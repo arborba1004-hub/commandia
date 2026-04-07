@@ -131,9 +131,10 @@ export default function GamePage() {
       squad.position.x = startX;
       squad.position.z = startZ;
       squad.position.y = 0.25;
-squad.rotation.y = Math.PI;
+      squad.rotation.y = Math.PI;
 
       const squadY = squad.position.y;
+      const currentSquad = squad; // <--- guarda local
 
       scene.add(squad);
       squadRef.current = squad;
@@ -147,20 +148,20 @@ squad.rotation.y = Math.PI;
       });
 
       activeAnimationRef.current = animateSquadOnRoute({
-        squad,
+        squad: currentSquad,  // <--- use a variável local
         route,
         tileSize: TILE_SIZE,
         gridWidth: GRID_WIDTH,
         gridHeight: GRID_HEIGHT,
         y: squadY,
         onComplete: () => {
-          resolveCombat();
+          resolveCombat(currentSquad); // <--- passa o squad para resolveCombat
         },
       });
     }, 20);
   }
 
-  async function resolveCombat() {
+  async function resolveCombat(squad: THREE.Object3D) {
     console.log("🔥 resolveCombat iniciada");
     const state = useMapAttackStore.getState();
     const scene = sceneRef.current;
@@ -220,7 +221,7 @@ squad.rotation.y = Math.PI;
       // Inicia retorno do squad
       setTimeout(() => {
         console.log("🔁 Chamando returnSquad");
-        returnSquad();
+        returnSquad(squad);
       }, 800);
     } catch (error) {
       console.error("💥 ERRO no ataque:", error);
@@ -230,21 +231,21 @@ squad.rotation.y = Math.PI;
   }
 
   // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
-  function returnSquad() {
+  function returnSquad(squad: THREE.Object3D) {
     console.log("🔁 returnSquad chamada");
     const state = useMapAttackStore.getState();
     const backRoute = [...state.routeToTarget].reverse();
 
-    if (!squadRef.current) {
-      console.log("⚠️ squadRef nulo, chamando finishAttack direto");
+    if (!squad) {
+      console.log("⚠️ squad nulo, chamando finishAttack direto");
       finishAttack();
       return;
     }
 
-    const squadY = squadRef.current.position.y;
+    const squadY = squad.position.y;
 
     activeAnimationRef.current = animateSquadOnRoute({
-      squad: squadRef.current,
+      squad,
       route: backRoute,
       tileSize: TILE_SIZE,
       gridWidth: GRID_WIDTH,
