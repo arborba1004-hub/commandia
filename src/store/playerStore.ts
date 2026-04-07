@@ -742,12 +742,189 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       const serverPlayer = await fetchCurrentPlayer();
       if (!serverPlayer) return;
 
-      const merged = mergePlayer(serverPlayer);
+      const currentPlayer = get().player;
+      
+      // ==========================================
+      // MERGE INTELIGENTE: Preserva dados locais
+      // ==========================================
+      const intelligentMerge = mergePlayer({
+        ...serverPlayer,
+        
+        // Preserva balances locais se forem maiores (jogador pode ter ganho localmente)
+        balances: {
+          dirtyMoney: Math.max(
+            serverPlayer.balances?.dirtyMoney ?? currentPlayer.balances.dirtyMoney,
+            currentPlayer.balances.dirtyMoney
+          ),
+          cleanMoney: Math.max(
+            serverPlayer.balances?.cleanMoney ?? currentPlayer.balances.cleanMoney,
+            currentPlayer.balances.cleanMoney
+          ),
+          corre: Math.max(
+            serverPlayer.balances?.corre ?? currentPlayer.balances.corre,
+            currentPlayer.balances.corre
+          ),
+        },
+        
+        // Preserva níveis locais se forem maiores (progresso local não deve ser perdido)
+        niveis: {
+          playerLevel: Math.max(
+            serverPlayer.niveis?.playerLevel ?? currentPlayer.niveis.playerLevel,
+            currentPlayer.niveis.playerLevel
+          ),
+          barracoLevel: Math.max(
+            serverPlayer.niveis?.barracoLevel ?? currentPlayer.niveis.barracoLevel,
+            currentPlayer.niveis.barracoLevel
+          ),
+          hierarchyLevel: Math.max(
+            serverPlayer.niveis?.hierarchyLevel ?? currentPlayer.niveis.hierarchyLevel,
+            currentPlayer.niveis.hierarchyLevel
+          ),
+          arsenalLevel: Math.max(
+            serverPlayer.niveis?.arsenalLevel ?? currentPlayer.niveis.arsenalLevel,
+            currentPlayer.niveis.arsenalLevel
+          ),
+          giroLevel: Math.max(
+            serverPlayer.niveis?.giroLevel ?? currentPlayer.niveis.giroLevel,
+            currentPlayer.niveis.giroLevel
+          ),
+          lavagemLevel: Math.max(
+            serverPlayer.niveis?.lavagemLevel ?? currentPlayer.niveis.lavagemLevel,
+            currentPlayer.niveis.lavagemLevel
+          ),
+          luxuryLevel: Math.max(
+            serverPlayer.niveis?.luxuryLevel ?? currentPlayer.niveis.luxuryLevel,
+            currentPlayer.niveis.luxuryLevel
+          ),
+          briberyLevel: Math.max(
+            serverPlayer.niveis?.briberyLevel ?? currentPlayer.niveis.briberyLevel,
+            currentPlayer.niveis.briberyLevel
+          ),
+        },
+        
+        // Preserva skills locais se forem maiores
+        skills: {
+          attack: Math.max(
+            serverPlayer.skills?.attack ?? currentPlayer.skills.attack,
+            currentPlayer.skills.attack
+          ),
+          defense: Math.max(
+            serverPlayer.skills?.defense ?? currentPlayer.skills.defense,
+            currentPlayer.skills.defense
+          ),
+          intelligence: Math.max(
+            serverPlayer.skills?.intelligence ?? currentPlayer.skills.intelligence,
+            currentPlayer.skills.intelligence
+          ),
+          agility: Math.max(
+            serverPlayer.skills?.agility ?? currentPlayer.skills.agility,
+            currentPlayer.skills.agility
+          ),
+          respect: Math.max(
+            serverPlayer.skills?.respect ?? currentPlayer.skills.respect,
+            currentPlayer.skills.respect
+          ),
+          vigor: Math.max(
+            serverPlayer.skills?.vigor ?? currentPlayer.skills.vigor,
+            currentPlayer.skills.vigor
+          ),
+        },
+        
+        // Preserva power local se for maior
+        power: Math.max(
+          serverPlayer.power ?? currentPlayer.power,
+          currentPlayer.power
+        ),
+        
+        // Mescla inventário: adiciona itens do servidor sem remover locais
+        inventory: {
+          items: [
+            ...currentPlayer.inventory.items,
+            ...(serverPlayer.inventory?.items || []).filter(
+              (serverItem: any) =>
+                !currentPlayer.inventory.items.some(
+                  (localItem: any) =>
+                    (localItem?.id || localItem?._id) === (serverItem?.id || serverItem?._id)
+                )
+            ),
+          ],
+          gifts: [
+            ...currentPlayer.inventory.gifts,
+            ...(serverPlayer.inventory?.gifts || []).filter(
+              (serverGift: any) =>
+                !currentPlayer.inventory.gifts.some(
+                  (localGift: any) =>
+                    (localGift?.id || localGift?._id) === (serverGift?.id || serverGift?._id)
+                )
+            ),
+          ],
+          rewards: [
+            ...currentPlayer.inventory.rewards,
+            ...(serverPlayer.inventory?.rewards || []).filter(
+              (serverReward: any) =>
+                !currentPlayer.inventory.rewards.some(
+                  (localReward: any) =>
+                    (localReward?.id || localReward?._id) === (serverReward?.id || serverReward?._id)
+                )
+            ),
+          ],
+        },
+        
+        // Mescla notificações: adiciona novas sem remover as locais
+        notifications: [
+          ...currentPlayer.notifications,
+          ...(serverPlayer.notifications || []).filter(
+            (serverNotif: any) =>
+              !currentPlayer.notifications.some(
+                (localNotif: any) => localNotif.id === serverNotif.id
+              )
+          ),
+        ],
+        
+        // Mescla histórico de ataques
+        attackHistory: [
+          ...currentPlayer.attackHistory,
+          ...(serverPlayer.attackHistory || []).filter(
+            (serverItem: any) =>
+              !currentPlayer.attackHistory.some(
+                (localItem: any) => localItem.id === serverItem.id
+              )
+          ),
+        ],
+        
+        // Preserva veículos locais e adiciona novos do servidor
+        ownedVehicles: Array.from(
+          new Set([
+            ...(currentPlayer.ownedVehicles || []),
+            ...(serverPlayer.ownedVehicles || []),
+          ])
+        ),
+        
+        // Preserva acessórios locais e mescla com servidor
+        purchasedAccessories: [
+          ...currentPlayer.purchasedAccessories,
+          ...(serverPlayer.purchasedAccessories || []).filter(
+            (serverAcc: any) =>
+              !currentPlayer.purchasedAccessories.some(
+                (localAcc: any) => localAcc.accessoryId === serverAcc.accessoryId
+              )
+          ),
+        ],
+        
+        // Sempre usa dados do servidor para punições (crítico para segurança)
+        punishments: serverPlayer.punishments || currentPlayer.punishments,
+        
+        // Sempre usa dados do servidor para operações de lavagem (crítico)
+        laundryProgress: serverPlayer.laundryProgress || currentPlayer.laundryProgress,
+        
+        // Sempre usa dados do servidor para mapa (posição é crítica)
+        mapPosition: serverPlayer.mapPosition || currentPlayer.mapPosition,
+      });
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(intelligentMerge));
 
       set({
-        player: merged,
+        player: intelligentMerge,
         syncError: null,
         pollingAttempts: 0,
         lastSyncAt: Date.now(),
