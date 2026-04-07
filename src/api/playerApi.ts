@@ -13,7 +13,7 @@
 import type { PlayerState } from '@/store/playerStore';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
-const REQUEST_TIMEOUT_MS = 30000;
+const REQUEST_TIMEOUT_MS = 60000;
 
 // ==========================================
 // TIPOS AUXILIARES
