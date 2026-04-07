@@ -161,65 +161,73 @@ squad.rotation.y = Math.PI;
   }
 
   async function resolveCombat() {
-  const state = useMapAttackStore.getState();
-  const scene = sceneRef.current;
-  if (!state.target || !scene) return;
-
-  // Obtém o ID do alvo (o backend espera targetId)
-  const targetId = state.target.playerId || state.target.id;
-  
-  // Calcula o poder da gangue (apenas para exibição ou para enviar ao backend se quiser)
-  const gangPower = calculateGangBattlePower();
-  console.log('Poder da gangue:', gangPower);
-
-  try {
-    // Chama o backend (ou simulação) para processar o ataque
-    const result = await initiateAttack(targetId);
-
-    // Cria efeito visual de impacto
-    const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
-    const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-    createImpactFlash({ scene, position: new THREE.Vector3(posX, 0.6, posZ) });
-
-    // Atualiza a store do jogador com os dados retornados (se o backend retornar o player atualizado)
-    if (result.attacker) {
-      usePlayerStore.getState().hydratePlayerFromServer(result.attacker);
+    console.log("🔥 resolveCombat iniciada");
+    const state = useMapAttackStore.getState();
+    const scene = sceneRef.current;
+    if (!state.target || !scene) {
+      console.log("❌ Sem target ou scene");
+      return;
     }
 
-    // Registra o resultado na store de ataque
-    useMapAttackStore.getState().setResolution({
-      success: result.success,
-      critical: result.critical,
-      loot: result.loot,
-      chance: result.chance,
-      attackerPower: result.attackerPower,
-      defenderPower: result.defenderPower,
-      message: result.message,
-      spoils: {
-        dirtyMoneyLoot: result.success ? result.loot : 0,
-        correLoot: 0,
-        prestigeLoot: result.success ? 10 : 0,
-        brokenLuxuryItemId: null,
-        brokenLuxuryItemName: null,
-        brokenLuxuryItemValue: null,
-        luxuryConvertedDirtyMoney: 0,
-      },
-    });
+    const targetId = state.target.playerId || state.target.id;
+    console.log("🎯 targetId:", targetId);
 
-    // Adiciona mensagem no feed
-    pushAttackFeed(result.message);
+    // Calcula poder da gangue (apenas log)
+    const gangPower = calculateGangBattlePower();
+    console.log("💪 gangPower:", gangPower);
 
-    // Inicia o retorno do squad após um pequeno delay
-    setTimeout(() => {
-      returnSquad();
-    }, 800);
-  } catch (error) {
-    console.error('Erro no ataque:', error);
-    pushAttackFeed('❌ Erro ao processar ataque. Tente novamente.');
-    // Em caso de erro, finaliza o ataque sem danos
-    finishAttack();
+    try {
+      // Usa a simulação (useMock deve estar true)
+      const result = await initiateAttack(targetId);
+      console.log("✅ Resultado recebido:", result);
+
+      // Efeito de impacto (só se o resultado chegou)
+      const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+      const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+      createImpactFlash({ scene, position: new THREE.Vector3(posX, 0.6, posZ) });
+      console.log("💥 Impacto criado");
+
+      // Atualiza store do jogador se houver attacker
+      if (result.attacker) {
+        usePlayerStore.getState().hydratePlayerFromServer(result.attacker);
+      }
+
+      // Registra resolução
+      useMapAttackStore.getState().setResolution({
+        success: result.success,
+        critical: result.critical,
+        loot: result.loot,
+        chance: result.chance,
+        attackerPower: result.attackerPower,
+        defenderPower: result.defenderPower,
+        message: result.message,
+        spoils: {
+          dirtyMoneyLoot: result.success ? result.loot : 0,
+          correLoot: 0,
+          prestigeLoot: result.success ? 10 : 0,
+          brokenLuxuryItemId: null,
+          brokenLuxuryItemName: null,
+          brokenLuxuryItemValue: null,
+          luxuryConvertedDirtyMoney: 0,
+        },
+      });
+      console.log("📦 Resolução registrada");
+
+      // Adiciona ao feed
+      pushAttackFeed(result.message);
+      console.log("📢 Feed atualizado");
+
+      // Inicia retorno do squad
+      setTimeout(() => {
+        console.log("🔁 Chamando returnSquad");
+        returnSquad();
+      }, 800);
+    } catch (error) {
+      console.error("💥 ERRO no ataque:", error);
+      pushAttackFeed("❌ Erro no ataque. Tente novamente.");
+      finishAttack(); // finaliza sem danos
+    }
   }
-}
 
   // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
   function returnSquad() {
