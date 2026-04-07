@@ -1,14 +1,13 @@
-// src/store/playerStore.ts (PARTE 1)
 import { create } from 'zustand';
 import { fetchCurrentPlayer, syncPlayerUpdate, laundryStart, laundryComplete, canOperateLaundry } from '@/api/playerApi';
 import { clearExpiredPunishments, isMoneyLaunderingBlocked, isDirtyMoneyBlocked, isCleanMoneyBlocked } from '@/Services/punishmentService';
 import { generateUUID } from '@/lib/uuid';
 
 const STORAGE_KEY = 'playerData';
-const POLLING_INTERVAL = 5000; // 5 segundos (evita sobrecarga)
+const POLLING_INTERVAL = 5000;
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
-// Tipos (mantenha os mesmos do seu arquivo atual)
+// ==================== TIPOS ====================
 type Balances = { dirtyMoney: number; cleanMoney: number; corre: number; };
 type Inventory = { items: any[]; gifts: any[]; rewards: any[]; };
 type PageLevels = { barraco: number; giro: number; lavagem: number; luxury: number; arsenal: number; bribery: number; hierarchy: number; home: number; game: number; };
@@ -20,7 +19,14 @@ type MapPosition = { tileX: number; tileY: number; worldX?: number; worldY?: num
 type ActiveOperation = { id: string; operationId: string; businessId: number; businessName: string; startedAt: string; endsAt: string; grossAmount: number; feePercentage: number; feeAmount: number; netAmount: number; status: 'processing' | 'completed'; };
 type DailyOperation = { businessId: number; date: string; amount: number; };
 type LaundryProgress = { activeOperations: ActiveOperation[]; dailyOperations: DailyOperation[]; };
-type PunishmentsState = { active: { type: 'fiscal' | 'arsenal' | 'militia' | 'blitz' | 'threat'; expiresAt: string; }[]; delacao: { active: boolean; expiresAt: string | null; } | null; inventoryBlocked: boolean; dirtyMoneyBlocked: boolean; cleanMoneyBlocked: boolean; levelProgressionBlocked: boolean; inventoryBonusReductionPercent: number; pvpProtectionUntil: string | null; delacaoRewardPending: boolean; delacaoRewardUnlockAt: string | null; pendingSkillBoost: number; lastVehicleLost?: boolean; };
+type PunishmentsState = {
+  active: { type: 'fiscal' | 'arsenal' | 'militia' | 'blitz' | 'threat'; expiresAt: string; }[];
+  delacao: { active: boolean; expiresAt: string | null; } | null;
+  inventoryBlocked: boolean; dirtyMoneyBlocked: boolean; cleanMoneyBlocked: boolean;
+  levelProgressionBlocked: boolean; inventoryBonusReductionPercent: number;
+  pvpProtectionUntil: string | null; delacaoRewardPending: boolean;
+  delacaoRewardUnlockAt: string | null; pendingSkillBoost: number; lastVehicleLost?: boolean;
+};
 type PurchasedAccessory = { accessoryId: string; skillType: string; purchasedAt: string; };
 type Accessories = { vehicles?: Record<string, string[]>; weapons?: Record<string, string[]>; };
 type AttackNotification = { id: string; type: string; attackerId?: string; attackerName?: string; targetId?: string; targetName?: string; success: boolean; loot: number; createdAt: string; read: boolean; };
@@ -35,10 +41,81 @@ export type PlayerState = {
   ownedVehicles?: string[]; purchasedAccessories?: PurchasedAccessory[]; accessories?: Accessories;
   notifications?: AttackNotification[]; attackHistory?: AttackHistoryItem[];
   vip?: boolean; factionId?: string | null; lastSkillTrainAt?: number; lastAttackAt?: number;
-  lastPassiveIncomeAt?: number; lastSpinAt?: number; version: number; // IMPORTANTE: version obrigatório
+  lastPassiveIncomeAt?: number; lastSpinAt?: number; version: number;
 };
 
-// Estado inicial (versão 0)
+// ==================== INTERFACE DA STORE ====================
+interface PlayerStore {
+  player: PlayerState;
+  isLoaded: boolean;
+  isSyncing: boolean;
+  syncError: string | null;
+  isPolling: boolean;
+  localVersion: number;
+  lastSyncAt: number;
+
+  loadPlayer: () => void;
+  setPlayer: (incoming: Partial<PlayerState>) => void;
+  hydratePlayerFromServer: (playerData: Partial<PlayerState>) => void;
+  applyPlayerUpdate: (updater: (current: PlayerState) => PlayerState) => void;
+  scheduleSync: () => void;
+  syncPlayerToBackend: () => Promise<void>;
+  startPolling: () => void;
+  stopPolling: () => void;
+  pollPlayerFromBackend: () => Promise<void>;
+  clearPlayer: () => void;
+
+  // Saldos
+  addDirtyMoney: (amount: number) => void;
+  removeDirtyMoney: (value: number) => void;
+  removeDirtyMoneyPercent: (percent: number) => void;
+  addCleanMoney: (amount: number) => void;
+  removeCleanMoney: (amount: number) => void;
+  addCorre: (amount: number) => void;
+  removeCorre: (amount: number) => void;
+
+  // Inventário
+  removeInventoryItem: (itemId: string) => void;
+  addGift: (gift: any) => void;
+  addReward: (reward: any) => void;
+
+  // Níveis e skills
+  setNiveis: (incoming: Partial<Niveis>) => void;
+  setPageLevel: (page: string, level: number) => void;
+  setSkills: (incoming: Partial<Skills>) => void;
+  addSkillPercent: (skill: keyof Skills, percent: number) => void;
+  setPower: (value: number) => void;
+  setHierarchyBadge: (badge: string) => void;
+
+  // Lavagem
+  startLaundryOperation: (operation: Omit<ActiveOperation, 'status' | 'id'>) => Promise<boolean>;
+  completeLaundryOperation: (operationId: string) => Promise<boolean>;
+  clearFinishedLaundryOperations: () => void;
+  canOperateLaundryToday: (businessId: number) => Promise<boolean>;
+
+  // Posições
+  setBarracoPosition: (position: Partial<BarracoPosition>) => void;
+  setHeaderCustomization: (customization: Partial<HeaderCustomization>) => void;
+
+  // Veículos e acessórios
+  addOwnedVehicle: (vehicleId: string) => void;
+  removeOwnedVehicle: (vehicleId: string) => void;
+  setCleanMoney: (amount: number) => void;
+  addSkillBonus: (skillType: string, percent: number) => void;
+  purchaseAccessory: (accessoryId: string, skillType: string) => void;
+  getAccessoryBonusPercent: () => number;
+  addAccessory: (type: 'vehicles' | 'weapons', itemId: string, accessoryName: string) => void;
+
+  // Notificações e histórico
+  setNotifications: (notifications: AttackNotification[]) => void;
+  addNotification: (notification: AttackNotification) => void;
+  markNotificationAsRead: (notificationId: string) => void;
+  setAttackHistory: (history: AttackHistoryItem[]) => void;
+  addAttackHistoryItem: (item: AttackHistoryItem) => void;
+  applyRemoteAttackResult: (payload: { dirtyMoneyDelta: number; notification?: AttackNotification; historyItem?: AttackHistoryItem; pvpProtectionUntil?: string | null; }) => void;
+}
+
+// ==================== ESTADO INICIAL ====================
 const initialPlayer: PlayerState = {
   _id: '', googleId: '', email: '', name: '', avatar: '',
   niveis: { playerLevel:1, barracoLevel:1, hierarchyLevel:1, arsenalLevel:1, giroLevel:1, lavagemLevel:1, luxuryLevel:1, briberyLevel:1 },
@@ -54,7 +131,6 @@ const initialPlayer: PlayerState = {
   vip:false, factionId:null, lastSkillTrainAt:0, lastAttackAt:0, lastPassiveIncomeAt:Date.now(), lastSpinAt:0,
   version: 0,
 };
-// PARTE 2 – merge e loadPlayer
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   return {
     ...initialPlayer,
@@ -78,6 +154,7 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   };
 }
 
+// ==================== STORE ====================
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
   player: initialPlayer,
   isLoaded: false,
@@ -102,7 +179,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       set({ player: initialPlayer, isLoaded: true, syncError: 'Erro ao carregar dados' });
     }
   },
-// PARTE 3 – setPlayer com incremento local
+
   setPlayer: (incoming) => {
     const current = get().player;
     const newVersion = current.version + 1;
@@ -115,7 +192,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   hydratePlayerFromServer: (playerData) => {
     const serverVersion = playerData.version || 0;
     const localVersion = get().player.version;
-    if (serverVersion <= localVersion) return; // ignora dados antigos
+    if (serverVersion <= localVersion) return;
     const merged = mergePlayer(playerData);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     set({ player: merged, localVersion: serverVersion, lastSyncAt: Date.now(), syncError: null });
@@ -130,7 +207,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     set({ player: merged, localVersion: newVersion, lastSyncAt: Date.now() });
     get().scheduleSync();
   },
-// PARTE 4 – sync e polling
+
   scheduleSync: () => {
     if (get().isSyncing) return;
     setTimeout(() => { get().syncPlayerToBackend(); }, 500);
@@ -174,7 +251,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     if (!token) { get().stopPolling(); return; }
     if (get().isSyncing) return;
     const now = Date.now();
-    if (now - get().lastSyncAt < 2000) return; // evita conflito
+    if (now - get().lastSyncAt < 2000) return;
     try {
       const serverPlayer = await fetchCurrentPlayer();
       if (!serverPlayer) return;
@@ -191,211 +268,113 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     }
   },
 
-  // ==========================================
-  // SALDOS
-  // ==========================================
-  
-     applyPlayerUpdate)
   clearPlayer: () => {
     localStorage.removeItem(STORAGE_KEY);
     if (pollingInterval) clearInterval(pollingInterval);
     set({ player: initialPlayer, isLoaded: true, isSyncing: false, syncError: null, isPolling: false, localVersion: 0, lastSyncAt: 0 });
   },
-
+// ========== SALDOS ==========
   addDirtyMoney: (amount) => {
     get().applyPlayerUpdate((p) => ({
       ...p,
       balances: { ...p.balances, dirtyMoney: p.balances.dirtyMoney + amount }
     }));
   },
-
   removeDirtyMoney: (value) => {
     get().applyPlayerUpdate((p) => ({
       ...p,
       balances: { ...p.balances, dirtyMoney: Math.max(0, p.balances.dirtyMoney - value) }
     }));
   },
-
-  // ... adicione aqui todas as outras ações que você já tinha (addCleanMoney, removeCorre, etc.),
-  // mas convertendo para usar applyPlayerUpdate.
-  // Para economizar espaço, mantenha as funções originais que você já possui,
-  // apenas substitua a lógica interna por get().applyPlayerUpdate.
-});
-
   removeDirtyMoneyPercent: (percent) => {
     const current = get().player;
     if (isDirtyMoneyBlocked(current)) return;
-
     get().applyPlayerUpdate((player) => {
       const loss = player.balances.dirtyMoney * (percent / 100);
-
       return {
         ...player,
-        balances: {
-          ...player.balances,
-          dirtyMoney: Math.max(0, player.balances.dirtyMoney - loss),
-        },
+        balances: { ...player.balances, dirtyMoney: Math.max(0, player.balances.dirtyMoney - loss) }
       };
     });
   },
-
   addCleanMoney: (amount) => {
     const current = get().player;
     if (isCleanMoneyBlocked(current)) return;
-
     get().applyPlayerUpdate((player) => ({
       ...player,
-      balances: {
-        ...player.balances,
-        cleanMoney: player.balances.cleanMoney + amount,
-      },
+      balances: { ...player.balances, cleanMoney: player.balances.cleanMoney + amount }
     }));
   },
-
   removeCleanMoney: (amount) => {
     const current = get().player;
     if (isCleanMoneyBlocked(current)) return;
-
     get().applyPlayerUpdate((player) => ({
       ...player,
-      balances: {
-        ...player.balances,
-        cleanMoney: Math.max(0, player.balances.cleanMoney - amount),
-      },
+      balances: { ...player.balances, cleanMoney: Math.max(0, player.balances.cleanMoney - amount) }
     }));
   },
-
   addCorre: (amount) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
-      balances: {
-        ...player.balances,
-        corre: player.balances.corre + amount,
-      },
+      balances: { ...player.balances, corre: player.balances.corre + amount }
     }));
   },
-
   removeCorre: (amount) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
-      balances: {
-        ...player.balances,
-        corre: Math.max(0, player.balances.corre - amount),
-      },
+      balances: { ...player.balances, corre: Math.max(0, player.balances.corre - amount) }
     }));
   },
 
-  // ==========================================
-  // INVENTÁRIO
-  // ==========================================
+  // ========== INVENTÁRIO ==========
   removeInventoryItem: (itemId) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
-      inventory: {
-        ...player.inventory,
-        items: player.inventory.items.filter((item: any) => item?.id !== itemId && item?._id !== itemId),
-      },
+      inventory: { ...player.inventory, items: player.inventory.items.filter((item: any) => item?.id !== itemId && item?._id !== itemId) }
     }));
   },
-
   addGift: (gift) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
-      inventory: {
-        ...player.inventory,
-        gifts: [...player.inventory.gifts, gift],
-      },
+      inventory: { ...player.inventory, gifts: [...player.inventory.gifts, gift] }
     }));
   },
-
   addReward: (reward) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
-      inventory: {
-        ...player.inventory,
-        rewards: [...player.inventory.rewards, reward],
-      },
+      inventory: { ...player.inventory, rewards: [...player.inventory.rewards, reward] }
     }));
   },
 
-  // ==========================================
-  // NÍVEIS E SKILLS
-  // ==========================================
+  // ========== NÍVEIS E SKILLS ==========
   setNiveis: (incoming) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      niveis: {
-        ...player.niveis,
-        ...incoming,
-      },
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, niveis: { ...player.niveis, ...incoming } }));
   },
-
   setPageLevel: (page, level) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      pageLevels: {
-        ...player.pageLevels,
-        [page]: level,
-      },
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, pageLevels: { ...player.pageLevels, [page]: level } }));
   },
-
   setSkills: (incoming) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      skills: {
-        ...player.skills,
-        ...incoming,
-      },
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, skills: { ...player.skills, ...incoming } }));
   },
-
   addSkillPercent: (skill, percent) => {
     get().applyPlayerUpdate((player) => {
       const currentValue = player.skills[skill] || 0;
       const increase = currentValue * (percent / 100);
-
-      return {
-        ...player,
-        skills: {
-          ...player.skills,
-          [skill]: currentValue + increase,
-        },
-      };
+      return { ...player, skills: { ...player.skills, [skill]: currentValue + increase } };
     });
   },
-
   setPower: (value) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      power: value,
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, power: value }));
   },
-
   setHierarchyBadge: (badge) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      hierarchyBadge: badge,
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, hierarchyBadge: badge }));
   },
 
-  // ==========================================
-  // LAVAGEM DE DINHEIRO
-  // ==========================================
+  // ========== LAVAGEM ==========
   startLaundryOperation: async (operation) => {
     const current = get().player;
-
-    if (isMoneyLaunderingBlocked(current)) {
-      return false;
-    }
-
-    const { dirtyMoney } = current.balances;
-
-    if (dirtyMoney < operation.grossAmount) {
-      return false;
-    }
-
+    if (isMoneyLaunderingBlocked(current)) return false;
+    if (current.balances.dirtyMoney < operation.grossAmount) return false;
     try {
       const response = await laundryStart({
         businessId: operation.businessId,
@@ -405,7 +384,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         feeAmount: operation.feeAmount,
         netAmount: operation.netAmount,
       });
-
       const newOperation: ActiveOperation = {
         ...operation,
         id: generateUUID(),
@@ -413,268 +391,126 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         endsAt: response.endsAt,
         status: 'processing',
       };
-
       const updated = mergePlayer({
         ...response.player,
         laundryProgress: {
           ...response.player.laundryProgress,
-          activeOperations: [
-            ...response.player.laundryProgress.activeOperations,
-            newOperation,
-          ],
+          activeOperations: [...response.player.laundryProgress.activeOperations, newOperation],
         },
       });
-
       get().hydratePlayerFromServer(updated);
-
-      return true;
-    } catch (error: any) {
-      console.error('Erro ao iniciar operação de lavagem:', error);
-      throw error;
-    }
-  },
-
-  completeLaundryOperation: async (operationId) => {
-    const current = get().player;
-    const operationIndex = current.laundryProgress.activeOperations.findIndex(
-      (op) => op.operationId === operationId && op.status === 'processing'
-    );
-
-    if (operationIndex === -1) {
-      return false;
-    }
-
-    try {
-      // Chama o backend para completar a operação
-      const response = await laundryComplete(operationId);
-
-      // Atualiza o estado local com os dados retornados pelo backend
-      const updated = mergePlayer(response.player);
-
-      get().hydratePlayerFromServer(updated);
-
-      // Limpa operações diárias antigas para manter apenas as do dia atual
-      get().clearFinishedLaundryOperations();
-
       return true;
     } catch (error) {
-      console.error('Erro ao completar operação de lavagem:', error);
+      console.error('Erro ao iniciar lavagem:', error);
       return false;
     }
   },
-
+  completeLaundryOperation: async (operationId) => {
+    try {
+      const response = await laundryComplete(operationId);
+      const updated = mergePlayer(response.player);
+      get().hydratePlayerFromServer(updated);
+      get().clearFinishedLaundryOperations();
+      return true;
+    } catch (error) {
+      console.error('Erro ao completar lavagem:', error);
+      return false;
+    }
+  },
   clearFinishedLaundryOperations: () => {
     get().applyPlayerUpdate((player) => {
       const today = new Date().toISOString().split('T')[0];
-
-      // Remove operações diárias de dias anteriores
-      const recentDailyOps = player.laundryProgress.dailyOperations.filter(
-        (op) => op.date === today
-      );
-
-      return {
-        ...player,
-        laundryProgress: {
-          ...player.laundryProgress,
-          dailyOperations: recentDailyOps,
-        },
-      };
+      const recentDailyOps = player.laundryProgress.dailyOperations.filter((op) => op.date === today);
+      return { ...player, laundryProgress: { ...player.laundryProgress, dailyOperations: recentDailyOps } };
     });
   },
-
   canOperateLaundryToday: async (businessId) => {
     try {
       const result = await canOperateLaundry(businessId);
       return result.allowed;
     } catch (error) {
-      console.error('Erro ao verificar limite diário de lavagem:', error);
-      // Fallback seguro: permite operar (evita bloquear o jogador por erro de rede)
       return true;
     }
   },
 
+  // ========== POSIÇÕES E CUSTOMIZAÇÃO ==========
   setBarracoPosition: (position) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      barracoPosition: {
-        ...player.barracoPosition,
-        ...position,
-      },
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, barracoPosition: { ...player.barracoPosition, ...position } }));
   },
-
   setHeaderCustomization: (customization) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      headerCustomization: {
-        ...player.headerCustomization,
-        ...customization,
-      },
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, headerCustomization: { ...player.headerCustomization, ...customization } }));
   },
 
-  // ==========================================
-  // VEÍCULOS DE FUGA
-  // ==========================================
+  // ========== VEÍCULOS E ACESSÓRIOS ==========
   addOwnedVehicle: (vehicleId) => {
     get().applyPlayerUpdate((player) => {
-      const ownedVehicles = player.ownedVehicles || [];
-
-      if (!ownedVehicles.includes(vehicleId)) {
-        return {
-          ...player,
-          ownedVehicles: [...ownedVehicles, vehicleId],
-        };
-      }
-
-      return player;
+      const owned = player.ownedVehicles || [];
+      return owned.includes(vehicleId) ? player : { ...player, ownedVehicles: [...owned, vehicleId] };
     });
   },
-
   removeOwnedVehicle: (vehicleId) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      ownedVehicles: (player.ownedVehicles || []).filter((id) => id !== vehicleId),
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, ownedVehicles: (player.ownedVehicles || []).filter(id => id !== vehicleId) }));
   },
-
   setCleanMoney: (amount) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      balances: {
-        ...player.balances,
-        cleanMoney: amount,
-      },
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, balances: { ...player.balances, cleanMoney: amount } }));
   },
-
   addSkillBonus: (skillType, percent) => {
     get().applyPlayerUpdate((player) => {
       const currentValue = player.skills[skillType] || 0;
-
-      return {
-        ...player,
-        skills: {
-          ...player.skills,
-          [skillType]: currentValue + percent,
-        },
-      };
+      return { ...player, skills: { ...player.skills, [skillType]: currentValue + percent } };
     });
   },
-
   purchaseAccessory: (accessoryId, skillType) => {
     get().applyPlayerUpdate((player) => {
-      const purchasedAccessories = player.purchasedAccessories || [];
-
-      // Evita compras duplicadas
-      if (purchasedAccessories.some((acc) => acc.accessoryId === accessoryId)) {
-        return player;
-      }
-
-      const newAccessory: PurchasedAccessory = {
-        accessoryId,
-        skillType,
-        purchasedAt: new Date().toISOString(),
-      };
-
+      const purchased = player.purchasedAccessories || [];
+      if (purchased.some(acc => acc.accessoryId === accessoryId)) return player;
+      const newAccessory: PurchasedAccessory = { accessoryId, skillType, purchasedAt: new Date().toISOString() };
+      return { ...player, purchasedAccessories: [...purchased, newAccessory] };
+    });
+  },
+  getAccessoryBonusPercent: () => {
+    const level = get().player.niveis.playerLevel || 1;
+    return level <= 50 ? 1 : 2;
+  },
+  addAccessory: (type, itemId, accessoryName) => {
+    get().applyPlayerUpdate((player) => {
+      const existing = player.accessories?.[type]?.[itemId] || [];
+      if (existing.includes(accessoryName)) return player;
       return {
         ...player,
-        purchasedAccessories: [...purchasedAccessories, newAccessory],
+        accessories: {
+          ...player.accessories,
+          [type]: { ...player.accessories?.[type], [itemId]: [...existing, accessoryName] }
+        }
       };
     });
   },
 
-  getAccessoryBonusPercent: () => {
-    const current = get().player;
-    const playerLevel = current.niveis.playerLevel || 1;
-
-    // +1% até nível 50, +2% a partir de nível 51
-    return playerLevel <= 50 ? 1 : 2;
-  },
-
-  addAccessory: (type, itemId, accessoryName) => {
-    const current = get().player;
-    const existing = current.accessories?.[type]?.[itemId] || [];
-
-    if (existing.includes(accessoryName)) return;
-
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      accessories: {
-        ...player.accessories,
-        [type]: {
-          ...player.accessories?.[type],
-          [itemId]: [...existing, accessoryName],
-        },
-      },
-    }));
-  },
-
-  // ==========================================
-  // NOTIFICATIONS & ATTACK HISTORY
-  // ==========================================
+  // ========== NOTIFICAÇÕES E HISTÓRICO ==========
   setNotifications: (notifications) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      notifications,
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, notifications }));
   },
-
   addNotification: (notification) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      notifications: [...(player.notifications || []), notification],
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, notifications: [...(player.notifications || []), notification] }));
   },
-
   markNotificationAsRead: (notificationId) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
-      notifications: (player.notifications || []).map((notif) =>
-        notif.id === notificationId ? { ...notif, read: true } : notif
-      ),
+      notifications: (player.notifications || []).map(notif => notif.id === notificationId ? { ...notif, read: true } : notif)
     }));
   },
-
   setAttackHistory: (history) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      attackHistory: history,
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, attackHistory: history }));
   },
-
   addAttackHistoryItem: (item) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      attackHistory: [...(player.attackHistory || []), item],
-    }));
+    get().applyPlayerUpdate((player) => ({ ...player, attackHistory: [...(player.attackHistory || []), item] }));
   },
-
   applyRemoteAttackResult: (payload) => {
     get().applyPlayerUpdate((player) => {
-      const updated = {
-        ...player,
-        balances: {
-          ...player.balances,
-          dirtyMoney: player.balances.dirtyMoney + payload.dirtyMoneyDelta,
-        },
-      };
-
-      if (payload.notification) {
-        updated.notifications = [...(updated.notifications || []), payload.notification];
-      }
-
-      if (payload.historyItem) {
-        updated.attackHistory = [...(updated.attackHistory || []), payload.historyItem];
-      }
-
-      if (payload.pvpProtectionUntil !== undefined) {
-        updated.punishments = {
-          ...updated.punishments,
-          pvpProtectionUntil: payload.pvpProtectionUntil,
-        };
-      }
-
+      const updated = { ...player, balances: { ...player.balances, dirtyMoney: player.balances.dirtyMoney + payload.dirtyMoneyDelta } };
+      if (payload.notification) updated.notifications = [...(updated.notifications || []), payload.notification];
+      if (payload.historyItem) updated.attackHistory = [...(updated.attackHistory || []), payload.historyItem];
+      if (payload.pvpProtectionUntil !== undefined) updated.punishments = { ...updated.punishments, pvpProtectionUntil: payload.pvpProtectionUntil };
       return updated;
     });
   },
