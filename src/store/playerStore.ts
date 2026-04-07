@@ -536,8 +536,25 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   loadPlayer: () => {
     try {
+      // Se o usuário está logado, não sobrescreve os dados do localStorage
+      const token = localStorage.getItem('authToken');
       const stored = localStorage.getItem(STORAGE_KEY);
 
+      // Se tem token e dados salvos, confia nos dados salvos
+      if (token && stored) {
+        const parsed = JSON.parse(stored);
+        const merged = clearExpiredPunishments(mergePlayer(parsed));
+
+        set({
+          player: merged,
+          isLoaded: true,
+          syncError: null,
+          lastSyncAt: Date.now(),
+        });
+        return;
+      }
+
+      // Se não tem dados salvos, usa o estado inicial
       if (!stored) {
         set({
           player: initialPlayer,
@@ -548,6 +565,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         return;
       }
 
+      // Se tem dados mas sem token, carrega normalmente
       const parsed = JSON.parse(stored);
       const merged = clearExpiredPunishments(mergePlayer(parsed));
 

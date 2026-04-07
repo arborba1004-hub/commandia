@@ -110,7 +110,11 @@ export default function HomePage() {
   const isAuthenticated = !!player?._id;
 
   useEffect(() => {
-    if (!isLoaded) loadPlayer();
+    // Só carrega o player se não estiver autenticado (ou se não houver token)
+    const token = localStorage.getItem('authToken');
+    if (!token && !isLoaded) {
+      loadPlayer();
+    }
   }, [isLoaded, loadPlayer]);
 
   useEffect(() => {
