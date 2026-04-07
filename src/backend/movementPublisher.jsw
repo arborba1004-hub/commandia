@@ -113,3 +113,48 @@ export async function publishPlayerLeft(playerId) {
     throw new Error(`Erro ao publicar saída: ${error.message}`);
   }
 }
+
+/**
+ * Publica um evento de ataque para o alvo em tempo real
+ * @param {string} attackerId - ID do atacante
+ * @param {string} targetId - ID do alvo
+ * @param {object} result - Resultado do ataque (success, loot, message, etc.)
+ */
+export async function publishAttack(attackerId, targetId, result) {
+  try {
+    if (!attackerId || !targetId) {
+      throw new Error('attackerId e targetId são obrigatórios');
+    }
+
+    // Canal específico para o alvo receber notificações de ataque
+    const attackChannel = `attack_${targetId}`;
+
+    const attackData = {
+      type: 'player_attacked',
+      attackerId,
+      targetId,
+      success: result.success || false,
+      critical: result.critical || false,
+      loot: result.loot || 0,
+      message: result.message || 'Você foi atacado!',
+      attackerName: result.attackerName || 'Desconhecido',
+      attackerPower: result.attackerPower || 0,
+      defenderPower: result.defenderPower || 0,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log(`⚔️ Ataque publicado: ${attackerId} → ${targetId} no canal ${attackChannel}`);
+
+    // Publicar para o alvo específico
+    await Realtime.publish(attackChannel, attackData);
+
+    return {
+      success: true,
+      message: 'Ataque publicado com sucesso',
+      data: attackData,
+    };
+  } catch (error) {
+    console.error('❌ Erro ao publicar ataque:', error);
+    throw new Error(`Erro ao publicar ataque: ${error.message}`);
+  }
+}

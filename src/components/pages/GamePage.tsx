@@ -27,6 +27,7 @@ import {
 } from '@/components/game/mapAttackEffects';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
+import AttackNotificationOverlay from '@/components/game/AttackNotificationOverlay';
 import { useFactionStore } from '@/store/factionStore';
 import Wix from 'wix-api';
 
@@ -772,6 +773,86 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
 
     subscribeToMovements();
 
+    // === 🔥 SUBSCRIPTION AO CANAL DE ATAQUES ===
+    // Se inscrever no canal de ataques para receber notificações em tempo real
+    const subscribeToAttacks = () => {
+      try {
+        const currentPlayerId = playerState?._id || playerState?.googleId;
+        if (!currentPlayerId) {
+          console.warn('⚠️ Sem ID do jogador para se inscrever no canal de ataques');
+          return;
+        }
+
+        const attackChannel = `attack_${currentPlayerId}`;
+        const subscription = Wix.Realtime.subscribe(attackChannel, (message: any) => {
+          if (!isMounted) return;
+
+          const {
+            type,
+            attackerId,
+            targetId,
+            success,
+            critical,
+            loot,
+            message: attackMessage,
+            attackerName,
+            attackerPower,
+            defenderPower,
+          } = message;
+
+          if (type === 'player_attacked') {
+            console.log(`⚔️ ATAQUE RECEBIDO de ${attackerName}!`);
+
+            // 1️⃣ Mostrar overlay de notificação
+            setAttackNotification({
+              attackerName,
+              success,
+              loot,
+              critical,
+              message: attackMessage,
+            });
+            setShowAttackOverlay(true);
+
+            // 2️⃣ Atualizar a store do jogador (perder dinheiro, etc.)
+            if (success) {
+              usePlayerStore.getState().applyPlayerUpdate((p) => ({
+                ...p,
+                balances: {
+                  ...p.balances,
+                  dirtyMoney: Math.max(0, (p.balances?.dirtyMoney || 0) - loot),
+                },
+              }));
+              console.log(`💰 Perdeu ${loot} em dinheiro sujo`);
+            }
+
+            // 3️⃣ Animar o barraco do atacante (se estiver visível no mapa)
+            const attackerBarraco = enemyBarracoMapRef.current[attackerId];
+            if (attackerBarraco && scene) {
+              // Efeito de impacto no barraco do atacante
+              const posX = attackerBarraco.position.x;
+              const posZ = attackerBarraco.position.z;
+              createImpactFlash({ scene, position: new THREE.Vector3(posX, 0.6, posZ) });
+              
+              // Shake do barraco
+              shakeObject(attackerBarraco, 0.3, 200);
+              
+              console.log(`💥 Barraco do atacante ${attackerName} animado`);
+            }
+
+            // Adicionar ao feed de ataques
+            pushAttackFeed(`⚔️ ${attackerName} te atacou! ${success ? `Roubou ${loot}` : 'Falhou no ataque'}`);
+          }
+        });
+
+        attackSubscriptionRef.current = subscription;
+        console.log(`📡 Inscrito no canal de ataques: ${attackChannel}`);
+      } catch (error) {
+        console.warn('⚠️ Erro ao se inscrever no canal de ataques:', error);
+      }
+    };
+
+    subscribeToAttacks();
+
     const handleResize = () => {
       if (!containerRef.current) return;
       camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
@@ -797,6 +878,16 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
           console.log('📡 Desinscrito do canal de movimentos');
         } catch (error) {
           console.warn('⚠️ Erro ao desinscrever:', error);
+        }
+      }
+
+      // 🔥 DESINSCREVER DO CANAL DE ATAQUES
+      if (attackSubscriptionRef.current) {
+        try {
+          attackSubscriptionRef.current.unsubscribe();
+          console.log('📡 Desinscrito do canal de ataques');
+        } catch (error) {
+          console.warn('⚠️ Erro ao desinscrever do canal de ataques:', error);
         }
       }
 
@@ -881,6 +972,22 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
 
       {/* Attack Result Overlay */}
       <AttackResultOverlay />
+
+      {/* Attack Notification Overlay - Recebido em tempo real */}
+      {attackNotification && (
+        <AttackNotificationOverlay
+          isVisible={showAttackOverlay}
+          attackerName={attackNotification.attackerName}
+          success={attackNotification.success}
+          loot={attackNotification.loot}
+          critical={attackNotification.critical}
+          message={attackNotification.message}
+          onClose={() => {
+            setShowAttackOverlay(false);
+            setAttackNotification(null);
+          }}
+        />
+      )}
 
       {/* Enemy Info Modal */}
       {selectedEnemy && (

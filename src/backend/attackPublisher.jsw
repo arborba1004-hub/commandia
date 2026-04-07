@@ -1,0 +1,132 @@
+/**
+ * Attack Publisher - Backend
+ * Processa ataques e publica eventos em tempo real para o alvo
+ */
+
+import { ok, badRequest, serverError } from 'wix-http-functions';
+import { publishAttack } from './movementPublisher.jsw';
+
+/**
+ * POST /api/attack/process
+ * Processa um ataque e publica o resultado para o alvo em tempo real
+ * 
+ * Body esperado:
+ * {
+ *   attackerId: string,
+ *   targetId: string,
+ *   success: boolean,
+ *   critical: boolean,
+ *   loot: number,
+ *   message: string,
+ *   attackerName: string,
+ *   attackerPower: number,
+ *   defenderPower: number
+ * }
+ */
+export async function post_process(request) {
+  try {
+    const body = request.body.json();
+    const {
+      attackerId,
+      targetId,
+      success,
+      critical,
+      loot,
+      message,
+      attackerName,
+      attackerPower,
+      defenderPower,
+    } = body;
+
+    // Validação básica
+    if (!attackerId || !targetId) {
+      return badRequest({
+        error: 'attackerId e targetId são obrigatórios',
+      });
+    }
+
+    // Prepara dados do ataque
+    const attackResult = {
+      success: success || false,
+      critical: critical || false,
+      loot: loot || 0,
+      message: message || 'Você foi atacado!',
+      attackerName: attackerName || 'Desconhecido',
+      attackerPower: attackerPower || 0,
+      defenderPower: defenderPower || 0,
+    };
+
+    // Publica o ataque para o alvo em tempo real
+    const publishResult = await publishAttack(attackerId, targetId, attackResult);
+
+    return ok({
+      success: true,
+      message: 'Ataque processado e publicado com sucesso',
+      data: publishResult.data,
+    });
+  } catch (error) {
+    console.error('❌ Erro ao processar ataque:', error);
+    return serverError({
+      error: error.message || 'Erro ao processar ataque',
+    });
+  }
+}
+
+/**
+ * POST /api/attack/initiate-with-publish
+ * Versão melhorada de initiateAttack que publica o resultado
+ * Integra com o backend de ataque existente
+ * 
+ * Body esperado:
+ * {
+ *   attackerId: string,
+ *   targetId: string,
+ *   gangPower?: object
+ * }
+ */
+export async function post_initiate_with_publish(request) {
+  try {
+    const body = request.body.json();
+    const { attackerId, targetId, gangPower } = body;
+
+    if (!attackerId || !targetId) {
+      return badRequest({
+        error: 'attackerId e targetId são obrigatórios',
+      });
+    }
+
+    // Aqui você chamaria a lógica de ataque real do seu backend
+    // Por enquanto, retornamos um resultado simulado
+    const attackerPower = (gangPower?.totalPower || 100) + (gangPower?.attackBonus || 0);
+    const defenderPower = 100 + (gangPower?.defenseBonus || 0);
+    const chance = Math.min(0.9, Math.max(0.3, attackerPower / (attackerPower + defenderPower)));
+    const success = Math.random() < chance;
+    const critical = success && Math.random() < 0.15;
+    const loot = success ? Math.floor(Math.random() * 5000) : 0;
+
+    const attackResult = {
+      success,
+      critical,
+      loot,
+      message: success ? (critical ? 'ATAQUE CRÍTICO!' : 'Ataque bem-sucedido!') : 'Falha no ataque.',
+      attackerName: 'Atacante',
+      attackerPower,
+      defenderPower,
+    };
+
+    // Publica para o alvo
+    const publishResult = await publishAttack(attackerId, targetId, attackResult);
+
+    return ok({
+      success: true,
+      message: 'Ataque iniciado e publicado com sucesso',
+      attack: attackResult,
+      published: publishResult.data,
+    });
+  } catch (error) {
+    console.error('❌ Erro ao iniciar ataque com publicação:', error);
+    return serverError({
+      error: error.message || 'Erro ao iniciar ataque',
+    });
+  }
+}
