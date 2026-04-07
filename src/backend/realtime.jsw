@@ -1,75 +1,78 @@
 import { publish } from 'wix-realtime-backend';
 
 /**
- * Publica um evento de movimento de um jogador para o canal de movimento
- * @param {string} playerId - ID do jogador que se moveu
- * @param {number} x - Coordenada X (tileX) da nova posição
- * @param {number} y - Coordenada Y (tileY) da nova posição
+ * Publica um evento de ataque em tempo real para o jogador alvo
+ * @param {string} targetPlayerId - ID do jogador que está sendo atacado
+ * @param {string} attackerName - Nome do atacante
+ * @param {number} loot - Quantidade de loot/dinheiro roubado
+ * @param {boolean} success - Se o ataque foi bem-sucedido
+ * @returns {Promise<void>}
  */
-export async function publishMovement(playerId, x, y) {
+export async function publishAttack(targetPlayerId, attackerName, loot, success) {
   try {
-    const channel = `movement_${playerId}`;
+    const channel = `attack_${targetPlayerId}`;
     const message = {
-      type: 'movement_update',
-      playerId: playerId,
-      x: x,
-      y: y,
-      timestamp: Date.now(),
+      type: 'attack',
+      attackerName,
+      loot,
+      success,
+      timestamp: Date.now()
     };
 
     await publish(channel, message);
-    console.log(`✅ Movimento publicado para ${channel}: (${x}, ${y})`);
-    return { success: true, channel, message };
+    console.log(`Attack published to ${channel}:`, message);
   } catch (error) {
-    console.error(`❌ Erro ao publicar movimento:`, error);
-    return { success: false, error: error.message };
+    console.error('Error publishing attack:', error);
+    throw error;
   }
 }
 
 /**
- * Publica um evento de ataque para o canal de ataque do alvo
- * @param {string} attackerId - ID do atacante
- * @param {string} targetId - ID do alvo
- * @param {object} result - Resultado do ataque (success, critical, loot, message, etc.)
+ * Publica um evento de defesa bem-sucedida em tempo real
+ * @param {string} targetPlayerId - ID do jogador que defendeu
+ * @param {string} attackerName - Nome do atacante
+ * @param {number} damageBlocked - Dano bloqueado
+ * @returns {Promise<void>}
  */
-export async function publishAttack(attackerId, targetId, result) {
+export async function publishDefense(targetPlayerId, attackerName, damageBlocked) {
   try {
-    const channel = `attack_${targetId}`;
+    const channel = `attack_${targetPlayerId}`;
     const message = {
-      type: 'player_attacked',
-      attackerId: attackerId,
-      targetId: targetId,
-      success: result.success || false,
-      critical: result.critical || false,
-      loot: result.loot || 0,
-      message: result.message || 'Ataque realizado',
-      attackerName: result.attackerName || 'Atacante Desconhecido',
-      attackerPower: result.attackerPower || 0,
-      defenderPower: result.defenderPower || 0,
-      timestamp: Date.now(),
+      type: 'defense',
+      attackerName,
+      damageBlocked,
+      timestamp: Date.now()
     };
 
     await publish(channel, message);
-    console.log(`✅ Ataque publicado para ${channel} por ${attackerId}`);
-    return { success: true, channel, message };
+    console.log(`Defense published to ${channel}:`, message);
   } catch (error) {
-    console.error(`❌ Erro ao publicar ataque:`, error);
-    return { success: false, error: error.message };
+    console.error('Error publishing defense:', error);
+    throw error;
   }
 }
 
 /**
- * Publica um evento genérico em um canal específico
- * @param {string} channel - Nome do canal
- * @param {object} message - Mensagem a publicar
+ * Publica um evento de invasão de território em tempo real
+ * @param {string} targetPlayerId - ID do jogador que perdeu o território
+ * @param {string} attackerName - Nome do atacante
+ * @param {string} territoryName - Nome do território invadido
+ * @returns {Promise<void>}
  */
-export async function publishToChannel(channel, message) {
+export async function publishTerritoryInvasion(targetPlayerId, attackerName, territoryName) {
   try {
+    const channel = `attack_${targetPlayerId}`;
+    const message = {
+      type: 'territoryInvasion',
+      attackerName,
+      territoryName,
+      timestamp: Date.now()
+    };
+
     await publish(channel, message);
-    console.log(`✅ Mensagem publicada para ${channel}`);
-    return { success: true, channel, message };
+    console.log(`Territory invasion published to ${channel}:`, message);
   } catch (error) {
-    console.error(`❌ Erro ao publicar no canal ${channel}:`, error);
-    return { success: false, error: error.message };
+    console.error('Error publishing territory invasion:', error);
+    throw error;
   }
 }
