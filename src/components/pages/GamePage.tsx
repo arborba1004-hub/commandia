@@ -9,6 +9,9 @@ import { handleTileInvasion } from '@/components/game/tileInvasion';
 import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
+import { initiateAttack, calculateGangBattlePower } from '@/api/attackApi';
+import { useGangBattleStore } from '@/stores/gangBattleStore';
+import { useGangStore } from '@/store/gangStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { buildManhattanAttackRoute } from '@/components/game/mapAttackPath';
 import { resolveMapAttack } from '@/components/game/mapAttackResolver';
@@ -25,6 +28,9 @@ import {
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import { useFactionStore } from '@/store/factionStore';
+
+
+
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -154,57 +160,66 @@ squad.rotation.y = Math.PI;
     }, 20);
   }
 
-  // === FUNÇÃO PARA RESOLVER O COMBATE ===
-  function resolveCombat() {
-    const state = useMapAttackStore.getState();
-    const scene = sceneRef.current;
+  async function resolveCombat() {
+  const state = useMapAttackStore.getState();
+  const scene = sceneRef.current;
+  if (!state.target || !scene) return;
 
-    if (!state.target || !scene) return;
+  // Obtém o ID do alvo (o backend espera targetId)
+  const targetId = state.target.playerId || state.target.id;
+  
+  // Calcula o poder da gangue (apenas para exibição ou para enviar ao backend se quiser)
+  const gangPower = calculateGangBattlePower();
+  console.log('Poder da gangue:', gangPower);
 
-    const result = resolveMapAttack({
-      attacker: {
-        attack: 120,
-        agility: 80,
-        weaponBonus: 30,
-        prestige: 0,
-        corre: 0,
-        level: playerState?.niveis?.playerLevel || playerState?.niveis?.barracoLevel || 1,
-      },
-      defender: {
-        defense: 100,
-        resistance: 90,
-        protectionBonus: 20,
-        prestige: 0,
-        corre: 0,
-        level: state.target?.barracoLevel || 1,
-        luxuryItems: [],
-      },
-      targetDirtyMoney: state.target.dirtyMoney || 0,
-    });
+  try {
+    // Chama o backend (ou simulação) para processar o ataque
+    const result = await initiateAttack(targetId);
 
-    pushAttackFeed(
-      result.success
-        ? `🔥 Você dominou ${state.target.playerName}`
-        : `💀 ${state.target.playerName} resistiu ao ataque`
-    );
-
+    // Cria efeito visual de impacto
     const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
     const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+    createImpactFlash({ scene, position: new THREE.Vector3(posX, 0.6, posZ) });
 
-    createImpactFlash({
-      scene,
-      position: new THREE.Vector3(posX, 0.6, posZ),
+    // Atualiza a store do jogador com os dados retornados (se o backend retornar o player atualizado)
+    if (result.attacker) {
+      usePlayerStore.getState().hydratePlayerFromServer(result.attacker);
+    }
+
+    // Registra o resultado na store de ataque
+    useMapAttackStore.getState().setResolution({
+      success: result.success,
+      critical: result.critical,
+      loot: result.loot,
+      chance: result.chance,
+      attackerPower: result.attackerPower,
+      defenderPower: result.defenderPower,
+      message: result.message,
+      spoils: {
+        dirtyMoneyLoot: result.success ? result.loot : 0,
+        correLoot: 0,
+        prestigeLoot: result.success ? 10 : 0,
+        brokenLuxuryItemId: null,
+        brokenLuxuryItemName: null,
+        brokenLuxuryItemValue: null,
+        luxuryConvertedDirtyMoney: 0,
+      },
     });
 
-    const obj = enemyBarracoMapRef.current[state.target.playerId];
-    if (obj) shakeObject(obj);
+    // Adiciona mensagem no feed
+    pushAttackFeed(result.message);
 
-    useMapAttackStore.getState().setResolution(result);
-
+    // Inicia o retorno do squad após um pequeno delay
     setTimeout(() => {
       returnSquad();
     }, 800);
+  } catch (error) {
+    console.error('Erro no ataque:', error);
+    pushAttackFeed('❌ Erro ao processar ataque. Tente novamente.');
+    // Em caso de erro, finaliza o ataque sem danos
+    finishAttack();
   }
+}
 
   // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
   function returnSquad() {
