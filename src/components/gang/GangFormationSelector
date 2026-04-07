@@ -1,0 +1,26 @@
+// components/gang/GangFormationSelector.tsx
+import { useGangBattleStore } from '@/stores/gangBattleStore';
+
+export default function GangFormationSelector() {
+  const { formation, setFormation, getFormationBonus } = useGangBattleStore();
+  const formations = [
+    { id: 'offensive', label: '⚔️ OFENSIVA', icon: '⚔️', bonus: '+20% ataque, -10% defesa' },
+    { id: 'defensive', label: '🛡️ DEFENSIVA', icon: '🛡️', bonus: '+25% defesa, -10% ataque' },
+    { id: 'stealth', label: '🌙 FURTIVA', icon: '🌙', bonus: '+30% saque' },
+  ];
+  return (
+    <div className="flex gap-4 my-4">
+      {formations.map(f => (
+        <button
+          key={f.id}
+          onClick={() => setFormation(f.id as any)}
+          className={`flex-1 p-4 rounded-2xl border transition-all ${formation === f.id ? 'border-primary bg-primary/20 shadow-lg' : 'border-white/10 bg-black/40'}`}
+        >
+          <div className="text-2xl">{f.icon}</div>
+          <div className="font-bold">{f.label}</div>
+          <div className="text-xs text-gray-400">{f.bonus}</div>
+        </button>
+      ))}
+    </div>
+  );
+}
