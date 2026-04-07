@@ -28,6 +28,7 @@ import {
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import AttackNotificationOverlay from '@/components/game/AttackNotificationOverlay';
+import AttackNotification from '@/components/game/AttackNotification';
 import { useFactionStore } from '@/store/factionStore';
 import { realtime } from 'wix-realtime-frontend';
 import { publishPlayerMovement } from '@/api/movementApi';
@@ -995,6 +996,9 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
 
       {/* Attack Result Overlay */}
       <AttackResultOverlay />
+
+      {/* Attack Notification Toast - Notificação flutuante em tempo real */}
+      <AttackNotification />
 
       {/* Attack Notification Overlay - Recebido em tempo real */}
       {attackNotification && (
