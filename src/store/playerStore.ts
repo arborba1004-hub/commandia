@@ -387,6 +387,15 @@ const initialPlayer: PlayerState = {
 
   skillBoostMultiplier: 1.0,
 
+  ownedVehicles: [],
+
+  purchasedAccessories: [],
+
+  accessories: {
+    vehicles: {},
+    weapons: {},
+  },
+
   notifications: [],
 
   attackHistory: [],
