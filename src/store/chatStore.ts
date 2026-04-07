@@ -58,6 +58,7 @@ function getAuthToken() {
 
 async function makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
+  console.log('📡 Chat request:', endpoint, 'token exists?', !!token);
 
   if (!token) {
     throw new Error('Sem token de autenticação');

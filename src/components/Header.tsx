@@ -94,11 +94,12 @@ export default function Header() {
   useEffect(() => {
     if (!isAuthenticated || !authToken) return;
 
-    // Aguarda um pouco para garantir que o player está carregado
+    // Aguarda 1 segundo para garantir que o player está carregado
+    // e o token está disponível antes de iniciar o polling
     const timer = setTimeout(() => {
       void loadChat();
       startChatPolling();
-    }, 500);
+    }, 1000);
 
     return () => {
       clearTimeout(timer);
