@@ -158,11 +158,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ isLoading: true, syncError: null });
 
-      const [c1, c2, c3] = await Promise.all([
+      const results = await Promise.allSettled([
         makeRequest<any[]>('/chat/messages?channel=complexo'),
         makeRequest<any[]>('/chat/messages?channel=faccao'),
         makeRequest<any[]>('/chat/messages?channel=mail'),
       ]);
+
+      const c1 = results[0].status === 'fulfilled' ? results[0].value : [];
+      const c2 = results[1].status === 'fulfilled' ? results[1].value : [];
+      const c3 = results[2].status === 'fulfilled' ? results[2].value : [];
 
       set({
         complexoMessages: normalizeMessages(c1),
