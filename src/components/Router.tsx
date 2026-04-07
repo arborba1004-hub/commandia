@@ -5,6 +5,7 @@ import HomePage from '@/components/pages/HomePage';
 import GaleriaPage from '@/components/pages/GaleriaPage';
 import ProfilePage from '@/components/pages/ProfilePage';
 import GamePage from '@/components/pages/GamePage';
+import ChatPage from '@/components/pages/ChatPage';
 import GiroPage from '@/components/pages/GiroPage';
 import LuxuryshowroomPage from '@/components/pages/LuxuryshowroomPage';
 import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
@@ -36,6 +37,7 @@ const router = createBrowserRouter([
       { path: 'galeria', element: <GaleriaPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'game', element: <GamePage /> },
+      { path: 'chat', element: <ChatPage /> },
       { path: 'giro', element: <GiroPage /> },
       { path: 'luxuryshowroom', element: <LuxuryshowroomPage /> },
       { path: 'lavagem-de-dinheiro', element: <LavagemDeDinheiroPage /> },
