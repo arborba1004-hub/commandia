@@ -31,6 +31,7 @@ import AttackNotificationOverlay from '@/components/game/AttackNotificationOverl
 import { useFactionStore } from '@/store/factionStore';
 import { realtime } from 'wix-realtime-frontend';
 import { publishPlayerMovement } from '@/api/movementApi';
+import { publishAttack } from '@/backend/realtime';
 
 
 
@@ -195,6 +196,14 @@ export default function GamePage() {
       const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
       createImpactFlash({ scene, position: new THREE.Vector3(posX, 0.6, posZ) });
       console.log("💥 Impacto criado");
+
+      // 🔥 PUBLICAR EVENTO DE ATAQUE PARA O ALVO
+      try {
+        await publishAttack(targetId, playerState.name, result.loot, result.success);
+        console.log("📡 Evento de ataque publicado para o alvo");
+      } catch (publishError) {
+        console.warn("⚠️ Erro ao publicar evento de ataque:", publishError);
+      }
 
       // Atualiza store do jogador se houver attacker
       if (result.attacker) {
