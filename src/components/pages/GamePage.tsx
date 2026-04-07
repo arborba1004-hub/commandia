@@ -231,10 +231,15 @@ squad.rotation.y = Math.PI;
 
   // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
   function returnSquad() {
+    console.log("🔁 returnSquad chamada");
     const state = useMapAttackStore.getState();
     const backRoute = [...state.routeToTarget].reverse();
 
-    if (!squadRef.current) return;
+    if (!squadRef.current) {
+      console.log("⚠️ squadRef nulo, chamando finishAttack direto");
+      finishAttack();
+      return;
+    }
 
     const squadY = squadRef.current.position.y;
 
@@ -246,6 +251,7 @@ squad.rotation.y = Math.PI;
       gridHeight: GRID_HEIGHT,
       y: squadY,
       onComplete: () => {
+        console.log("🏁 Animação de retorno concluída, chamando finishAttack");
         finishAttack();
       },
     });
@@ -253,6 +259,7 @@ squad.rotation.y = Math.PI;
 
   // === FUNÇÃO PARA FINALIZAR O ATAQUE ===
   function finishAttack() {
+    console.log("🏁 finishAttack chamada");
     if (squadRef.current && sceneRef.current) {
       sceneRef.current.remove(squadRef.current);
       squadRef.current = null;
@@ -264,6 +271,7 @@ squad.rotation.y = Math.PI;
 
     activeAnimationRef.current = null;
     useMapAttackStore.getState().finishAttack();
+    console.log("✅ Ataque finalizado");
   }
 
   const playerState = usePlayerStore((state) => state.player);
