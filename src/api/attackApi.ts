@@ -75,7 +75,7 @@ export interface AttackResult {
 
 export async function initiateAttack(targetId: string, options?: { gangPower?: any }): Promise<AttackResult> {
   // Modo simulação (mude para false quando o backend estiver pronto)
-  const useMock = true; // ⚠️ ALTERE PARA false APÓS IMPLEMENTAR O BACKEND
+  const useMock = false; // ⚠️ ALTERE PARA false APÓS IMPLEMENTAR O BACKEND
 
   if (useMock) {
     // Simulação local completa (inclui bônus da gangue)
