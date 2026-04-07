@@ -25,7 +25,14 @@ export default function ChatComposer() {
     '';
 
   const handleSend = async () => {
-    if (!body.trim() || !senderId) return;
+    if (!body.trim()) {
+      return;
+    }
+
+    if (!senderId || !senderName) {
+      console.error('Dados do jogador não carregados');
+      return;
+    }
 
     try {
       if (activeChannel === 'complexo') {
@@ -40,7 +47,10 @@ export default function ChatComposer() {
       }
 
       if (activeChannel === 'faccao') {
-        if (!factionId) return;
+        if (!factionId) {
+          console.error('Facção não definida');
+          return;
+        }
 
         await sendFaccaoMessage({
           senderId,
@@ -53,7 +63,10 @@ export default function ChatComposer() {
         return;
       }
 
-      if (!recipientId.trim() || !recipientName.trim()) return;
+      if (!recipientId.trim() || !recipientName.trim()) {
+        console.error('Destinatário não definido');
+        return;
+      }
 
       await sendMailMessage({
         senderId,

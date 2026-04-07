@@ -155,6 +155,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   loadChat: async () => {
+    const token = getAuthToken();
+    
+    if (!token) {
+      console.warn('Chat: Sem token de autenticação');
+      set({
+        isLoading: false,
+        syncError: 'Autenticação necessária para carregar chat',
+      });
+      return;
+    }
+
     try {
       set({ isLoading: true, syncError: null });
 
@@ -208,6 +219,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendComplexoMessage: async ({ senderId, senderName, body }) => {
+    if (!senderId || !senderName) {
+      set({
+        syncError: 'Dados do jogador não carregados. Faça login novamente.',
+      });
+      return;
+    }
+
     try {
       set({ syncError: null });
 
@@ -231,6 +249,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendFaccaoMessage: async ({ senderId, senderName, factionId, body }) => {
+    if (!senderId || !senderName || !factionId) {
+      set({
+        syncError: 'Dados incompletos. Verifique sua facção e faça login novamente.',
+      });
+      return;
+    }
+
     try {
       set({ syncError: null });
 
@@ -262,6 +287,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     subject,
     body,
   }) => {
+    if (!senderId || !senderName || !recipientId || !recipientName) {
+      set({
+        syncError: 'Dados incompletos. Verifique remetente e destinatário.',
+      });
+      return;
+    }
+
     try {
       set({ syncError: null });
 

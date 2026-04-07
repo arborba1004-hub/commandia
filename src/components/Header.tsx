@@ -93,10 +93,14 @@ export default function Header() {
   useEffect(() => {
     if (!isAuthenticated || !authToken) return;
 
-    void loadChat();
-    startChatPolling();
+    // Aguarda um pouco para garantir que o player está carregado
+    const timer = setTimeout(() => {
+      void loadChat();
+      startChatPolling();
+    }, 500);
 
     return () => {
+      clearTimeout(timer);
       stopChatPolling();
     };
   }, [isAuthenticated, authToken, loadChat, startChatPolling, stopChatPolling]);

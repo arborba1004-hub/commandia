@@ -3,6 +3,7 @@ import Footer from '@/components/Footer';
 import ChatMessageList from '@/components/chat/ChatMessageList';
 import ChatComposer from '@/components/chat/ChatComposer';
 import { useChatStore } from '@/store/chatStore';
+import { usePlayerStore } from '@/store/playerStore';
 import { useEffect } from 'react';
 
 
@@ -10,11 +11,18 @@ export default function ChatPage() {
   const activeChannel = useChatStore((state) => state.activeChannel);
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
   const mailMessages = useChatStore((state) => state.mailMessages);
-const loadChat = useChatStore((state) => state.loadChat);
+  const loadChat = useChatStore((state) => state.loadChat);
+  const syncError = useChatStore((state) => state.syncError);
 
-useEffect(() => {
-  loadChat();
-}, [loadChat]);
+  const player = usePlayerStore((state) => state.player);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+
+  useEffect(() => {
+    if (isLoaded && player?._id) {
+      loadChat();
+    }
+  }, [isLoaded, player?._id, loadChat]);
+
   const unreadCount = mailMessages.filter((msg) => !msg.read).length;
 
   const channelTitle =
@@ -37,6 +45,20 @@ useEffect(() => {
         ? 'bg-emerald-500 text-black shadow-[0_0_30px_rgba(0,255,120,0.35)]'
         : 'bg-zinc-900 text-white hover:bg-zinc-800 border border-white/10'
     }`;
+
+  if (!isLoaded || !player?._id) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-zinc-400 mb-4">Faça login para acessar o chat</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
@@ -78,6 +100,12 @@ useEffect(() => {
             </button>
           </div>
         </div>
+
+        {syncError && (
+          <div className="rounded-3xl border border-red-500/30 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+            {syncError}
+          </div>
+        )}
 
         <ChatMessageList />
         <ChatComposer />
