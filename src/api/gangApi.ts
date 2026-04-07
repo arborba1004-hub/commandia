@@ -47,22 +47,7 @@ export interface GangTreasury {
   corre: number;
 }
 
-export interface Gang {
-  id: string;
-  name: string;
-  tag: string;
-  leaderId: string;
-  level: number;
-  exp: number;
-  expToNext: number;
-  slots: number;
-  treasury: GangTreasury;
-  members: GangMember[];
-  activeMemberIds: string[];
-  upgrades: GangSkillUpgrades;
-  createdAt: string;
-  totalVictories: number;
-}
+
 
 // ==========================================
 // FUNÇÕES DA API
