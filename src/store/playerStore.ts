@@ -77,6 +77,8 @@ type BarracoPosition = {
 type MapPosition = {
   tileX: number;
   tileY: number;
+  worldX?: number;
+  worldY?: number;
 };
 
 type ActiveOperation = {
@@ -201,6 +203,15 @@ export type PlayerState = {
   notifications?: AttackNotification[];
 
   attackHistory?: AttackHistoryItem[];
+
+  // Campos adicionados para sincronização completa
+  vip?: boolean;
+  factionId?: string | null;
+  lastSkillTrainAt?: number;
+  lastAttackAt?: number;
+  lastPassiveIncomeAt?: number;
+  lastSpinAt?: number;
+  version?: number;
 };
 
 type PlayerStore = {
@@ -316,8 +327,8 @@ const initialPlayer: PlayerState = {
   },
 
   balances: {
-    dirtyMoney: 10000000000000,
-    cleanMoney: 10000000000000,
+    dirtyMoney: 1000,
+    cleanMoney: 0,
     corre: 1000,
   },
 
@@ -360,6 +371,8 @@ const initialPlayer: PlayerState = {
   mapPosition: {
     tileX: GRID_WIDTH / 2,
     tileY: GRID_HEIGHT / 2,
+    worldX: GRID_WIDTH / 2,
+    worldY: GRID_HEIGHT / 2,
   },
 
   laundryProgress: {
@@ -399,6 +412,15 @@ const initialPlayer: PlayerState = {
   notifications: [],
 
   attackHistory: [],
+
+  // Valores padrão para novos campos
+  vip: false,
+  factionId: null,
+  lastSkillTrainAt: 0,
+  lastAttackAt: 0,
+  lastPassiveIncomeAt: Date.now(),
+  lastSpinAt: 0,
+  version: 0,
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
@@ -442,6 +464,8 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     mapPosition: {
       tileX: incoming?.mapPosition?.tileX ?? initialPlayer.mapPosition?.tileX ?? GRID_WIDTH / 2,
       tileY: incoming?.mapPosition?.tileY ?? initialPlayer.mapPosition?.tileY ?? GRID_HEIGHT / 2,
+      worldX: incoming?.mapPosition?.worldX ?? initialPlayer.mapPosition?.worldX ?? GRID_WIDTH / 2,
+      worldY: incoming?.mapPosition?.worldY ?? initialPlayer.mapPosition?.worldY ?? GRID_HEIGHT / 2,
     },
 
     headerCustomization: {
@@ -487,6 +511,15 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     purchasedAccessories: incoming?.purchasedAccessories || initialPlayer.purchasedAccessories || [],
     notifications: incoming?.notifications || initialPlayer.notifications || [],
     attackHistory: incoming?.attackHistory || initialPlayer.attackHistory || [],
+
+    // Novos campos com sincronização
+    vip: incoming?.vip ?? initialPlayer.vip,
+    factionId: incoming?.factionId ?? initialPlayer.factionId,
+    lastSkillTrainAt: incoming?.lastSkillTrainAt ?? initialPlayer.lastSkillTrainAt,
+    lastAttackAt: incoming?.lastAttackAt ?? initialPlayer.lastAttackAt,
+    lastPassiveIncomeAt: incoming?.lastPassiveIncomeAt ?? initialPlayer.lastPassiveIncomeAt,
+    lastSpinAt: incoming?.lastSpinAt ?? initialPlayer.lastSpinAt,
+    version: incoming?.version ?? initialPlayer.version,
   };
 }
 
