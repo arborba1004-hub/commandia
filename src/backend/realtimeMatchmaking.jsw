@@ -209,6 +209,52 @@ export async function removerDoLobby(jogadorId) {
 }
 
 /**
+ * Função: Publicar status do jogador (online/offline)
+ * 
+ * Publica o status do jogador no canal específico 'game/status_{playerId}'
+ * Permite que outros jogadores saibam se um jogador está online ou offline
+ */
+export async function publishPlayerStatus(playerId, isOnline) {
+  try {
+    // Validar parâmetros
+    if (!playerId) {
+      throw new Error('ID do jogador é obrigatório');
+    }
+
+    // Criar nome do canal específico para o jogador
+    const nomeCanal = `game/status_${playerId}`;
+
+    // Preparar dados do status
+    const statusData = {
+      tipo: 'status_jogador',
+      playerId: playerId,
+      isOnline: isOnline,
+      status: isOnline ? 'online' : 'offline',
+      timestamp: new Date().toISOString()
+    };
+
+    // ✅ PUBLICAR NO CHANNEL (canal específico do jogador)
+    await Realtime.publish(nomeCanal, statusData);
+
+    console.log(`[Status] Jogador ${playerId} agora está ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+    console.log(`[Status] Mensagem publicada no canal: ${nomeCanal}`);
+    console.log(`[Status] Dados: ${JSON.stringify(statusData)}`);
+
+    return {
+      sucesso: true,
+      playerId: playerId,
+      canal: nomeCanal,
+      status: isOnline ? 'online' : 'offline',
+      mensagem: `Status do jogador ${playerId} publicado com sucesso`,
+      timestamp: new Date().toISOString()
+    };
+  } catch (erro) {
+    console.error('[Status] Erro ao publicar status:', erro);
+    throw erro;
+  }
+}
+
+/**
  * Função: Obter status do lobby (para debug)
  */
 export function obterStatusLobby() {
