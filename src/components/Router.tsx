@@ -1,3 +1,4 @@
+// src/components/Router.tsx
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
@@ -5,7 +6,6 @@ import HomePage from '@/components/pages/HomePage';
 import GaleriaPage from '@/components/pages/GaleriaPage';
 import ProfilePage from '@/components/pages/ProfilePage';
 import GamePage from '@/components/pages/GamePage';
-import ChatPage from '@/components/pages/ChatPage';
 import GiroPage from '@/components/pages/GiroPage';
 import LuxuryshowroomPage from '@/components/pages/LuxuryshowroomPage';
 import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
@@ -17,6 +17,7 @@ import GangPage from '@/components/gang/GangPage';
 import LuxoItemPage from '@/components/pages/LuxoItemPage';
 import BarracoPage from '@/components/pages/BarracoPage';
 import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
+import ChatPage from '@/components/pages/ChatPage'; // NOVA ROTA
 
 function Layout() {
   return (
@@ -37,7 +38,6 @@ const router = createBrowserRouter([
       { path: 'galeria', element: <GaleriaPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'game', element: <GamePage /> },
-      { path: 'chat', element: <ChatPage /> },
       { path: 'giro', element: <GiroPage /> },
       { path: 'luxuryshowroom', element: <LuxuryshowroomPage /> },
       { path: 'lavagem-de-dinheiro', element: <LavagemDeDinheiroPage /> },
@@ -49,6 +49,7 @@ const router = createBrowserRouter([
       { path: 'luxo-item', element: <LuxoItemPage /> },
       { path: 'barraco', element: <BarracoPage /> },
       { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
+      { path: 'chat', element: <ChatPage /> }, // ROTA DO CHAT ADICIONADA
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
