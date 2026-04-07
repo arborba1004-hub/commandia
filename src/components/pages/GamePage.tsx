@@ -28,6 +28,7 @@ import {
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import { useFactionStore } from '@/store/factionStore';
+import Wix from 'wix-api';
 
 
 
@@ -92,6 +93,7 @@ export default function GamePage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const movementSubscriptionRef = useRef<any>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
@@ -385,6 +387,8 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     scene.background = new THREE.Color('#000000');
+
+    // ... keep existing code (highlight, playerGeometry, raycaster, etc.) ...
 
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -701,6 +705,73 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
     };
     animate();
 
+    // === 🔥 SUBSCRIPTION AO CANAL DE MOVIMENTOS ===
+    // Se inscrever no canal de movimentos para receber atualizações de outros jogadores
+    const subscribeToMovements = () => {
+      try {
+        const subscription = Wix.Realtime.subscribe('game_movements', (message: any) => {
+          if (!isMounted || !scene) return;
+
+          const { type, playerId, tileX, tileY, playerName, barracoLevel } = message;
+          const currentPlayerId = playerState?._id || playerState?.googleId;
+
+          // Ignorar mensagens do próprio jogador
+          if (playerId === currentPlayerId) return;
+
+          console.log(`📍 Movimento recebido: ${playerName} → (${tileX}, ${tileY})`);
+
+          if (type === 'player_moved') {
+            // 🔄 ATUALIZAR POSIÇÃO DO BARRACO INIMIGO
+            const enemyModel = enemyBarracoMapRef.current[playerId];
+            if (enemyModel) {
+              const posX = (tileX - GRID_WIDTH / 2) * TILE_SIZE;
+              const posZ = (tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+              // Animar movimento suave
+              const startPos = { x: enemyModel.position.x, z: enemyModel.position.z };
+              const startTime = Date.now();
+              const duration = 500; // 500ms para se mover
+
+              const animateMovement = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                enemyModel.position.x = startPos.x + (posX - startPos.x) * progress;
+                enemyModel.position.z = startPos.z + (posZ - startPos.z) * progress;
+
+                if (progress < 1) {
+                  requestAnimationFrame(animateMovement);
+                }
+              };
+              animateMovement();
+
+              console.log(`✅ Barraco de ${playerName} movido para (${tileX}, ${tileY})`);
+            }
+          } else if (type === 'player_joined') {
+            // 🆕 NOVO JOGADOR ENTROU - CARREGAR BARRACO
+            console.log(`✅ Novo jogador entrou: ${playerName}`);
+            // Aqui você poderia carregar o modelo do novo jogador se necessário
+          } else if (type === 'player_left') {
+            // 👋 JOGADOR SAIU - REMOVER BARRACO
+            const enemyModel = enemyBarracoMapRef.current[playerId];
+            if (enemyModel) {
+              scene.remove(enemyModel);
+              delete enemyBarracoMapRef.current[playerId];
+              enemyBarracosRef.current = enemyBarracosRef.current.filter(m => m !== enemyModel);
+              console.log(`👋 Barraco de ${playerName} removido`);
+            }
+          }
+        });
+
+        movementSubscriptionRef.current = subscription;
+        console.log('📡 Inscrito no canal de movimentos');
+      } catch (error) {
+        console.warn('⚠️ Erro ao se inscrever no canal de movimentos:', error);
+      }
+    };
+
+    subscribeToMovements();
+
     const handleResize = () => {
       if (!containerRef.current) return;
       camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
@@ -718,6 +789,16 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('pointerdown', handlePointerDown);
       container.removeEventListener('pointerup', handlePointerUp);
+
+      // 🔥 DESINSCREVER DO CANAL DE MOVIMENTOS
+      if (movementSubscriptionRef.current) {
+        try {
+          movementSubscriptionRef.current.unsubscribe();
+          console.log('📡 Desinscrito do canal de movimentos');
+        } catch (error) {
+          console.warn('⚠️ Erro ao desinscrever:', error);
+        }
+      }
 
       controls.dispose();
 

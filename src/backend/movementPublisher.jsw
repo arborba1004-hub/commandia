@@ -1,0 +1,115 @@
+/**
+ * Movement Publisher - Backend
+ * Publica movimentos de jogadores em tempo real via Realtime API
+ */
+
+import { Realtime } from 'wix-realtime-backend';
+
+/**
+ * Publica o movimento de um jogador para todos os outros jogadores
+ * @param {string} playerId - ID do jogador que se moveu
+ * @param {number} tileX - Coordenada X do tile
+ * @param {number} tileY - Coordenada Y do tile
+ * @param {string} playerName - Nome do jogador (opcional)
+ * @param {number} barracoLevel - Nível do barraco (opcional)
+ */
+export async function publishMovement(playerId, tileX, tileY, playerName = '', barracoLevel = 1) {
+  try {
+    if (!playerId || tileX === undefined || tileY === undefined) {
+      throw new Error('Parâmetros inválidos: playerId, tileX e tileY são obrigatórios');
+    }
+
+    // Canal global para movimentos - todos os jogadores recebem
+    const movementChannel = 'game_movements';
+
+    const movementData = {
+      type: 'player_moved',
+      playerId,
+      tileX,
+      tileY,
+      playerName,
+      barracoLevel,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log(`📍 Publicando movimento: ${playerId} → (${tileX}, ${tileY})`);
+
+    // Publicar para todos os jogadores inscritos no canal
+    await Realtime.publish(movementChannel, movementData);
+
+    return {
+      success: true,
+      message: 'Movimento publicado com sucesso',
+      data: movementData,
+    };
+  } catch (error) {
+    console.error('❌ Erro ao publicar movimento:', error);
+    throw new Error(`Erro ao publicar movimento: ${error.message}`);
+  }
+}
+
+/**
+ * Publica um evento de entrada de jogador no mapa
+ * @param {string} playerId - ID do jogador
+ * @param {number} tileX - Coordenada X
+ * @param {number} tileY - Coordenada Y
+ * @param {string} playerName - Nome do jogador
+ * @param {number} barracoLevel - Nível do barraco
+ */
+export async function publishPlayerJoined(playerId, tileX, tileY, playerName, barracoLevel) {
+  try {
+    const movementChannel = 'game_movements';
+
+    const joinData = {
+      type: 'player_joined',
+      playerId,
+      tileX,
+      tileY,
+      playerName,
+      barracoLevel,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log(`✅ Jogador entrou: ${playerName} em (${tileX}, ${tileY})`);
+
+    await Realtime.publish(movementChannel, joinData);
+
+    return {
+      success: true,
+      message: 'Entrada publicada com sucesso',
+      data: joinData,
+    };
+  } catch (error) {
+    console.error('❌ Erro ao publicar entrada:', error);
+    throw new Error(`Erro ao publicar entrada: ${error.message}`);
+  }
+}
+
+/**
+ * Publica um evento de saída de jogador do mapa
+ * @param {string} playerId - ID do jogador
+ */
+export async function publishPlayerLeft(playerId) {
+  try {
+    const movementChannel = 'game_movements';
+
+    const leftData = {
+      type: 'player_left',
+      playerId,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log(`👋 Jogador saiu: ${playerId}`);
+
+    await Realtime.publish(movementChannel, leftData);
+
+    return {
+      success: true,
+      message: 'Saída publicada com sucesso',
+      data: leftData,
+    };
+  } catch (error) {
+    console.error('❌ Erro ao publicar saída:', error);
+    throw new Error(`Erro ao publicar saída: ${error.message}`);
+  }
+}

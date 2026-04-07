@@ -5,8 +5,8 @@
 
 import { usePlayerStore } from '@/store/playerStore';
 
-const GRID_WIDTH = 40;
-const GRID_HEIGHT = 20;
+const GRID_WIDTH = 80;
+const GRID_HEIGHT = 40;
 const TILE_SIZE = 1;
 
 export interface TilePosition {
@@ -117,7 +117,7 @@ export async function handleTileInvasion(
     return false;
   }
 
-  // Update player position
+  // Update player position locally (optimistic update)
   try {
     setPlayer({
       mapPosition: {
@@ -127,6 +127,39 @@ export async function handleTileInvasion(
     });
 
     console.log(`✅ Barraco teleportado para (${tileX}, ${tileY})`);
+
+    // 🔥 PUBLISH MOVEMENT TO OTHER PLAYERS VIA REALTIME API
+    try {
+      const playerId = player._id || player.googleId || 'unknown';
+      const playerName = player.name || 'JOGADOR';
+      const barracoLevel = player.niveis?.barracoLevel || 1;
+
+      // Call backend to publish movement
+      const response = await fetch('https://comando-backend.onrender.com/api/movement/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify({
+          playerId,
+          tileX,
+          tileY,
+          playerName,
+          barracoLevel,
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn('⚠️ Falha ao publicar movimento, mas posição foi atualizada localmente');
+      } else {
+        console.log('📡 Movimento publicado com sucesso para outros jogadores');
+      }
+    } catch (publishError) {
+      console.warn('⚠️ Erro ao publicar movimento (backup ativo):', publishError);
+      // Não falha - o polling de posições funcionará como backup
+    }
+
     return true;
   } catch (error) {
     console.error('Erro ao teleportar barraco:', error);
