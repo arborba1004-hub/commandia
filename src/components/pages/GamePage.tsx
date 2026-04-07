@@ -95,6 +95,7 @@ export default function GamePage() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
+  const [selectedEnemy, setSelectedEnemy] = useState<any>(null);
 
   // === FUNÇÃO DE ATAQUE ===
   function executeMapAttack() {
@@ -408,8 +409,19 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
-    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
+    // 🎯 SPAWN ALEATÓRIO NA PRIMEIRA VEZ
+    let myTileX = playerState?.mapPosition?.tileX;
+    let myTileY = playerState?.mapPosition?.tileY;
+
+    if (!myTileX || !myTileY || (myTileX === 0 && myTileY === 0)) {
+      const spawn = getRandomSpawnPosition();
+      myTileX = spawn.tileX;
+      myTileY = spawn.tileY;
+      usePlayerStore.getState().applyPlayerUpdate((p) => ({
+        ...p,
+        mapPosition: { tileX: myTileX, tileY: myTileY, worldX: myTileX, worldY: myTileY }
+      }));
+    }
 
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
@@ -662,18 +674,7 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
       const target = pickEnemyBarracoFromIntersections(enemyHits);
 
       if (target && playerState) {
-        useMapAttackStore.getState().openPreview({
-          origin: {
-            playerId: playerState._id,
-            playerName: playerState.name,
-            tileX: playerState.mapPosition.tileX,
-            tileY: playerState.mapPosition.tileY,
-          },
-          target,
-          estimatedLoot: Math.floor((target.dirtyMoney || 0) * 0.2),
-          estimatedChance: 0.6,
-        });
-
+        setSelectedEnemy(target);
         return;
       }
 
@@ -799,6 +800,52 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
 
       {/* Attack Result Overlay */}
       <AttackResultOverlay />
+
+      {/* Enemy Info Modal */}
+      {selectedEnemy && (
+        <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-[#090909] border border-primary/50 p-6 space-y-4">
+            <h2 className="text-2xl font-black text-primary">{selectedEnemy.playerName}</h2>
+            
+            <div className="space-y-2 text-foreground">
+              <p className="text-sm"><span className="text-primary font-bold">Nível:</span> {selectedEnemy.barracoLevel}</p>
+              <p className="text-sm"><span className="text-primary font-bold">Poder:</span> {selectedEnemy.power}</p>
+              <p className="text-sm"><span className="text-primary font-bold">Dinheiro Sujo:</span> ${selectedEnemy.dirtyMoney?.toLocaleString()}</p>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => setSelectedEnemy(null)}
+                className="flex-1 rounded-xl bg-zinc-700 px-4 py-3 font-bold text-white hover:bg-zinc-600 transition-colors"
+              >
+                Fechar
+              </button>
+
+              <button
+                onClick={() => {
+                  if (playerState) {
+                    useMapAttackStore.getState().openPreview({
+                      origin: {
+                        playerId: playerState._id,
+                        playerName: playerState.name,
+                        tileX: playerState.mapPosition.tileX,
+                        tileY: playerState.mapPosition.tileY,
+                      },
+                      target: selectedEnemy,
+                      estimatedLoot: Math.floor((selectedEnemy.dirtyMoney || 0) * 0.2),
+                      estimatedChance: 0.6,
+                    });
+                    setSelectedEnemy(null);
+                  }
+                }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-bold text-white hover:bg-red-700 transition-colors"
+              >
+                Atacar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invadir Barraco Modal */}
       {previewOpen && (
