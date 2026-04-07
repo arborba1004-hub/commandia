@@ -1,8 +1,10 @@
+// src/api/attackApi.ts
 import { useGangStore } from '@/store/gangStore';
 import { useGangBattleStore } from '@/stores/gangBattleStore';
 import { fetchCurrentPlayer } from './playerApi';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
+const REQUEST_TIMEOUT_MS = 60000; // 60 segundos (para Render acordar)
 
 function getAuthToken(): string | null {
   return localStorage.getItem('authToken');
@@ -16,10 +18,26 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BACKEND_URL}${endpoint}`, { ...options, headers });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `Erro na requisição ${endpoint}`);
-  return data as T;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`${BACKEND_URL}${endpoint}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Erro na requisição ${endpoint}`);
+    return data as T;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Tempo limite excedido ao acessar ${endpoint}`);
+    }
+    throw error;
+  }
 }
 
 // ==========================================
@@ -58,7 +76,7 @@ export function calculateGangBattlePower() {
 }
 
 // ==========================================
-// Função principal de ataque (com suporte a gangPower)
+// Função principal de ataque
 // ==========================================
 export interface AttackResult {
   success: boolean;
@@ -73,16 +91,16 @@ export interface AttackResult {
   spoils?: any;
 }
 
-export async function initiateAttack(targetId: string, options?: { gangPower?: any }): Promise<AttackResult> {
-  // Modo simulação (mude para false quando o backend estiver pronto)
-  const useMock = false; // ⚠️ ALTERE PARA false APÓS IMPLEMENTAR O BACKEND
+// 🔥 Mude para false quando o backend estiver estável
+const useMock = true;  // ⚠️ ENQUANTO O BACKEND NÃO RESPONDER, DEIXE true
 
+export async function initiateAttack(targetId: string, options?: { gangPower?: any }): Promise<AttackResult> {
   if (useMock) {
-    // Simulação local completa (inclui bônus da gangue)
+    // Simulação local (rápida, sem backend)
     const player = await fetchCurrentPlayer();
     const { totalPower: gangPower, attackBonus, defenseBonus, lootBonus } = calculateGangBattlePower();
     const attackerPower = (player?.power || 100) + gangPower + attackBonus;
-    const defenderPower = (player?.power || 100) + defenseBonus; // mock: alvo usa mesmo poder do atacante
+    const defenderPower = (player?.power || 100) + defenseBonus; // mock
     const chance = Math.min(0.9, Math.max(0.3, attackerPower / (attackerPower + defenderPower)));
     const success = Math.random() < chance;
     const isCritical = success && Math.random() < 0.15;
@@ -97,7 +115,7 @@ export async function initiateAttack(targetId: string, options?: { gangPower?: a
       defenderPower,
       message: success ? (isCritical ? 'ATAQUE CRÍTICO!' : 'Ataque bem-sucedido!') : 'Falha no ataque.',
       attacker: player,
-      defender: player, // mock
+      defender: player,
       spoils: {
         dirtyMoneyLoot: success ? loot : 0,
         correLoot: success ? Math.floor(Math.random() * 100) : 0,
@@ -106,12 +124,11 @@ export async function initiateAttack(targetId: string, options?: { gangPower?: a
     };
   }
 
-  // Chamada real ao backend (envia gangPower se fornecido)
+  // Chamada real ao backend
   const body: any = { targetId };
   if (options?.gangPower) {
     body.gangPower = options.gangPower;
   }
-
   return request<AttackResult>('/attack/initiate', {
     method: 'POST',
     body: JSON.stringify(body),
