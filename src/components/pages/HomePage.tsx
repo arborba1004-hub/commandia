@@ -118,6 +118,15 @@ export default function HomePage() {
   }, [isLoaded, loadPlayer]);
 
   useEffect(() => {
+    // Keep backend alive with periodic requests
+    const interval = setInterval(() => {
+      fetch('https://comando-backend.onrender.com/').catch(() => {});
+    }, 4 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     const scriptId = 'google-gsi-script';
 
     if (document.getElementById(scriptId)) {
