@@ -30,6 +30,7 @@ import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import AttackNotificationOverlay from '@/components/game/AttackNotificationOverlay';
 import { useFactionStore } from '@/store/factionStore';
 import Wix from 'wix-api';
+import { realtime } from 'wix-realtime-frontend';
 
 
 
@@ -95,10 +96,13 @@ export default function GamePage() {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const movementSubscriptionRef = useRef<any>(null);
+  const attackSubscriptionRef = useRef<any>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
   const [selectedEnemy, setSelectedEnemy] = useState<any>(null);
+  const [showAttackOverlay, setShowAttackOverlay] = useState(false);
+  const [attackNotification, setAttackNotification] = useState<any>(null);
 
   // === FUNÇÃO DE ATAQUE ===
   function executeMapAttack() {
@@ -706,66 +710,76 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
     };
     animate();
 
-    // === 🔥 SUBSCRIPTION AO CANAL DE MOVIMENTOS ===
+    // === 🔥 SUBSCRIPTION AO CANAL DE MOVIMENTOS (REALTIME) ===
     // Se inscrever no canal de movimentos para receber atualizações de outros jogadores
-    const subscribeToMovements = () => {
+    const subscribeToMovements = async () => {
       try {
-        const subscription = Wix.Realtime.subscribe('game_movements', (message: any) => {
-          if (!isMounted || !scene) return;
+        const currentPlayerId = playerState?._id || playerState?.googleId;
+        if (!currentPlayerId) {
+          console.warn('⚠️ Sem ID do jogador para se inscrever no canal de movimentos');
+          return;
+        }
 
-          const { type, playerId, tileX, tileY, playerName, barracoLevel } = message;
-          const currentPlayerId = playerState?._id || playerState?.googleId;
+        // Buscar lista de outros jogadores
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
 
-          // Ignorar mensagens do próprio jogador
-          if (playerId === currentPlayerId) return;
+        const playersResponse = await fetch('https://comando-backend.onrender.com/players', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const players = await playersResponse.json();
 
-          console.log(`📍 Movimento recebido: ${playerName} → (${tileX}, ${tileY})`);
+        // Se inscrever no canal de movimento de cada outro jogador
+        players.forEach((p: any) => {
+          if (p.id === currentPlayerId || p._id === currentPlayerId) return;
 
-          if (type === 'player_moved') {
-            // 🔄 ATUALIZAR POSIÇÃO DO BARRACO INIMIGO
-            const enemyModel = enemyBarracoMapRef.current[playerId];
-            if (enemyModel) {
-              const posX = (tileX - GRID_WIDTH / 2) * TILE_SIZE;
-              const posZ = (tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+          const otherPlayerId = p.id || p._id;
+          const movementChannel = `movement_${otherPlayerId}`;
 
-              // Animar movimento suave
-              const startPos = { x: enemyModel.position.x, z: enemyModel.position.z };
-              const startTime = Date.now();
-              const duration = 500; // 500ms para se mover
+          try {
+            const subscription = realtime.subscribe(movementChannel, (message: any) => {
+              if (!isMounted || !scene) return;
 
-              const animateMovement = () => {
-                const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / duration, 1);
+              const { type, playerId, x, y, timestamp } = message;
 
-                enemyModel.position.x = startPos.x + (posX - startPos.x) * progress;
-                enemyModel.position.z = startPos.z + (posZ - startPos.z) * progress;
+              if (type === 'movement_update') {
+                console.log(`📍 Movimento recebido: ${playerId} → (${x}, ${y})`);
 
-                if (progress < 1) {
-                  requestAnimationFrame(animateMovement);
+                // 🔄 ATUALIZAR POSIÇÃO DO BARRACO INIMIGO
+                const enemyModel = enemyBarracoMapRef.current[playerId];
+                if (enemyModel) {
+                  const posX = (x - GRID_WIDTH / 2) * TILE_SIZE;
+                  const posZ = (y - GRID_HEIGHT / 2) * TILE_SIZE;
+
+                  // Animar movimento suave
+                  const startPos = { x: enemyModel.position.x, z: enemyModel.position.z };
+                  const startTime = Date.now();
+                  const duration = 500; // 500ms para se mover
+
+                  const animateMovement = () => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+
+                    enemyModel.position.x = startPos.x + (posX - startPos.x) * progress;
+                    enemyModel.position.z = startPos.z + (posZ - startPos.z) * progress;
+
+                    if (progress < 1) {
+                      requestAnimationFrame(animateMovement);
+                    }
+                  };
+                  animateMovement();
+
+                  console.log(`✅ Barraco de ${playerId} movido para (${x}, ${y})`);
                 }
-              };
-              animateMovement();
+              }
+            });
 
-              console.log(`✅ Barraco de ${playerName} movido para (${tileX}, ${tileY})`);
-            }
-          } else if (type === 'player_joined') {
-            // 🆕 NOVO JOGADOR ENTROU - CARREGAR BARRACO
-            console.log(`✅ Novo jogador entrou: ${playerName}`);
-            // Aqui você poderia carregar o modelo do novo jogador se necessário
-          } else if (type === 'player_left') {
-            // 👋 JOGADOR SAIU - REMOVER BARRACO
-            const enemyModel = enemyBarracoMapRef.current[playerId];
-            if (enemyModel) {
-              scene.remove(enemyModel);
-              delete enemyBarracoMapRef.current[playerId];
-              enemyBarracosRef.current = enemyBarracosRef.current.filter(m => m !== enemyModel);
-              console.log(`👋 Barraco de ${playerName} removido`);
-            }
+            movementSubscriptionRef.current = subscription;
+            console.log(`📡 Inscrito no canal de movimentos: ${movementChannel}`);
+          } catch (error) {
+            console.warn(`⚠️ Erro ao se inscrever em ${movementChannel}:`, error);
           }
         });
-
-        movementSubscriptionRef.current = subscription;
-        console.log('📡 Inscrito no canal de movimentos');
       } catch (error) {
         console.warn('⚠️ Erro ao se inscrever no canal de movimentos:', error);
       }

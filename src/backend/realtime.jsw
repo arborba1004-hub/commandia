@@ -1,0 +1,72 @@
+import { realtime } from 'wix-realtime-backend';
+
+/**
+ * Publica o movimento de um jogador para todos os clientes inscritos
+ * @param {string} playerId - ID do jogador que está se movendo
+ * @param {number} x - Coordenada X
+ * @param {number} y - Coordenada Y
+ */
+export async function publishMovement(playerId, x, y) {
+  try {
+    const channel = `movement_${playerId}`;
+    await realtime.publish(channel, {
+      type: 'movement_update',
+      playerId,
+      x,
+      y,
+      timestamp: Date.now()
+    });
+    return { success: true, channel };
+  } catch (error) {
+    console.error(`Erro ao publicar movimento para ${playerId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Publica o resultado de um ataque para o alvo
+ * @param {string} attackerId - ID do atacante
+ * @param {string} targetId - ID do alvo
+ * @param {object} result - Resultado do ataque { damage, hit, type }
+ */
+export async function publishAttack(attackerId, targetId, result) {
+  try {
+    const channel = `attack_${targetId}`;
+    await realtime.publish(channel, {
+      type: 'attack_received',
+      attackerId,
+      targetId,
+      damage: result.damage || 0,
+      hit: result.hit !== false,
+      attackType: result.type || 'normal',
+      timestamp: Date.now()
+    });
+    return { success: true, channel };
+  } catch (error) {
+    console.error(`Erro ao publicar ataque para ${targetId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Publica uma atualização de status do jogador
+ * @param {string} playerId - ID do jogador
+ * @param {object} status - Status { health, energy, level }
+ */
+export async function publishPlayerStatus(playerId, status) {
+  try {
+    const channel = `status_${playerId}`;
+    await realtime.publish(channel, {
+      type: 'status_update',
+      playerId,
+      health: status.health,
+      energy: status.energy,
+      level: status.level,
+      timestamp: Date.now()
+    });
+    return { success: true, channel };
+  } catch (error) {
+    console.error(`Erro ao publicar status para ${playerId}:`, error);
+    throw error;
+  }
+}
