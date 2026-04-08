@@ -614,5 +614,5 @@ export default function LavagemDeDinheiroPage() {
     </div>
   );
 }
-O que essa versão melhora:
+
            
