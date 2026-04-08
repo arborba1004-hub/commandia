@@ -13,7 +13,7 @@
 import type { PlayerState } from '@/store/playerStore';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
-const REQUEST_TIMEOUT_MS = 60000;
+const REQUEST_TIMEOUT_MS = 30000;
 
 // ==========================================
 // TIPOS AUXILIARES
@@ -444,71 +444,5 @@ export async function gameAction(payload: {
 
   return {
     player: extractPlayerPayload(data),
-  };
-}
-
-// ==========================================
-// ATTACK ENDPOINTS (PVP)
-// ==========================================
-
-export async function initiateAttack(targetId: string): Promise<{
-  success: boolean;
-  attackResult: {
-    didWin: boolean;
-    winChance: number;
-    finalAtk: number;
-    finalDef: number;
-    spoils: {
-      dirtyMoney: number;
-      cleanMoney: number;
-      items: any[];
-    };
-  };
-  attacker: PlayerState;
-  defender: PlayerState;
-}> {
-  const data = await makeRequest<any>('/attack/initiate', {
-    method: 'POST',
-    body: JSON.stringify({ targetId }),
-  });
-
-  const obj = ensureObject(data);
-
-  if (!obj) {
-    throw buildApiError('Resposta inválida ao iniciar ataque');
-  }
-
-  return {
-    success: Boolean(obj.success ?? true),
-    attackResult: obj.attackResult || {},
-    attacker: extractPlayerPayload(obj.attacker || obj),
-    defender: extractPlayerPayload(obj.defender || obj),
-  };
-}
-
-// ==========================================
-// ADMIN ENDPOINTS - DATABASE RESET
-// ==========================================
-
-/**
- * Zera completamente o banco de dados de todos os jogadores
- * Endpoint: POST /admin/reset-all-players
- * CUIDADO: Esta ação é irreversível!
- */
-export async function resetAllPlayersDatabase(): Promise<{ success: boolean; message: string }> {
-  const data = await makeRequest<any>('/admin/reset-all-players', {
-    method: 'POST',
-    body: JSON.stringify({ confirmReset: true }),
-  });
-
-  const obj = ensureObject(data);
-
-  if (!obj) {
-    throw buildApiError('Resposta inválida ao resetar banco de dados');
-  }
-
-  return {
-    success: Boolean(obj.success ?? true),
-    message: String(obj.message || 'Banco de dados resetado com sucesso'),
   };
 }

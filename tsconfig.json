@@ -19,10 +19,21 @@
     "noUncheckedIndexedAccess": false,
     "exactOptionalPropertyTypes": false,
     "paths": {
-      "@/*": ["src/*"],
-      "@/components/*": ["src/components/*"],
-      "@/integrations": ["integrations"],
-      "@wix/codegen-framework-packages": ["integrations"]
+      "@/*": [
+        "src/*"
+      ],
+      "@/components/*": [
+        "src/components/*"
+      ],
+      "@/integrations/*": [
+        "integrations/*",
+      ],
+      "@/integrations": [
+        "integrations"
+      ],
+      "@wix/codegen-framework-packages": [
+        "integrations"
+      ],
     }
   },
   "include": [

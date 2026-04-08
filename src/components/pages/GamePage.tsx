@@ -9,9 +9,6 @@ import { handleTileInvasion } from '@/components/game/tileInvasion';
 import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
-import { initiateAttack, calculateGangBattlePower } from '@/api/attackApi';
-import { useGangBattleStore } from '@/stores/gangBattleStore';
-import { useGangStore } from '@/store/gangStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { buildManhattanAttackRoute } from '@/components/game/mapAttackPath';
 import { resolveMapAttack } from '@/components/game/mapAttackResolver';
@@ -27,21 +24,12 @@ import {
 } from '@/components/game/mapAttackEffects';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
-import AttackNotificationOverlay from '@/components/game/AttackNotificationOverlay';
-import AttackNotification from '@/components/game/AttackNotification';
-import { useFactionStore } from '@/store/factionStore';
-import { realtime } from 'wix-realtime-frontend';
-import { publishPlayerMovement } from '@/api/movementApi';
-import { publishAttack, publishMovement } from '@/backend/realtime';
-
-
-
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
-const GRID_WIDTH = 80;
-const GRID_HEIGHT = 40;
+const GRID_WIDTH = 40;
+const GRID_HEIGHT = 20;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
@@ -52,7 +40,7 @@ const BARRACO_MODELS = [
   { min: 10, max: 19, url: 'https://static.wixstatic.com/3d/50f4bf_e10d19cfeff147ce95eee1d04a31b04a.glb' },
   { min: 20, max: 29, url: 'https://static.wixstatic.com/3d/50f4bf_ad7304550b404996b3b82c425be28df8.glb' },
   { min: 30, max: 39, url: 'https://static.wixstatic.com/3d/50f4bf_d2c8efd640c24cabb3bda73016b7a6b7.glb' },
-  { min: 40, max: 49, url:  'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb' },
+  { min: 40, max: 49, url: 'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb' },
   { min: 50, max: 59, url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb' },
 ];
 
@@ -97,32 +85,16 @@ export default function GamePage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const movementSubscriptionRef = useRef<any>(null);
-  const attackSubscriptionRef = useRef<any>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
-  const [selectedEnemy, setSelectedEnemy] = useState<any>(null);
-  const [showAttackOverlay, setShowAttackOverlay] = useState(false);
-  const [attackNotification, setAttackNotification] = useState<any>(null);
 
   // === FUNÇÃO DE ATAQUE ===
   function executeMapAttack() {
-  const state = useMapAttackStore.getState();
-  const scene = sceneRef.current;
-  const isSameFaction = useFactionStore.getState().isSameFaction;
+    const state = useMapAttackStore.getState();
+    const scene = sceneRef.current;
 
-  if (!scene || !state.origin || !state.target) return;
-
-  const targetId =
-  state.target?.playerId ||
-  state.target?.id ||
-  state.target?._id;;
-
-  if (targetId && isSameFaction(targetId)) {
-    pushAttackFeed('🚫 Não pode atacar membro da sua facção');
-    return;
-  }
+    if (!scene || !state.origin || !state.target) return;
 
     const route = buildManhattanAttackRoute({
       fromTileX: state.origin.tileX,
@@ -141,10 +113,9 @@ export default function GamePage() {
       squad.position.x = startX;
       squad.position.z = startZ;
       squad.position.y = 0.25;
-      squad.rotation.y = Math.PI;
+squad.rotation.y = Math.PI;
 
       const squadY = squad.position.y;
-      const currentSquad = squad; // <--- guarda local
 
       scene.add(squad);
       squadRef.current = squad;
@@ -158,119 +129,88 @@ export default function GamePage() {
       });
 
       activeAnimationRef.current = animateSquadOnRoute({
-        squad: currentSquad,  // <--- use a variável local
+        squad,
         route,
         tileSize: TILE_SIZE,
         gridWidth: GRID_WIDTH,
         gridHeight: GRID_HEIGHT,
         y: squadY,
         onComplete: () => {
-          resolveCombat(currentSquad); // <--- passa o squad para resolveCombat
+          resolveCombat();
         },
       });
     }, 20);
   }
 
-  async function resolveCombat(squad: THREE.Object3D) {
-    console.log("🔥 resolveCombat iniciada");
+  // === FUNÇÃO PARA RESOLVER O COMBATE ===
+  function resolveCombat() {
     const state = useMapAttackStore.getState();
     const scene = sceneRef.current;
-    if (!state.target || !scene) {
-      console.log("❌ Sem target ou scene");
-      return;
-    }
 
-    const targetId = state.target.playerId || state.target.id;
-    console.log("🎯 targetId:", targetId);
+    if (!state.target || !scene) return;
 
-    // Calcula poder da gangue (apenas log)
-    const gangPower = calculateGangBattlePower();
-    console.log("💪 gangPower:", gangPower);
+    const result = resolveMapAttack({
+      attacker: {
+        attack: 120,
+        agility: 80,
+        weaponBonus: 30,
+        prestige: 0,
+        corre: 0,
+        level: playerState?.niveis?.playerLevel || playerState?.niveis?.barracoLevel || 1,
+      },
+      defender: {
+        defense: 100,
+        resistance: 90,
+        protectionBonus: 20,
+        prestige: 0,
+        corre: 0,
+        level: state.target?.barracoLevel || 1,
+        luxuryItems: [],
+      },
+      targetDirtyMoney: state.target.dirtyMoney || 0,
+    });
 
-    try {
-      // Usa a simulação (useMock deve estar true)
-      const result = await initiateAttack(targetId);
-      console.log("✅ Resultado recebido:", result);
+    pushAttackFeed(
+      result.success
+        ? `🔥 Você dominou ${state.target.playerName}`
+        : `💀 ${state.target.playerName} resistiu ao ataque`
+    );
 
-      // Efeito de impacto (só se o resultado chegou)
-      const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
-      const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-      createImpactFlash({ scene, position: new THREE.Vector3(posX, 0.6, posZ) });
-      console.log("💥 Impacto criado");
+    const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+    const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
-      // 🔥 PUBLICAR EVENTO DE ATAQUE PARA O ALVO
-      try {
-        await publishAttack(targetId, playerState.name, result.loot, result.success);
-        console.log("📡 Evento de ataque publicado para o alvo");
-      } catch (publishError) {
-        console.warn("⚠️ Erro ao publicar evento de ataque:", publishError);
-      }
+    createImpactFlash({
+      scene,
+      position: new THREE.Vector3(posX, 0.6, posZ),
+    });
 
-      // Atualiza store do jogador se houver attacker
-      if (result.attacker) {
-        usePlayerStore.getState().hydratePlayerFromServer(result.attacker);
-      }
+    const obj = enemyBarracoMapRef.current[state.target.playerId];
+    if (obj) shakeObject(obj);
 
-      // Registra resolução
-      useMapAttackStore.getState().setResolution({
-        success: result.success,
-        critical: result.critical,
-        loot: result.loot,
-        chance: result.chance,
-        attackerPower: result.attackerPower,
-        defenderPower: result.defenderPower,
-        message: result.message,
-        spoils: {
-          dirtyMoneyLoot: result.success ? result.loot : 0,
-          correLoot: 0,
-          prestigeLoot: result.success ? 10 : 0,
-          brokenLuxuryItemId: null,
-          brokenLuxuryItemName: null,
-          brokenLuxuryItemValue: null,
-          luxuryConvertedDirtyMoney: 0,
-        },
-      });
-      console.log("📦 Resolução registrada");
+    useMapAttackStore.getState().setResolution(result);
 
-      // Adiciona ao feed
-      pushAttackFeed(result.message);
-      console.log("📢 Feed atualizado");
-
-      // Inicia retorno do squad
-      setTimeout(() => {
-        console.log("🔁 Chamando returnSquad");
-        returnSquad(squad);
-      }, 800);
-    } catch (error) {
-      console.error("💥 ERRO no ataque:", error);
-      pushAttackFeed("❌ Erro no ataque. Tente novamente.");
-      finishAttack(); // finaliza sem danos
-    }
+    setTimeout(() => {
+      returnSquad();
+    }, 800);
   }
 
   // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
-  function returnSquad(squad: THREE.Object3D) {
-    console.log("🔁 returnSquad chamada");
+  function returnSquad() {
     const state = useMapAttackStore.getState();
     const backRoute = [...state.routeToTarget].reverse();
 
-    if (!squad) {
-      console.log("⚠️ squad nulo, chamando finishAttack direto");
-      finishAttack();
-      return;
-    }
+    if (!squadRef.current) return;
 
-    const squadY = squad.position.y;
+    const squadY = squadRef.current.position.y;
 
     activeAnimationRef.current = animateSquadOnRoute({
-      squad,
+      squad: squadRef.current,
       route: backRoute,
       tileSize: TILE_SIZE,
       gridWidth: GRID_WIDTH,
       gridHeight: GRID_HEIGHT,
       y: squadY,
       onComplete: () => {
-        console.log("🏁 Animação de retorno concluída, chamando finishAttack");
         finishAttack();
       },
     });
@@ -278,7 +218,6 @@ export default function GamePage() {
 
   // === FUNÇÃO PARA FINALIZAR O ATAQUE ===
   function finishAttack() {
-    console.log("🏁 finishAttack chamada");
     if (squadRef.current && sceneRef.current) {
       sceneRef.current.remove(squadRef.current);
       squadRef.current = null;
@@ -290,7 +229,6 @@ export default function GamePage() {
 
     activeAnimationRef.current = null;
     useMapAttackStore.getState().finishAttack();
-    console.log("✅ Ataque finalizado");
   }
 
   const playerState = usePlayerStore((state) => state.player);
@@ -326,54 +264,6 @@ export default function GamePage() {
 
   const barracoSize = getBarracoSize(level);
 
-
-function getRandomSpawnPosition(existingPlayers: any[] = []) {
-  const margin = 3;
-  const minDistance = 2;
-
-  let attempts = 0;
-  let valid = false;
-
-  let tileX = GRID_WIDTH / 2;
-  let tileY = GRID_HEIGHT / 2;
-
-  const centerX = GRID_WIDTH / 2;
-  const centerY = GRID_HEIGHT / 2;
-
-  while (!valid && attempts < 50) {
-    tileX = Math.floor(Math.random() * (GRID_WIDTH - margin * 2)) + margin;
-    tileY = Math.floor(Math.random() * (GRID_HEIGHT - margin * 2)) + margin;
-
-    valid = true;
-
-    // 🚫 NÃO NASCER NO CENTRO
-    const distFromCenter = Math.sqrt(
-      (tileX - centerX) ** 2 + (tileY - centerY) ** 2
-    );
-
-    if (distFromCenter < 6) {
-      valid = false;
-    }
-
-    // 🚫 NÃO NASCER EM CIMA DE OUTROS
-    for (const p of existingPlayers) {
-      const dx = p.tileX - tileX;
-      const dy = p.tileY - tileY;
-
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < minDistance) {
-        valid = false;
-        break;
-      }
-    }
-
-    attempts++;
-  }
-
-  return { tileX, tileY };
-}
-
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -403,8 +293,6 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
     sceneRef.current = scene;
     scene.background = new THREE.Color('#000000');
 
-    // ... keep existing code (highlight, playerGeometry, raycaster, etc.) ...
-
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
       color: 0xffff00,
@@ -428,19 +316,8 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    // 🎯 SPAWN ALEATÓRIO NA PRIMEIRA VEZ
-    let myTileX = playerState?.mapPosition?.tileX;
-    let myTileY = playerState?.mapPosition?.tileY;
-
-    if (!myTileX || !myTileY || (myTileX === 0 && myTileY === 0)) {
-      const spawn = getRandomSpawnPosition();
-      myTileX = spawn.tileX;
-      myTileY = spawn.tileY;
-      usePlayerStore.getState().applyPlayerUpdate((p) => ({
-        ...p,
-        mapPosition: { tileX: myTileX, tileY: myTileY, worldX: myTileX, worldY: myTileY }
-      }));
-    }
+    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
+    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
 
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
@@ -693,7 +570,18 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
       const target = pickEnemyBarracoFromIntersections(enemyHits);
 
       if (target && playerState) {
-        setSelectedEnemy(target);
+        useMapAttackStore.getState().openPreview({
+          origin: {
+            playerId: playerState._id,
+            playerName: playerState.name,
+            tileX: playerState.mapPosition.tileX,
+            tileY: playerState.mapPosition.tileY,
+          },
+          target,
+          estimatedLoot: Math.floor((target.dirtyMoney || 0) * 0.2),
+          estimatedChance: 0.6,
+        });
+
         return;
       }
 
@@ -720,126 +608,6 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
     };
     animate();
 
-    // === 🔥 SUBSCRIPTION AO CANAL DE MOVIMENTOS (REALTIME) ===
-    // Se inscrever uma vez no canal movement_updates para receber atualizações de todos os jogadores
-    const subscribeToMovements = async () => {
-      try {
-        const currentPlayerId = playerState?._id || playerState?.googleId;
-        if (!currentPlayerId) {
-          console.warn('⚠️ Sem ID do jogador para se inscrever no canal de movimentos');
-          return;
-        }
-
-        // Se inscrever no canal único de movimentos
-        const subscription = await realtime.subscribe('movement_updates', (message: any) => {
-          if (!isMounted || !scene) return;
-
-          const { type, playerId, tileX, tileY, timestamp } = message;
-
-          // Ignorar movimentos do próprio jogador
-          if (playerId === currentPlayerId) return;
-
-          if (type === 'movement') {
-            console.log(`📍 Movimento recebido: ${playerId} → (${tileX}, ${tileY})`);
-
-            // 🔄 ATUALIZAR POSIÇÃO DO BARRACO INIMIGO
-            const enemyModel = enemyBarracoMapRef.current[playerId];
-            if (enemyModel) {
-              const posX = (tileX - GRID_WIDTH / 2) * TILE_SIZE;
-              const posZ = (tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-              // Animar movimento suave
-              const startPos = { x: enemyModel.position.x, z: enemyModel.position.z };
-              const startTime = Date.now();
-              const duration = 500; // 500ms para se mover
-
-              const animateMovement = () => {
-                const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-
-                enemyModel.position.x = startPos.x + (posX - startPos.x) * progress;
-                enemyModel.position.z = startPos.z + (posZ - startPos.z) * progress;
-
-                if (progress < 1) {
-                  requestAnimationFrame(animateMovement);
-                }
-              };
-              animateMovement();
-
-              console.log(`✅ Barraco de ${playerId} movido para (${tileX}, ${tileY})`);
-            }
-          }
-        });
-
-        movementSubscriptionRef.current = subscription;
-        console.log(`📡 Inscrito no canal de movimentos: movement_updates`);
-      } catch (error) {
-        console.warn('⚠️ Erro ao se inscrever no canal de movimentos:', error);
-      }
-    };
-
-    subscribeToMovements();
-
-    // === 🔥 SUBSCRIPTION AO CANAL DE ATAQUES (VERSÃO CORRIGIDA) ===
-    const subscribeToAttacks = async () => {
-      try {
-        const currentPlayerId = playerState?._id || playerState?.googleId;
-        if (!currentPlayerId) {
-          console.warn('⚠️ Sem ID do jogador para se inscrever');
-          return;
-        }
-
-        const attackChannel = `attack_${currentPlayerId}`;
-        console.log(`📡 Inscrevendo no canal: ${attackChannel}`);
-
-        // 🔥 IMPORTANTE: use 'realtime' (já importado no topo) e AWAIT
-        const subscription = await realtime.subscribe(attackChannel, (message: any) => {
-          if (!isMounted) return;
-          console.log("⚔️ Mensagem recebida no frontend:", message);
-
-          const { type, attackerName, loot, success, damageBlocked, territoryName } = message;
-
-          if (type === 'attack') {
-            // Exibe notificação de ataque
-            setAttackNotification({
-              attackerName,
-              success,
-              loot,
-              message: `${attackerName} ${success ? 'roubou' : 'tentou roubar'} R$ ${loot || 0}`
-            });
-            setShowAttackOverlay(true);
-
-            // Atualiza dinheiro sujo localmente (se sucesso)
-            if (success && loot) {
-              usePlayerStore.getState().applyPlayerUpdate((p) => ({
-                ...p,
-                balances: {
-                  ...p.balances,
-                  dirtyMoney: Math.max(0, (p.balances?.dirtyMoney || 0) - loot)
-                }
-              }));
-            }
-
-            // Adiciona ao feed de batalha
-            pushAttackFeed(`⚔️ ${attackerName} te atacou! ${success ? `Perdeu R$ ${loot}` : 'Defendeu o ataque!'}`);
-          } 
-          else if (type === 'defense') {
-            pushAttackFeed(`🛡️ Você defendeu o ataque de ${attackerName}! Bloqueou ${damageBlocked} de dano.`);
-          }
-          else if (type === 'territoryInvasion') {
-            pushAttackFeed(`⚠️ ${attackerName} invadiu ${territoryName}! Recupere o território.`);
-          }
-        });
-
-        attackSubscriptionRef.current = subscription;
-        console.log(`✅ Inscrito com sucesso no canal: ${attackChannel}`);
-      } catch (error) {
-        console.error('❌ Erro ao se inscrever no canal de ataques:', error);
-      }
-    };
-
-    subscribeToAttacks().catch(err => console.warn('Erro na inscrição de ataques:', err));
-
     const handleResize = () => {
       if (!containerRef.current) return;
       camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
@@ -857,26 +625,6 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('pointerdown', handlePointerDown);
       container.removeEventListener('pointerup', handlePointerUp);
-
-      // 🔥 DESINSCREVER DO CANAL DE MOVIMENTOS
-      if (movementSubscriptionRef.current) {
-        try {
-          movementSubscriptionRef.current.unsubscribe();
-          console.log('📡 Desinscrito do canal de movimentos');
-        } catch (error) {
-          console.warn('⚠️ Erro ao desinscrever:', error);
-        }
-      }
-
-      // 🔥 DESINSCREVER DO CANAL DE ATAQUES
-      if (attackSubscriptionRef.current) {
-        try {
-          attackSubscriptionRef.current.unsubscribe();
-          console.log('📡 Desinscrito do canal de ataques');
-        } catch (error) {
-          console.warn('⚠️ Erro ao desinscrever do canal de ataques:', error);
-        }
-      }
 
       controls.dispose();
 
@@ -959,71 +707,6 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
 
       {/* Attack Result Overlay */}
       <AttackResultOverlay />
-
-      {/* Attack Notification Toast - Notificação flutuante em tempo real */}
-      <AttackNotification />
-
-      {/* Attack Notification Overlay - Recebido em tempo real */}
-      {attackNotification && (
-        <AttackNotificationOverlay
-          isVisible={showAttackOverlay}
-          attackerName={attackNotification.attackerName}
-          success={attackNotification.success}
-          loot={attackNotification.loot}
-          critical={attackNotification.critical}
-          message={attackNotification.message}
-          onClose={() => {
-            setShowAttackOverlay(false);
-            setAttackNotification(null);
-          }}
-        />
-      )}
-
-      {/* Enemy Info Modal */}
-      {selectedEnemy && (
-        <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-[#090909] border border-primary/50 p-6 space-y-4">
-            <h2 className="text-2xl font-black text-primary">{selectedEnemy.playerName}</h2>
-            
-            <div className="space-y-2 text-foreground">
-              <p className="text-sm"><span className="text-primary font-bold">Nível:</span> {selectedEnemy.barracoLevel}</p>
-              <p className="text-sm"><span className="text-primary font-bold">Poder:</span> {selectedEnemy.power}</p>
-              <p className="text-sm"><span className="text-primary font-bold">Dinheiro Sujo:</span> ${selectedEnemy.dirtyMoney?.toLocaleString()}</p>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => setSelectedEnemy(null)}
-                className="flex-1 rounded-xl bg-zinc-700 px-4 py-3 font-bold text-white hover:bg-zinc-600 transition-colors"
-              >
-                Fechar
-              </button>
-
-              <button
-                onClick={() => {
-                  if (playerState) {
-                    useMapAttackStore.getState().openPreview({
-                      origin: {
-                        playerId: playerState._id,
-                        playerName: playerState.name,
-                        tileX: playerState.mapPosition.tileX,
-                        tileY: playerState.mapPosition.tileY,
-                      },
-                      target: selectedEnemy,
-                      estimatedLoot: Math.floor((selectedEnemy.dirtyMoney || 0) * 0.2),
-                      estimatedChance: 0.6,
-                    });
-                    setSelectedEnemy(null);
-                  }
-                }}
-                className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-bold text-white hover:bg-red-700 transition-colors"
-              >
-                Atacar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Invadir Barraco Modal */}
       {previewOpen && (

@@ -1,5 +1,4 @@
 import { usePlayerStore } from '@/store/playerStore';
-import { isLevelProgressionBlocked } from '@/Services/punishmentService';
 import { motion } from 'framer-motion';
 
 export default function BarracoPage() {
@@ -8,7 +7,6 @@ export default function BarracoPage() {
   // ÚNICA FONTE: playerStore
   const level = player.niveis.barracoLevel;
   const cleanMoney = player.balances.cleanMoney;
-  const isBlocked = isLevelProgressionBlocked(player);
 
   const BASE_COST = 500;
   const MULTIPLIER = 1.1;
@@ -19,7 +17,7 @@ export default function BarracoPage() {
 
   const upgradeCost = getUpgradeCost();
 
-  const canUpgrade = !isBlocked && cleanMoney >= upgradeCost;
+  const canUpgrade = cleanMoney >= upgradeCost;
 
   const handleUpgrade = () => {
     if (!canUpgrade || !player) return;
@@ -78,14 +76,6 @@ export default function BarracoPage() {
           </span>
         </div>
 
-        {isBlocked && (
-          <div className="mb-6 p-4 bg-red-900/30 border border-red-500 rounded-lg text-center">
-            <p className="text-sm text-red-300">
-              ⚠️ Progressão de nível bloqueada por punição
-            </p>
-          </div>
-        )}
-
         <div className="mb-6 text-center">
           <p className="text-sm opacity-70">
             Custo do upgrade
@@ -103,9 +93,8 @@ export default function BarracoPage() {
               ? 'bg-emerald-500 hover:bg-emerald-600'
               : 'bg-gray-700 opacity-50 cursor-not-allowed'
           }`}
-          title={isBlocked ? 'Progressão bloqueada por punição' : !canUpgrade ? 'Dinheiro limpo insuficiente' : ''}
         >
-          {isBlocked ? '🔒 Bloqueado' : 'Evoluir Barraco'}
+          Evoluir Barraco
         </button>
       </motion.div>
     </div>

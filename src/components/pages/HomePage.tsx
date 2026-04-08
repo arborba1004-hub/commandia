@@ -110,21 +110,8 @@ export default function HomePage() {
   const isAuthenticated = !!player?._id;
 
   useEffect(() => {
-    // Só carrega o player se não estiver autenticado (ou se não houver token)
-    const token = localStorage.getItem('authToken');
-    if (!token && !isLoaded) {
-      loadPlayer();
-    }
+    if (!isLoaded) loadPlayer();
   }, [isLoaded, loadPlayer]);
-
-  useEffect(() => {
-    // Keep backend alive with periodic requests
-    const interval = setInterval(() => {
-      fetch('https://comando-backend.onrender.com/').catch(() => {});
-    }, 4 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const scriptId = 'google-gsi-script';

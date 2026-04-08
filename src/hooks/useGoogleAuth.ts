@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
-import { fetchCurrentPlayer } from '@/api/playerApi';
 
 export interface PlayerData {
   id: string;
@@ -102,12 +101,6 @@ export function useGoogleAuth() {
 
       // Inicia polling após login bem-sucedido
       startPolling();
-
-      // Força uma busca imediata dos dados do servidor para garantir sincronização
-      const currentPlayer = await fetchCurrentPlayer();
-      if (currentPlayer) {
-        hydratePlayerFromServer(currentPlayer);
-      }
 
       setAuthState({
         authToken: data.token,
