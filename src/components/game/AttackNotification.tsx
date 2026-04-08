@@ -1,3 +1,4 @@
+// src/components/game/AttackNotification.tsx
 import { useEffect, useState } from 'react';
 import { realtime } from 'wix-realtime-frontend';
 import { usePlayerStore } from '@/store/playerStore';
