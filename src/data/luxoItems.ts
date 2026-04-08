@@ -375,10 +375,19 @@ const LEVEL_COLORS: Array<{
   { themeColor: '#5b21b6', accentColor: '#3b0764', glowColor: '#c084fc', shadowColor: 'rgba(168,85,247,0.24)', textColor: '#ede9fe', frameStyle: 'violet-dark' },
 ];
 
+const DEFAULT_PALETTE = {
+  themeColor: '#ffffff',
+  accentColor: '#ffd700',
+  glowColor: '#ffffff',
+  shadowColor: 'rgba(255,255,255,0.18)',
+  textColor: '#ffffff',
+  frameStyle: 'default',
+};
+
 const LEVEL_THEME_MAP: Record<number, LuxuryVisualTier> = Object.fromEntries(
   Array.from({ length: 100 }, (_, index) => {
     const level = index + 1;
-    const palette = LEVEL_COLORS[index];
+    const palette = LEVEL_COLORS[index] || DEFAULT_PALETTE;
 
     const background = `
       radial-gradient(circle at 18% 20%, ${hexToRgba(palette.glowColor, 0.34)} 0%, transparent 28%),
