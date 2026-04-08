@@ -309,6 +309,70 @@ const LEVEL_COLORS: Array<{
 
   { themeColor: '#fef3c7', accentColor: '#f59e0b', glowColor: '#fffbeb', shadowColor: 'rgba(245,158,11,0.24)', textColor: '#fff7ed', frameStyle: 'amber-light' },
   { themeColor: '#78350f', accentColor: '#451a03', glowColor: '#fbbf24', shadowColor: 'rgba(217,119,6,0.24)', textColor: '#fef3c7', frameStyle: 'amber-fortress' },
+
+  // Levels 60-100 - Extended palette
+  { themeColor: '#f3e8ff', accentColor: '#d8b4fe', glowColor: '#faf5ff', shadowColor: 'rgba(192,132,252,0.24)', textColor: '#faf5ff', frameStyle: 'lavender-light' },
+  { themeColor: '#6b21a8', accentColor: '#4c1d95', glowColor: '#e9d5ff', shadowColor: 'rgba(168,85,247,0.24)', textColor: '#f3e8ff', frameStyle: 'lavender-dark' },
+
+  { themeColor: '#fef08a', accentColor: '#facc15', glowColor: '#fffacd', shadowColor: 'rgba(250,204,21,0.24)', textColor: '#fffbeb', frameStyle: 'lemon-bright' },
+  { themeColor: '#713f12', accentColor: '#451a03', glowColor: '#fcd34d', shadowColor: 'rgba(217,119,6,0.24)', textColor: '#fef3c7', frameStyle: 'lemon-dark' },
+
+  { themeColor: '#e0e7ff', accentColor: '#a5b4fc', glowColor: '#f0f4ff', shadowColor: 'rgba(129,140,248,0.24)', textColor: '#eef2ff', frameStyle: 'periwinkle-light' },
+  { themeColor: '#3730a3', accentColor: '#312e81', glowColor: '#818cf8', shadowColor: 'rgba(99,102,241,0.24)', textColor: '#e0e7ff', frameStyle: 'periwinkle-dark' },
+
+  { themeColor: '#fce7f3', accentColor: '#f472b6', glowColor: '#fdf2f8', shadowColor: 'rgba(244,114,182,0.24)', textColor: '#fdf2f8', frameStyle: 'rose-light' },
+  { themeColor: '#831843', accentColor: '#500724', glowColor: '#f9a8d4', shadowColor: 'rgba(236,72,153,0.24)', textColor: '#fce7f3', frameStyle: 'rose-dark' },
+
+  { themeColor: '#dbeafe', accentColor: '#7dd3fc', glowColor: '#f0f9ff', shadowColor: 'rgba(56,189,248,0.24)', textColor: '#f0f9ff', frameStyle: 'sky-light' },
+  { themeColor: '#0c4a6e', accentColor: '#082f49', glowColor: '#38bdf8', shadowColor: 'rgba(14,165,233,0.24)', textColor: '#dbeafe', frameStyle: 'sky-dark' },
+
+  { themeColor: '#dcfce7', accentColor: '#86efac', glowColor: '#f0fdf4', shadowColor: 'rgba(74,222,128,0.24)', textColor: '#f0fdf4', frameStyle: 'lime-light' },
+  { themeColor: '#15803d', accentColor: '#14532d', glowColor: '#4ade80', shadowColor: 'rgba(34,197,94,0.24)', textColor: '#dcfce7', frameStyle: 'lime-dark' },
+
+  { themeColor: '#fef2f2', accentColor: '#fca5a5', glowColor: '#fff5f5', shadowColor: 'rgba(248,113,113,0.24)', textColor: '#fef2f2', frameStyle: 'red-light' },
+  { themeColor: '#7f1d1d', accentColor: '#450a0a', glowColor: '#ef4444', shadowColor: 'rgba(239,68,68,0.24)', textColor: '#fee2e2', frameStyle: 'red-dark' },
+
+  { themeColor: '#f0fdfa', accentColor: '#5eead4', glowColor: '#f0fdfa', shadowColor: 'rgba(45,212,191,0.24)', textColor: '#f0fdfa', frameStyle: 'teal-light' },
+  { themeColor: '#134e4a', accentColor: '#0d3b3b', glowColor: '#2dd4bf', shadowColor: 'rgba(20,184,166,0.24)', textColor: '#ccfbf1', frameStyle: 'teal-dark' },
+
+  { themeColor: '#fef9e7', accentColor: '#fbbf24', glowColor: '#fffbeb', shadowColor: 'rgba(251,191,36,0.24)', textColor: '#fffbeb', frameStyle: 'golden-light' },
+  { themeColor: '#78350f', accentColor: '#451a03', glowColor: '#f59e0b', shadowColor: 'rgba(245,158,11,0.24)', textColor: '#fef3c7', frameStyle: 'golden-dark' },
+
+  { themeColor: '#f5f3ff', accentColor: '#c4b5fd', glowColor: '#faf5ff', shadowColor: 'rgba(192,132,252,0.24)', textColor: '#faf5ff', frameStyle: 'purple-light' },
+  { themeColor: '#4c1d95', accentColor: '#2e1065', glowColor: '#a78bfa', shadowColor: 'rgba(168,85,247,0.24)', textColor: '#ede9fe', frameStyle: 'purple-dark' },
+
+  { themeColor: '#ecfdf5', accentColor: '#6ee7b7', glowColor: '#f0fdf4', shadowColor: 'rgba(16,185,129,0.24)', textColor: '#ecfdf5', frameStyle: 'emerald-light' },
+  { themeColor: '#064e3b', accentColor: '#022c22', glowColor: '#10b981', shadowColor: 'rgba(16,185,129,0.24)', textColor: '#d1fae5', frameStyle: 'emerald-dark' },
+
+  { themeColor: '#fdf4ff', accentColor: '#f0abfc', glowColor: '#faf5ff', shadowColor: 'rgba(232,121,249,0.24)', textColor: '#fdf4ff', frameStyle: 'magenta-light' },
+  { themeColor: '#701a75', accentColor: '#581c87', glowColor: '#e879f9', shadowColor: 'rgba(217,70,239,0.24)', textColor: '#fae8ff', frameStyle: 'magenta-dark' },
+
+  { themeColor: '#ecfeff', accentColor: '#67e8f9', glowColor: '#f0fdfa', shadowColor: 'rgba(34,211,238,0.24)', textColor: '#ecfeff', frameStyle: 'cyan-light' },
+  { themeColor: '#0e7490', accentColor: '#164e63', glowColor: '#06b6d4', shadowColor: 'rgba(6,182,212,0.24)', textColor: '#cffafe', frameStyle: 'cyan-dark' },
+
+  { themeColor: '#fff7ed', accentColor: '#fb923c', glowColor: '#fffbeb', shadowColor: 'rgba(249,115,22,0.24)', textColor: '#fff7ed', frameStyle: 'orange-light' },
+  { themeColor: '#7c2d12', accentColor: '#431407', glowColor: '#f97316', shadowColor: 'rgba(234,88,12,0.24)', textColor: '#ffedd5', frameStyle: 'orange-dark' },
+
+  { themeColor: '#eef2ff', accentColor: '#818cf8', glowColor: '#f5f3ff', shadowColor: 'rgba(129,140,248,0.24)', textColor: '#eef2ff', frameStyle: 'indigo-light' },
+  { themeColor: '#312e81', accentColor: '#1e1b4b', glowColor: '#6366f1', shadowColor: 'rgba(99,102,241,0.24)', textColor: '#e0e7ff', frameStyle: 'indigo-dark' },
+
+  { themeColor: '#f8fafc', accentColor: '#cbd5e1', glowColor: '#f1f5f9', shadowColor: 'rgba(148,163,184,0.24)', textColor: '#f8fafc', frameStyle: 'slate-light' },
+  { themeColor: '#1e293b', accentColor: '#0f172a', glowColor: '#94a3b8', shadowColor: 'rgba(100,116,139,0.24)', textColor: '#e2e8f0', frameStyle: 'slate-dark' },
+
+  { themeColor: '#fef3c7', accentColor: '#fbbf24', glowColor: '#fffbeb', shadowColor: 'rgba(251,191,36,0.24)', textColor: '#fffbeb', frameStyle: 'yellow-light' },
+  { themeColor: '#92400e', accentColor: '#451a03', glowColor: '#f59e0b', shadowColor: 'rgba(245,158,11,0.24)', textColor: '#fef3c7', frameStyle: 'yellow-dark' },
+
+  { themeColor: '#f0fdf4', accentColor: '#4ade80', glowColor: '#f0fdf4', shadowColor: 'rgba(74,222,128,0.24)', textColor: '#f0fdf4', frameStyle: 'green-light' },
+  { themeColor: '#166534', accentColor: '#14532d', glowColor: '#22c55e', shadowColor: 'rgba(34,197,94,0.24)', textColor: '#dcfce7', frameStyle: 'green-dark' },
+
+  { themeColor: '#fff1f2', accentColor: '#f87171', glowColor: '#fff5f5', shadowColor: 'rgba(248,113,113,0.24)', textColor: '#fff1f2', frameStyle: 'pink-light' },
+  { themeColor: '#9f1239', accentColor: '#500724', glowColor: '#fb7185', shadowColor: 'rgba(244,63,94,0.24)', textColor: '#ffe4e6', frameStyle: 'pink-dark' },
+
+  { themeColor: '#f0f9ff', accentColor: '#38bdf8', glowColor: '#f0f9ff', shadowColor: 'rgba(56,189,248,0.24)', textColor: '#f0f9ff', frameStyle: 'blue-light' },
+  { themeColor: '#0c4a6e', accentColor: '#082f49', glowColor: '#0ea5e9', shadowColor: 'rgba(14,165,233,0.24)', textColor: '#dbeafe', frameStyle: 'blue-dark' },
+
+  { themeColor: '#faf5ff', accentColor: '#d8b4fe', glowColor: '#faf5ff', shadowColor: 'rgba(192,132,252,0.24)', textColor: '#faf5ff', frameStyle: 'violet-light' },
+  { themeColor: '#5b21b6', accentColor: '#3b0764', glowColor: '#c084fc', shadowColor: 'rgba(168,85,247,0.24)', textColor: '#ede9fe', frameStyle: 'violet-dark' },
 ];
 
 const LEVEL_THEME_MAP: Record<number, LuxuryVisualTier> = Object.fromEntries(
