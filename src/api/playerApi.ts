@@ -299,41 +299,19 @@ export async function fetchAllPlayers(): Promise<
     worldY: number;
   }>
 > {
-  const data = await makeRequest<
-    | Array<{
-        id: string;
-        tileX: number;
-        tileY: number;
-        worldX: number;
-        worldY: number;
-      }>
-    | {
-        data?: Array<{
-          id: string;
-          tileX: number;
-          tileY: number;
-          worldX: number;
-          worldY: number;
-        }>;
-        players?: Array<{
-          id: string;
-          tileX: number;
-          tileY: number;
-          worldX: number;
-          worldY: number;
-        }>;
-      }
-  >('/players', {
+  const data = await makeRequest<any>('/players', {
     method: 'GET',
   });
 
-  return extractArrayPayload<{
-    id: string;
-    tileX: number;
-    tileY: number;
-    worldX: number;
-    worldY: number;
-  }>(data);
+  const players = extractArrayPayload<any>(data);
+
+  return players.map((player) => ({
+    id: String(player.id ?? player._id ?? ''),
+    tileX: Number(player.tileX ?? player.mapPosition?.tileX ?? 20),
+    tileY: Number(player.tileY ?? player.mapPosition?.tileY ?? 10),
+    worldX: Number(player.worldX ?? player.mapPosition?.worldX ?? 0),
+    worldY: Number(player.worldY ?? player.mapPosition?.worldY ?? 0),
+  }));
 }
 
 // ==========================================
