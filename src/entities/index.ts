@@ -27,6 +27,7 @@ export interface AcessriosdeFuga {
 
 /**
  * Collection ID: armasarsenal
+ * @catalog This collection is an eCommerce catalog
  * Interface for ArmasArsenal
  */
 export interface ArmasArsenal {
@@ -93,6 +94,7 @@ export interface ConceptArtGallery {
 
 /**
  * Collection ID: fugavehicles
+ * @catalog This collection is an eCommerce catalog
  * Interface for EscapeVehicles
  */
 export interface EscapeVehicles {
