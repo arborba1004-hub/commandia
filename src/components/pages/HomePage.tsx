@@ -6,7 +6,6 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { Image } from '@/components/ui/image';
-import { gameAction } from '@/api/playerApi';
 
 declare global {
   interface Window {
@@ -545,37 +544,6 @@ export default function HomePage() {
       </section>
 
       <Footer />
-
-      <button
-        onClick={async () => {
-          const data = await gameAction({
-            action: 'player_update',
-            data: {
-              balances: {
-                dirtyMoney: 999999,
-                cleanMoney: 888888,
-                corre: 777,
-              },
-            },
-          });
-
-          console.log(data);
-
-          alert('Backend respondeu. Confere o saldo agora.');
-        }}
-        style={{
-          position: 'fixed',
-          bottom: 20,
-          right: 20,
-          zIndex: 9999,
-          padding: '12px 16px',
-          background: 'red',
-          color: 'white',
-          borderRadius: '8px',
-        }}
-      >
-        TESTAR BACKEND
-      </button>
     </div>
   );
 }
