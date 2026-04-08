@@ -2,7 +2,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Image } from '@/components/ui/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { getLuxurySystem } from '@/data/luxoItems';
@@ -23,15 +23,6 @@ const ITEM_IMAGE_BY_KEY: Record<string, string> = {
   sunglasses: 'https://static.wixstatic.com/media/50f4bf_34b7f97d84b44ab7868db573ab58e00a~mv2.png',
 };
 
-const ITEM_SKILL_BY_KEY: Record<string, keyof PlayerSkills> = {
-  ring: 'respect',
-  bracelet: 'defense',
-  chain: 'attack',
-  watch: 'intelligence',
-  bag: 'respect',
-  sunglasses: 'agility',
-};
-
 type PlayerSkills = {
   attack: number;
   defense: number;
@@ -39,6 +30,15 @@ type PlayerSkills = {
   agility: number;
   respect: number;
   vigor: number;
+};
+
+const ITEM_SKILL_BY_KEY: Record<string, keyof PlayerSkills> = {
+  ring: 'respect',
+  bracelet: 'defense',
+  chain: 'attack',
+  watch: 'intelligence',
+  bag: 'respect',
+  sunglasses: 'agility',
 };
 
 type TransactionStage = 'idle' | 'approach' | 'accepted' | 'insufficient';
@@ -126,7 +126,6 @@ export default function LuxoItemPage() {
   const [transactionStage, setTransactionStage] = useState<TransactionStage>('idle');
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // ÚNICA FONTE: playerStore
   const barracoLevel = player.niveis.barracoLevel;
   const cleanMoney = player.balances.cleanMoney;
   const inventoryItems = player.inventory.items;
@@ -142,6 +141,7 @@ export default function LuxoItemPage() {
 
   const currentItem = useMemo(() => {
     const found = luxurySystem.items.find((item: any) => item.key === itemKey);
+
     const fallbackNameMap: Record<string, string> = {
       ring: 'Anel',
       bracelet: 'Pulseira',
@@ -166,12 +166,29 @@ export default function LuxoItemPage() {
   }, [itemKey, itemNameFromQuery, luxurySystem, barracoLevel, player]);
 
   const alreadyOwned = inventoryItems.some((item: any) => item?.id === currentItem.id);
+  const hasEnoughMoney = cleanMoney >= currentItem.price;
+
+  useEffect(() => {
+    if (!feedback) return;
+
+    const timer = window.setTimeout(() => {
+      setFeedback(null);
+    }, 2600);
+
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
 
   const handleOpenTransaction = () => {
     if (alreadyOwned) {
       setFeedback('Esse item dessa coleção já foi comprado.');
       return;
     }
+
+    if (!hasEnoughMoney) {
+      setFeedback('Você não tem Commands Limpo suficiente para essa compra.');
+      return;
+    }
+
     setTransactionStage('idle');
     setTransactionOpen(true);
   };
@@ -184,7 +201,8 @@ export default function LuxoItemPage() {
         setTransactionStage('insufficient');
         return;
       }
-const newItem = {
+
+      const newItem = {
         id: currentItem.id,
         category: 'luxury',
         itemType: currentItem.key,
@@ -200,17 +218,7 @@ const newItem = {
         createdAt: new Date().toISOString(),
       };
 
-      const currentSkills: PlayerSkills = player?.skills || {
-        attack: 0,
-        defense: 0,
-        intelligence: 0,
-        agility: 0,
-        respect: 0,
-        vigor: 0,
-      };
-
-      const updatedPlayer = {
-        ...player,
+      setPlayer({
         balances: {
           ...player.balances,
           cleanMoney: Number((cleanMoney - currentItem.price).toFixed(2)),
@@ -219,15 +227,8 @@ const newItem = {
           ...player.inventory,
           items: [...inventoryItems, newItem],
         },
-        skills: {
-          ...currentSkills,
-          [currentItem.bonusSkill]: Number(
-            ((currentSkills[currentItem.bonusSkill] || 0) + currentItem.bonusValue).toFixed(1)
-          ),
-        },
-      };
+      });
 
-      setPlayer(updatedPlayer);
       setTransactionStage('accepted');
 
       window.setTimeout(() => {
@@ -264,7 +265,6 @@ const newItem = {
         />
 
         <div className="relative z-10 max-w-[1300px] mx-auto px-4 md:px-8 pb-20">
-          {/* TÍTULO */}
           <section className="pt-4 text-center">
             <motion.h1
               className="text-3xl md:text-5xl lg:text-6xl font-black uppercase tracking-[0.18em] text-white"
@@ -288,7 +288,6 @@ const newItem = {
             </motion.p>
           </section>
 
-          {/* VITRINE */}
           <section className="mt-10 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 items-start">
             <motion.div
               initial={{ opacity: 0, x: -80, scale: 0.92, filter: 'blur(8px)' }}
@@ -310,7 +309,9 @@ const newItem = {
               <div className="relative z-10 p-6 md:p-8">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.32em] text-white/50">Vitrine privada</p>
+                    <p className="text-[10px] uppercase tracking-[0.32em] text-white/50">
+                      Vitrine privada
+                    </p>
                     <h2 className="mt-2 text-3xl md:text-4xl font-black uppercase tracking-[0.14em] text-white">
                       {currentItem.name}
                     </h2>
@@ -354,14 +355,15 @@ const newItem = {
               </div>
             </motion.div>
 
-{/* DADOS */}
             <motion.div
               initial={{ opacity: 0, x: 80, scale: 0.94, filter: 'blur(8px)' }}
               animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
               transition={{ duration: 0.8, ease: 'easeOut', delay: 0.12 }}
               className="rounded-[30px] border border-white/12 bg-black/62 p-6 md:p-8 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,.45)]"
             >
-              <p className="text-[10px] uppercase tracking-[0.30em] text-white/42">Apresentação do item</p>
+              <p className="text-[10px] uppercase tracking-[0.30em] text-white/42">
+                Apresentação do item
+              </p>
 
               <h3 className="mt-3 text-2xl md:text-3xl font-black uppercase tracking-[0.14em] text-white">
                 {collectionName}
@@ -369,7 +371,9 @@ const newItem = {
 
               <div className="mt-6 space-y-4">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Bônus individual</p>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+                    Bônus individual
+                  </p>
                   <p className="mt-2 text-xl font-black" style={{ color: visual.accent }}>
                     +{currentItem.bonusValue}% em {currentItem.bonusSkill}
                   </p>
@@ -388,7 +392,11 @@ const newItem = {
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Status</p>
                   <p className="mt-2 text-sm text-white/78">
-                    {alreadyOwned ? 'Você já possui este item nesta coleção.' : 'Pronto para compra.'}
+                    {alreadyOwned
+                      ? 'Você já possui este item nesta coleção.'
+                      : hasEnoughMoney
+                        ? 'Pronto para compra.'
+                        : 'Saldo insuficiente para compra.'}
                   </p>
                 </div>
               </div>
@@ -396,14 +404,14 @@ const newItem = {
               <div className="mt-8 grid grid-cols-1 gap-3">
                 <button
                   onClick={handleOpenTransaction}
-                  disabled={alreadyOwned}
+                  disabled={alreadyOwned || !hasEnoughMoney}
                   className="rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-[0.22em] text-black disabled:opacity-45"
                   style={{
                     background: visual.cardMetal,
                     boxShadow: `0 12px 28px ${visual.accentSoft}`,
                   }}
                 >
-                  Comprar
+                  {alreadyOwned ? 'Já comprado' : !hasEnoughMoney ? 'Saldo insuficiente' : 'Comprar'}
                 </button>
 
                 <button
@@ -424,7 +432,6 @@ const newItem = {
           </section>
         </div>
 
-        {/* TRANSAÇÃO */}
         <AnimatePresence>
           {transactionOpen && (
             <motion.div
@@ -440,18 +447,23 @@ const newItem = {
                   transition={{ duration: 0.55 }}
                   className="rounded-[30px] border border-white/12 bg-black/62 p-6 md:p-8 backdrop-blur-xl"
                 >
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-white/42">Transação privada</p>
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-white/42">
+                    Transação privada
+                  </p>
                   <h2 className="mt-3 text-3xl md:text-4xl font-black text-white">
                     Máquina de cartão
                   </h2>
                   <p className="mt-4 text-base text-white/74 leading-relaxed">
-                    Confirme a compra de <span style={{ color: visual.accent }}>{currentItem.name}</span>.
+                    Confirme a compra de{' '}
+                    <span style={{ color: visual.accent }}>{currentItem.name}</span>.
                   </p>
 
                   <div className="mt-6 rounded-[28px] border border-white/12 bg-white/5 p-6">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.28em] text-white/45">Portador do cartão</p>
+                        <p className="text-[10px] uppercase tracking-[0.28em] text-white/45">
+                          Portador do cartão
+                        </p>
                         <p className="mt-2 text-2xl font-black uppercase tracking-[0.16em] text-white">
                           {playerName}
                         </p>
@@ -475,89 +487,7 @@ const newItem = {
                       <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                         <p className="text-[10px] uppercase tracking-[0.2em] text-white/42">Valor</p>
                         <p className="mt-2 text-xl font-black" style={{ color: visual.accent }}>
-                          {money(currentItem.price)} Commands
-                        </p>
-                      </div>
-                    </div>
-
- <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-5 text-center">
-                      {transactionStage === 'idle' && (
-                        <p className="text-lg font-black uppercase tracking-[0.18em] text-white">
-                          Aproxime o cartão
-                        </p>
-                      )}
-
-                      {transactionStage === 'approach' && (
-                        <motion.p
-                          animate={{ opacity: [0.45, 1, 0.45] }}
-                          transition={{ duration: 0.8, repeat: Infinity }}
-                          className="text-lg font-black uppercase tracking-[0.18em]"
-                          style={{ color: visual.accent }}
-                        >
-                          Lendo cartão...
-                        </motion.p>
-                      )}
-
-                      {transactionStage === 'accepted' && (
-                        <p className="text-lg font-black uppercase tracking-[0.18em] text-emerald-400">
-                          Transação aceita
-                        </p>
-                      )}
-
-                      {transactionStage === 'insufficient' && (
-                        <p className="text-lg font-black uppercase tracking-[0.18em] text-red-400">
-                          Saldo insuficiente
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                      <button
-                        onClick={handleSimulateCard}
-                        disabled={transactionStage === 'approach' || transactionStage === 'accepted'}
-                        className="flex-1 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-[0.22em] text-black disabled:opacity-45"
-                        style={{
-                          background: visual.cardMetal,
-                          boxShadow: `0 12px 28px ${visual.accentSoft}`,
-                        }}
-                      >
-                        Aproximar cartão
-                      </button>
-
-                      <button
-                        onClick={() => setTransactionOpen(false)}
-                        className="flex-1 rounded-2xl border border-white/14 bg-white/5 px-5 py-4 text-sm font-black uppercase tracking-[0.22em] text-white"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* MAQUININHA */}
-                <motion.div
-                  initial={{ opacity: 0, x: 60, scale: 0.92, filter: 'blur(8px)' }}
-                  animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
-                  transition={{ duration: 0.55 }}
-                  className="relative mx-auto w-full max-w-[420px]"
-                >
-                  <div className="rounded-[34px] border border-white/14 bg-[linear-gradient(180deg,#101010_0%,#181818_35%,#0a0a0a_100%)] p-6 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
-                    <div className="rounded-[22px] border border-white/10 bg-black/45 p-4">
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-white/42">terminal</p>
-                      <div className="mt-3 h-24 rounded-2xl border border-white/8 bg-black/60 flex items-center justify-center">
-                        {transactionStage === 'idle' && (
-                          <span className="text-sm font-black uppercase tracking-[0.18em] text-white/88">
-                            aproxime o cartão
-                          </span>
-                        )}
-                        {transactionStage === 'approach' && (
-                          <motion.span
-                            animate={{ opacity: [0.45, 1, 0.45] }}
-                            transition={{ duration: 0.8, repeat: Infinity }}
-                            className="text-sm font-black uppercase tracking-[0.18em]"
-                            style={{ color: visual.accent }}
-                          >
-                            processando...
+                       processando...
                           </motion.span>
                         )}
                         {transactionStage === 'accepted' && (
@@ -574,13 +504,15 @@ const newItem = {
                     </div>
 
                     <div className="mt-5 grid grid-cols-3 gap-3">
-                      {[1,2,3,4,5,6,7,8,9].map((n) => (
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                         <div key={n} className="h-12 rounded-xl border border-white/10 bg-white/5" />
                       ))}
                     </div>
 
                     <div className="mt-5 rounded-[24px] border border-white/12 bg-white/5 p-5">
-                      <p className="text-[10px] uppercase tracking-[0.26em] text-white/42">Cartão gamer</p>
+                      <p className="text-[10px] uppercase tracking-[0.26em] text-white/42">
+                        Cartão gamer
+                      </p>
 
                       <motion.div
                         animate={
@@ -608,7 +540,6 @@ const newItem = {
           )}
         </AnimatePresence>
 
-        {/* FEEDBACK */}
         <AnimatePresence>
           {feedback && (
             <motion.div
