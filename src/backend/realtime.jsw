@@ -1,6 +1,32 @@
 import { publish } from 'wix-realtime-backend';
 
 /**
+ * Publica um evento de movimento em tempo real para o canal movement_updates
+ * @param {string} playerId - ID do jogador que se moveu
+ * @param {number} tileX - Coordenada X do novo tile
+ * @param {number} tileY - Coordenada Y do novo tile
+ * @returns {Promise<void>}
+ */
+export async function publishMovement(playerId, tileX, tileY) {
+  try {
+    const channel = 'movement_updates';
+    const message = {
+      type: 'movement',
+      playerId,
+      tileX,
+      tileY,
+      timestamp: Date.now()
+    };
+
+    await publish(channel, message);
+    console.log(`Movement published to ${channel}:`, message);
+  } catch (error) {
+    console.error('Error publishing movement:', error);
+    throw error;
+  }
+}
+
+/**
  * Publica um evento de ataque em tempo real para o jogador alvo
  * @param {string} targetPlayerId - ID do jogador que está sendo atacado
  * @param {string} attackerName - Nome do atacante
@@ -27,52 +53,4 @@ export async function publishAttack(targetPlayerId, attackerName, loot, success)
   }
 }
 
-/**
- * Publica um evento de defesa bem-sucedida em tempo real
- * @param {string} targetPlayerId - ID do jogador que defendeu
- * @param {string} attackerName - Nome do atacante
- * @param {number} damageBlocked - Dano bloqueado
- * @returns {Promise<void>}
- */
-export async function publishDefense(targetPlayerId, attackerName, damageBlocked) {
-  try {
-    const channel = `attack_${targetPlayerId}`;
-    const message = {
-      type: 'defense',
-      attackerName,
-      damageBlocked,
-      timestamp: Date.now()
-    };
-
-    await publish(channel, message);
-    console.log(`Defense published to ${channel}:`, message);
-  } catch (error) {
-    console.error('Error publishing defense:', error);
-    throw error;
-  }
-}
-
-/**
- * Publica um evento de invasão de território em tempo real
- * @param {string} targetPlayerId - ID do jogador que perdeu o território
- * @param {string} attackerName - Nome do atacante
- * @param {string} territoryName - Nome do território invadido
- * @returns {Promise<void>}
- */
-export async function publishTerritoryInvasion(targetPlayerId, attackerName, territoryName) {
-  try {
-    const channel = `attack_${targetPlayerId}`;
-    const message = {
-      type: 'territoryInvasion',
-      attackerName,
-      territoryName,
-      timestamp: Date.now()
-    };
-
-    await publish(channel, message);
-    console.log(`Territory invasion published to ${channel}:`, message);
-  } catch (error) {
-    console.error('Error publishing territory invasion:', error);
-    throw error;
-  }
-}
+// ... keep existing code (publishDefense and publishTerritoryInvasion functions) ...

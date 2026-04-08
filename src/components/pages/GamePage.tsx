@@ -32,7 +32,7 @@ import AttackNotification from '@/components/game/AttackNotification';
 import { useFactionStore } from '@/store/factionStore';
 import { realtime } from 'wix-realtime-frontend';
 import { publishPlayerMovement } from '@/api/movementApi';
-import { publishAttack } from '@/backend/realtime';
+import { publishAttack, publishMovement } from '@/backend/realtime';
 
 
 
@@ -721,7 +721,7 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
     animate();
 
     // === 🔥 SUBSCRIPTION AO CANAL DE MOVIMENTOS (REALTIME) ===
-    // Se inscrever no canal de movimentos para receber atualizações de outros jogadores
+    // Se inscrever uma vez no canal movement_updates para receber atualizações de todos os jogadores
     const subscribeToMovements = async () => {
       try {
         const currentPlayerId = playerState?._id || playerState?.googleId;
@@ -730,66 +730,49 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
           return;
         }
 
-        // Buscar lista de outros jogadores
-        const token = localStorage.getItem('authToken');
-        if (!token) return;
+        // Se inscrever no canal único de movimentos
+        const subscription = await realtime.subscribe('movement_updates', (message: any) => {
+          if (!isMounted || !scene) return;
 
-        const playersResponse = await fetch('https://comando-backend.onrender.com/players', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const players = await playersResponse.json();
+          const { type, playerId, tileX, tileY, timestamp } = message;
 
-        // Se inscrever no canal de movimento de cada outro jogador
-        players.forEach((p: any) => {
-          if (p.id === currentPlayerId || p._id === currentPlayerId) return;
+          // Ignorar movimentos do próprio jogador
+          if (playerId === currentPlayerId) return;
 
-          const otherPlayerId = p.id || p._id;
-          const movementChannel = `movement_${otherPlayerId}`;
+          if (type === 'movement') {
+            console.log(`📍 Movimento recebido: ${playerId} → (${tileX}, ${tileY})`);
 
-          try {
-            const subscription = realtime.subscribe(movementChannel, (message: any) => {
-              if (!isMounted || !scene) return;
+            // 🔄 ATUALIZAR POSIÇÃO DO BARRACO INIMIGO
+            const enemyModel = enemyBarracoMapRef.current[playerId];
+            if (enemyModel) {
+              const posX = (tileX - GRID_WIDTH / 2) * TILE_SIZE;
+              const posZ = (tileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
-              const { type, playerId, x, y, timestamp } = message;
+              // Animar movimento suave
+              const startPos = { x: enemyModel.position.x, z: enemyModel.position.z };
+              const startTime = Date.now();
+              const duration = 500; // 500ms para se mover
 
-              if (type === 'movement_update') {
-                console.log(`📍 Movimento recebido: ${playerId} → (${x}, ${y})`);
+              const animateMovement = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
 
-                // 🔄 ATUALIZAR POSIÇÃO DO BARRACO INIMIGO
-                const enemyModel = enemyBarracoMapRef.current[playerId];
-                if (enemyModel) {
-                  const posX = (x - GRID_WIDTH / 2) * TILE_SIZE;
-                  const posZ = (y - GRID_HEIGHT / 2) * TILE_SIZE;
+                enemyModel.position.x = startPos.x + (posX - startPos.x) * progress;
+                enemyModel.position.z = startPos.z + (posZ - startPos.z) * progress;
 
-                  // Animar movimento suave
-                  const startPos = { x: enemyModel.position.x, z: enemyModel.position.z };
-                  const startTime = Date.now();
-                  const duration = 500; // 500ms para se mover
-
-                  const animateMovement = () => {
-                    const elapsed = Date.now() - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-
-                    enemyModel.position.x = startPos.x + (posX - startPos.x) * progress;
-                    enemyModel.position.z = startPos.z + (posZ - startPos.z) * progress;
-
-                    if (progress < 1) {
-                      requestAnimationFrame(animateMovement);
-                    }
-                  };
-                  animateMovement();
-
-                  console.log(`✅ Barraco de ${playerId} movido para (${x}, ${y})`);
+                if (progress < 1) {
+                  requestAnimationFrame(animateMovement);
                 }
-              }
-            });
+              };
+              animateMovement();
 
-            movementSubscriptionRef.current = subscription;
-            console.log(`📡 Inscrito no canal de movimentos: ${movementChannel}`);
-          } catch (error) {
-            console.warn(`⚠️ Erro ao se inscrever em ${movementChannel}:`, error);
+              console.log(`✅ Barraco de ${playerId} movido para (${tileX}, ${tileY})`);
+            }
           }
         });
+
+        movementSubscriptionRef.current = subscription;
+        console.log(`📡 Inscrito no canal de movimentos: movement_updates`);
       } catch (error) {
         console.warn('⚠️ Erro ao se inscrever no canal de movimentos:', error);
       }

@@ -131,10 +131,8 @@ export async function handleTileInvasion(
     // 🔥 PUBLISH MOVEMENT TO OTHER PLAYERS VIA REALTIME API
     try {
       const playerId = player._id || player.googleId || 'unknown';
-      const playerName = player.name || 'JOGADOR';
-      const barracoLevel = player.niveis?.barracoLevel || 1;
 
-      // Call backend to publish movement
+      // Call backend to publish movement via the movement_updates channel
       const response = await fetch('https://comando-backend.onrender.com/api/movement/publish', {
         method: 'POST',
         headers: {
@@ -145,15 +143,13 @@ export async function handleTileInvasion(
           playerId,
           tileX,
           tileY,
-          playerName,
-          barracoLevel,
         }),
       });
 
       if (!response.ok) {
         console.warn('⚠️ Falha ao publicar movimento, mas posição foi atualizada localmente');
       } else {
-        console.log('📡 Movimento publicado com sucesso para outros jogadores');
+        console.log('📡 Movimento publicado com sucesso para o canal movement_updates');
       }
     } catch (publishError) {
       console.warn('⚠️ Erro ao publicar movimento (backup ativo):', publishError);
