@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { BaseCrudService } from '@/integrations';
 import { usePlayerStore } from '@/store/playerStore';
 import Header from '@/components/Header';
@@ -7,7 +7,6 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { motion } from 'framer-motion';
 import { AcessriosdeFuga, EscapeVehicles } from '@/entities';
-import { getAccessoryBonus } from '@/utils/accessoryBonus';
 
 const VEHICLE_ACCESSORIES = [
   { name: 'Turbo Reforçado', bonus: 'agility' },
@@ -16,17 +15,12 @@ const VEHICLE_ACCESSORIES = [
   { name: 'Blindagem Leve', bonus: 'defense' },
   { name: 'Sistema Anti-Rastreamento', bonus: 'intelligence' },
   { name: 'Nitrox', bonus: 'agility' },
-];
+] as const;
 
 interface PurchasedAccessory {
   accessoryId: string;
   skillType: string;
   purchasedAt: string;
-}
-
-interface VehicleAccessory {
-  vehicleId: string;
-  accessories: string[];
 }
 
 export default function FugaIlustradaPage() {
@@ -36,29 +30,39 @@ export default function FugaIlustradaPage() {
   const [selectedVehicle, setSelectedVehicle] = useState<EscapeVehicles | null>(null);
   const [purchaseMessage, setPurchaseMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'vehicles' | 'accessories'>('vehicles');
-  const [vehicleAccessories, setVehicleAccessories] = useState<Record<string, string[]>>({});
-  const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] = useState<EscapeVehicles | null>(null);
+  const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] =
+    useState<EscapeVehicles | null>(null);
 
-  // ÚNICA FONTE: playerStore
   const player = usePlayerStore((s) => s.player);
   const removeCleanMoney = usePlayerStore((s) => s.removeCleanMoney);
   const addOwnedVehicle = usePlayerStore((s) => s.addOwnedVehicle);
-  const addSkillBonus = usePlayerStore((s) => s.addSkillBonus);
   const setPlayer = usePlayerStore((s) => s.setPlayer);
-  
+  const purchaseAccessory = usePlayerStore((s) => s.purchaseAccessory);
+  const addAccessory = usePlayerStore((s) => s.addAccessory);
+
   const cleanMoney = player.balances.cleanMoney;
   const ownedVehicles = player.ownedVehicles || [];
   const purchasedAccessories = player.purchasedAccessories || [];
+  const attachedAccessories = player.accessories?.vehicles || {};
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const vehiclesResult = await BaseCrudService.getAll<EscapeVehicles>('fugavehicles', [], { limit: 100 });
-        const sortedVehicles = vehiclesResult.items.sort((a, b) => (a.level || 0) - (b.level || 0));
+        const vehiclesResult = await BaseCrudService.getAll<EscapeVehicles>(
+          'fugavehicles',
+          [],
+          { limit: 100 }
+        );
+        const sortedVehicles = vehiclesResult.items.sort(
+          (a, b) => (a.level || 0) - (b.level || 0)
+        );
         setVehicles(sortedVehicles);
-        
-        // Load accessories from CMS
-        const accessoriesResult = await BaseCrudService.getAll<AcessriosdeFuga>('accessories', [], { limit: 100 });
+
+        const accessoriesResult = await BaseCrudService.getAll<AcessriosdeFuga>(
+          'accessories',
+          [],
+          { limit: 100 }
+        );
         setAccessories(accessoriesResult.items);
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -69,6 +73,16 @@ export default function FugaIlustradaPage() {
 
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!purchaseMessage) return;
+
+    const timer = window.setTimeout(() => {
+      setPurchaseMessage('');
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [purchaseMessage]);
 
   const calculateVehiclePrice = (level: number): number => {
     const minPrice = 103;
@@ -82,113 +96,83 @@ export default function FugaIlustradaPage() {
     return minPrice * ratio;
   };
 
+  const isAccessoryOwnedForVehicle = (vehicleId: string, accessoryName: string) => {
+    const currentAccessories = attachedAccessories[vehicleId] || [];
+    return currentAccessories.includes(accessoryName);
+  };
+
   const handlePurchaseVehicle = (vehicle: EscapeVehicles) => {
     const price = calculateVehiclePrice(vehicle.level || 1);
 
     if (cleanMoney < price) {
       setPurchaseMessage('Você não tem dinheiro limpo suficiente!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
       return;
     }
 
     if (ownedVehicles.includes(vehicle._id)) {
       setPurchaseMessage('Você já possui este veículo!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
       return;
     }
 
-    // Remove clean money
     removeCleanMoney(price);
-    
-    // Add owned vehicle
     addOwnedVehicle(vehicle._id);
 
-    // Apply bonus based on player level
-    if (vehicle.abilityBonusType) {
-      const bonus = getAccessoryBonus(player.niveis.playerLevel);
-      addSkillBonus(vehicle.abilityBonusType, bonus);
-    }
-
     setPurchaseMessage(`${vehicle.name} adquirido com sucesso!`);
-    setTimeout(() => setPurchaseMessage(''), 3000);
   };
 
   const handlePurchaseAccessory = (accessory: AcessriosdeFuga) => {
-    // Check if already purchased
     if (purchasedAccessories.some((acc) => acc.accessoryId === accessory._id)) {
       setPurchaseMessage('Você já comprou este acessório!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
       return;
     }
 
     const price = accessory.itemPrice || 0;
 
-    // Check if has clean money
     if (cleanMoney < price) {
       setPurchaseMessage('Você não tem dinheiro suficiente!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
       return;
     }
 
-    // Remove clean money
     removeCleanMoney(price);
-
-    // Apply bonus based on player level
-    if (accessory.skillType) {
-      const bonus = getAccessoryBonus(player.niveis.playerLevel);
-      addSkillBonus(accessory.skillType, bonus);
-    }
-
-    // Record purchase
-    const newAccessory: PurchasedAccessory = {
-      accessoryId: accessory._id,
-      skillType: accessory.skillType || 'unknown',
-      purchasedAt: new Date().toISOString(),
-    };
+purchaseAccessory(accessory._id, accessory.skillType || 'unknown');
 
     setPlayer({
-      purchasedAccessories: [...purchasedAccessories, newAccessory],
+      purchasedAccessories: [
+        ...purchasedAccessories,
+        {
+          accessoryId: accessory._id,
+          skillType: accessory.skillType || 'unknown',
+          purchasedAt: new Date().toISOString(),
+        } as PurchasedAccessory,
+      ],
     });
 
     setPurchaseMessage(`${accessory.itemName} comprado com sucesso!`);
-    setTimeout(() => setPurchaseMessage(''), 3000);
   };
 
-  const handleBuyVehicleAccessory = (vehicle: EscapeVehicles, accessory: typeof VEHICLE_ACCESSORIES[0]) => {
+  const handleBuyVehicleAccessory = (
+    vehicle: EscapeVehicles,
+    accessory: (typeof VEHICLE_ACCESSORIES)[number]
+  ) => {
     const accessoryPrice = 1.99;
 
     if (cleanMoney < accessoryPrice) {
       setPurchaseMessage('Você não tem dinheiro suficiente!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
       return;
     }
 
-    // Check if already owned
-    const currentAccessories = vehicleAccessories[vehicle._id] || [];
-    if (currentAccessories.includes(accessory.name)) {
-      setPurchaseMessage('Você já possui este acessório!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
+    if (isAccessoryOwnedForVehicle(vehicle._id, accessory.name)) {
+      setPurchaseMessage('Você já possui este acessório neste veículo!');
       return;
     }
 
-    // Remove clean money
     removeCleanMoney(accessoryPrice);
-
-    // Add accessory to vehicle
-    setVehicleAccessories({
-      ...vehicleAccessories,
-      [vehicle._id]: [...currentAccessories, accessory.name],
-    });
-
-    // Apply bonus
-    const bonus = getAccessoryBonus(player.niveis.playerLevel);
-    addSkillBonus(accessory.bonus, bonus);
+    addAccessory('vehicles', vehicle._id, accessory.name);
 
     setPurchaseMessage(`${accessory.name} adicionado com sucesso!`);
-    setTimeout(() => setPurchaseMessage(''), 3000);
   };
 
-  async function handleBuyVehicleAccessoryPix(vehicle: any, acc: any) {
+  async function handleBuyVehicleAccessoryPix(vehicle: EscapeVehicles, acc: (typeof VEHICLE_ACCESSORIES)[number]) {
     try {
       const response = await fetch(
         'https://comando-backend.onrender.com/create-payment',
@@ -221,6 +205,9 @@ export default function FugaIlustradaPage() {
       alert('Erro ao gerar pagamento PIX');
     }
   }
+
+  const vehicleCards = useMemo(() => vehicles, [vehicles]);
+  const accessoryCards = useMemo(() => accessories, [accessories]);
 
   if (isLoading) {
     return (
@@ -296,7 +283,6 @@ export default function FugaIlustradaPage() {
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
               className={`p-4 rounded-lg text-center font-paragraph text-lg mb-8 ${
                 purchaseMessage.includes('sucesso')
                   ? 'bg-green-900 text-green-100'
@@ -339,7 +325,7 @@ export default function FugaIlustradaPage() {
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {vehicles.map((vehicle, index) => {
+                {vehicleCards.map((vehicle, index) => {
                   const isOwned = ownedVehicles.includes(vehicle._id);
                   const price = calculateVehiclePrice(vehicle.level || 1);
                   const canAfford = cleanMoney >= price;
@@ -397,7 +383,9 @@ export default function FugaIlustradaPage() {
                           <p className="text-secondary text-xs mb-1">
                             Bônus: <span className="text-primary">{vehicle.abilityBonusType}</span>
                           </p>
-                          <p className="text-secondary text-xs">+1% em {vehicle.abilityBonusType}</p>
+                          <p className="text-secondary text-xs">
+                            Bônus aplicado pelo sistema de itens/equipamentos
+                          </p>
                         </div>
 
                         <div className="border-t border-secondary pt-3 mb-3">
@@ -452,7 +440,7 @@ export default function FugaIlustradaPage() {
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {accessories.map((accessory, index) => {
+                {accessoryCards.map((accessory, index) => {
                   const isPurchased = purchasedAccessories.some(
                     (acc) => acc.accessoryId === accessory._id
                   );
@@ -485,7 +473,9 @@ export default function FugaIlustradaPage() {
                         <p className="text-secondary text-xs mb-1">
                           Tipo: <span className="text-primary">{accessory.skillType}</span>
                         </p>
-                        <p className="text-secondary text-xs">+1% em {accessory.skillType}</p>
+                        <p className="text-secondary text-xs">
+                          Bônus aplicado pelo sistema de itens/equipamentos
+                        </p>
                       </div>
 
                       <div className="border-t border-secondary pt-3 mb-3">
@@ -519,14 +509,12 @@ export default function FugaIlustradaPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
             onClick={() => setSelectedVehicle(null)}
             className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8 max-h-[90vh] overflow-y-auto"
             >
@@ -569,7 +557,7 @@ export default function FugaIlustradaPage() {
                     <div>
                       <p className="text-secondary text-sm">Bônus de Habilidade</p>
                       <p className="font-heading text-lg font-bold text-primary">
-                        +{getAccessoryBonus(player.niveis.playerLevel)}% em {selectedVehicle.abilityBonusType}
+                        {selectedVehicle.abilityBonusType}
                       </p>
                     </div>
 
@@ -621,16 +609,14 @@ export default function FugaIlustradaPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
             onClick={() => setSelectedVehicleForAccessories(null)}
             className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8 max-h-[90vh] overflow-y-auto"
+ className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8 max-h-[90vh] overflow-y-auto"
             >
               <h2 className="font-heading text-3xl font-bold text-primary mb-6">
                 Acessórios para {selectedVehicleForAccessories.name}
@@ -638,24 +624,53 @@ export default function FugaIlustradaPage() {
 
               <div className="space-y-3 mb-6">
                 {VEHICLE_ACCESSORIES.map((acc) => {
-                  const owned = (vehicleAccessories[selectedVehicleForAccessories._id] || []).includes(acc.name);
+                  const owned = isAccessoryOwnedForVehicle(
+                    selectedVehicleForAccessories._id,
+                    acc.name
+                  );
 
                   return (
-                    <button
+                    <div
                       key={acc.name}
-                      disabled={owned}
-                      onClick={() => handleBuyVehicleAccessoryPix(selectedVehicleForAccessories, acc)}
-                      className={`w-full px-4 py-3 rounded font-heading font-bold transition-all text-left flex justify-between items-center ${
-                        owned
-                          ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
-                          : 'bg-primary text-black hover:bg-secondary'
-                      }`}
+                      className="w-full px-4 py-3 rounded font-heading font-bold transition-all text-left flex justify-between items-center bg-black/20 border border-white/10"
                     >
-                      <span>{acc.name}</span>
-                      <span className="text-sm">
-                        {owned ? 'Comprado' : `R$ 1,99`}
-                      </span>
-                    </button>
+                      <div>
+                        <div>{acc.name}</div>
+                        <div className="text-xs text-secondary mt-1">
+                          Bônus vinculado ao sistema de acessórios
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 items-center">
+                        <span className="text-sm">
+                          {owned ? 'Comprado' : 'R$ 1,99'}
+                        </span>
+
+                        <button
+                          disabled={owned}
+                          onClick={() => handleBuyVehicleAccessory(selectedVehicleForAccessories, acc)}
+                          className={`px-3 py-2 rounded ${
+                            owned
+                              ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
+                              : 'bg-primary text-black hover:bg-secondary'
+                          }`}
+                        >
+                          {owned ? 'OK' : 'Comprar local'}
+                        </button>
+
+                        <button
+                          disabled={owned}
+                          onClick={() => handleBuyVehicleAccessoryPix(selectedVehicleForAccessories, acc)}
+                          className={`px-3 py-2 rounded ${
+                            owned
+                              ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
+                              : 'bg-secondary text-black hover:bg-primary'
+                          }`}
+                        >
+                          PIX
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
