@@ -13,6 +13,7 @@ export default function LuxuryshowroomPage() {
 
   const line1 = 'Boa noite, Comandante.';
   const line2 = 'Sua coleção está pronta para você.';
+
   const wordsLine1 = line1.split(' ');
   const wordsLine2 = line2.split(' ');
 
@@ -32,163 +33,78 @@ export default function LuxuryshowroomPage() {
   }, [showDialog, showButton]);
 
   return (
-    <div className="w-full min-h-screen bg-black overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-black text-white overflow-hidden">
       <Header />
 
-      <div className="relative flex-1 w-full overflow-hidden">
+      <main className="relative flex min-h-[calc(100vh-140px)] items-center justify-center">
         <video
           ref={videoRef}
-          src="https://video.wixstatic.com/video/50f4bf_01db91a09f984c8fb0dd332626b5fb37/720p/mp4/file.mp4"
+          className="absolute inset-0 h-full w-full object-cover"
           autoPlay
           muted
           playsInline
-          className="w-full h-full object-cover"
-        />
+        >
+          <source
+            src="https://video.wixstatic.com/video/11062b_054dce43c8ea44cb8c5d742e96f0b7b0/720p/mp4/file.mp4"
+            type="video/mp4"
+          />
+        </video>
+
+        <div className="absolute inset-0 bg-black/35" />
 
         <AnimatePresence>
           {showDialog && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.25 }}
-              className="
-                absolute
-                left-[50%]
-                top-[14%]
-                -translate-x-1/2
-                -translate-y-1/2
-                z-20
-                w-[94%]
-                max-w-[980px]
-                text-center
-                px-2
-              "
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 22 }}
+              transition={{ duration: 0.5 }}
+              className="relative z-10 mx-4 flex w-full max-w-4xl flex-col items-center text-center"
             >
-              {/* LINHA 1 - SEM QUEBRAR NO MEIO */}
-              <div className="flex justify-center items-center flex-nowrap gap-[10px] whitespace-nowrap overflow-visible">
-                {wordsLine1.map((word, i) => (
-                  <motion.span
-                    key={`line1-${i}`}
-                    initial={{
-                      opacity: 0,
-                      y: 18,
-                      scale: 1.18,
-                      filter: 'blur(5px)',
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                      scale: 1,
-                      filter: 'blur(0px)',
-                    }}
-                    transition={{
-                      delay: i * 0.9,
-                      duration: 0.42,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                    className="
-                       text-[30px]
-                       sm:text-[34px]
-                       md:text-[46px]
-                       lg:text-[56px]
-                       font-bold
-                       leading-none
-                       text-red-950
-                     "
-                  >
-                    {word}
-                  </motion.span>
-                ))}
-              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/45 px-6 py-8 backdrop-blur-sm md:px-10 md:py-10">
+                <div className="mb-4 flex flex-wrap justify-center gap-x-3 gap-y-2 text-2xl font-semibold md:text-4xl">
+                  {wordsLine1.map((word, i) => (
+                    <motion.span
+                      key={`line1-${i}`}
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.12 }}
+                    >
+                      {word}
+                    </motion.span>
+                  ))}
+                </div>
 
-              {/* LINHA 2 - PODE DIVIDIR, MAS SÓ ENTRE PALAVRAS */}
-              <div className="mt-3 flex justify-center items-center flex-wrap gap-x-[10px] gap-y-[4px]">
-                {wordsLine2.map((word, i) => (
-                  <motion.span
-                    key={`line2-${i}`}
-                    initial={{
-                      opacity: 0,
-                      y: 18,
-                      scale: 1.14,
-                      filter: 'blur(5px)',
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                      scale: 1,
-                      filter: 'blur(0px)',
-                    }}
-                    transition={{
-                      delay: 2.7 + i * 0.9,
-                      duration: 0.42,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                    className="
-                       text-[26px]
-                       sm:text-[30px]
-                       md:text-[40px]
-                       lg:text-[48px]
-                       font-bold
-                       leading-none
-                       whitespace-nowrap
-                       text-red-950
-                     "
+                <div className="flex flex-wrap justify-center gap-x-3 gap-y-2 text-lg text-white/90 md:text-2xl">
+                  {wordsLine2.map((word, i) => (
+                    <motion.span
+                      key={`line2-${i}`}
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.45 + i * 0.1 }}
+                    >
+                      {word}
+                    </motion.span>
+                  ))}
+                </div>
+
+                {showButton && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3 }}
+                    onClick={() => navigate('/luxo-item?item=ring')}
+                    className="mt-8 rounded-xl border border-red-400/50 bg-gradient-to-r from-red-500 via-rose-500 to-pink-500 px-8 py-4 text-base font-bold tracking-[0.08em] text-white opacity-95 transition hover:scale-105 active:scale-95 sm:px-9 sm:py-4 sm:text-lg md:px-10 md:py-5 md:text-xl"
                   >
-                    {word}
-                  </motion.span>
-                ))}
+                    VER COLEÇÃO
+                  </motion.button>
+                )}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+      </main>
 
-        <AnimatePresence>
-          {showButton && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.82, y: 6, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-              className="
-                absolute
-                left-[21%]
-                top-[46%]
-                sm:left-[20%]
-                sm:top-[45%]
-                md:left-[19%]
-                md:top-[44%]
-                lg:left-[18%]
-                lg:top-[43%]
-                -translate-x-1/2
-                -translate-y-1/2
-                z-30
-              "
-            >
-              <button
-                onClick={() => navigate('/galeria')}
-                className="
-                  px-8 py-4
-                  sm:px-9 sm:py-4
-                  md:px-10 md:py-5
-                  rounded-xl
-                  text-white
-                  font-bold
-                  text-base sm:text-lg md:text-xl
-                  tracking-[0.08em]
-                  bg-gradient-to-r from-red-500 via-rose-500 to-pink-500
-                  transition
-                  hover:scale-105
-                  active:scale-95
-                  whitespace-nowrap
-                  border border-red-400/50
-                  opacity-95
-                "
-              >
-                VER COLEÇÃO
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
       <Footer />
     </div>
   );
