@@ -21,13 +21,6 @@ interface Authority {
   image: string;
 }
 
-interface Punishment {
-  id: string;
-  name: string;
-  description: string;
-  duration: number;
-}
-
 const AUTHORITIES: Authority[] = [
   {
     id: 1,
@@ -130,44 +123,6 @@ const AUTHORITIES: Authority[] = [
   },
 ];
 
-const PUNISHMENTS: Punishment[] = [
-  {
-    id: 'fiscal',
-    name: 'Operação Fiscal',
-    description:
-      'Operação fiscal no centro comercial do Complexo. Você não pode lavar dinheiro por 24 horas.',
-    duration: 24,
-  },
-  {
-    id: 'arsenal',
-    name: 'Invasão no Arsenal',
-    description:
-      'Invasão surpresa no Arsenal! 5 armas aleatórias foram danificadas. Você perde os bônus delas por 24 horas.',
-    duration: 24,
-  },
-  {
-    id: 'militia',
-    name: 'Visita da Milícia',
-    description:
-      'Visita surpresa da milícia! 5 itens de luxo foram confiscados. Você perde os bônus deles por 24 horas (mesmo com seguro).',
-    duration: 24,
-  },
-  {
-    id: 'blitz',
-    name: 'Blitz Surpresa',
-    description:
-      'Blitz "surpresa"! Seu último veículo de fuga foi rebocado. Você perdeu o veículo e precisa comprar outro.',
-    duration: 0,
-  },
-  {
-    id: 'threat',
-    name: 'Ameaça de Morte',
-    description:
-      'Ameaça de morte! Você não pode fazer giro no asfalto por 24 horas. Não é seguro sair de casa.',
-    duration: 24,
-  },
-];
-
 export default function SubornoIlustradoPage() {
   const navigate = useNavigate();
   const player = usePlayerStore((state) => state.player);
@@ -184,13 +139,8 @@ export default function SubornoIlustradoPage() {
 
   const barrackLevel = player?.niveis?.barracoLevel || 1;
   const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
-
-  // Determinar autoridade baseado no nível do barraco
-  useEffect(() => {
-    const authority = getAuthorityByLevel(barrackLevel);
-    setSelectedAuthority(authority);
-    setSubornoValue(calculateSubornoValue(barrackLevel));
-  }, [barrackLevel]);
+  const isMaxLevel = barrackLevel >= 100;
+  const canPaySuborno = !isMaxLevel && dirtyMoney >= subornoValue;
 
   const getAuthorityByLevel = (level: number): Authority => {
     if (level <= 9) return AUTHORITIES[0];
@@ -203,21 +153,18 @@ export default function SubornoIlustradoPage() {
     if (level <= 79) return AUTHORITIES[7];
     if (level <= 89) return AUTHORITIES[8];
     if (level <= 99) return AUTHORITIES[9];
-
-    if (level >= 100 && level < 109) {
-      return {
-        ...AUTHORITIES[10],
-        dialog:
-          'Você ainda não tem poder suficiente para falar comigo. Volte quando dominar tudo.',
-      };
-    }
-
     return AUTHORITIES[10];
   };
 
   const calculateSubornoValue = (level: number): number => {
     return Math.floor(220 * Math.pow(1.1, level - 1));
   };
+
+  useEffect(() => {
+    const authority = getAuthorityByLevel(barrackLevel);
+    setSelectedAuthority(authority);
+    setSubornoValue(calculateSubornoValue(barrackLevel));
+  }, [barrackLevel]);
 
   const handlePaySuborno = async () => {
     setIsProcessing(true);
@@ -227,6 +174,13 @@ export default function SubornoIlustradoPage() {
 
       if (!currentPlayer) {
         setResultMessage('Jogador não carregado.');
+        setShowResult(true);
+        return;
+      }
+
+      if (barrackLevel >= 100) {
+        setResultMessage('Você já está no nível máximo. Não é mais possível evoluir por suborno.');
+        setShowVaultModal(false);
         setShowResult(true);
         return;
       }
@@ -241,55 +195,28 @@ export default function SubornoIlustradoPage() {
       }
 
       const newDirtyMoney = currentDirtyMoney - subornoValue;
+      const newLevel = Math.min(100, barrackLevel + 1);
 
-      if (barrackLevel === 100) {
-        setResultMessage(
-          'Você atingiu o nível máximo do jogo! Parabéns, você é agora o rei do crime!'
-        );
+      const skills = { ...(currentPlayer.skills || {}) } as Record<string, number>;
+      const SKILLS = ['attack', 'defense', 'agility', 'intelligence', 'respect', 'vigor'];
+      const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
+      skills[randomSkill] = (skills[randomSkill] || 0) + 1;
 
-        setPlayer({
-          ...currentPlayer,
-          balances: {
-            ...currentPlayer.balances,
-            dirtyMoney: newDirtyMoney,
-          },
-          niveis: {
-            ...currentPlayer.niveis,
-            barracoLevel: 100,
-          },
-        });
-      } else {
-        const newLevel = barrackLevel + 1;
-        const skills = { ...(currentPlayer.skills || {}) } as Record<string, number>;
+      setResultMessage(
+        `Suborno pago! Você avançou para o nível ${newLevel}. Sua habilidade aumentou em 1%.`
+      );
 
-        const SKILLS = [
-          'attack',
-          'defense',
-          'agility',
-          'intelligence',
-          'respect',
-          'vigor',
-        ];
-        const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
-        skills[randomSkill] = (skills[randomSkill] || 0) + 1;
-
-        setResultMessage(
-          `Suborno pago! Você avançou para o nível ${newLevel}. Sua habilidade aumentou em 1%.`
-        );
-
-        setPlayer({
-          ...currentPlayer,
-          balances: {
-            ...currentPlayer.balances,
-            dirtyMoney: newDirtyMoney,
-          },
-          niveis: {
-            ...currentPlayer.niveis,
-            barracoLevel: newLevel,
-          },
-          skills,
-        });
-      }
+      setPlayer({
+        balances: {
+          ...currentPlayer.balances,
+          dirtyMoney: newDirtyMoney,
+        },
+        niveis: {
+          ...currentPlayer.niveis,
+          barracoLevel: newLevel,
+        },
+        skills,
+      });
 
       setShowVaultModal(false);
       setShowResult(true);
@@ -321,18 +248,10 @@ export default function SubornoIlustradoPage() {
       } else {
         const type = getRandomPunishment();
         const updated = applyPunishment(currentPlayer, type);
+        const newLevel = Math.min(100, barrackLevel + 1);
 
-        const newLevel = barrackLevel + 1;
         const skills = { ...(updated.skills || {}) } as Record<string, number>;
-
-        const SKILLS = [
-          'attack',
-          'defense',
-          'agility',
-          'intelligence',
-          'respect',
-          'vigor',
-        ];
+        const SKILLS = ['attack', 'defense', 'agility', 'intelligence', 'respect', 'vigor'];
         const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
         skills[randomSkill] = (skills[randomSkill] || 0) + 1;
 
@@ -366,7 +285,6 @@ export default function SubornoIlustradoPage() {
     <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
       <Header />
 
-      {/* BACKGROUND CINEMÁTICO AAA */}
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.7)_0%,rgba(20,20,20,0.95)_100%)]" />
       <div className="absolute inset-0 z-0 opacity-10 bg-[repeating-linear-gradient(45deg,#111_0px,#111_4px,transparent_4px,transparent_12px)]" />
 
@@ -375,30 +293,36 @@ export default function SubornoIlustradoPage() {
           <div className="inline-flex items-center gap-3 bg-red-950/70 text-red-400 text-xs font-black tracking-[0.25em] px-8 py-3 rounded-3xl border border-red-400/30 mb-6 shadow-inner">
             ⚠️ SUBORNO ILUSTRADO
           </div>
+
           <h1 className="font-heading text-7xl md:text-8xl tracking-[-0.04em] drop-shadow-[0_10px_40px_rgba(0,255,80,0.4)]">
             SUBORNO
           </h1>
+
           <p className="font-paragraph text-3xl text-emerald-400 font-bold mt-2">
             Nível do Barraco: <span className="text-white">{barrackLevel}</span>
           </p>
+
           <p className="font-paragraph text-xl text-gray-400 mt-1 flex items-center justify-center gap-2">
             <span>Dinheiro Sujo:</span>
             <span className="text-emerald-400 font-bold text-3xl">
               R$ {dirtyMoney.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
           </p>
+
+          {isMaxLevel && (
+            <p className="mt-4 text-yellow-400 font-bold text-lg">
+              Você já está no nível máximo. O suborno comum não evolui mais seu barraco.
+            </p>
+          )}
         </div>
 
         {selectedAuthority && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center bg-black/60 backdrop-blur-2xl border border-emerald-400/20 rounded-3xl p-8 md:p-12 shadow-[0_0_120px_-20px_rgba(0,255,80,0.5)]">
-            {/* IMAGEM DA AUTORIDADE - ESTILO PREMIUM AAA */}
             <div className="flex justify-center">
               <div className="relative group w-full max-w-md">
-                {/* GLOW EXTERNO */}
                 <div className="absolute -inset-4 bg-gradient-to-r from-emerald-400/30 to-transparent rounded-3xl blur-3xl opacity-70 group-hover:opacity-100 transition-all duration-500" />
 
                 <div className="relative bg-gray-950 border-4 border-emerald-500/70 rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,255,80,0.6)]">
-                  {/* VINHETA INTERNA */}
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.4)_0%,transparent_70%)] z-10 pointer-events-none" />
 
                   <Image
@@ -409,7 +333,6 @@ export default function SubornoIlustradoPage() {
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
 
-                  {/* OVERLAY DE "OFICIAL" */}
                   <div className="absolute bottom-6 left-6 bg-black/70 text-emerald-400 text-xs font-black tracking-widest px-5 py-1.5 rounded-2xl border border-emerald-400/40 backdrop-blur-md">
                     AUTORIDADE
                   </div>
@@ -417,12 +340,12 @@ export default function SubornoIlustradoPage() {
               </div>
             </div>
 
-            {/* INFORMAÇÕES DA AUTORIDADE - LAYOUT AAA */}
             <div className="space-y-10">
               <div>
                 <h2 className="font-heading text-5xl md:text-6xl tracking-[-0.03em] text-white drop-shadow-lg">
                   {selectedAuthority.name}
                 </h2>
+
                 <div className="flex items-center gap-3 mt-4">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
                   <p className="text-emerald-400 font-medium text-xl px-6 py-1 bg-emerald-950/60 border border-emerald-400/30 rounded-3xl">
@@ -432,7 +355,6 @@ export default function SubornoIlustradoPage() {
                 </div>
               </div>
 
-              {/* QUOTE PREMIUM */}
               <div className="relative bg-black/80 border border-emerald-400/30 rounded-3xl p-8 shadow-inner">
                 <div className="absolute -left-1 -top-4 text-8xl text-emerald-400/20 leading-none">
                   "
@@ -445,28 +367,34 @@ export default function SubornoIlustradoPage() {
                 </div>
               </div>
 
-              {/* VALOR DO SUBORNO - DISPLAY COFRE AAA */}
               <div className="bg-gradient-to-br from-emerald-950 to-black border border-emerald-400/60 rounded-3xl p-8 flex items-center justify-between shadow-[inset_0_0_60px_rgba(0,255,80,0.2)]">
                 <div>
                   <p className="text-emerald-400/70 text-sm font-medium tracking-widest">
                     VALOR EXIGIDO
                   </p>
                   <p className="font-heading text-6xl text-emerald-400 tracking-tighter">
-                    R$ {subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {isMaxLevel
+                      ? 'MAX'
+                      : `R$ ${subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                   </p>
                 </div>
                 <div className="text-7xl">💰</div>
               </div>
 
-              {/* BOTÕES - ESTILO COFRE PREMIUM */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
                   onClick={() => setShowVaultModal(true)}
                   className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-heading text-2xl py-8 rounded-3xl shadow-[0_0_60px_rgba(0,255,80,0.7)] hover:shadow-[0_0_90px_rgba(0,255,80,1)] transition-all duration-300 active:scale-[0.97] flex items-center justify-center gap-3"
-                  disabled={isProcessing}
+                  disabled={isProcessing || isMaxLevel || !canPaySuborno}
                 >
                   <span className="text-4xl">🔐</span>
-                  {isProcessing ? 'ABRINDO COFRE...' : 'PAGAR SUBORNO'}
+                  {isProcessing
+                    ? 'ABRINDO COFRE...'
+                    : isMaxLevel
+                      ? 'NÍVEL MÁXIMO'
+                      : !canPaySuborno
+                        ? 'SALDO INSUFICIENTE'
+                        : 'PAGAR SUBORNO'}
                 </Button>
 
                 <Button
@@ -494,7 +422,6 @@ export default function SubornoIlustradoPage() {
 
       <Footer />
 
-      {/* Safe Vault Modal - IMAGEM INTERNA COM DINHEIRO PERMANECE INALTERADA */}
       <SafeVaultModal
         open={showVaultModal}
         onOpenChange={setShowVaultModal}
@@ -504,7 +431,6 @@ export default function SubornoIlustradoPage() {
         isProcessing={isProcessing}
       />
 
-      {/* Resultado */}
       <Dialog open={showResult} onOpenChange={setShowResult}>
         <DialogContent className="bg-gray-900 border-emerald-800 max-w-md">
           <DialogHeader>
@@ -512,11 +438,13 @@ export default function SubornoIlustradoPage() {
               Resultado da Operação
             </DialogTitle>
           </DialogHeader>
+
           <div className="text-center py-8">
             <p className="font-paragraph text-xl whitespace-pre-line text-gray-200 leading-relaxed">
               {resultMessage}
             </p>
           </div>
+
           <Button
             onClick={handleCloseResult}
             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-heading text-xl py-7 rounded-3xl"
