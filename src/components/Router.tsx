@@ -4,70 +4,22 @@ import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import { Suspense, lazy } from 'react';
 
 // Lazy load pages to avoid circular dependencies
-const HomePage = lazy(() => import('@/components/pages/HomePage').catch(err => {
-  console.error('Failed to load HomePage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const ProfilePage = lazy(() => import('@/components/pages/ProfilePage').catch(err => {
-  console.error('Failed to load ProfilePage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const GamePage = lazy(() => import('@/components/pages/GamePage').catch(err => {
-  console.error('Failed to load GamePage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const GiroPage = lazy(() => import('@/components/pages/GiroPage').catch(err => {
-  console.error('Failed to load GiroPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const LuxuryshowroomPage = lazy(() => import('@/components/pages/LuxuryshowroomPage').catch(err => {
-  console.error('Failed to load LuxuryshowroomPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const LuxoItemPage = lazy(() => import('@/components/pages/LuxoItemPage').catch(err => {
-  console.error('Failed to load LuxoItemPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const LavagemDeDinheiroPage = lazy(() => import('@/components/pages/LavagemDeDinheiroPage').catch(err => {
-  console.error('Failed to load LavagemDeDinheiroPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const SubornoIlustradoPage = lazy(() => import('@/components/pages/SubornoIlustradoPage').catch(err => {
-  console.error('Failed to load SubornoIlustradoPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const DelacaoPremiadaPage = lazy(() => import('@/components/pages/DelacaoPremiadaPage').catch(err => {
-  console.error('Failed to load DelacaoPremiadaPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const ArsenalPage = lazy(() => import('@/components/pages/ArsenalPage').catch(err => {
-  console.error('Failed to load ArsenalPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const ArmasPage = lazy(() => import('@/components/pages/ArmasPage').catch(err => {
-  console.error('Failed to load ArmasPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const BarracoPage = lazy(() => import('@/components/pages/BarracoPage').catch(err => {
-  console.error('Failed to load BarracoPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPage').catch(err => {
-  console.error('Failed to load FugaIlustradaPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const GangPage = lazy(() => import('@/components/gang/GangPage').catch(err => {
-  console.error('Failed to load GangPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const GaleriaPage = lazy(() => import('@/components/pages/GaleriaPage').catch(err => {
-  console.error('Failed to load GaleriaPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
-const ChatPage = lazy(() => import('@/components/pages/ChatPage').catch(err => {
-  console.error('Failed to load ChatPage:', err);
-  return { default: () => <div className="min-h-screen bg-black text-white flex items-center justify-center">Error loading page</div> };
-}));
+const HomePage = lazy(() => import('@/components/pages/HomePage'));
+const ProfilePage = lazy(() => import('@/components/pages/ProfilePage'));
+const GamePage = lazy(() => import('@/components/pages/GamePage'));
+const GiroPage = lazy(() => import('@/components/pages/GiroPage'));
+const LuxuryshowroomPage = lazy(() => import('@/components/pages/LuxuryshowroomPage'));
+const LuxoItemPage = lazy(() => import('@/components/pages/LuxoItemPage'));
+const LavagemDeDinheiroPage = lazy(() => import('@/components/pages/LavagemDeDinheiroPage'));
+const SubornoIlustradoPage = lazy(() => import('@/components/pages/SubornoIlustradoPage'));
+const DelacaoPremiadaPage = lazy(() => import('@/components/pages/DelacaoPremiadaPage'));
+const ArsenalPage = lazy(() => import('@/components/pages/ArsenalPage'));
+const ArmasPage = lazy(() => import('@/components/pages/ArmasPage'));
+const BarracoPage = lazy(() => import('@/components/pages/BarracoPage'));
+const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPage'));
+const GangPage = lazy(() => import('@/components/gang/GangPage'));
+const GaleriaPage = lazy(() => import('@/components/pages/GaleriaPage'));
+const ChatPage = lazy(() => import('@/components/pages/ChatPage'));
 
 function Layout() {
   return (
