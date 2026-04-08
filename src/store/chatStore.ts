@@ -4,6 +4,7 @@ import type { ChatMessage, ChatChannelType } from '@/types/chat';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
 const POLLING_INTERVAL = 3000;
+const REQUEST_TIMEOUT_MS = 15000;
 
 let chatPollingInterval: ReturnType<typeof setInterval> | null = null;
 let realtimeUnsubscribers: Map<string, () => void> = new Map();
@@ -59,42 +60,79 @@ type ChatStore = {
   saveChat: () => void;
 };
 
-function getAuthToken() {
-  return localStorage.getItem('authToken');
+function getAuthToken(): string | null {
+  const candidates = [
+    localStorage.getItem('authToken'),
+    localStorage.getItem('token'),
+    localStorage.getItem('jwt'),
+    localStorage.getItem('wix_auth_token'),
+  ];
+
+  for (const token of candidates) {
+    if (token && token.trim()) {
+      return token.trim();
+    }
+  }
+
+  return null;
+}
+
+function createTimeoutSignal(timeoutMs: number): AbortController {
+  const controller = new AbortController();
+  window.setTimeout(() => controller.abort(), timeoutMs);
+  return controller;
+}
+
+async function safeReadJson(response: Response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 async function makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
-  console.log('🔑 Token para chat:', token ? `${token.slice(0, 20)}...` : 'ausente');
-  console.log('📡 Chat request:', endpoint, 'token exists?', !!token);
 
   if (!token) {
     throw new Error('Sem token de autenticação');
   }
 
-  const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
+  const controller = createTimeoutSignal(REQUEST_TIMEOUT_MS);
 
-  if (!response.ok) {
-    let errorMessage = 'Erro na requisição do chat';
+  let response: Response;
 
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData?.error || errorMessage;
-    } catch {
-      // ignora parse
+  try {
+    response = await fetch(`${BACKEND_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+      cache: 'no-store',
+    });
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`Tempo limite excedido em ${endpoint}`);
     }
-
-    throw new Error(errorMessage);
+    throw new Error(`Falha de conexão em ${endpoint}`);
   }
 
-  return response.json();
+  const data = await safeReadJson(response);
+
+  if (!response.ok) {
+    const message =
+      data?.error ||
+      data?.message ||
+      `Erro na requisição do chat (${response.status})`;
+
+    throw new Error(message);
+  }
+
+  return data as T;
 }
 
 function normalizeMessages(messages: any[]): ChatMessage[] {
@@ -112,6 +150,31 @@ function normalizeMessages(messages: any[]): ChatMessage[] {
     read: msg.read ?? false,
     system: msg.system ?? false,
   }));
+}
+
+function mergeUniqueMessages(
+  current: ChatMessage[],
+  incoming: ChatMessage[]
+): ChatMessage[] {
+  const map = new Map<string, ChatMessage>();
+
+  for (const msg of current) {
+    if (msg?.id) {
+      map.set(String(msg.id), msg);
+    }
+  }
+
+  for (const msg of incoming) {
+    if (msg?.id) {
+      map.set(String(msg.id), msg);
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    const aTime = new Date(a.createdAt || 0).getTime();
+    const bTime = new Date(b.createdAt || 0).getTime();
+    return aTime - bTime;
+  });
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -134,7 +197,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   setMailMessages: (messages) => set({ mailMessages: messages }),
 
   setCurrentUser: (userId, factionId) => {
-    set({ currentUserId: userId, currentFactionId: factionId || null });
+    set({
+      currentUserId: userId,
+      currentFactionId: factionId || null,
+    });
   },
 
   fetchMessages: async (channel) => {
@@ -147,7 +213,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         `/chat/messages?channel=${selectedChannel}`
       );
 
-      const messages = normalizeMessages(raw);
+      const messages = normalizeMessages(raw || []);
 
       if (selectedChannel === 'complexo') {
         set({ complexoMessages: messages, isLoading: false });
@@ -171,9 +237,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   loadChat: async () => {
     const token = getAuthToken();
-    
+
     if (!token) {
-      console.warn('Chat: Sem token de autenticação');
       set({
         isLoading: false,
         syncError: 'Autenticação necessária para carregar chat',
@@ -190,21 +255,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         makeRequest<any[]>('/chat/messages?channel=mail'),
       ]);
 
-      const c1 = results[0].status === 'fulfilled' ? results[0].value : [];
-      const c2 = results[1].status === 'fulfilled' ? results[1].value : [];
-      const c3 = results[2].status === 'fulfilled' ? results[2].value : [];
+      const complexoRaw = results[0].status === 'fulfilled' ? results[0].value : [];
+      const faccaoRaw = results[1].status === 'fulfilled' ? results[1].value : [];
+      const mailRaw = results[2].status === 'fulfilled' ? results[2].value : [];
 
       set({
-        complexoMessages: normalizeMessages(c1),
-        faccaoMessages: normalizeMessages(c2),
-        mailMessages: normalizeMessages(c3),
+        complexoMessages: normalizeMessages(complexoRaw),
+        faccaoMessages: normalizeMessages(faccaoRaw),
+        mailMessages: normalizeMessages(mailRaw),
         isLoading: false,
       });
 
-      // Subscribe to realtime channels
       await get().subscribeToRealtimeChannels();
-      
-      // Keep polling as fallback
       get().startChatPolling();
     } catch (error) {
       console.error('Erro ao carregar chat:', error);
@@ -221,49 +283,45 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const factionId = state.currentFactionId;
 
     try {
-      // Unsubscribe from old channels first
       get().unsubscribeFromRealtimeChannels();
 
-      // Subscribe to complexo channel (everyone listens)
       const complexoUnsub = await subscribe('chat_complexo', (message: any) => {
-        if (message.type === 'chat_message' && message.channel === 'complexo') {
-          const normalizedMsg = normalizeMessages([message])[0];
+        if (message?.type === 'chat_message' && message?.channel === 'complexo') {
+          const normalized = normalizeMessages([message]);
           set((state) => ({
-            complexoMessages: [...state.complexoMessages, normalizedMsg],
+            complexoMessages: mergeUniqueMessages(state.complexoMessages, normalized),
           }));
         }
       });
-      realtimeUnsubscribers.set('chat_complexo', complexoUnsub);
-      console.log('✅ Subscribed to chat_complexo');
 
-      // Subscribe to faction channel if user has faction
+      realtimeUnsubscribers.set('chat_complexo', complexoUnsub);
+
       if (factionId) {
         const faccaoChannel = `chat_faccao_${factionId}`;
         const faccaoUnsub = await subscribe(faccaoChannel, (message: any) => {
-          if (message.type === 'chat_message' && message.channel === 'faccao') {
-            const normalizedMsg = normalizeMessages([message])[0];
+          if (message?.type === 'chat_message' && message?.channel === 'faccao') {
+            const normalized = normalizeMessages([message]);
             set((state) => ({
-              faccaoMessages: [...state.faccaoMessages, normalizedMsg],
+              faccaoMessages: mergeUniqueMessages(state.faccaoMessages, normalized),
             }));
           }
         });
+
         realtimeUnsubscribers.set(faccaoChannel, faccaoUnsub);
-        console.log(`✅ Subscribed to ${faccaoChannel}`);
       }
 
-      // Subscribe to mail channel for current user
       if (userId) {
         const mailChannel = `chat_mail_${userId}`;
         const mailUnsub = await subscribe(mailChannel, (message: any) => {
-          if (message.type === 'chat_message' && message.channel === 'mail') {
-            const normalizedMsg = normalizeMessages([message])[0];
+          if (message?.type === 'chat_message' && message?.channel === 'mail') {
+            const normalized = normalizeMessages([message]);
             set((state) => ({
-              mailMessages: [...state.mailMessages, normalizedMsg],
+              mailMessages: mergeUniqueMessages(state.mailMessages, normalized),
             }));
           }
         });
+
         realtimeUnsubscribers.set(mailChannel, mailUnsub);
-        console.log(`✅ Subscribed to ${mailChannel}`);
       }
     } catch (error) {
       console.error('Erro ao se inscrever em canais realtime:', error);
@@ -281,8 +339,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         console.error('Erro ao desinscrever:', error);
       }
     });
+
     realtimeUnsubscribers.clear();
-    console.log('🔌 Unsubscribed from all realtime channels');
   },
 
   startChatPolling: () => {
@@ -318,50 +376,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ syncError: null });
 
-      const messagePayload = {
-        channel: 'complexo',
-        senderId,
-        senderName,
-        body,
-      };
-
-      // Send to backend REST
       await makeRequest('/chat/send', {
         method: 'POST',
-        body: JSON.stringify(messagePayload),
-      });
-
-      // Publish to realtime channel
-      try {
-        const realtimePayload = {
-          id: crypto.randomUUID(),
+        body: JSON.stringify({
           channel: 'complexo',
           senderId,
           senderName,
           body,
-          createdAt: new Date().toISOString(),
-          read: false,
-          system: false,
-        };
-        
-        // Call backend function to publish
-        const response = await fetch('/_functions/publishComplexoMessage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-          body: JSON.stringify(realtimePayload),
-        });
-        
-        if (!response.ok) {
-          console.warn('Falha ao publicar no realtime, mas mensagem foi salva');
-        }
-      } catch (realtimeError) {
-        console.warn('Erro ao publicar realtime:', realtimeError);
-      }
+        }),
+      });
 
-      // Fetch updated messages
       await get().fetchMessages('complexo');
     } catch (error) {
       console.error('Erro ao enviar mensagem do complexo:', error);
@@ -382,55 +406,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ syncError: null });
 
-      const messagePayload = {
-        channel: 'faccao',
-        senderId,
-        senderName,
-        factionId,
-        body,
-      };
-
-      // Send to backend REST
       await makeRequest('/chat/send', {
         method: 'POST',
-        body: JSON.stringify(messagePayload),
-      });
-
-      // Publish to realtime channel
-      try {
-        const realtimePayload = {
-          id: crypto.randomUUID(),
+        body: JSON.stringify({
           channel: 'faccao',
           senderId,
           senderName,
           factionId,
           body,
-          createdAt: new Date().toISOString(),
-          read: false,
-          system: false,
-        };
-        
-        // Call backend function to publish
-        const response = await fetch('/_functions/publishFaccaoMessage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-          body: JSON.stringify({
-            factionId,
-            message: realtimePayload,
-          }),
-        });
-        
-        if (!response.ok) {
-          console.warn('Falha ao publicar no realtime, mas mensagem foi salva');
-        }
-      } catch (realtimeError) {
-        console.warn('Erro ao publicar realtime:', realtimeError);
-      }
+        }),
+      });
 
-      // Fetch updated messages
       await get().fetchMessages('faccao');
     } catch (error) {
       console.error('Erro ao enviar mensagem da facção:', error);
@@ -458,26 +444,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ syncError: null });
 
-      const messagePayload = {
-        channel: 'mail',
-        senderId,
-        senderName,
-        recipientId,
-        recipientName,
-        subject: subject || 'Sem assunto',
-        body,
-      };
-
-      // Send to backend REST
       await makeRequest('/chat/send', {
         method: 'POST',
-        body: JSON.stringify(messagePayload),
-      });
-
-      // Publish to realtime channel
-      try {
-        const realtimePayload = {
-          id: crypto.randomUUID(),
+        body: JSON.stringify({
           channel: 'mail',
           senderId,
           senderName,
@@ -485,32 +454,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           recipientName,
           subject: subject || 'Sem assunto',
           body,
-          createdAt: new Date().toISOString(),
-          read: false,
-          system: false,
-        };
-        
-        // Call backend function to publish
-        const response = await fetch('/_functions/publishMailMessage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-          body: JSON.stringify({
-            recipientId,
-            message: realtimePayload,
-          }),
-        });
-        
-        if (!response.ok) {
-          console.warn('Falha ao publicar no realtime, mas mensagem foi salva');
-        }
-      } catch (realtimeError) {
-        console.warn('Erro ao publicar realtime:', realtimeError);
-      }
+        }),
+      });
 
-      // Fetch updated messages
       await get().fetchMessages('mail');
     } catch (error) {
       console.error('Erro ao enviar correio:', error);
@@ -524,7 +470,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ syncError: null });
 
-      // backend atual não tem /chat/read/:id
+      // enquanto o backend ainda não tiver endpoint próprio,
+      // mantém atualização local sem quebrar o fluxo
       set((state) => ({
         mailMessages: state.mailMessages.map((msg) =>
           msg.id === messageId ? { ...msg, read: true } : msg
@@ -553,6 +500,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   saveChat: () => {
-    // backend é a fonte de verdade
+    // backend continua sendo a fonte de verdade
   },
 }));
