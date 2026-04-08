@@ -17,7 +17,8 @@ export default function ChatPage() {
     activeChannel, setActiveChannel, 
     complexoMessages, faccaoMessages, mailMessages,
     sendComplexoMessage, sendFaccaoMessage, sendMailMessage,
-    loadChat, startChatPolling, stopChatPolling, isLoading 
+    loadChat, startChatPolling, stopChatPolling, isLoading,
+    setCurrentUser, subscribeToRealtimeChannels, unsubscribeFromRealtimeChannels
   } = useChatStore();
 
   const [messageText, setMessageText] = useState('');
@@ -32,11 +33,16 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (player?._id) {
+      // Set current user and faction for realtime subscriptions
+      setCurrentUser(player._id, player.factionId);
       loadChat();
       startChatPolling();
-      return () => stopChatPolling();
+      return () => {
+        stopChatPolling();
+        unsubscribeFromRealtimeChannels();
+      };
     }
-  }, [player?._id]);
+  }, [player?._id, player?.factionId]);
 
   if (!token || !player?._id) {
     return (
