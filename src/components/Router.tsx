@@ -17,6 +17,7 @@ import BarracoPage from '@/components/pages/BarracoPage';
 import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 import GangPage from '@/components/gang/GangPage';
 import GaleriaPage from '@/components/pages/GaleriaPage';
+import ChatPage from '@/components/pages/ChatPage';
 
 function Layout() {
   return (
@@ -53,6 +54,7 @@ const router = createBrowserRouter(
         { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
         { path: 'gang', element: <GangPage /> },
         { path: 'galeria', element: <GaleriaPage /> },
+        { path: 'chat', element: <ChatPage /> },
 
         { path: '*', element: <Navigate to="/" replace /> },
       ],
