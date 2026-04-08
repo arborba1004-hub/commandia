@@ -38,7 +38,7 @@ export default function Header() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { player, setPlayer } = usePlayerStore();
-  const { playerData, authToken, logout } = useWixAuth();
+  const { playerData, authToken } = useWixAuth();
 
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
   const mailMessages = useChatStore((state) => state.mailMessages);
@@ -127,7 +127,6 @@ export default function Header() {
     // Save player data to CMS before logout
     await handlePersistenceLogout();
     
-    logout();
     window.location.href = '/';
   };
 

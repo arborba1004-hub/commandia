@@ -93,15 +93,10 @@ export default function HomePageNew() {
   const navigate = useNavigate();
   const manifestoRef = useRef<HTMLElement | null>(null);
 
-  const { member, isAuthenticated, isLoading, playerProfile, error, actions } = useWixAuth();
+  const { member, isAuthenticated, isLoading } = useWixAuth();
 
   const scrollToManifesto = () => {
     manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const handleLogout = async () => {
-    await actions.logout();
-    window.location.href = '/';
   };
 
   if (isLoading) {
@@ -221,15 +216,15 @@ export default function HomePageNew() {
                           LEVEL
                         </p>
                         <p className="mt-2 text-2xl font-bold text-white">
-                          {playerProfile?.level || 1}
+                          {member?.niveis?.playerLevel || 1}
                         </p>
                       </div>
                       <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
-                          EXP
+                          PODER
                         </p>
                         <p className="mt-2 text-2xl font-bold text-white">
-                          {playerProfile?.experiencePoints || 0}
+                          {member?.power || 0}
                         </p>
                       </div>
                       <div className="col-span-2 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
@@ -237,7 +232,7 @@ export default function HomePageNew() {
                           COMMANDS SUJO
                         </p>
                         <p className="mt-2 text-3xl font-bold text-red-300">
-                          {(playerProfile?.dirtyMoney || 0).toLocaleString('pt-BR')}
+                          {(member?.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}
                         </p>
                       </div>
                     </div>
@@ -251,7 +246,7 @@ export default function HomePageNew() {
                       </button>
 
                       <button
-                        onClick={handleLogout}
+                        onClick={() => window.location.href = '/'}
                         className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-950/35 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-red-200 transition hover:bg-red-900/35"
                       >
                         <LogOut className="h-4 w-4" />
@@ -276,17 +271,11 @@ export default function HomePageNew() {
                     </p>
 
                     <button
-                      onClick={() => actions.login()}
+                      onClick={scrollToManifesto}
                       className="mt-5 w-full rounded-2xl border border-amber-300/20 bg-gradient-to-r from-red-950 via-red-800 to-red-950 px-6 py-4 text-sm font-bold uppercase tracking-[0.28em] text-white transition hover:scale-[1.01]"
                     >
-                      Entrar com Wix
+                      Explorar
                     </button>
-
-                    {error && (
-                      <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-950/35 px-4 py-3 text-sm text-red-200">
-                        {error}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -305,17 +294,11 @@ export default function HomePageNew() {
               </h2>
 
               <button
-                onClick={() => actions.login()}
+                onClick={scrollToManifesto}
                 className="mt-4 w-full rounded-2xl border border-amber-300/20 bg-gradient-to-r from-red-950 via-red-800 to-red-950 px-6 py-4 text-sm font-bold uppercase tracking-[0.28em] text-white transition hover:scale-[1.01]"
               >
-                Entrar com Wix
+                Explorar
               </button>
-
-              {error && (
-                <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-950/35 px-4 py-3 text-sm text-red-200">
-                  {error}
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -334,18 +317,18 @@ export default function HomePageNew() {
               <div className="mt-5 grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
                   <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">LEVEL</p>
-                  <p className="mt-2 text-lg font-bold text-white">{playerProfile?.level || 1}</p>
+                  <p className="mt-2 text-lg font-bold text-white">{member?.niveis?.playerLevel || 1}</p>
                 </div>
                 <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">EXP</p>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">PODER</p>
                   <p className="mt-2 text-lg font-bold text-white">
-                    {playerProfile?.experiencePoints || 0}
+                    {member?.power || 0}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
                   <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">SUJO</p>
                   <p className="mt-2 text-lg font-bold text-red-300">
-                    {(playerProfile?.dirtyMoney || 0).toLocaleString('pt-BR')}
+                    {(member?.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}
                   </p>
                 </div>
               </div>
@@ -358,7 +341,7 @@ export default function HomePageNew() {
                   CONTINUAR
                 </button>
                 <button
-                  onClick={handleLogout}
+                  onClick={() => window.location.href = '/'}
                   className="w-full rounded-2xl border border-red-500/25 bg-red-950/35 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-red-200"
                 >
                   SAIR
