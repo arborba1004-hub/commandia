@@ -1,1 +1,7 @@
-{"siteId":"84fc9d6f-1446-4900-8d2c-4549b8788103","appId":"c60bf4cc-c864-42dd-a273-a1938dac0052"}
+{
+  "siteId": "84fc9d6f-1446-4900-8d2c-4549b8788103",
+  "appId": "c60bf4cc-c864-42dd-a273-a1938dac0052",
+  "backend": {
+    "webModules": ["src/backend/*.jsw"]
+  }
+}
