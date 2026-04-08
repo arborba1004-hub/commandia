@@ -57,7 +57,7 @@ type ChatStore = {
 
   markMailAsRead: (messageId: string) => Promise<void>;
   clearChannel: (channel: ChatChannelType) => void;
-  saveChat: () => void;
+  resetChatState: () => void;
 };
 
 function getAuthToken(): string | null {
@@ -152,10 +152,7 @@ function normalizeMessages(messages: any[]): ChatMessage[] {
   }));
 }
 
-function mergeUniqueMessages(
-  current: ChatMessage[],
-  incoming: ChatMessage[]
-): ChatMessage[] {
+function mergeUniqueMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
   const map = new Map<string, ChatMessage>();
 
   for (const msg of current) {
@@ -216,16 +213,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const messages = normalizeMessages(raw || []);
 
       if (selectedChannel === 'complexo') {
-        set({ complexoMessages: messages, isLoading: false });
+        set((state) => ({
+          complexoMessages: mergeUniqueMessages(state.complexoMessages, messages),
+          isLoading: false,
+        }));
         return;
       }
 
       if (selectedChannel === 'faccao') {
-        set({ faccaoMessages: messages, isLoading: false });
+        set((state) => ({
+          faccaoMessages: mergeUniqueMessages(state.faccaoMessages, messages),
+          isLoading: false,
+        }));
         return;
       }
 
-      set({ mailMessages: messages, isLoading: false });
+      set((state) => ({
+        mailMessages: mergeUniqueMessages(state.mailMessages, messages),
+        isLoading: false,
+      }));
     } catch (error) {
       console.error('Erro ao buscar mensagens:', error);
       set({
@@ -237,6 +243,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   loadChat: async () => {
     const token = getAuthToken();
+    const { currentFactionId, currentUserId } = get();
 
     if (!token) {
       set({
@@ -249,15 +256,27 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ isLoading: true, syncError: null });
 
-      const results = await Promise.allSettled([
-        makeRequest<any[]>('/chat/messages?channel=complexo'),
-        makeRequest<any[]>('/chat/messages?channel=faccao'),
-        makeRequest<any[]>('/chat/messages?channel=mail'),
-      ]);
+      const requests: Promise<any[]>[] = [makeRequest<any[]>('/chat/messages?channel=complexo')];
 
-      const complexoRaw = results[0].status === 'fulfilled' ? results[0].value : [];
-      const faccaoRaw = results[1].status === 'fulfilled' ? results[1].value : [];
-      const mailRaw = results[2].status === 'fulfilled' ? results[2].value : [];
+      if (currentFactionId) {
+        requests.push(makeRequest<any[]>('/chat/messages?channel=faccao'));
+      }
+
+      if (currentUserId) {
+        requests.push(makeRequest<any[]>('/chat/messages?channel=mail'));
+      }
+
+      const results = await Promise.allSettled(requests);
+
+      const complexoRaw = results[0]?.status === 'fulfilled' ? results[0].value : [];
+      const faccaoRaw =
+        currentFactionId && results[1]?.status === 'fulfilled' ? results[1].value : [];
+      const mailRaw =
+        currentUserId &&
+        results[results.length - 1]?.status === 'fulfilled' &&
+        (currentFactionId || !currentFactionId)
+          ? results[results.length - 1].value
+          : [];
 
       set({
         complexoMessages: normalizeMessages(complexoRaw),
@@ -345,6 +364,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   startChatPolling: () => {
     const token = getAuthToken();
+    const { currentFactionId, currentUserId } = get();
+
     if (!token) return;
 
     if (chatPollingInterval) {
@@ -353,8 +374,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     chatPollingInterval = setInterval(() => {
       void get().fetchMessages('complexo');
-      void get().fetchMessages('faccao');
-      void get().fetchMessages('mail');
+
+      if (currentFactionId) {
+        void get().fetchMessages('faccao');
+      }
+
+      if (currentUserId) {
+        void get().fetchMessages('mail');
+      }
     }, POLLING_INTERVAL);
   },
 
@@ -366,9 +393,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendComplexoMessage: async ({ senderId, senderName, body }) => {
-    if (!senderId || !senderName) {
+    if (!senderId || !senderName || !body.trim()) {
       set({
-        syncError: 'Dados do jogador não carregados. Faça login novamente.',
+        syncError: 'Mensagem inválida ou dados do jogador ausentes.',
       });
       return;
     }
@@ -382,7 +409,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           channel: 'complexo',
           senderId,
           senderName,
-          body,
+          body: body.trim(),
         }),
       });
 
@@ -396,9 +423,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendFaccaoMessage: async ({ senderId, senderName, factionId, body }) => {
-    if (!senderId || !senderName || !factionId) {
+    if (!senderId || !senderName || !factionId || !body.trim()) {
       set({
-        syncError: 'Dados incompletos. Verifique sua facção e faça login novamente.',
+        syncError: 'Dados incompletos. Verifique sua facção e a mensagem.',
       });
       return;
     }
@@ -413,7 +440,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           senderId,
           senderName,
           factionId,
-          body,
+          body: body.trim(),
         }),
       });
 
@@ -434,9 +461,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     subject,
     body,
   }) => {
-    if (!senderId || !senderName || !recipientId || !recipientName) {
+    if (!senderId || !senderName || !recipientId || !recipientName || !body.trim()) {
       set({
-        syncError: 'Dados incompletos. Verifique remetente e destinatário.',
+        syncError: 'Dados incompletos. Verifique remetente, destinatário e mensagem.',
       });
       return;
     }
@@ -452,8 +479,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           senderName,
           recipientId,
           recipientName,
-          subject: subject || 'Sem assunto',
-          body,
+          subject: subject?.trim() || 'Sem assunto',
+          body: body.trim(),
         }),
       });
 
@@ -470,8 +497,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       set({ syncError: null });
 
-      // enquanto o backend ainda não tiver endpoint próprio,
-      // mantém atualização local sem quebrar o fluxo
       set((state) => ({
         mailMessages: state.mailMessages.map((msg) =>
           msg.id === messageId ? { ...msg, read: true } : msg
@@ -499,7 +524,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({ mailMessages: [] });
   },
 
-  saveChat: () => {
-    // backend continua sendo a fonte de verdade
+  resetChatState: () => {
+    get().stopChatPolling();
+    get().unsubscribeFromRealtimeChannels();
+
+    set({
+      complexoMessages: [],
+      faccaoMessages: [],
+      mailMessages: [],
+      activeChannel: 'complexo',
+      isLoading: false,
+      syncError: null,
+      currentUserId: null,
+      currentFactionId: null,
+    });
   },
 }));
