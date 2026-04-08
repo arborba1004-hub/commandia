@@ -4,6 +4,7 @@ import { lazy, Suspense } from 'react';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import PlayerPersistenceProvider from '@/components/PlayerPersistenceProvider';
 
 // Lazy load all pages to prevent circular dependencies
 const HomePage = lazy(() => import('@/components/pages/HomePage'));
@@ -75,5 +76,9 @@ const router = createBrowserRouter([
 });
 
 export default function AppRouter() {
-  return <RouterProvider router={router} />;
+  return (
+    <PlayerPersistenceProvider>
+      <RouterProvider router={router} />
+    </PlayerPersistenceProvider>
+  );
 }

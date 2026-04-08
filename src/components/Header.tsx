@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useChatStore } from '@/store/chatStore';
+import { usePlayerPersistence } from '@/hooks/usePlayerPersistence';
 import { LogOut } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import AdminResetPanel from '@/components/AdminResetPanel';
@@ -44,6 +45,12 @@ export default function Header() {
   const loadChat = useChatStore((state) => state.loadChat);
   const startChatPolling = useChatStore((state) => state.startChatPolling);
   const stopChatPolling = useChatStore((state) => state.stopChatPolling);
+
+  // Player persistence integration
+  const { handleLogin, handleLogout: handlePersistenceLogout } = usePlayerPersistence({
+    enabled: true,
+    autoSync: true,
+  });
 
   const isAuthenticated = !!player?._id && !!authToken;
 
@@ -107,8 +114,19 @@ export default function Header() {
     };
   }, [isAuthenticated, authToken, loadChat, startChatPolling, stopChatPolling]);
 
-  const handleLogout = () => {
+  // Handle player login - load data from CMS
+  useEffect(() => {
+    if (isAuthenticated && player._id) {
+      handleLogin(player._id);
+    }
+  }, [isAuthenticated, player._id, handleLogin]);
+
+  const handleLogout = async () => {
     stopChatPolling();
+    
+    // Save player data to CMS before logout
+    await handlePersistenceLogout();
+    
     logout();
     window.location.href = '/';
   };
