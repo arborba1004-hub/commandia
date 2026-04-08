@@ -162,3 +162,72 @@ export interface Matches {
   /** @wixFieldType text */
   winnerId?: string;
 }
+
+
+/**
+ * Collection ID: playerinventories
+ * Interface for PlayerInventories
+ */
+export interface PlayerInventories {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType text */
+  playerId?: string;
+  /** @wixFieldType text */
+  acquiredItems?: string;
+  /** @wixFieldType text */
+  unlockedSkills?: string;
+  /** @wixFieldType datetime */
+  lastModified?: Date | string;
+  /** @wixFieldType number */
+  inventorySize?: number;
+  /** @wixFieldType number */
+  skillSlotsUsed?: number;
+}
+
+
+/**
+ * Collection ID: playerprofiles
+ * Interface for PlayerProfiles
+ */
+export interface PlayerProfiles {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType text */
+  playerName?: string;
+  /** @wixFieldType number */
+  level?: number;
+  /** @wixFieldType number */
+  experiencePoints?: number;
+  /** @wixFieldType number */
+  dirtyMoney?: number;
+  /** @wixFieldType number */
+  cleanMoney?: number;
+  /** @wixFieldType datetime */
+  lastLoginDate?: Date | string;
+  /** @wixFieldType datetime */
+  creationDate?: Date | string;
+}
+
+
+/**
+ * Collection ID: playerprogress
+ * Interface for PlayerProgress
+ */
+export interface PlayerProgress {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType number */
+  availableSpins?: number;
+  /** @wixFieldType text */
+  mapPosition?: string;
+  /** @wixFieldType boolean */
+  shackStatus?: boolean;
+  /** @wixFieldType boolean */
+  bribeStatus?: boolean;
+  /** @wixFieldType boolean */
+  moneyLaunderingStatus?: boolean;
+}
