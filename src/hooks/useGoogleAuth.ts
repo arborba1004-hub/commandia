@@ -27,15 +27,11 @@ export function useGoogleAuth() {
     error: null,
   });
 
-  // 🔥 STORE (CORREÇÃO)
   const hydratePlayerFromServer = usePlayerStore((state) => state.hydratePlayerFromServer);
   const clearPlayer = usePlayerStore((state) => state.clearPlayer);
   const startPolling = usePlayerStore((state) => state.startPolling);
   const stopPolling = usePlayerStore((state) => state.stopPolling);
 
-  // ==========================================
-  // LOAD LOCAL SESSION
-  // ==========================================
   useEffect(() => {
     const token = localStorage.getItem(STORAGE_KEY_TOKEN);
     const playerJson = localStorage.getItem(STORAGE_KEY_PLAYER);
@@ -51,27 +47,33 @@ export function useGoogleAuth() {
           error: null,
         });
 
-        // 🔥 IMPORTANTE: hidrata store com dados existentes (não dispara sync)
         hydratePlayerFromServer(player);
 
+        // CORREÇÃO:
+        // quando a sessão é restaurada do localStorage,
+        // o polling também precisa voltar a rodar
+        startPolling();
       } catch (e) {
         console.error('Erro ao carregar player local:', e);
-        setAuthState((prev) => ({ ...prev, isLoading: false }));
+        setAuthState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: 'Erro ao restaurar sessão local',
+        }));
       }
     } else {
       setAuthState((prev) => ({ ...prev, isLoading: false }));
     }
-  }, [hydratePlayerFromServer]);
+  }, [hydratePlayerFromServer, startPolling]);
 
-  // ==========================================
-  // GOOGLE LOGIN
-  // ==========================================
   const handleGoogleResponse = async (response: any) => {
     try {
       setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      const credential = response.credential;
-      if (!credential) throw new Error('Sem credencial do Google');
+      const credential = response?.credential;
+      if (!credential) {
+        throw new Error('Sem credencial do Google');
+      }
 
       const backendResponse = await fetch(
         'https://comando-backend.onrender.com/auth/google',
@@ -83,23 +85,26 @@ export function useGoogleAuth() {
       );
 
       if (!backendResponse.ok) {
-        throw new Error(`Erro backend: ${backendResponse.statusText}`);
+        let message = `Erro backend: ${backendResponse.status}`;
+        try {
+          const errorData = await backendResponse.json();
+          message = errorData?.message || errorData?.error || message;
+        } catch {
+          // ignora parse
+        }
+        throw new Error(message);
       }
 
       const data = await backendResponse.json();
 
-      if (!(data.token && data.player)) {
-        throw new Error(data.message || 'Falha na autenticação');
+      if (!(data?.token && data?.player)) {
+        throw new Error(data?.message || 'Falha na autenticação');
       }
 
-      // salva local
       localStorage.setItem(STORAGE_KEY_TOKEN, data.token);
       localStorage.setItem(STORAGE_KEY_PLAYER, JSON.stringify(data.player));
 
-      // hidrata store com dados do servidor (não dispara sync)
       hydratePlayerFromServer(data.player);
-
-      // Inicia polling após login bem-sucedido
       startPolling();
 
       setAuthState({
@@ -108,7 +113,6 @@ export function useGoogleAuth() {
         isLoading: false,
         error: null,
       });
-
     } catch (err) {
       console.error('Erro login Google:', err);
 
@@ -120,9 +124,6 @@ export function useGoogleAuth() {
     }
   };
 
-  // ==========================================
-  // LOGOUT
-  // ==========================================
   const logout = () => {
     localStorage.removeItem(STORAGE_KEY_TOKEN);
     localStorage.removeItem(STORAGE_KEY_PLAYER);
