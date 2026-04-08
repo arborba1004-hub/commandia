@@ -23,6 +23,13 @@ export function useWixAuth() {
   const { player, isLoaded } = usePlayerStore();
   const [error, setError] = useState<string | null>(null);
 
+  // Initialize player on mount
+  useEffect(() => {
+    if (!isLoaded) {
+      usePlayerStore.getState().loadPlayer();
+    }
+  }, [isLoaded]);
+
   // Determine authentication status from player store
   const isAuthenticated = !!player?._id && isLoaded;
   const authToken = isAuthenticated ? 'wix-auth-token' : null;

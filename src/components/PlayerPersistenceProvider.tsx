@@ -19,12 +19,19 @@ interface PlayerPersistenceProviderProps {
 export default function PlayerPersistenceProvider({
   children,
 }: PlayerPersistenceProviderProps) {
-  const { player, isLoaded } = usePlayerStore();
+  const { player, isLoaded, loadPlayer } = usePlayerStore();
   const { startSync, stopSync } = usePlayerPersistence({
     enabled: true,
     autoSync: true,
   });
   const syncStartedRef = useRef(false);
+
+  // Load player on mount
+  useEffect(() => {
+    if (!isLoaded) {
+      loadPlayer();
+    }
+  }, [isLoaded, loadPlayer]);
 
   // Start sync when player is loaded and authenticated
   useEffect(() => {
