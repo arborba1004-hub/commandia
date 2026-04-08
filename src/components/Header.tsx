@@ -4,15 +4,7 @@ import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Crown, LogOut, Pencil, Shield, Gem, Coins, Home, MessageCircle } from 'lucide-react';
 import { Image } from '@/components/ui/image';
-
-let useChatStore: any = null;
-try {
-  const chatModule = require('@/store/chatStore');
-  useChatStore = chatModule.useChatStore;
-} catch (e) {
-  console.warn('Chat store not available:', e);
-  useChatStore = () => ({ mailMessages: [], setActiveChannel: () => {} });
-}
+import { useChatStore } from '@/store/chatStore';
 
 const LOGO_URL =
   'https://static.wixstatic.com/media/50f4bf_7140cdf76a2742628049849ce89b7560~mv2.png';
@@ -66,8 +58,8 @@ export default function Header() {
   const { player, setPlayer } = usePlayerStore();
   const { playerData, logout } = useGoogleAuth();
 
-  const setActiveChannel = useChatStore?.((state: any) => state.setActiveChannel) || (() => {});
-  const mailMessages = useChatStore?.((state: any) => state.mailMessages) || [];
+  const setActiveChannel = useChatStore((state: any) => state.setActiveChannel);
+  const mailMessages = useChatStore((state: any) => state.mailMessages);
 
   const isAuthenticated = !!player?._id;
   const myPlayerId = player?._id || '';
