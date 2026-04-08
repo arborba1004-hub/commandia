@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useWixAuth } from '@/hooks/useWixAuth';
 import { useChatStore } from '@/store/chatStore';
 import { usePlayerPersistence } from '@/hooks/usePlayerPersistence';
 import { LogOut } from 'lucide-react';
@@ -38,7 +38,7 @@ export default function Header() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { player, setPlayer } = usePlayerStore();
-  const { playerData, authToken, logout } = useGoogleAuth();
+  const { playerData, authToken, logout } = useWixAuth();
 
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
   const mailMessages = useChatStore((state) => state.mailMessages);

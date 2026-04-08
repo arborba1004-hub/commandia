@@ -7,7 +7,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import PlayerPersistenceProvider from '@/components/PlayerPersistenceProvider';
 
 // Lazy load all pages to prevent circular dependencies
-const HomePage = lazy(() => import('@/components/pages/HomePage'));
+const HomePage = lazy(() => import('@/components/pages/HomePageNew'));
 const GaleriaPage = lazy(() => import('@/components/pages/GaleriaPage'));
 const ProfilePage = lazy(() => import('@/components/pages/ProfilePage'));
 const GamePage = lazy(() => import('@/components/pages/GamePage'));
