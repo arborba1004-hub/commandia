@@ -797,85 +797,65 @@ function getRandomSpawnPosition(existingPlayers: any[] = []) {
 
     subscribeToMovements();
 
-    // === 🔥 SUBSCRIPTION AO CANAL DE ATAQUES ===
-    // Se inscrever no canal de ataques para receber notificações em tempo real
-    const subscribeToAttacks = () => {
+    // === 🔥 SUBSCRIPTION AO CANAL DE ATAQUES (VERSÃO CORRIGIDA) ===
+    const subscribeToAttacks = async () => {
       try {
         const currentPlayerId = playerState?._id || playerState?.googleId;
         if (!currentPlayerId) {
-          console.warn('⚠️ Sem ID do jogador para se inscrever no canal de ataques');
+          console.warn('⚠️ Sem ID do jogador para se inscrever');
           return;
         }
 
         const attackChannel = `attack_${currentPlayerId}`;
-        const subscription = Wix.Realtime.subscribe(attackChannel, (message: any) => {
+        console.log(`📡 Inscrevendo no canal: ${attackChannel}`);
+
+        // 🔥 IMPORTANTE: use 'realtime' (já importado no topo) e AWAIT
+        const subscription = await realtime.subscribe(attackChannel, (message: any) => {
           if (!isMounted) return;
+          console.log("⚔️ Mensagem recebida no frontend:", message);
 
-          const {
-            type,
-            attackerId,
-            targetId,
-            success,
-            critical,
-            loot,
-            message: attackMessage,
-            attackerName,
-            attackerPower,
-            defenderPower,
-          } = message;
+          const { type, attackerName, loot, success, damageBlocked, territoryName } = message;
 
-          if (type === 'player_attacked') {
-            console.log(`⚔️ ATAQUE RECEBIDO de ${attackerName}!`);
-
-            // 1️⃣ Mostrar overlay de notificação
+          if (type === 'attack') {
+            // Exibe notificação de ataque
             setAttackNotification({
               attackerName,
               success,
               loot,
-              critical,
-              message: attackMessage,
+              message: `${attackerName} ${success ? 'roubou' : 'tentou roubar'} R$ ${loot || 0}`
             });
             setShowAttackOverlay(true);
 
-            // 2️⃣ Atualizar a store do jogador (perder dinheiro, etc.)
-            if (success) {
+            // Atualiza dinheiro sujo localmente (se sucesso)
+            if (success && loot) {
               usePlayerStore.getState().applyPlayerUpdate((p) => ({
                 ...p,
                 balances: {
                   ...p.balances,
-                  dirtyMoney: Math.max(0, (p.balances?.dirtyMoney || 0) - loot),
-                },
+                  dirtyMoney: Math.max(0, (p.balances?.dirtyMoney || 0) - loot)
+                }
               }));
-              console.log(`💰 Perdeu ${loot} em dinheiro sujo`);
             }
 
-            // 3️⃣ Animar o barraco do atacante (se estiver visível no mapa)
-            const attackerBarraco = enemyBarracoMapRef.current[attackerId];
-            if (attackerBarraco && scene) {
-              // Efeito de impacto no barraco do atacante
-              const posX = attackerBarraco.position.x;
-              const posZ = attackerBarraco.position.z;
-              createImpactFlash({ scene, position: new THREE.Vector3(posX, 0.6, posZ) });
-              
-              // Shake do barraco
-              shakeObject(attackerBarraco, 0.3, 200);
-              
-              console.log(`💥 Barraco do atacante ${attackerName} animado`);
-            }
-
-            // Adicionar ao feed de ataques
-            pushAttackFeed(`⚔️ ${attackerName} te atacou! ${success ? `Roubou ${loot}` : 'Falhou no ataque'}`);
+            // Adiciona ao feed de batalha
+            pushAttackFeed(`⚔️ ${attackerName} te atacou! ${success ? `Perdeu R$ ${loot}` : 'Defendeu o ataque!'}`);
+          } 
+          else if (type === 'defense') {
+            pushAttackFeed(`🛡️ Você defendeu o ataque de ${attackerName}! Bloqueou ${damageBlocked} de dano.`);
+          }
+          else if (type === 'territoryInvasion') {
+            pushAttackFeed(`⚠️ ${attackerName} invadiu ${territoryName}! Recupere o território.`);
           }
         });
 
         attackSubscriptionRef.current = subscription;
-        console.log(`📡 Inscrito no canal de ataques: ${attackChannel}`);
+        console.log(`✅ Inscrito com sucesso no canal: ${attackChannel}`);
       } catch (error) {
-        console.warn('⚠️ Erro ao se inscrever no canal de ataques:', error);
+        console.error('❌ Erro ao se inscrever no canal de ataques:', error);
       }
     };
 
-    subscribeToAttacks();
+    subscribeToAttacks().catch(err => console.warn('Erro na inscrição de ataques:', err));
 
     const handleResize = () => {
       if (!containerRef.current) return;
