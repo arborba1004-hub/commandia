@@ -1,6 +1,5 @@
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { ScrollToTop } from '@/lib/scroll-to-top';
-import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import { Suspense, lazy } from 'react';
 
 // Lazy load pages to avoid circular dependencies
@@ -37,7 +36,6 @@ const router = createBrowserRouter(
     {
       path: '/',
       element: <Layout />,
-      errorElement: <ErrorPage />,
       children: [
         { index: true, element: <HomePage /> },
 
