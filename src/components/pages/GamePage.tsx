@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-// IMPORTAÇÃO NOVA: O controle de câmera profissional
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
-import { handleTileInvasion } from '@/components/game/tileInvasion';
+import { handleTileInvasion, type OtherPlayer } from '@/components/game/tileInvasion';
 import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
@@ -51,7 +50,23 @@ function getBarracoModelUrl(level: number) {
   );
 }
 
-// === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
+function getAuthToken(): string | null {
+  const candidates = [
+    localStorage.getItem('authToken'),
+    localStorage.getItem('token'),
+    localStorage.getItem('jwt'),
+    localStorage.getItem('wix_auth_token'),
+  ];
+
+  for (const token of candidates) {
+    if (token && token.trim()) {
+      return token.trim();
+    }
+  }
+
+  return null;
+}
+
 function createTextLabel(text: string): THREE.Sprite | THREE.Group {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -61,8 +76,29 @@ function createTextLabel(text: string): THREE.Sprite | THREE.Group {
   canvas.height = 128;
 
   context.fillStyle = 'rgba(0, 0, 0, 0.5)';
-  context.roundRect(0, 0, 512, 128, 20);
-  context.fill();
+
+  const drawRoundedRect = () => {
+    const x = 0;
+    const y = 0;
+    const width = 512;
+    const height = 128;
+    const radius = 20;
+
+    context.beginPath();
+    context.moveTo(x + radius, y);
+    context.lineTo(x + width - radius, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + radius);
+    context.lineTo(x + width, y + height - radius);
+    context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    context.lineTo(x + radius, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - radius);
+    context.lineTo(x, y + radius);
+    context.quadraticCurveTo(x, y, x + radius, y);
+    context.closePath();
+    context.fill();
+  };
+
+  drawRoundedRect();
 
   context.font = 'bold 54px Oswald, Impact, Arial';
   context.textAlign = 'center';
@@ -80,70 +116,62 @@ export default function GamePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const enemyBarracosRef = useRef<THREE.Object3D[]>([]);
   const enemyBarracoMapRef = useRef<Record<string, THREE.Object3D>>({});
+  const enemyPlayersRef = useRef<OtherPlayer[]>([]);
   const squadRef = useRef<THREE.Object3D | null>(null);
   const activeAnimationRef = useRef<any>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
 
-  // === FUNÇÃO DE ATAQUE ===
-  function executeMapAttack() {
-    const state = useMapAttackStore.getState();
-    const scene = sceneRef.current;
+  const playerState = usePlayerStore((state) => state.player);
+  const level = playerState?.niveis?.barracoLevel || 1;
+  const displayName =
+    playerState?.name ||
+    'CAPO GHOST';
 
-    if (!scene || !state.origin || !state.target) return;
+  function finishAttack() {
+    if (squadRef.current && sceneRef.current) {
+      sceneRef.current.remove(squadRef.current);
+      squadRef.current = null;
+    }
 
-    const route = buildManhattanAttackRoute({
-      fromTileX: state.origin.tileX,
-      fromTileY: state.origin.tileY,
-      toTileX: state.target.tileX,
-      toTileY: state.target.tileY,
-      includeOrigin: true,
-    });
+    if (activeAnimationRef.current?.stop) {
+      activeAnimationRef.current.stop();
+    }
 
-    if (!route.length) return;
-
-    loadSquadModel((squad) => {
-      const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
-      const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-      squad.position.x = startX;
-      squad.position.z = startZ;
-      squad.position.y = 0.25;
-squad.rotation.y = Math.PI;
-
-      const squadY = squad.position.y;
-
-      scene.add(squad);
-      squadRef.current = squad;
-
-      useMapAttackStore.getState().startAttack({
-        origin: state.origin,
-        target: state.target,
-        routeToTarget: route,
-        routeBack: [...route].reverse(),
-        squadWorldPosition: { x: startX, y: squadY, z: startZ },
-      });
-
-      activeAnimationRef.current = animateSquadOnRoute({
-        squad,
-        route,
-        tileSize: TILE_SIZE,
-        gridWidth: GRID_WIDTH,
-        gridHeight: GRID_HEIGHT,
-        y: squadY,
-        onComplete: () => {
-          resolveCombat();
-        },
-      });
-    }, 20);
+    activeAnimationRef.current = null;
+    useMapAttackStore.getState().finishAttack();
   }
 
-  // === FUNÇÃO PARA RESOLVER O COMBATE ===
-  function resolveCombat() {
+  function returnSquad(squad: THREE.Object3D) {
+    const state = useMapAttackStore.getState();
+    const backRoute = [...state.routeToTarget].reverse();
+
+    if (!squad) {
+      finishAttack();
+      return;
+    }
+
+    const squadY = squad.position.y;
+
+    activeAnimationRef.current = animateSquadOnRoute({
+      squad,
+      route: backRoute,
+      tileSize: TILE_SIZE,
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      y: squadY,
+      onComplete: () => {
+        finishAttack();
+      },
+    });
+  }
+
+  function resolveCombat(squad: THREE.Object3D) {
     const state = useMapAttackStore.getState();
     const scene = sceneRef.current;
 
@@ -190,50 +218,62 @@ squad.rotation.y = Math.PI;
     useMapAttackStore.getState().setResolution(result);
 
     setTimeout(() => {
-      returnSquad();
+      returnSquad(squad);
     }, 800);
   }
 
-  // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
-  function returnSquad() {
+  function executeMapAttack() {
     const state = useMapAttackStore.getState();
-    const backRoute = [...state.routeToTarget].reverse();
+    const scene = sceneRef.current;
 
-    if (!squadRef.current) return;
+    if (!scene || !state.origin || !state.target) return;
 
-    const squadY = squadRef.current.position.y;
-
-    activeAnimationRef.current = animateSquadOnRoute({
-      squad: squadRef.current,
-      route: backRoute,
-      tileSize: TILE_SIZE,
-      gridWidth: GRID_WIDTH,
-      gridHeight: GRID_HEIGHT,
-      y: squadY,
-      onComplete: () => {
-        finishAttack();
-      },
+    const route = buildManhattanAttackRoute({
+      fromTileX: state.origin.tileX,
+      fromTileY: state.origin.tileY,
+      toTileX: state.target.tileX,
+      toTileY: state.target.tileY,
+      includeOrigin: true,
     });
+
+    if (!route.length) return;
+
+    loadSquadModel((squad) => {
+      const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
+      const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+      squad.position.x = startX;
+      squad.position.z = startZ;
+      squad.position.y = 0.25;
+      squad.rotation.y = Math.PI;
+
+      const squadY = squad.position.y;
+      const currentSquad = squad;
+
+      scene.add(currentSquad);
+      squadRef.current = currentSquad;
+
+      useMapAttackStore.getState().startAttack({
+        origin: state.origin,
+        target: state.target,
+        routeToTarget: route,
+        routeBack: [...route].reverse(),
+        squadWorldPosition: { x: startX, y: squadY, z: startZ },
+      });
+
+      activeAnimationRef.current = animateSquadOnRoute({
+        squad: currentSquad,
+        route,
+        tileSize: TILE_SIZE,
+        gridWidth: GRID_WIDTH,
+        gridHeight: GRID_HEIGHT,
+        y: squadY,
+        onComplete: () => {
+          resolveCombat(currentSquad);
+        },
+      });
+    }, 20);
   }
-
-  // === FUNÇÃO PARA FINALIZAR O ATAQUE ===
-  function finishAttack() {
-    if (squadRef.current && sceneRef.current) {
-      sceneRef.current.remove(squadRef.current);
-      squadRef.current = null;
-    }
-
-    if (activeAnimationRef.current?.stop) {
-      activeAnimationRef.current.stop();
-    }
-
-    activeAnimationRef.current = null;
-    useMapAttackStore.getState().finishAttack();
-  }
-
-  const playerState = usePlayerStore((state) => state.player);
-  const level = playerState?.niveis?.barracoLevel || 1;
-  const displayName = playerState?.headerCustomization?.customName || playerState?.name || 'CAPO GHOST';
 
   const pages = [
     { name: 'Home', path: '/' },
@@ -256,9 +296,9 @@ squad.rotation.y = Math.PI;
     setIsMenuOpen(false);
   };
 
-  const getBarracoSize = (level: number) => {
-    if (level >= 60) return 4;
-    if (level >= 30) return 3;
+  const getBarracoSize = (currentLevel: number) => {
+    if (currentLevel >= 60) return 4;
+    if (currentLevel >= 30) return 3;
     return 2;
   };
 
@@ -271,6 +311,10 @@ squad.rotation.y = Math.PI;
 
     const container = containerRef.current;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    enemyBarracosRef.current = [];
+    enemyBarracoMapRef.current = {};
+    enemyPlayersRef.current = [];
 
     const renderer = new THREE.WebGLRenderer({
       antialias: !isMobile,
@@ -316,13 +360,12 @@ squad.rotation.y = Math.PI;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
-    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
+    const myTileX = playerState?.mapPosition?.tileX ?? GRID_WIDTH / 2;
+    const myTileY = playerState?.mapPosition?.tileY ?? GRID_HEIGHT / 2;
 
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
-    // === NOVA CÂMERA E CONTROLES ORBIT ===
     const camera = new THREE.PerspectiveCamera(
       45,
       container.clientWidth / container.clientHeight,
@@ -332,7 +375,6 @@ squad.rotation.y = Math.PI;
 
     cameraRef.current = camera;
 
-    // mirar no centro do complexo, não no jogador
     const cameraTarget = new THREE.Vector3(8, 0, 0);
 
     camera.position.set(26, 24, 18);
@@ -365,23 +407,23 @@ squad.rotation.y = Math.PI;
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
 
-    // === TEMPORARY TEST: Load squad model ===
     loadSquadModel((model) => {
+      if (!isMounted) return;
       model.position.x = playerWorldX + 2;
       model.position.z = playerWorldZ;
       model.position.y = 0.25;
       model.rotation.y = Math.PI;
       scene.add(model);
       loadedPlayerModels.push(model);
-      console.log('TRIO TESTE carregado');
     }, 20);
 
-    // === CARREGANDO OS EDIFÍCIOS DO COMPLEXO ===
     const complexoResult = createComplexoBuildings(loader);
     scene.add(complexoResult.group);
     loadedPlayerModels.push(complexoResult.group);
 
-    complexoResult.load().catch(err => console.error('❌ Erro ao carregar edifícios do complexo:', err));
+    complexoResult.load().catch((err) =>
+      console.error('❌ Erro ao carregar edifícios do complexo:', err)
+    );
 
     const fixDarkMaterials = (child: any) => {
       if (child.isMesh) {
@@ -397,7 +439,6 @@ squad.rotation.y = Math.PI;
       }
     };
 
-    // CARREGANDO O SEU BARRACO
     loader.load(
       modelUrl,
       (gltf) => {
@@ -428,7 +469,6 @@ squad.rotation.y = Math.PI;
         scene.add(barraco);
         loadedPlayerModels.push(barraco);
 
-        // NOME DO JOGADOR LOGADO
         const label = createTextLabel(displayName);
         label.position.set(playerWorldX, finalBox.max.y + 1.2, playerWorldZ);
         scene.add(label);
@@ -436,7 +476,12 @@ squad.rotation.y = Math.PI;
 
         const reservedArea = new THREE.Mesh(
           new THREE.PlaneGeometry(4, 4),
-          new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+          new THREE.MeshBasicMaterial({
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 0.22,
+            side: THREE.DoubleSide,
+          })
         );
         reservedArea.rotation.x = -Math.PI / 2;
         reservedArea.position.set(playerWorldX, 0.06, playerWorldZ);
@@ -446,21 +491,31 @@ squad.rotation.y = Math.PI;
       },
       undefined,
       (error) => console.error('❌ Erro crítico ao carregar o modelo:', error)
-    );// CARREGANDO OS OUTROS JOGADORES DO BACKEND
-    const token = localStorage.getItem('authToken');
+    );
+
+    const token = getAuthToken();
     if (token) {
       fetch('https://comando-backend.onrender.com/players', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       })
-        .then(res => res.json())
-        .then(players => {
-          if (!isMounted) return;
+        .then((res) => res.json())
+        .then((players) => {
+          if (!isMounted || !Array.isArray(players)) return;
 
           players.forEach((p: any) => {
-            if (p.id === playerState?._id) return;
+            if (String(p.id) === String(playerState?._id)) return;
+
+            enemyPlayersRef.current.push({
+              id: p.id || p._id,
+              tileX: p.tileX,
+              tileY: p.tileY,
+              name: p.name || 'VIZINHO',
+            });
 
             const pLevel = p.barracoLevel || 1;
-            const mInfo = BARRACO_MODELS.find(m => pLevel >= m.min && pLevel <= m.max) || BARRACO_MODELS[0];
+            const mInfo =
+              BARRACO_MODELS.find((m) => pLevel >= m.min && pLevel <= m.max) ||
+              BARRACO_MODELS[0];
 
             loader.load(mInfo.url, (gltf) => {
               if (!isMounted) return;
@@ -484,7 +539,6 @@ squad.rotation.y = Math.PI;
               scene.add(model);
               loadedPlayerModels.push(model);
 
-              // REGISTRAR DADOS DO BARRACO INIMIGO
               attachEnemyBarracoData(model, {
                 playerId: p.id || p._id,
                 playerName: p.name || 'VIZINHO',
@@ -498,7 +552,6 @@ squad.rotation.y = Math.PI;
               enemyBarracosRef.current.push(model);
               enemyBarracoMapRef.current[p.id || p._id] = model;
 
-              // NOMES DOS VIZINHOS
               const vLabel = createTextLabel(p.name || 'VIZINHO');
               vLabel.position.set(posX, 3.5, posZ);
               scene.add(vLabel);
@@ -506,7 +559,7 @@ squad.rotation.y = Math.PI;
             });
           });
         })
-        .catch(err => console.error('❌ Erro ao buscar vizinhos do backend:', err));
+        .catch((err) => console.error('❌ Erro ao buscar vizinhos do backend:', err));
     }
 
     const textureLoader = new THREE.TextureLoader();
@@ -515,12 +568,25 @@ squad.rotation.y = Math.PI;
     floorTexture.wrapT = THREE.ClampToEdgeWrapping;
     floorTexture.repeat.set(1, 1);
 
-    const topMaterial = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 1, metalness: 0 });
-    const sideMaterial = new THREE.MeshStandardMaterial({ color: '#6e5742', roughness: 1, metalness: 0 });
+    const topMaterial = new THREE.MeshStandardMaterial({
+      map: floorTexture,
+      roughness: 1,
+      metalness: 0,
+    });
+    const sideMaterial = new THREE.MeshStandardMaterial({
+      color: '#6e5742',
+      roughness: 1,
+      metalness: 0,
+    });
 
     const platformGeometry = new THREE.BoxGeometry(GRID_WIDTH, PLATFORM_HEIGHT, GRID_HEIGHT);
     const platform = new THREE.Mesh(platformGeometry, [
-      sideMaterial, sideMaterial, topMaterial, sideMaterial, sideMaterial, sideMaterial,
+      sideMaterial,
+      sideMaterial,
+      topMaterial,
+      sideMaterial,
+      sideMaterial,
+      sideMaterial,
     ]);
     platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
     platform.receiveShadow = true;
@@ -528,7 +594,11 @@ squad.rotation.y = Math.PI;
     scene.add(platform);
 
     const gridGroup = new THREE.Group();
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 });
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.18,
+    });
 
     for (let x = 0; x <= GRID_WIDTH; x++) {
       const geo = new THREE.BufferGeometry().setFromPoints([
@@ -537,6 +607,7 @@ squad.rotation.y = Math.PI;
       ]);
       gridGroup.add(new THREE.Line(geo, lineMaterial));
     }
+
     for (let z = 0; z <= GRID_HEIGHT; z++) {
       const geo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(-GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
@@ -544,9 +615,9 @@ squad.rotation.y = Math.PI;
       ]);
       gridGroup.add(new THREE.Line(geo, lineMaterial));
     }
+
     scene.add(gridGroup);
 
-    // === SISTEMA DE CLIQUE INTELIGENTE ===
     let pointerDownPos = { x: 0, y: 0 };
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -556,7 +627,10 @@ squad.rotation.y = Math.PI;
     const handlePointerUp = (event: PointerEvent) => {
       if (!containerRef.current) return;
 
-      const moveDistance = Math.abs(event.clientX - pointerDownPos.x) + Math.abs(event.clientY - pointerDownPos.y);
+      const moveDistance =
+        Math.abs(event.clientX - pointerDownPos.x) +
+        Math.abs(event.clientY - pointerDownPos.y);
+
       if (moveDistance > 5) return;
 
       const rect = containerRef.current.getBoundingClientRect();
@@ -565,7 +639,6 @@ squad.rotation.y = Math.PI;
 
       raycaster.setFromCamera(mouse, camera);
 
-      // 🔥 DETECÇÃO DE CLIQUE EM BARRACOS INIMIGOS (ANTES DO CLIQUE NO CHÃO)
       const enemyHits = raycaster.intersectObjects(enemyBarracosRef.current, true);
       const target = pickEnemyBarracoFromIntersections(enemyHits);
 
@@ -593,10 +666,18 @@ squad.rotation.y = Math.PI;
         const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
 
         highlight.visible = true;
-        highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
-        playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
+        highlight.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.05,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
+        playerModel.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.3,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
 
-        handleTileInvasion(tileX, tileZ);
+        handleTileInvasion(tileX, tileZ, enemyPlayersRef.current);
       }
     };
 
@@ -621,6 +702,7 @@ squad.rotation.y = Math.PI;
 
     return () => {
       isMounted = false;
+
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('pointerdown', handlePointerDown);
@@ -637,21 +719,20 @@ squad.rotation.y = Math.PI;
         squadRef.current = null;
       }
 
-      // Limpar disposables do complexo
-      complexoResult.disposables.forEach(disposable => {
+      complexoResult.disposables.forEach((disposable) => {
         if (disposable.dispose) {
           disposable.dispose();
         }
       });
 
-      loadedPlayerModels.forEach(model => {
+      loadedPlayerModels.forEach((model) => {
         scene.remove(model);
         model.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
             const mesh = child as THREE.Mesh;
             mesh.geometry.dispose();
             if (Array.isArray(mesh.material)) {
-              mesh.material.forEach(mat => mat.dispose());
+              mesh.material.forEach((mat) => mat.dispose());
             } else if (mesh.material) {
               mesh.material.dispose();
             }
@@ -659,6 +740,11 @@ squad.rotation.y = Math.PI;
         });
       });
 
+      highlightGeometry.dispose();
+      highlightMaterial.dispose();
+      playerGeometry.dispose();
+      playerMaterial.dispose();
+      floorTexture.dispose();
       platformGeometry.dispose();
       topMaterial.dispose();
       sideMaterial.dispose();
@@ -670,15 +756,28 @@ squad.rotation.y = Math.PI;
 
       renderer.dispose();
 
+      enemyBarracosRef.current = [];
+      enemyBarracoMapRef.current = {};
+      enemyPlayersRef.current = [];
+
       sceneRef.current = null;
       cameraRef.current = null;
       rendererRef.current = null;
     };
-  }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id, displayName]);
+  }, [
+    playerState?._id,
+    playerState?.name,
+    playerState?.niveis?.playerLevel,
+    playerState?.niveis?.barracoLevel,
+    playerState?.mapPosition?.tileX,
+    playerState?.mapPosition?.tileY,
+    displayName,
+    level,
+    barracoSize,
+  ]);
 
   return (
     <div className="w-full h-full relative">
-      {/* Menu Button */}
       <button
         onClick={() => setIsMenuOpen(!isMenuOpen)}
         className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg hover:bg-opacity-90 transition-all"
@@ -687,7 +786,6 @@ squad.rotation.y = Math.PI;
         {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* Navigation Menu */}
       {isMenuOpen && (
         <div className="absolute top-16 left-4 z-40 bg-background border border-primary rounded-lg shadow-lg p-4 max-w-xs max-h-96 overflow-y-auto">
           <h3 className="text-primary font-heading text-lg mb-4">Páginas</h3>
@@ -705,10 +803,8 @@ squad.rotation.y = Math.PI;
         </div>
       )}
 
-      {/* Attack Result Overlay */}
       <AttackResultOverlay />
 
-      {/* Invadir Barraco Modal */}
       {previewOpen && (
         <div className="absolute inset-0 z-50 bg-black/60 flex items-end justify-center">
           <div className="w-full max-w-md rounded-t-3xl bg-[#090909] border border-red-500/30 p-5">
@@ -735,8 +831,10 @@ squad.rotation.y = Math.PI;
         </div>
       )}
 
-      {/* Game Canvas */}
-      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing outline-none" />
+      <div
+        ref={containerRef}
+        className="w-full h-full cursor-grab active:cursor-grabbing outline-none"
+      />
     </div>
   );
 }
