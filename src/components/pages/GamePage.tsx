@@ -1,279 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { usePlayerStore } from '@/store/playerStore';
-import { handleTileInvasion, type OtherPlayer } from '@/components/game/tileInvasion';
-import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
-import { useMapAttackStore } from '@/store/mapAttackStore';
-import { buildManhattanAttackRoute } from '@/components/game/mapAttackPath';
-import { resolveMapAttack } from '@/components/game/mapAttackResolver';
-import { loadSquadModel } from '@/components/game/createSquadVisual';
-import { animateSquadOnRoute } from '@/components/game/animateSquadOnRoute';
-import {
-  attachEnemyBarracoData,
-  pickEnemyBarracoFromIntersections,
-} from '@/components/game/EnemyBarracoSelector';
-import {
-  createImpactFlash,
-  shakeObject,
-} from '@/components/game/mapAttackEffects';
-import { pushAttackFeed } from '@/components/game/mapAttackFeed';
-import AttackResultOverlay from '@/components/game/AttackResultOverlay';
-
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-
-const GRID_WIDTH = 40;
-const GRID_HEIGHT = 20;
-const TILE_SIZE = 1;
-const PLATFORM_HEIGHT = 1.2;
-const FLOOR_TEXTURE =
-  'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
-
-const BARRACO_MODELS = [
-  { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
-  { min: 10, max: 19, url: 'https://static.wixstatic.com/3d/50f4bf_e10d19cfeff147ce95eee1d04a31b04a.glb' },
-  { min: 20, max: 29, url: 'https://static.wixstatic.com/3d/50f4bf_ad7304550b404996b3b82c425be28df8.glb' },
-  { min: 30, max: 39, url: 'https://static.wixstatic.com/3d/50f4bf_d2c8efd640c24cabb3bda73016b7a6b7.glb' },
-  { min: 40, max: 49, url: 'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb' },
-  { min: 50, max: 59, url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb' },
-];
-
-function getBarracoModelUrl(level: number) {
-  return (
-    BARRACO_MODELS.find((model) => level >= model.min && level <= model.max)?.url ??
-    BARRACO_MODELS[0].url
-  );
-}
-
-function getAuthToken(): string | null {
-  const candidates = [
-    localStorage.getItem('authToken'),
-    localStorage.getItem('token'),
-    localStorage.getItem('jwt'),
-    localStorage.getItem('wix_auth_token'),
-  ];
-
-  for (const token of candidates) {
-    if (token && token.trim()) {
-      return token.trim();
-    }
-  }
-
-  return null;
-}
-
-function createTextLabel(text: string): THREE.Sprite | THREE.Group {
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  if (!context) return new THREE.Group();
-
-  canvas.width = 512;
-  canvas.height = 128;
-
-  context.fillStyle = 'rgba(0, 0, 0, 0.5)';
-
-  const drawRoundedRect = () => {
-    const x = 0;
-    const y = 0;
-    const width = 512;
-    const height = 128;
-    const radius = 20;
-
-    context.beginPath();
-    context.moveTo(x + radius, y);
-    context.lineTo(x + width - radius, y);
-    context.quadraticCurveTo(x + width, y, x + width, y + radius);
-    context.lineTo(x + width, y + height - radius);
-    context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    context.lineTo(x + radius, y + height);
-    context.quadraticCurveTo(x, y + height, x, y + height - radius);
-    context.lineTo(x, y + radius);
-    context.quadraticCurveTo(x, y, x + radius, y);
-    context.closePath();
-    context.fill();
-  };
-
-  drawRoundedRect();
-
-  context.font = 'bold 54px Oswald, Impact, Arial';
-  context.textAlign = 'center';
-  context.fillStyle = '#d9b764';
-  context.fillText(text.toUpperCase(), 256, 85);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
-  const sprite = new THREE.Sprite(spriteMaterial);
-  sprite.scale.set(3.2, 0.8, 1);
-  return sprite;
-}
+import { usePlayerStore } from '@/store/playerStore';
 
 export default function GamePage() {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const enemyBarracosRef = useRef<THREE.Object3D[]>([]);
-  const enemyBarracoMapRef = useRef<Record<string, THREE.Object3D>>({});
-  const enemyPlayersRef = useRef<OtherPlayer[]>([]);
-  const squadRef = useRef<THREE.Object3D | null>(null);
-  const activeAnimationRef = useRef<any>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const previewOpen = useMapAttackStore((state) => state.previewOpen);
-
-  const playerState = usePlayerStore((state) => state.player);
-  const level = playerState?.niveis?.barracoLevel || 1;
-  const displayName =
-    playerState?.name ||
-    'CAPO GHOST';
-
-  function finishAttack() {
-    if (squadRef.current && sceneRef.current) {
-      sceneRef.current.remove(squadRef.current);
-      squadRef.current = null;
-    }
-
-    if (activeAnimationRef.current?.stop) {
-      activeAnimationRef.current.stop();
-    }
-
-    activeAnimationRef.current = null;
-    useMapAttackStore.getState().finishAttack();
-  }
-
-  function returnSquad(squad: THREE.Object3D) {
-    const state = useMapAttackStore.getState();
-    const backRoute = [...state.routeToTarget].reverse();
-
-    if (!squad) {
-      finishAttack();
-      return;
-    }
-
-    const squadY = squad.position.y;
-
-    activeAnimationRef.current = animateSquadOnRoute({
-      squad,
-      route: backRoute,
-      tileSize: TILE_SIZE,
-      gridWidth: GRID_WIDTH,
-      gridHeight: GRID_HEIGHT,
-      y: squadY,
-      onComplete: () => {
-        finishAttack();
-      },
-    });
-  }
-
-  function resolveCombat(squad: THREE.Object3D) {
-    const state = useMapAttackStore.getState();
-    const scene = sceneRef.current;
-
-    if (!state.target || !scene) return;
-
-    const result = resolveMapAttack({
-      attacker: {
-        attack: 120,
-        agility: 80,
-        weaponBonus: 30,
-        prestige: 0,
-        corre: 0,
-        level: playerState?.niveis?.playerLevel || playerState?.niveis?.barracoLevel || 1,
-      },
-      defender: {
-        defense: 100,
-        resistance: 90,
-        protectionBonus: 20,
-        prestige: 0,
-        corre: 0,
-        level: state.target?.barracoLevel || 1,
-        luxuryItems: [],
-      },
-      targetDirtyMoney: state.target.dirtyMoney || 0,
-    });
-
-    pushAttackFeed(
-      result.success
-        ? `🔥 Você dominou ${state.target.playerName}`
-        : `💀 ${state.target.playerName} resistiu ao ataque`
-    );
-
-    const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
-    const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-    createImpactFlash({
-      scene,
-      position: new THREE.Vector3(posX, 0.6, posZ),
-    });
-
-    const obj = enemyBarracoMapRef.current[state.target.playerId];
-    if (obj) shakeObject(obj);
-
-    useMapAttackStore.getState().setResolution(result);
-
-    setTimeout(() => {
-      returnSquad(squad);
-    }, 800);
-  }
-
-  function executeMapAttack() {
-    const state = useMapAttackStore.getState();
-    const scene = sceneRef.current;
-
-    if (!scene || !state.origin || !state.target) return;
-
-    const route = buildManhattanAttackRoute({
-      fromTileX: state.origin.tileX,
-      fromTileY: state.origin.tileY,
-      toTileX: state.target.tileX,
-      toTileY: state.target.tileY,
-      includeOrigin: true,
-    });
-
-    if (!route.length) return;
-
-    loadSquadModel((squad) => {
-      const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
-      const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-      squad.position.x = startX;
-      squad.position.z = startZ;
-      squad.position.y = 0.25;
-      squad.rotation.y = Math.PI;
-
-      const squadY = squad.position.y;
-      const currentSquad = squad;
-
-      scene.add(currentSquad);
-      squadRef.current = currentSquad;
-
-      useMapAttackStore.getState().startAttack({
-        origin: state.origin,
-        target: state.target,
-        routeToTarget: route,
-        routeBack: [...route].reverse(),
-        squadWorldPosition: { x: startX, y: squadY, z: startZ },
-      });
-
-      activeAnimationRef.current = animateSquadOnRoute({
-        squad: currentSquad,
-        route,
-        tileSize: TILE_SIZE,
-        gridWidth: GRID_WIDTH,
-        gridHeight: GRID_HEIGHT,
-        y: squadY,
-        onComplete: () => {
-          resolveCombat(currentSquad);
-        },
-      });
-    }, 20);
-  }
+  const { player } = usePlayerStore();
 
   const pages = [
     { name: 'Home', path: '/' },
@@ -296,545 +29,82 @@ export default function GamePage() {
     setIsMenuOpen(false);
   };
 
-  const getBarracoSize = (currentLevel: number) => {
-    if (currentLevel >= 60) return 4;
-    if (currentLevel >= 30) return 3;
-    return 2;
-  };
-
-  const barracoSize = getBarracoSize(level);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    let isMounted = true;
-
-    const container = containerRef.current;
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    enemyBarracosRef.current = [];
-    enemyBarracoMapRef.current = {};
-    enemyPlayersRef.current = [];
-
-    const renderer = new THREE.WebGLRenderer({
-      antialias: !isMobile,
-      powerPreference: 'high-performance',
-      alpha: false,
-      stencil: false,
-      depth: true,
-    });
-
-    rendererRef.current = renderer;
-
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.8));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-    container.appendChild(renderer.domElement);
-
-    const scene = new THREE.Scene();
-    sceneRef.current = scene;
-    scene.background = new THREE.Color('#000000');
-
-    const highlightGeometry = new THREE.PlaneGeometry(1, 1);
-    const highlightMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffff00,
-      transparent: true,
-      opacity: 0.4,
-      side: THREE.DoubleSide,
-    });
-
-    const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
-    highlight.rotation.x = -Math.PI / 2;
-    highlight.position.y = 0.05;
-    highlight.visible = false;
-    scene.add(highlight);
-
-    const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-    const playerModel = new THREE.Mesh(playerGeometry, playerMaterial);
-    playerModel.position.set(0, 0.3, 0);
-    scene.add(playerModel);
-
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    const myTileX = playerState?.mapPosition?.tileX ?? GRID_WIDTH / 2;
-    const myTileY = playerState?.mapPosition?.tileY ?? GRID_HEIGHT / 2;
-
-    const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
-    const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-    const camera = new THREE.PerspectiveCamera(
-      45,
-      container.clientWidth / container.clientHeight,
-      0.1,
-      1000
-    );
-
-    cameraRef.current = camera;
-
-    const cameraTarget = new THREE.Vector3(8, 0, 0);
-
-    camera.position.set(26, 24, 18);
-    camera.lookAt(cameraTarget);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.copy(cameraTarget);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.05;
-    controls.minDistance = 10;
-    controls.maxDistance = 70;
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
-    scene.add(ambientLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
-    dirLight.position.set(8, 20, 10);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
-
-    const fillLight = new THREE.DirectionalLight(0xffe0b0, 2);
-    fillLight.position.set(-15, 10, -10);
-    scene.add(fillLight);
-
-    const loader = new GLTFLoader();
-    loader.setDRACOLoader(dracoLoader);
-
-    const modelUrl = getBarracoModelUrl(level);
-    let barraco: THREE.Object3D | null = null;
-    const loadedPlayerModels: THREE.Object3D[] = [];
-
-    loadSquadModel((model) => {
-      if (!isMounted) return;
-      model.position.x = playerWorldX + 2;
-      model.position.z = playerWorldZ;
-      model.position.y = 0.25;
-      model.rotation.y = Math.PI;
-      scene.add(model);
-      loadedPlayerModels.push(model);
-    }, 20);
-
-    const complexoResult = createComplexoBuildings(loader);
-    scene.add(complexoResult.group);
-    loadedPlayerModels.push(complexoResult.group);
-
-    complexoResult.load().catch((err) =>
-      console.error('❌ Erro ao carregar edifícios do complexo:', err)
-    );
-
-    const fixDarkMaterials = (child: any) => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-        if (child.material) {
-          child.material.metalness = 0;
-          child.material.roughness = 0.8;
-          child.material.emissive = new THREE.Color(0x3a220f);
-          child.material.emissiveIntensity = 0.2;
-          child.material.needsUpdate = true;
-        }
-      }
-    };
-
-    loader.load(
-      modelUrl,
-      (gltf) => {
-        if (!isMounted) return;
-
-        barraco = gltf.scene;
-        const box = new THREE.Box3().setFromObject(barraco);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-
-        const maxDimension = Math.max(size.x, size.z) || 1;
-        const scale = barracoSize / maxDimension;
-        barraco.scale.setScalar(scale);
-
-        const scaledBox = new THREE.Box3().setFromObject(barraco);
-        const center = new THREE.Vector3();
-        scaledBox.getCenter(center);
-        barraco.position.sub(center);
-
-        const finalBox = new THREE.Box3().setFromObject(barraco);
-        barraco.position.y -= finalBox.min.y;
-
-        barraco.position.x = playerWorldX;
-        barraco.position.z = playerWorldZ;
-
-        barraco.traverse(fixDarkMaterials);
-
-        scene.add(barraco);
-        loadedPlayerModels.push(barraco);
-
-        const label = createTextLabel(displayName);
-        label.position.set(playerWorldX, finalBox.max.y + 1.2, playerWorldZ);
-        scene.add(label);
-        loadedPlayerModels.push(label);
-
-        const reservedArea = new THREE.Mesh(
-          new THREE.PlaneGeometry(4, 4),
-          new THREE.MeshBasicMaterial({
-            color: 0xffaa00,
-            transparent: true,
-            opacity: 0.22,
-            side: THREE.DoubleSide,
-          })
-        );
-        reservedArea.rotation.x = -Math.PI / 2;
-        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ);
-
-        scene.add(reservedArea);
-        loadedPlayerModels.push(reservedArea);
-      },
-      undefined,
-      (error) => console.error('❌ Erro crítico ao carregar o modelo:', error)
-    );
-
-    const token = getAuthToken();
-    if (token) {
-      fetch('https://comando-backend.onrender.com/players', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((res) => res.json())
-        .then((players) => {
-          if (!isMounted || !Array.isArray(players)) return;
-
-          players.forEach((p: any) => {
-            if (String(p.id) === String(playerState?._id)) return;
-
-            enemyPlayersRef.current.push({
-              id: p.id || p._id,
-              tileX: p.tileX,
-              tileY: p.tileY,
-              name: p.name || 'VIZINHO',
-            });
-
-            const pLevel = p.barracoLevel || 1;
-            const mInfo =
-              BARRACO_MODELS.find((m) => pLevel >= m.min && pLevel <= m.max) ||
-              BARRACO_MODELS[0];
-
-            loader.load(mInfo.url, (gltf) => {
-              if (!isMounted) return;
-              const model = gltf.scene;
-
-              const bSize = getBarracoSize(pLevel);
-              const sBox = new THREE.Box3().setFromObject(model);
-              const size = new THREE.Vector3();
-              sBox.getSize(size);
-              model.scale.setScalar(bSize / (Math.max(size.x, size.z) || 1));
-
-              const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
-              const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-              model.position.set(posX, 0, posZ);
-              const sBoxFinal = new THREE.Box3().setFromObject(model);
-              model.position.y -= sBoxFinal.min.y;
-
-              model.traverse(fixDarkMaterials);
-
-              scene.add(model);
-              loadedPlayerModels.push(model);
-
-              attachEnemyBarracoData(model, {
-                playerId: p.id || p._id,
-                playerName: p.name || 'VIZINHO',
-                tileX: p.tileX,
-                tileY: p.tileY,
-                barracoLevel: p.barracoLevel || 1,
-                power: p.power || 100,
-                dirtyMoney: p.dirtyMoney || 100000,
-              });
-
-              enemyBarracosRef.current.push(model);
-              enemyBarracoMapRef.current[p.id || p._id] = model;
-
-              const vLabel = createTextLabel(p.name || 'VIZINHO');
-              vLabel.position.set(posX, 3.5, posZ);
-              scene.add(vLabel);
-              loadedPlayerModels.push(vLabel);
-            });
-          });
-        })
-        .catch((err) => console.error('❌ Erro ao buscar vizinhos do backend:', err));
-    }
-
-    const textureLoader = new THREE.TextureLoader();
-    const floorTexture = textureLoader.load(FLOOR_TEXTURE);
-    floorTexture.wrapS = THREE.ClampToEdgeWrapping;
-    floorTexture.wrapT = THREE.ClampToEdgeWrapping;
-    floorTexture.repeat.set(1, 1);
-
-    const topMaterial = new THREE.MeshStandardMaterial({
-      map: floorTexture,
-      roughness: 1,
-      metalness: 0,
-    });
-    const sideMaterial = new THREE.MeshStandardMaterial({
-      color: '#6e5742',
-      roughness: 1,
-      metalness: 0,
-    });
-
-    const platformGeometry = new THREE.BoxGeometry(GRID_WIDTH, PLATFORM_HEIGHT, GRID_HEIGHT);
-    const platform = new THREE.Mesh(platformGeometry, [
-      sideMaterial,
-      sideMaterial,
-      topMaterial,
-      sideMaterial,
-      sideMaterial,
-      sideMaterial,
-    ]);
-    platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
-    platform.receiveShadow = true;
-    platform.castShadow = true;
-    scene.add(platform);
-
-    const gridGroup = new THREE.Group();
-    const lineMaterial = new THREE.LineBasicMaterial({
-      color: 0x000000,
-      transparent: true,
-      opacity: 0.18,
-    });
-
-    for (let x = 0; x <= GRID_WIDTH; x++) {
-      const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, -GRID_HEIGHT / 2),
-        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, GRID_HEIGHT / 2),
-      ]);
-      gridGroup.add(new THREE.Line(geo, lineMaterial));
-    }
-
-    for (let z = 0; z <= GRID_HEIGHT; z++) {
-      const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
-        new THREE.Vector3(GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
-      ]);
-      gridGroup.add(new THREE.Line(geo, lineMaterial));
-    }
-
-    scene.add(gridGroup);
-
-    let pointerDownPos = { x: 0, y: 0 };
-
-    const handlePointerDown = (event: PointerEvent) => {
-      pointerDownPos = { x: event.clientX, y: event.clientY };
-    };
-
-    const handlePointerUp = (event: PointerEvent) => {
-      if (!containerRef.current) return;
-
-      const moveDistance =
-        Math.abs(event.clientX - pointerDownPos.x) +
-        Math.abs(event.clientY - pointerDownPos.y);
-
-      if (moveDistance > 5) return;
-
-      const rect = containerRef.current.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-
-      const enemyHits = raycaster.intersectObjects(enemyBarracosRef.current, true);
-      const target = pickEnemyBarracoFromIntersections(enemyHits);
-
-      if (target && playerState) {
-        useMapAttackStore.getState().openPreview({
-          origin: {
-            playerId: playerState._id,
-            playerName: playerState.name,
-            tileX: playerState.mapPosition.tileX,
-            tileY: playerState.mapPosition.tileY,
-          },
-          target,
-          estimatedLoot: Math.floor((target.dirtyMoney || 0) * 0.2),
-          estimatedChance: 0.6,
-        });
-
-        return;
-      }
-
-      const intersects = raycaster.intersectObject(platform);
-
-      if (intersects.length > 0) {
-        const point = intersects[0].point;
-        const tileX = Math.floor(point.x + GRID_WIDTH / 2);
-        const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
-
-        highlight.visible = true;
-        highlight.position.set(
-          tileX - GRID_WIDTH / 2 + 0.5,
-          0.05,
-          tileZ - GRID_HEIGHT / 2 + 0.5
-        );
-        playerModel.position.set(
-          tileX - GRID_WIDTH / 2 + 0.5,
-          0.3,
-          tileZ - GRID_HEIGHT / 2 + 0.5
-        );
-
-        handleTileInvasion(tileX, tileZ, enemyPlayersRef.current);
-      }
-    };
-
-    let animationId = 0;
-    const animate = () => {
-      controls.update();
-      renderer.render(scene, camera);
-      animationId = requestAnimationFrame(animate);
-    };
-    animate();
-
-    const handleResize = () => {
-      if (!containerRef.current) return;
-      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
-    };
-
-    window.addEventListener('resize', handleResize);
-    container.addEventListener('pointerdown', handlePointerDown);
-    container.addEventListener('pointerup', handlePointerUp);
-
-    return () => {
-      isMounted = false;
-
-      cancelAnimationFrame(animationId);
-      window.removeEventListener('resize', handleResize);
-      container.removeEventListener('pointerdown', handlePointerDown);
-      container.removeEventListener('pointerup', handlePointerUp);
-
-      controls.dispose();
-
-      if (activeAnimationRef.current?.stop) {
-        activeAnimationRef.current.stop();
-      }
-
-      if (sceneRef.current && squadRef.current) {
-        sceneRef.current.remove(squadRef.current);
-        squadRef.current = null;
-      }
-
-      complexoResult.disposables.forEach((disposable) => {
-        if (disposable.dispose) {
-          disposable.dispose();
-        }
-      });
-
-      loadedPlayerModels.forEach((model) => {
-        scene.remove(model);
-        model.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            mesh.geometry.dispose();
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach((mat) => mat.dispose());
-            } else if (mesh.material) {
-              mesh.material.dispose();
-            }
-          }
-        });
-      });
-
-      highlightGeometry.dispose();
-      highlightMaterial.dispose();
-      playerGeometry.dispose();
-      playerMaterial.dispose();
-      floorTexture.dispose();
-      platformGeometry.dispose();
-      topMaterial.dispose();
-      sideMaterial.dispose();
-      lineMaterial.dispose();
-
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
-      }
-
-      renderer.dispose();
-
-      enemyBarracosRef.current = [];
-      enemyBarracoMapRef.current = {};
-      enemyPlayersRef.current = [];
-
-      sceneRef.current = null;
-      cameraRef.current = null;
-      rendererRef.current = null;
-    };
-  }, [
-    playerState?._id,
-    playerState?.name,
-    playerState?.niveis?.playerLevel,
-    playerState?.niveis?.barracoLevel,
-    playerState?.mapPosition?.tileX,
-    playerState?.mapPosition?.tileY,
-    displayName,
-    level,
-    barracoSize,
-  ]);
-
   return (
-    <div className="w-full h-full relative">
-      <button
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg hover:bg-opacity-90 transition-all"
-        aria-label="Toggle menu"
-      >
-        {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
-
-      {isMenuOpen && (
-        <div className="absolute top-16 left-4 z-40 bg-background border border-primary rounded-lg shadow-lg p-4 max-w-xs max-h-96 overflow-y-auto">
-          <h3 className="text-primary font-heading text-lg mb-4">Páginas</h3>
-          <div className="grid grid-cols-1 gap-2">
-            {pages.map((page) => (
-              <button
-                key={page.path}
-                onClick={() => handleNavigate(page.path)}
-                className="w-full text-left px-4 py-2 rounded-lg bg-custom4 text-foreground hover:bg-primary hover:text-primary-foreground transition-colors font-paragraph text-sm"
-              >
-                {page.name}
-              </button>
-            ))}
+    <div className="w-full h-screen bg-black text-white flex flex-col">
+      <header className="border-b border-red-900/30 bg-black/80 backdrop-blur-sm p-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-black text-red-400">JOGO</h1>
+            <p className="text-sm text-zinc-400">Bem-vindo, {player?.name || 'Jogador'}</p>
           </div>
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="p-2 hover:bg-red-900/20 rounded-lg transition-colors"
+            aria-label="Toggle menu"
+          >
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
-      )}
+      </header>
 
-      <AttackResultOverlay />
+      <div className="flex-1 flex">
+        {isMenuOpen && (
+          <nav className="w-64 border-r border-red-900/30 bg-black/50 p-4 overflow-y-auto">
+            <h3 className="text-red-400 font-black text-lg mb-4">Navegação</h3>
+            <div className="space-y-2">
+              {pages.map((page) => (
+                <button
+                  key={page.path}
+                  onClick={() => handleNavigate(page.path)}
+                  className="w-full text-left px-4 py-3 rounded-lg bg-red-950/20 text-white hover:bg-red-900/40 transition-colors font-semibold text-sm"
+                >
+                  {page.name}
+                </button>
+              ))}
+            </div>
+          </nav>
+        )}
 
-      {previewOpen && (
-        <div className="absolute inset-0 z-50 bg-black/60 flex items-end justify-center">
-          <div className="w-full max-w-md rounded-t-3xl bg-[#090909] border border-red-500/30 p-5">
-            <h2 className="text-2xl font-black text-white mb-4">
-              Invadir barraco
-            </h2>
+        <main className="flex-1 p-8 overflow-y-auto">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gradient-to-br from-red-950/30 to-black border border-red-900/30 rounded-2xl p-8">
+              <h2 className="text-4xl font-black text-red-400 mb-6">Mapa do Jogo</h2>
+              
+              <div className="bg-black/50 rounded-xl p-8 mb-6 border border-red-900/20 min-h-96 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-zinc-400 text-lg mb-4">
+                    Carregando ambiente 3D...
+                  </p>
+                  <div className="inline-block">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+                  </div>
+                </div>
+              </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => useMapAttackStore.getState().closePreview()}
-                className="flex-1 rounded-2xl bg-zinc-700 px-4 py-4 font-bold text-white"
-              >
-                Cancelar
-              </button>
-
-              <button
-                onClick={executeMapAttack}
-                className="flex-1 rounded-2xl bg-red-600 px-4 py-4 font-black text-white"
-              >
-                INVADIR
-              </button>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-red-950/20 border border-red-900/30 rounded-lg p-4">
+                  <h3 className="font-black text-red-400 mb-2">Level</h3>
+                  <p className="text-2xl font-bold text-white">
+                    {player?.niveis?.barracoLevel || 1}
+                  </p>
+                </div>
+                <div className="bg-red-950/20 border border-red-900/30 rounded-lg p-4">
+                  <h3 className="font-black text-red-400 mb-2">Power</h3>
+                  <p className="text-2xl font-bold text-white">
+                    {player?.power || 0}
+                  </p>
+                </div>
+                <div className="bg-red-950/20 border border-red-900/30 rounded-lg p-4">
+                  <h3 className="font-black text-red-400 mb-2">Dinheiro Sujo</h3>
+                  <p className="text-2xl font-bold text-red-300">
+                    {(player?.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      <div
-        ref={containerRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing outline-none"
-      />
+        </main>
+      </div>
     </div>
   );
 }
