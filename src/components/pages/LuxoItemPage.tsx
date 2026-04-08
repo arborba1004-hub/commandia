@@ -486,17 +486,23 @@ export default function LuxoItemPage() {
 
                       <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                         <p className="text-[10px] uppercase tracking-[0.2em] text-white/42">Valor</p>
-                        <p className="mt-2 text-xl font-black" style={{ color: visual.accent }}>
-                       processando...
+                        {transactionStage === 'approach' && (
+                          <motion.span
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="mt-2 text-xl font-black"
+                            style={{ color: visual.accent }}
+                          >
+                            processando...
                           </motion.span>
                         )}
                         {transactionStage === 'accepted' && (
-                          <span className="text-sm font-black uppercase tracking-[0.18em] text-emerald-400">
+                          <span className="mt-2 text-xl font-black uppercase tracking-[0.18em] text-emerald-400">
                             transação aceita
                           </span>
                         )}
                         {transactionStage === 'insufficient' && (
-                          <span className="text-sm font-black uppercase tracking-[0.18em] text-red-400">
+                          <span className="mt-2 text-xl font-black uppercase tracking-[0.18em] text-red-400">
                             saldo insuficiente
                           </span>
                         )}
