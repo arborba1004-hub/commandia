@@ -286,10 +286,10 @@ squad.rotation.y = Math.PI;
       const data = await response.json();
 
       const currentPlayerId =
-        playerState?._id || playerState?.id || localStorage.getItem('playerId') || null;
+        playerState?._id || playerState?.id || playerState?.googleId || null;
 
       const filtered = Array.isArray(data)
-        ? data.filter((p) => String(p.id) !== String(currentPlayerId))
+        ? data.filter((p) => String(p.id || p._id) !== String(currentPlayerId))
         : [];
 
       setOtherPlayers(filtered);
