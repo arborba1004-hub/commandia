@@ -603,6 +603,7 @@ squad.rotation.y = Math.PI;
     let animationId = 0;
     const animate = () => {
       controls.update();
+      updateHorizonParallax();
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
     };
