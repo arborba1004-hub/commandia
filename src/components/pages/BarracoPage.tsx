@@ -2,11 +2,19 @@ import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 
 export default function BarracoPage() {
-  const { player, setPlayer } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
 
-  // ÚNICA FONTE: playerStore
-  const level = player.niveis.barracoLevel;
-  const cleanMoney = player.balances.cleanMoney;
+  if (!player) {
+    return (
+      <div className="min-h-screen w-full bg-black text-white flex items-center justify-center">
+        Carregando...
+      </div>
+    );
+  }
+
+  const level = player.niveis?.barracoLevel || 1;
+  const cleanMoney = player.balances?.cleanMoney || 0;
 
   const BASE_COST = 500;
   const MULTIPLIER = 1.1;
@@ -16,13 +24,12 @@ export default function BarracoPage() {
   };
 
   const upgradeCost = getUpgradeCost();
-
   const canUpgrade = cleanMoney >= upgradeCost;
 
   const handleUpgrade = () => {
-    if (!canUpgrade || !player) return;
+    if (!canUpgrade) return;
 
-    const updatedPlayer = {
+    setPlayer({
       ...player,
       niveis: {
         ...player.niveis,
@@ -32,12 +39,11 @@ export default function BarracoPage() {
         ...player.balances,
         cleanMoney: cleanMoney - upgradeCost,
       },
-    };
-
-    setPlayer(updatedPlayer);
+    });
   };
 
   const getBarracoName = () => {
+    if (level = 199) return 'Castelo do Comando' ;
     if (level >= 90) return 'Mansão com Heliporto';
     if (level >= 80) return 'Mansão Blindada';
     if (level >= 70) return 'Mansão do Complexo';
@@ -51,7 +57,7 @@ export default function BarracoPage() {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen w-full text-white flex flex-col items-center justify-center p-6 bg-cover bg-center bg-no-repeat"
       style={{
         backgroundImage: `url('https://static.wixstatic.com/media/50f4bf_83a2805595564007a2ade265972e89c6~mv2.png')`,
@@ -62,24 +68,16 @@ export default function BarracoPage() {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
       >
-        <h1 className="text-xl font-bold mb-2 text-center">
-          🏠 Seu Barraco
-        </h1>
+        <h1 className="text-xl font-bold mb-2 text-center">🏠 Seu Barraco</h1>
 
-        <p className="text-center text-sm opacity-70 mb-4">
-          {getBarracoName()}
-        </p>
+        <p className="text-center text-sm opacity-70 mb-4">{getBarracoName()}</p>
 
         <div className="text-center mb-6">
-          <span className="text-3xl font-bold">
-            Nível {level}
-          </span>
+          <span className="text-3xl font-bold">Nível {level}</span>
         </div>
 
         <div className="mb-6 text-center">
-          <p className="text-sm opacity-70">
-            Custo do upgrade
-          </p>
+          <p className="text-sm opacity-70">Custo do upgrade</p>
           <p className="text-lg font-bold text-emerald-400">
             {upgradeCost.toLocaleString('pt-BR')} 💰
           </p>
