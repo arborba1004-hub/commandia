@@ -33,7 +33,7 @@ const GRID_HEIGHT = 120;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
-  'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
+  'https://static.wixstatic.com/media/50f4bf_0ffb79a57bcc4d81ad4671faa5329c44~mv2.jpeg';
 const HORIZON_IMAGE =
   'https://static.wixstatic.com/media/50f4bf_ccd344777252495f9afc14f0bfa4548e~mv2.jpeg';
 
