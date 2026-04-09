@@ -34,6 +34,8 @@ const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
+const HORIZON_IMAGE =
+  'https://static.wixstatic.com/media/50f4bf_ccd344777252495f9afc14f0bfa4548e~mv2.jpeg';
 
 const BARRACO_MODELS = [
   { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
@@ -86,6 +88,7 @@ export default function GamePage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const horizonMeshRef = useRef<THREE.Mesh | null>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
@@ -409,6 +412,33 @@ squad.rotation.y = Math.PI;
     fillLight.position.set(-15, 10, -10);
     scene.add(fillLight);
 
+    // === HORIZON MESH ===
+    const horizonTexture = new THREE.TextureLoader().load(HORIZON_IMAGE);
+    horizonTexture.colorSpace = THREE.SRGBColorSpace;
+    horizonTexture.wrapS = THREE.ClampToEdgeWrapping;
+    horizonTexture.wrapT = THREE.ClampToEdgeWrapping;
+    horizonTexture.minFilter = THREE.LinearFilter;
+    horizonTexture.magFilter = THREE.LinearFilter;
+
+    const horizonMaterial = new THREE.MeshBasicMaterial({
+      map: horizonTexture,
+      transparent: false,
+      depthWrite: false,
+      fog: false,
+    });
+
+    const horizonGeometry = new THREE.PlaneGeometry(GRID_WIDTH * 2.2, 34);
+    const horizonMesh = new THREE.Mesh(horizonGeometry, horizonMaterial);
+
+    // COLADO NA BORDA NORTE DO GRID
+    horizonMesh.position.set(0, 14, -(GRID_HEIGHT / 2) - 10);
+
+    // reto, olhando para dentro do mapa
+    horizonMesh.rotation.y = 0;
+
+    scene.add(horizonMesh);
+    horizonMeshRef.current = horizonMesh;
+
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
@@ -583,6 +613,10 @@ squad.rotation.y = Math.PI;
     
     const animate = () => {
       controls.update();
+
+      if (horizonMeshRef.current) {
+        horizonMeshRef.current.position.x = camera.position.x * 0.55;
+      }
       
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
