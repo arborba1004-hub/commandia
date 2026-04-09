@@ -1,28 +1,64 @@
 // src/components/game/AttackNotification.tsx
 import { useEffect, useState } from 'react';
-import { realtime } from 'wix-realtime-frontend';
 import { usePlayerStore } from '@/store/playerStore';
+import { fetchAttackNotifications, markNotificationAsRead } from '@/api/notificationApi';
+
+const POLLING_INTERVAL = 3000; // 3 segundos
 
 export default function AttackNotification() {
   const [visible, setVisible] = useState(false);
   const [attacker, setAttacker] = useState('');
   const [loot, setLoot] = useState(0);
+  const [lastSeenNotificationId, setLastSeenNotificationId] = useState<string | null>(null);
+  const playerStore = usePlayerStore();
 
   useEffect(() => {
-    let unsubscribe: any = null;
-    const playerId = usePlayerStore.getState().player?._id;
-    if (!playerId) return;
+    let pollingInterval: ReturnType<typeof setInterval> | null = null;
+    let autoHideTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    realtime.subscribe(`attack_${playerId}`, (msg: any) => {
-      if (msg.type === 'attack') {
-        setAttacker(msg.attackerName);
-        setLoot(msg.loot || 0);
-        setVisible(true);
-        setTimeout(() => setVisible(false), 3000);
+    const pollNotifications = async () => {
+      try {
+        const notifications = await fetchAttackNotifications();
+
+        // Procura por notificações não lidas de ataque
+        const unreadAttackNotification = notifications.find(
+          (notif) =>
+            notif.type === 'attack_received' &&
+            !notif.read &&
+            notif.id !== lastSeenNotificationId
+        );
+
+        if (unreadAttackNotification) {
+          setLastSeenNotificationId(unreadAttackNotification.id);
+          setAttacker(unreadAttackNotification.attackerName || 'Desconhecido');
+          setLoot(unreadAttackNotification.loot || 0);
+          setVisible(true);
+
+          // Auto-hide após 3 segundos
+          if (autoHideTimeout) clearTimeout(autoHideTimeout);
+          autoHideTimeout = setTimeout(() => {
+            setVisible(false);
+          }, 3000);
+
+          // Marca como lida no backend
+          await markNotificationAsRead(unreadAttackNotification.id);
+
+          // Atualiza no store local
+          playerStore.markNotificationAsRead(unreadAttackNotification.id);
+        }
+      } catch (error) {
+        console.error('Erro ao fazer polling de notificações:', error);
       }
-    }).then(sub => { unsubscribe = sub.unsubscribe; });
-    return () => unsubscribe?.();
-  }, []);
+    };
+
+    pollingInterval = setInterval(pollNotifications, POLLING_INTERVAL);
+    pollNotifications(); // Executa imediatamente na montagem
+
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval);
+      if (autoHideTimeout) clearTimeout(autoHideTimeout);
+    };
+  }, [lastSeenNotificationId, playerStore]);
 
   if (!visible) return null;
   return (
