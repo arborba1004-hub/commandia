@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { subscribe } from 'wix-realtime';
 import type { ChatMessage, ChatChannelType } from '@/types/chat';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
@@ -7,7 +6,6 @@ const POLLING_INTERVAL = 3000;
 const REQUEST_TIMEOUT_MS = 15000;
 
 let chatPollingInterval: ReturnType<typeof setInterval> | null = null;
-let realtimeUnsubscribers: Map<string, () => void> = new Map();
 
 type ChatStore = {
   complexoMessages: ChatMessage[];
@@ -27,8 +25,6 @@ type ChatStore = {
 
   fetchMessages: (channel?: ChatChannelType) => Promise<void>;
   loadChat: () => Promise<void>;
-  subscribeToRealtimeChannels: () => Promise<void>;
-  unsubscribeFromRealtimeChannels: () => void;
 
   startChatPolling: () => void;
   stopChatPolling: () => void;
@@ -285,7 +281,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         isLoading: false,
       });
 
-      await get().subscribeToRealtimeChannels();
+      // Start polling for message updates
       get().startChatPolling();
     } catch (error) {
       console.error('Erro ao carregar chat:', error);
@@ -294,72 +290,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         syncError: error instanceof Error ? error.message : 'Erro ao carregar chat',
       });
     }
-  },
-
-  subscribeToRealtimeChannels: async () => {
-    const state = get();
-    const userId = state.currentUserId;
-    const factionId = state.currentFactionId;
-
-    try {
-      get().unsubscribeFromRealtimeChannels();
-
-      const complexoUnsub = await subscribe('chat_complexo', (message: any) => {
-        if (message?.type === 'chat_message' && message?.channel === 'complexo') {
-          const normalized = normalizeMessages([message]);
-          set((state) => ({
-            complexoMessages: mergeUniqueMessages(state.complexoMessages, normalized),
-          }));
-        }
-      });
-
-      realtimeUnsubscribers.set('chat_complexo', complexoUnsub);
-
-      if (factionId) {
-        const faccaoChannel = `chat_faccao_${factionId}`;
-        const faccaoUnsub = await subscribe(faccaoChannel, (message: any) => {
-          if (message?.type === 'chat_message' && message?.channel === 'faccao') {
-            const normalized = normalizeMessages([message]);
-            set((state) => ({
-              faccaoMessages: mergeUniqueMessages(state.faccaoMessages, normalized),
-            }));
-          }
-        });
-
-        realtimeUnsubscribers.set(faccaoChannel, faccaoUnsub);
-      }
-
-      if (userId) {
-        const mailChannel = `chat_mail_${userId}`;
-        const mailUnsub = await subscribe(mailChannel, (message: any) => {
-          if (message?.type === 'chat_message' && message?.channel === 'mail') {
-            const normalized = normalizeMessages([message]);
-            set((state) => ({
-              mailMessages: mergeUniqueMessages(state.mailMessages, normalized),
-            }));
-          }
-        });
-
-        realtimeUnsubscribers.set(mailChannel, mailUnsub);
-      }
-    } catch (error) {
-      console.error('Erro ao se inscrever em canais realtime:', error);
-      set({
-        syncError: error instanceof Error ? error.message : 'Erro ao conectar realtime',
-      });
-    }
-  },
-
-  unsubscribeFromRealtimeChannels: () => {
-    realtimeUnsubscribers.forEach((unsub) => {
-      try {
-        unsub();
-      } catch (error) {
-        console.error('Erro ao desinscrever:', error);
-      }
-    });
-
-    realtimeUnsubscribers.clear();
   },
 
   startChatPolling: () => {
@@ -526,7 +456,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   resetChatState: () => {
     get().stopChatPolling();
-    get().unsubscribeFromRealtimeChannels();
 
     set({
       complexoMessages: [],
