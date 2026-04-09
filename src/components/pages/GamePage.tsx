@@ -657,6 +657,82 @@ squad.rotation.y = Math.PI;
     };
   }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id, displayName]);
 
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    // limpa visuais antigos dos outros players
+    otherPlayerVisualsRef.current.forEach((obj) => {
+      scene.remove(obj);
+    });
+    otherPlayerVisualsRef.current = [];
+    enemyBarracosRef.current = [];
+    enemyBarracoMapRef.current = {};
+
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+
+    const fixDarkMaterials = (child: any) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (child.material) {
+          child.material.metalness = 0;
+          child.material.roughness = 0.8;
+          child.material.emissive = new THREE.Color(0x3a220f);
+          child.material.emissiveIntensity = 0.2;
+          child.material.needsUpdate = true;
+        }
+      }
+    };
+
+    otherPlayers.forEach((p: any) => {
+      const pLevel = p.barracoLevel || 1;
+      const mInfo =
+        BARRACO_MODELS.find((m) => pLevel >= m.min && pLevel <= m.max) || BARRACO_MODELS[0];
+
+      loader.load(mInfo.url, (gltf) => {
+        const model = gltf.scene;
+
+        const bSize = getBarracoSize(pLevel);
+        const sBox = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        sBox.getSize(size);
+        model.scale.setScalar(bSize / (Math.max(size.x, size.z) || 1));
+
+        const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+        const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+        model.position.set(posX, 0, posZ);
+        const sBoxFinal = new THREE.Box3().setFromObject(model);
+        model.position.y -= sBoxFinal.min.y;
+
+        model.traverse(fixDarkMaterials);
+
+        scene.add(model);
+        otherPlayerVisualsRef.current.push(model);
+
+        attachEnemyBarracoData(model, {
+          playerId: p.id || p._id,
+          playerName: p.name || 'VIZINHO',
+          tileX: p.tileX,
+          tileY: p.tileY,
+          barracoLevel: p.barracoLevel || 1,
+          power: p.power || 100,
+          dirtyMoney: p.dirtyMoney || 100000,
+        });
+
+        enemyBarracosRef.current.push(model);
+        enemyBarracoMapRef.current[p.id || p._id] = model;
+
+        const vLabel = createTextLabel(p.name || 'VIZINHO');
+        vLabel.position.set(posX, 3.5, posZ);
+        scene.add(vLabel);
+        otherPlayerVisualsRef.current.push(vLabel);
+      });
+    });
+  }, [otherPlayers]);
+
   return (
     <div className="w-full h-full relative">
       {/* Menu Button */}
