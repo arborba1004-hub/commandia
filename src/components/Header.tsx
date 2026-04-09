@@ -57,7 +57,6 @@ export default function Header() {
   const { player, setPlayer } = usePlayerStore();
   const { playerData, logout } = useGoogleAuth();
 
-  const setActiveChannel = () => {};
   const mailMessages: any[] = [];
 
   const isAuthenticated = !!player?._id;
@@ -159,9 +158,8 @@ export default function Header() {
     } as any);
   };
 
-  const openChat = (channel: ChatChannel) => {
-    setActiveChannel(channel);
-    navigate(CHAT_FALLBACK_ROUTE);
+  const openChat = (_channel: ChatChannel) => {
+    navigate('/chat');
   };
 
   if (!isAuthenticated) {
