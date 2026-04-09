@@ -91,6 +91,7 @@ export default function GamePage() {
   const horizonRef = useRef<any>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
 
   // === FUNÇÃO DE ATAQUE ===
@@ -267,6 +268,52 @@ squad.rotation.y = Math.PI;
   };
 
   const barracoSize = getBarracoSize(level);
+
+  // === FUNÇÃO PARA CARREGAR OUTROS PLAYERS ===
+  const fetchOtherPlayers = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
+      const response = await fetch('https://comando-backend.onrender.com/players', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Erro ao buscar players:', response.status);
+        return;
+      }
+
+      const data = await response.json();
+
+      const currentPlayerId =
+        playerState?._id || playerState?.id || localStorage.getItem('playerId') || null;
+
+      const filtered = Array.isArray(data)
+        ? data.filter((p) => String(p.id) !== String(currentPlayerId))
+        : [];
+
+      setOtherPlayers(filtered);
+    } catch (error) {
+      console.error('Erro no polling de players:', error);
+    }
+  };
+
+  useEffect(() => {
+    let playersInterval: ReturnType<typeof setInterval> | null = null;
+
+    fetchOtherPlayers();
+
+    playersInterval = setInterval(() => {
+      fetchOtherPlayers();
+    }, 3000);
+
+    return () => {
+      if (playersInterval) clearInterval(playersInterval);
+    };
+  }, [playerState?._id, playerState?.id]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -609,7 +656,7 @@ squad.rotation.y = Math.PI;
         highlight.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.05, tileZ - GRID_HEIGHT / 2 + 0.5);
         playerModel.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.3, tileZ - GRID_HEIGHT / 2 + 0.5);
 
-        handleTileInvasion(tileX, tileZ);
+        handleTileInvasion(tileX, tileZ, otherPlayers);
       }
     };
 
