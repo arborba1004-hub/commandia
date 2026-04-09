@@ -80,6 +80,7 @@ export default function GamePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const enemyBarracosRef = useRef<THREE.Object3D[]>([]);
   const enemyBarracoMapRef = useRef<Record<string, THREE.Object3D>>({});
+  const otherPlayerVisualsRef = useRef<THREE.Object3D[]>([]);
   const squadRef = useRef<THREE.Object3D | null>(null);
   const activeAnimationRef = useRef<any>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -379,10 +380,13 @@ squad.rotation.y = Math.PI;
 
     cameraRef.current = camera;
 
-    // mirar no centro do complexo, não no jogador
-    const cameraTarget = new THREE.Vector3(8, 0, 0);
+    const cameraTarget = new THREE.Vector3(playerWorldX, 1.2, playerWorldZ);
 
-    camera.position.set(26, 24, 18);
+    camera.position.set(
+      playerWorldX + 10,
+      11,
+      playerWorldZ + 12
+    );
     camera.lookAt(cameraTarget);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -482,68 +486,7 @@ squad.rotation.y = Math.PI;
       },
       undefined,
       (error) => console.error('❌ Erro crítico ao carregar o modelo:', error)
-    );// CARREGANDO OS OUTROS JOGADORES DO BACKEND
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      fetch('https://comando-backend.onrender.com/players', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then(res => res.json())
-        .then(players => {
-          if (!isMounted) return;
-
-          players.forEach((p: any) => {
-            if (p.id === playerState?._id) return;
-
-            const pLevel = p.barracoLevel || 1;
-            const mInfo = BARRACO_MODELS.find(m => pLevel >= m.min && pLevel <= m.max) || BARRACO_MODELS[0];
-
-            loader.load(mInfo.url, (gltf) => {
-              if (!isMounted) return;
-              const model = gltf.scene;
-
-              const bSize = getBarracoSize(pLevel);
-              const sBox = new THREE.Box3().setFromObject(model);
-              const size = new THREE.Vector3();
-              sBox.getSize(size);
-              model.scale.setScalar(bSize / (Math.max(size.x, size.z) || 1));
-
-              const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
-              const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-              model.position.set(posX, 0, posZ);
-              const sBoxFinal = new THREE.Box3().setFromObject(model);
-              model.position.y -= sBoxFinal.min.y;
-
-              model.traverse(fixDarkMaterials);
-
-              scene.add(model);
-              loadedPlayerModels.push(model);
-
-              // REGISTRAR DADOS DO BARRACO INIMIGO
-              attachEnemyBarracoData(model, {
-                playerId: p.id || p._id,
-                playerName: p.name || 'VIZINHO',
-                tileX: p.tileX,
-                tileY: p.tileY,
-                barracoLevel: p.barracoLevel || 1,
-                power: p.power || 100,
-                dirtyMoney: p.dirtyMoney || 100000,
-              });
-
-              enemyBarracosRef.current.push(model);
-              enemyBarracoMapRef.current[p.id || p._id] = model;
-
-              // NOMES DOS VIZINHOS
-              const vLabel = createTextLabel(p.name || 'VIZINHO');
-              vLabel.position.set(posX, 3.5, posZ);
-              scene.add(vLabel);
-              loadedPlayerModels.push(vLabel);
-            });
-          });
-        })
-        .catch(err => console.error('❌ Erro ao buscar vizinhos do backend:', err));
-    }
+    );
 
     const textureLoader = new THREE.TextureLoader();
     const floorTexture = textureLoader.load(FLOOR_TEXTURE);
