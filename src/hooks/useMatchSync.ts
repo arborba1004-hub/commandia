@@ -1,5 +1,12 @@
-// hooks/useMatchSync.ts
-// Hook para sincronização em tempo real de partidas
+/**
+ * LEGACY/EXPERIMENTAL: Match Synchronization Hook
+ * 
+ * ⚠️ DEPRECATED - This hook is no longer used in the main application flow.
+ * It was designed for real-time match synchronization but is not currently active.
+ * 
+ * Kept for reference and potential future matchmaking implementation.
+ * No new matchmaking features should use this hook.
+ */
 
 import { useState, useEffect, useCallback } from 'react';
 import { subscribe } from 'wix-realtime';
@@ -27,6 +34,11 @@ interface MatchUpdate {
   timestamp?: string;
 }
 
+/**
+ * LEGACY: Hook for real-time match synchronization
+ * 
+ * @deprecated Not currently used in the main application flow
+ */
 export function useMatchSync(matchId: string) {
   const [matchState, setMatchState] = useState<MatchState | null>(null);
   const [isLoading, setIsLoading] = useState(true);

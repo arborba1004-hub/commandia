@@ -1,6 +1,10 @@
 /**
- * HomePage - Wix Members Authentication Version
- * Replaces Google OAuth with Wix Members API
+ * LEGACY/EXPERIMENTAL: HomePage - Wix Members Authentication Version
+ * 
+ * ⚠️ DEPRECATED - This page is no longer in the main router.
+ * It was an experimental version using the legacy useWixAuth hook.
+ * 
+ * Current HomePage is at: src/components/pages/HomePage.tsx
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -13,7 +17,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Image } from '@/components/ui/image';
-import { useWixAuth } from '@/hooks/useWixAuth';
+// import { useWixAuth } from '@/hooks/useWixAuth'; // LEGACY: Removed from main flow
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 const LOGO_URL =
@@ -93,7 +97,13 @@ export default function HomePageNew() {
   const navigate = useNavigate();
   const manifestoRef = useRef<HTMLElement | null>(null);
 
-  const { member, isAuthenticated, isLoading } = useWixAuth();
+  // LEGACY: useWixAuth hook removed from main flow
+  // const { member, isAuthenticated, isLoading } = useWixAuth();
+  
+  // Placeholder values for legacy page
+  const member = null;
+  const isAuthenticated = false;
+  const isLoading = false;
 
   const scrollToManifesto = () => {
     manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });
