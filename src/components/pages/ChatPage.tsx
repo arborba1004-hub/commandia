@@ -5,9 +5,7 @@ import Footer from '@/components/Footer';
 import { useChatStore } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Smile, Image, AtSign, Hash, Crown, Shield, Flame } from 'lucide-react';
-
-// Componente de emojis personalizados (vamos criar depois)
+import { Send, Smile, AtSign, Hash, Shield } from 'lucide-react';
 import EmojiPicker from '@/components/chat/EmojiPicker';
 
 export default function ChatPage() {
@@ -18,7 +16,7 @@ export default function ChatPage() {
     complexoMessages, faccaoMessages, mailMessages,
     sendComplexoMessage, sendFaccaoMessage, sendMailMessage,
     loadChat, startChatPolling, stopChatPolling, isLoading,
-    setCurrentUser, subscribeToRealtimeChannels, unsubscribeFromRealtimeChannels
+    setCurrentUser
   } = useChatStore();
 
   const [messageText, setMessageText] = useState('');
@@ -33,13 +31,12 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (player?._id) {
-      // Set current user and faction for realtime subscriptions
+      // Set current user and faction for backend polling
       setCurrentUser(player._id, player.factionId);
       loadChat();
       startChatPolling();
       return () => {
         stopChatPolling();
-        unsubscribeFromRealtimeChannels();
       };
     }
   }, [player?._id, player?.factionId]);
