@@ -134,7 +134,7 @@ export default function FugaIlustradaPage() {
     }
 
     removeCleanMoney(price);
-purchaseAccessory(accessory._id, accessory.skillType || 'unknown');
+    purchaseAccessory(accessory._id, accessory.skillType || 'unknown');
 
     setPlayer({
       purchasedAccessories: [
