@@ -24,6 +24,7 @@ import {
 } from '@/components/game/mapAttackEffects';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
+import { createDynamicHorizon, createTerrainRelief } from '@/components/game/createDynamicHorizon';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -295,29 +296,8 @@ squad.rotation.y = Math.PI;
     sceneRef.current = scene;
     scene.background = new THREE.Color('#000000');
 
-    // === HORIZONTE CINEMATOGRÁFICO AAA ===
-    const horizonTexture = new THREE.TextureLoader().load(HORIZON_TEXTURE);
-    horizonTexture.colorSpace = THREE.SRGBColorSpace;
-    horizonTexture.wrapS = THREE.ClampToEdgeWrapping;
-    horizonTexture.wrapT = THREE.ClampToEdgeWrapping;
-    horizonTexture.minFilter = THREE.LinearFilter;
-    horizonTexture.magFilter = THREE.LinearFilter;
-
-    const horizonMaterial = new THREE.MeshBasicMaterial({
-      map: horizonTexture,
-      transparent: false,
-      fog: false,
-      depthWrite: false,
-      depthTest: true,
-      side: THREE.FrontSide,
-    });
-
-    const horizonGeometry = new THREE.PlaneGeometry(220, 60, 1, 1);
-    const horizonPlane = new THREE.Mesh(horizonGeometry, horizonMaterial);
-
-    horizonPlane.position.set(0, 18, -58);
-    horizonPlane.renderOrder = -10;
-    scene.add(horizonPlane);
+    // === HORIZONTE DINÂMICO 360° COM PRÉDIOS E RELEVO ===
+    // Será criado após a câmera estar pronta
 
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -371,6 +351,19 @@ squad.rotation.y = Math.PI;
     controls.maxPolarAngle = Math.PI / 2 - 0.05;
     controls.minDistance = 10;
     controls.maxDistance = 70;
+
+    // === CRIAR HORIZONTE DINÂMICO 360° ===
+    const horizon = createDynamicHorizon({
+      scene,
+      camera,
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+    });
+    horizonRef.current = horizon;
+
+    // === CRIAR RELEVO/MONTANHAS AO FUNDO ===
+    const relief = createTerrainRelief(scene, camera);
+    reliefRef.current = relief;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
@@ -629,10 +622,14 @@ squad.rotation.y = Math.PI;
     let animationId = 0;
     
     const updateHorizonParallax = () => {
-      // acompanha suavemente a câmera no eixo X para dar sensação de mundo vivo
-      horizonPlane.position.x = camera.position.x * 0.22;
-      // mantém o horizonte sempre ao fundo da cena, sem invadir o mapa
-      horizonPlane.position.z = camera.position.z - 72;
+      // Atualizar horizonte dinâmico
+      if (horizonRef.current?.update) {
+        horizonRef.current.update();
+      }
+      // Atualizar relevo
+      if (reliefRef.current?.update) {
+        reliefRef.current.update();
+      }
     };
 
     const animate = () => {
@@ -698,6 +695,16 @@ squad.rotation.y = Math.PI;
       topMaterial.dispose();
       sideMaterial.dispose();
       lineMaterial.dispose();
+
+      // Limpar horizonte dinâmico
+      if (horizonRef.current?.dispose) {
+        horizonRef.current.dispose();
+      }
+
+      // Limpar relevo
+      if (reliefRef.current?.dispose) {
+        reliefRef.current.dispose();
+      }
 
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
