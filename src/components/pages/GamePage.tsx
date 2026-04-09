@@ -627,8 +627,17 @@ squad.rotation.y = Math.PI;
     };
 
     let animationId = 0;
+    
+    const updateHorizonParallax = () => {
+      // acompanha suavemente a câmera no eixo X para dar sensação de mundo vivo
+      horizonPlane.position.x = camera.position.x * 0.22;
+      // mantém o horizonte sempre ao fundo da cena, sem invadir o mapa
+      horizonPlane.position.z = camera.position.z - 72;
+    };
+
     const animate = () => {
       controls.update();
+      updateHorizonParallax();
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
     };
