@@ -16,6 +16,7 @@ import GangPage from '@/components/gang/GangPage';
 import LuxoItemPage from '@/components/pages/LuxoItemPage';
 import BarracoPage from '@/components/pages/BarracoPage';
 import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
+import ChatPage from '@/components/pages/ChatPage';
 
 function Layout() {
   return (
@@ -33,10 +34,10 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       { index: true, element: <HomePage /> },
-      { index: true, element: <HomePage /> },
       { path: 'galeria', element: <GaleriaPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'game', element: <GamePage /> },
+      { path: 'chat', element: <ChatPage /> },
       { path: 'giro', element: <GiroPage /> },
       { path: 'luxuryshowroom', element: <LuxuryshowroomPage /> },
       { path: 'lavagem-de-dinheiro', element: <LavagemDeDinheiroPage /> },

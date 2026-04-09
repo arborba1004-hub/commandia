@@ -75,6 +75,15 @@ export default function Header() {
             </Link>
           )}
 
+          {isAuthenticated && (
+            <Link
+              to="/chat"
+              className="font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
+            >
+              Chat
+            </Link>
+          )}
+
           {!isAuthenticated && (
             <a
               href="#missoes"
