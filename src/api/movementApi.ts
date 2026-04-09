@@ -1,21 +1,44 @@
 /**
- * 🎮 API DE MOVIMENTOS - FRONTEND
+ * ⚠️ DEPRECATED - Movement API (LEGACY)
  * 
- * Este arquivo conecta o GamePage.tsx ao backend Wix
- * Quando você clica no mapa, esta função envia a nova posição para o backend
- * que depois publica em tempo real para todos os outros jogadores
+ * PHASE 9: This file is ISOLATED from the main application flow.
+ * 
+ * Status: LEGACY - DO NOT USE
+ * Reason: Application now uses external backend API for movement operations
+ * 
+ * This file is preserved for reference only and contains movement API operations
+ * using Wix Realtime API.
+ * 
+ * All active movement operations use the external backend at:
+ * - https://comando-backend.onrender.com
+ * 
+ * If you need to use Wix Realtime for movement in the future:
+ * 1. Import from this file
+ * 2. Update GamePage.tsx to use these functions
+ * 3. Remove backend API calls from GamePage.tsx
+ * 
+ * DO NOT import this file in active components.
+ * 
+ * Legacy reference:
+ * - Backend file: /src/backend/movementPublisher.jsw
+ * - This function connects GamePage.tsx to backend Wix
+ * - When you click on the map, this function sends the new position to the backend
+ * - The backend then publishes in real-time to all other players
  */
 
 /**
- * 🚀 FUNÇÃO: Publicar movimento do jogador
+ * ⚠️ DEPRECATED FUNCTION - Do not use
  * 
- * Chamada quando você clica no mapa e se move
+ * Legacy function for publishing player movement via Wix Realtime
+ * This function is preserved for reference only.
  * 
- * Parâmetros:
- * - playerId: Seu ID único
- * - playerName: Seu nome no jogo
- * - tileX: Posição X (coluna) onde você clicou
- * - tileY: Posição Y (linha) onde você clicou
+ * Parameters:
+ * - playerId: Player's unique ID
+ * - playerName: Player's name in the game
+ * - tileX: X position (column) where you clicked
+ * - tileY: Y position (row) where you clicked
+ * 
+ * @deprecated Use external backend API instead
  */
 export async function publishPlayerMovement(data: {
   playerId: string;
@@ -24,8 +47,9 @@ export async function publishPlayerMovement(data: {
   tileY: number;
 }) {
   try {
-    // 📡 Chamar a função backend que criamos
-    // Esta função está em: /src/backend/movementPublisher.jsw
+    // 📡 LEGACY: This would call the Wix backend function
+    // Legacy backend file: /src/backend/movementPublisher.jsw
+    // Currently NOT USED - preserved for reference only
     const response = await fetch('/api/movement/publish', {
       method: 'POST',
       headers: {
@@ -49,9 +73,12 @@ export async function publishPlayerMovement(data: {
 }
 
 /**
- * 🎯 FUNÇÃO AUXILIAR: Publicar múltiplos movimentos
+ * ⚠️ DEPRECATED FUNCTION - Do not use
  * 
- * Use se vários jogadores se movem ao mesmo tempo
+ * Legacy function for publishing multiple player movements via Wix Realtime
+ * This function is preserved for reference only.
+ * 
+ * @deprecated Use external backend API instead
  */
 export async function publishMultipleMovements(movements: Array<{
   playerId: string;
