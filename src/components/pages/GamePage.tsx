@@ -78,47 +78,6 @@ function createTextLabel(text: string): THREE.Sprite | THREE.Group {
   return sprite;
 }
 
-function createReliefTerrainBand(
-  width: number,
-  depth: number,
-  segmentsW: number,
-  segmentsD: number,
-  yBase = -0.15
-) {
-  const geometry = new THREE.PlaneGeometry(width, depth, segmentsW, segmentsD);
-  geometry.rotateX(-Math.PI / 2);
-
-  const pos = geometry.attributes.position;
-
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const z = pos.getZ(i);
-
-    const waveA = Math.sin(x * 0.045) * 0.9;
-    const waveB = Math.cos(z * 0.04) * 0.7;
-    const waveC = Math.sin((x + z) * 0.03) * 0.6;
-    const edgeRise = Math.max(Math.abs(x) * 0.004, Math.abs(z) * 0.004);
-
-    const y = yBase + waveA + waveB + waveC + edgeRise;
-    pos.setY(i, y);
-  }
-
-  pos.needsUpdate = true;
-  geometry.computeVertexNormals();
-
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x4a4036,
-    roughness: 1,
-    metalness: 0,
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.receiveShadow = true;
-  mesh.castShadow = false;
-
-  return mesh;
-}
-
 export default function GamePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const enemyBarracosRef = useRef<THREE.Object3D[]>([]);
@@ -130,7 +89,6 @@ export default function GamePage() {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const horizonMeshRef = useRef<THREE.Mesh | null>(null);
-  const terrainShellRef = useRef<THREE.Group | null>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
@@ -482,35 +440,6 @@ squad.rotation.y = Math.PI;
     scene.add(horizonMesh);
     horizonMeshRef.current = horizonMesh;
 
-    const terrainShell = new THREE.Group();
-    terrainShellRef.current = terrainShell;
-
-    const shellOffset = 8;
-    const shellThickness = 18;
-
-    // norte
-    const northBand = createReliefTerrainBand(GRID_WIDTH + 36, shellThickness, 48, 12, -0.15);
-    northBand.position.set(0, 0, -(GRID_HEIGHT / 2) - shellOffset);
-
-    // sul
-    const southBand = createReliefTerrainBand(GRID_WIDTH + 36, shellThickness, 48, 12, -0.15);
-    southBand.position.set(0, 0, (GRID_HEIGHT / 2) + shellOffset);
-
-    // oeste
-    const westBand = createReliefTerrainBand(shellThickness, GRID_HEIGHT + 36, 12, 48, -0.15);
-    westBand.position.set(-(GRID_WIDTH / 2) - shellOffset, 0, 0);
-
-    // leste
-    const eastBand = createReliefTerrainBand(shellThickness, GRID_HEIGHT + 36, 12, 48, -0.15);
-    eastBand.position.set((GRID_WIDTH / 2) + shellOffset, 0, 0);
-
-    terrainShell.add(northBand);
-    terrainShell.add(southBand);
-    terrainShell.add(westBand);
-    terrainShell.add(eastBand);
-
-    scene.add(terrainShell);
-
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
@@ -718,11 +647,6 @@ squad.rotation.y = Math.PI;
       if (sceneRef.current && squadRef.current) {
         sceneRef.current.remove(squadRef.current);
         squadRef.current = null;
-      }
-
-      if (terrainShellRef.current) {
-        scene.remove(terrainShellRef.current);
-        terrainShellRef.current = null;
       }
 
       // ... keep existing code (complexo disposables cleanup)
