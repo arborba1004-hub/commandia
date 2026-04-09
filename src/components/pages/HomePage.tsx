@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Shield, Flame, Play, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { Image } from '@/components/ui/image';
+import { gameAction } from '@/api/playerApi';
 
 declare global {
   interface Window {
@@ -44,7 +48,54 @@ const cards = [
   },
 ];
 
-// Removed unused 3D model loading function
+function loadSquadModel(onLoaded: (model: THREE.Object3D) => void) {
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/draco_wasm_wrapper_v1_4_3/');
+
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+
+  loader.load(
+    'https://static.wixstatic.com/3d/50f4bf_471a8eec1715484ebc36bdd3b9002999.glb',
+    (gltf) => {
+      const model = gltf.scene;
+
+      model.traverse((child: any) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+
+          if (child.material) {
+            child.material.metalness = 0;
+            child.material.roughness = 0.9;
+            child.material.emissive = new THREE.Color(0x220000);
+            child.material.emissiveIntensity = 0.15;
+            child.material.needsUpdate = true;
+          }
+        }
+      });
+
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+
+      const desiredWidth = 1.4;
+      const scale = desiredWidth / Math.max(size.x, size.z, 1);
+      model.scale.setScalar(scale);
+
+      const finalBox = new THREE.Box3().setFromObject(model);
+      model.position.y -= finalBox.min.y;
+
+      model.name = 'ATTACK_SQUAD';
+
+      onLoaded(model);
+    },
+    undefined,
+    (error) => {
+      console.error('Erro ao carregar squad 3D:', error);
+    }
+  );
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -544,6 +595,37 @@ export default function HomePage() {
       </section>
 
       <Footer />
+
+      <button
+        onClick={async () => {
+          const data = await gameAction({
+            action: 'player_update',
+            data: {
+              balances: {
+                dirtyMoney: 999999,
+                cleanMoney: 888888,
+                corre: 777,
+              },
+            },
+          });
+
+          console.log(data);
+
+          alert('Backend respondeu. Confere o saldo agora.');
+        }}
+        style={{
+          position: 'fixed',
+          bottom: 20,
+          right: 20,
+          zIndex: 9999,
+          padding: '12px 16px',
+          background: 'red',
+          color: 'white',
+          borderRadius: '8px',
+        }}
+      >
+        TESTAR BACKEND
+      </button>
     </div>
   );
 }

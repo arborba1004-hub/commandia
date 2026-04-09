@@ -27,7 +27,6 @@ export interface AcessriosdeFuga {
 
 /**
  * Collection ID: armasarsenal
- * @catalog This collection is an eCommerce catalog
  * Interface for ArmasArsenal
  */
 export interface ArmasArsenal {
@@ -94,7 +93,6 @@ export interface ConceptArtGallery {
 
 /**
  * Collection ID: fugavehicles
- * @catalog This collection is an eCommerce catalog
  * Interface for EscapeVehicles
  */
 export interface EscapeVehicles {
@@ -136,100 +134,4 @@ export interface GameMechanics {
   levelRequirement?: number;
   /** @wixFieldType text */
   reward?: string;
-}
-
-
-/**
- * Collection ID: partidas
- * Interface for Matches
- */
-export interface Matches {
-  _id: string;
-  _createdDate?: Date;
-  _updatedDate?: Date;
-  /** @wixFieldType text */
-  matchId?: string;
-  /** @wixFieldType text */
-  players?: string;
-  /** @wixFieldType text */
-  status?: string;
-  /** @wixFieldType text */
-  currentTurnPlayerId?: string;
-  /** @wixFieldType text */
-  gameData?: string;
-  /** @wixFieldType datetime */
-  createdAt?: Date | string;
-  /** @wixFieldType datetime */
-  updatedAt?: Date | string;
-  /** @wixFieldType text */
-  winnerId?: string;
-}
-
-
-/**
- * Collection ID: playerinventories
- * Interface for PlayerInventories
- */
-export interface PlayerInventories {
-  _id: string;
-  _createdDate?: Date;
-  _updatedDate?: Date;
-  /** @wixFieldType text */
-  playerId?: string;
-  /** @wixFieldType text */
-  acquiredItems?: string;
-  /** @wixFieldType text */
-  unlockedSkills?: string;
-  /** @wixFieldType datetime */
-  lastModified?: Date | string;
-  /** @wixFieldType number */
-  inventorySize?: number;
-  /** @wixFieldType number */
-  skillSlotsUsed?: number;
-}
-
-
-/**
- * Collection ID: playerprofiles
- * Interface for PlayerProfiles
- */
-export interface PlayerProfiles {
-  _id: string;
-  _createdDate?: Date;
-  _updatedDate?: Date;
-  /** @wixFieldType text */
-  playerName?: string;
-  /** @wixFieldType number */
-  level?: number;
-  /** @wixFieldType number */
-  experiencePoints?: number;
-  /** @wixFieldType number */
-  dirtyMoney?: number;
-  /** @wixFieldType number */
-  cleanMoney?: number;
-  /** @wixFieldType datetime */
-  lastLoginDate?: Date | string;
-  /** @wixFieldType datetime */
-  creationDate?: Date | string;
-}
-
-
-/**
- * Collection ID: playerprogress
- * Interface for PlayerProgress
- */
-export interface PlayerProgress {
-  _id: string;
-  _createdDate?: Date;
-  _updatedDate?: Date;
-  /** @wixFieldType number */
-  availableSpins?: number;
-  /** @wixFieldType text */
-  mapPosition?: string;
-  /** @wixFieldType boolean */
-  shackStatus?: boolean;
-  /** @wixFieldType boolean */
-  bribeStatus?: boolean;
-  /** @wixFieldType boolean */
-  moneyLaunderingStatus?: boolean;
 }

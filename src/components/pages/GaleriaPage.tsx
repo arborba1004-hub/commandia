@@ -1,17 +1,13 @@
-import { motion } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
-import {
-  getCollectionNameByLevel,
-  getLuxuryPrice,
-  getLuxuryPriceWithInsurance,
-  getSkillByItemId,
-} from '@/data/luxoItems';
+import { getCollectionNameByLevel, getLuxuryPrice, getLuxuryPriceWithInsurance, getSkillByItemId } from '@/data/luxoItems';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PurchaseInsuranceModal from '@/components/PurchaseInsuranceModal';
 import CardTransactionModal from '@/components/CardTransactionModal';
 import PurchaseResultModal from '@/components/PurchaseResultModal';
+import { getReducedInventoryBonus } from '@/utils/inventoryBonus';
 
 interface SelectedItem {
   id: number;
@@ -30,15 +26,8 @@ interface SkillBonus {
 export default function GaleriaPage() {
   const player = usePlayerStore((state) => state.player);
   const setPlayer = usePlayerStore((state) => state.setPlayer);
-
-  const barracoLevel = player?.niveis?.barracoLevel || 1;
-  const cleanMoney = Number(player?.balances?.cleanMoney || 0);
-  const inventoryItems = player?.inventory?.items || [];
-
-  const collectionName = useMemo(
-    () => getCollectionNameByLevel(barracoLevel),
-    [barracoLevel]
-  );
+  const playerLevel = player?.niveis?.playerLevel || 1;
+  const collectionName = getCollectionNameByLevel(playerLevel);
 
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
   const [showInsuranceModal, setShowInsuranceModal] = useState(false);
@@ -49,75 +38,45 @@ export default function GaleriaPage() {
   const [skillBonus, setSkillBonus] = useState<SkillBonus | null>(null);
   const [insuranceType, setInsuranceType] = useState<'with' | 'without'>('without');
 
-  const itemPrice = selectedItem ? getLuxuryPrice(barracoLevel) : 0;
+  const itemPrice = selectedItem ? getLuxuryPrice(playerLevel) : 0;
 
   const handleBuyClick = (itemId: number) => {
     const itemName = `Item ${itemId}`;
     const skillType = getSkillByItemId(itemId);
-
-    const alreadyOwned = inventoryItems.some(
-      (item: any) => item?.itemId === itemId && item?.level === barracoLevel
-    );
-
-    if (alreadyOwned) {
-      setSelectedItem({
-        id: itemId,
-        name: itemName,
-        price: getLuxuryPrice(barracoLevel),
-        skillType,
-      });
-      setPurchaseError('duplicate');
-      setShowResultModal(true);
-      return;
-    }
-
     setSelectedItem({
       id: itemId,
       name: itemName,
-      price: getLuxuryPrice(barracoLevel),
+      price: getLuxuryPrice(playerLevel),
       skillType,
     });
-    setPurchaseError(null);
     setShowInsuranceModal(true);
   };
 
   const handleInsuranceSelect = (type: 'with' | 'without') => {
     if (!selectedItem) return;
-
+    
     const skillType = selectedItem.skillType || getSkillByItemId(selectedItem.id);
-    const skillBonusPercent = 1;
-
+    const skillBonusPercent = 1; // Fixed 1% per level
+    
     const bonus: SkillBonus = {
       type,
       skillType,
       skillBonus: skillBonusPercent,
       skillBonusPercent,
     };
-
-    const finalPrice = getLuxuryPriceWithInsurance(barracoLevel, type === 'with');
-
-    if (cleanMoney < finalPrice) {
-      setShowInsuranceModal(false);
-      setPurchaseError('insufficient');
-      setShowResultModal(true);
-      return;
-    }
-
     setSkillBonus(bonus);
     setInsuranceType(type);
     setShowInsuranceModal(false);
     setShowCardModal(true);
   };
 
-  const processTransaction = (bonus: SkillBonus, currentInsuranceType: 'with' | 'without') => {
+  const processTransaction = (bonus: SkillBonus, insuranceType: 'with' | 'without') => {
     if (!player || !selectedItem) return;
 
-    const finalPrice = getLuxuryPriceWithInsurance(
-      barracoLevel,
-      currentInsuranceType === 'with'
-    );
+    const cleanMoneyBalance = player?.balances?.cleanMoney || 0;
+    const finalPrice = getLuxuryPriceWithInsurance(playerLevel, insuranceType === 'with');
 
-    if (cleanMoney < finalPrice) {
+    if (cleanMoneyBalance < finalPrice) {
       setIsProcessing(false);
       setShowCardModal(false);
       setPurchaseError('insufficient');
@@ -125,10 +84,10 @@ export default function GaleriaPage() {
       return;
     }
 
-    const alreadyOwned = inventoryItems.some(
-      (item: any) => item?.itemId === selectedItem.id && item?.level === barracoLevel
+    const alreadyOwned = (player?.inventory?.items || []).some(
+      (item) => item.itemId === selectedItem.id && item.level === playerLevel
     );
-
+    
     if (alreadyOwned) {
       setIsProcessing(false);
       setShowCardModal(false);
@@ -138,29 +97,32 @@ export default function GaleriaPage() {
     }
 
     const newItem = {
-      id: `luxury-${selectedItem.id}-${barracoLevel}-${Date.now()}`,
+      id: `${selectedItem.id}-${playerLevel}-${Date.now()}`,
       itemId: selectedItem.id,
       name: selectedItem.name,
       price: finalPrice,
       purchasedAt: new Date().toISOString(),
-      insurance: currentInsuranceType === 'with',
-      level: barracoLevel,
-      category: 'luxury',
-      bonusSkill: bonus.skillType,
-      bonusValue: bonus.skillBonusPercent,
+      insurance: insuranceType === 'with',
+      level: playerLevel,
     };
 
-    setPlayer({
+    const updatedPlayer = {
+      ...player,
       balances: {
         ...player.balances,
-        cleanMoney: Number((cleanMoney - finalPrice).toFixed(2)),
+        cleanMoney: cleanMoneyBalance - finalPrice,
       },
       inventory: {
         ...player.inventory,
-        items: [...inventoryItems, newItem],
+        items: [...(player.inventory?.items || []), newItem],
       },
-    });
+      skills: {
+        ...player.skills,
+        [bonus.skillType]: Number(((player.skills?.[bonus.skillType] || 0) + getReducedInventoryBonus(bonus.skillBonusPercent, player)).toFixed(2)),
+      },
+    };
 
+    setPlayer(updatedPlayer);
     setIsProcessing(false);
     setShowCardModal(false);
     setPurchaseError(null);
@@ -176,9 +138,7 @@ export default function GaleriaPage() {
 
   const handleCardConfirm = () => {
     if (!skillBonus) return;
-
     setIsProcessing(true);
-
     setTimeout(() => {
       processTransaction(skillBonus, insuranceType);
     }, 1500);
@@ -245,13 +205,11 @@ export default function GaleriaPage() {
                         <span className="text-3xl font-bold text-primary">{item}</span>
                       </div>
                       <h3 className="text-xl font-heading text-white mb-2">Item {item}</h3>
-                      <p className="text-sm font-paragraph text-white/60 text-center">
-                        Descrição do item {item}
-                      </p>
+                      <p className="text-sm font-paragraph text-white/60 text-center">Descrição do item {item}</p>
                     </>
                   )}
                 </motion.div>
-
+                
                 <motion.div
                   className="mt-6 w-full flex justify-center"
                   initial={{ opacity: 0 }}
@@ -276,7 +234,7 @@ export default function GaleriaPage() {
         itemName={selectedItem?.name || ''}
         itemPrice={itemPrice}
         skillType={selectedItem?.skillType || 'attack'}
-        playerLevel={barracoLevel}
+        playerLevel={playerLevel}
         onSelect={handleInsuranceSelect}
         onClose={() => setShowInsuranceModal(false)}
       />
