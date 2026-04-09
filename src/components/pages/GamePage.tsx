@@ -661,14 +661,6 @@ squad.rotation.y = Math.PI;
     const scene = sceneRef.current;
     if (!scene) return;
 
-    // limpa visuais antigos dos outros players
-    otherPlayerVisualsRef.current.forEach((obj) => {
-      scene.remove(obj);
-    });
-    otherPlayerVisualsRef.current = [];
-    enemyBarracosRef.current = [];
-    enemyBarracoMapRef.current = {};
-
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
@@ -686,10 +678,65 @@ squad.rotation.y = Math.PI;
       }
     };
 
+    const currentIds = new Set(
+      otherPlayers.map((p: any) => String(p.id || p._id))
+    );
+
+    // remover só quem saiu
+    Object.keys(enemyBarracoMapRef.current).forEach((playerId) => {
+      if (!currentIds.has(playerId)) {
+        const existing = enemyBarracoMapRef.current[playerId];
+        if (existing) {
+          scene.remove(existing);
+
+          const label = existing.userData?.nameLabel;
+          if (label) {
+            scene.remove(label);
+          }
+
+          delete enemyBarracoMapRef.current[playerId];
+          enemyBarracosRef.current = enemyBarracosRef.current.filter(
+            (obj) => obj !== existing
+          );
+        }
+      }
+    });
+
     otherPlayers.forEach((p: any) => {
+      const playerId = String(p.id || p._id);
+      const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+      const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
       const pLevel = p.barracoLevel || 1;
+
+      const existing = enemyBarracoMapRef.current[playerId];
+
+      // se já existe, só atualiza posição e label
+      if (existing) {
+        existing.position.x = posX;
+        existing.position.z = posZ;
+
+        attachEnemyBarracoData(existing, {
+          playerId,
+          playerName: p.name || 'VIZINHO',
+          tileX: p.tileX,
+          tileY: p.tileY,
+          barracoLevel: pLevel,
+          power: p.power || 100,
+          dirtyMoney: p.dirtyMoney || 100000,
+        });
+
+        const label = existing.userData?.nameLabel;
+        if (label) {
+          label.position.set(posX, 3.5, posZ);
+        }
+
+        return;
+      }
+
+      // se não existe, cria
       const mInfo =
-        BARRACO_MODELS.find((m) => pLevel >= m.min && pLevel <= m.max) || BARRACO_MODELS[0];
+        BARRACO_MODELS.find((m) => pLevel >= m.min && pLevel <= m.max) ||
+        BARRACO_MODELS[0];
 
       loader.load(mInfo.url, (gltf) => {
         const model = gltf.scene;
@@ -700,35 +747,33 @@ squad.rotation.y = Math.PI;
         sBox.getSize(size);
         model.scale.setScalar(bSize / (Math.max(size.x, size.z) || 1));
 
-        const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
-        const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
         model.position.set(posX, 0, posZ);
+
         const sBoxFinal = new THREE.Box3().setFromObject(model);
         model.position.y -= sBoxFinal.min.y;
 
         model.traverse(fixDarkMaterials);
 
-        scene.add(model);
-        otherPlayerVisualsRef.current.push(model);
-
         attachEnemyBarracoData(model, {
-          playerId: p.id || p._id,
+          playerId,
           playerName: p.name || 'VIZINHO',
           tileX: p.tileX,
           tileY: p.tileY,
-          barracoLevel: p.barracoLevel || 1,
+          barracoLevel: pLevel,
           power: p.power || 100,
           dirtyMoney: p.dirtyMoney || 100000,
         });
 
-        enemyBarracosRef.current.push(model);
-        enemyBarracoMapRef.current[p.id || p._id] = model;
-
         const vLabel = createTextLabel(p.name || 'VIZINHO');
         vLabel.position.set(posX, 3.5, posZ);
+
+        model.userData.nameLabel = vLabel;
+
+        scene.add(model);
         scene.add(vLabel);
-        otherPlayerVisualsRef.current.push(vLabel);
+
+        enemyBarracoMapRef.current[playerId] = model;
+        enemyBarracosRef.current.push(model);
       });
     });
   }, [otherPlayers]);
