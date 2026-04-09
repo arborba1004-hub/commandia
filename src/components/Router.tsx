@@ -18,6 +18,11 @@ import BarracoPage from '@/components/pages/BarracoPage';
 import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 import ChatPage from '@/components/pages/ChatPage';
 
+// FASE 6: Páginas legadas/experimentais removidas do fluxo principal
+// - HomePageNew (arquivo preservado em src/components/pages/HomePageNew.tsx)
+// - MatchPage (arquivo preservado em src/components/pages/MatchPage.tsx)
+// - MatchmakingPage (arquivo preservado em src/components/pages/MatchmakingPage.tsx)
+
 function Layout() {
   return (
     <>
@@ -49,6 +54,10 @@ const router = createBrowserRouter([
       { path: 'luxo-item', element: <LuxoItemPage /> },
       { path: 'barraco', element: <BarracoPage /> },
       { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
+      // FASE 6: Rotas legadas removidas
+      // { path: 'home-new', element: <HomePageNew /> },
+      // { path: 'match', element: <MatchPage /> },
+      // { path: 'matchmaking', element: <MatchmakingPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
