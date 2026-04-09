@@ -32,7 +32,7 @@ export function createDynamicHorizon(config: HorizonConfig) {
   const textureLoader = new THREE.TextureLoader();
 
   // Função para criar painel com textura
-  const createPanel = (width: number, height: number, imageUrl?: string) => {
+  const createPanel = (width: number, height: number, imageUrl?: string, mirrorX: boolean = false) => {
     let material: THREE.Material;
 
     if (imageUrl) {
@@ -40,6 +40,12 @@ export function createDynamicHorizon(config: HorizonConfig) {
       const texture = textureLoader.load(imageUrl);
       texture.magFilter = THREE.LinearFilter;
       texture.minFilter = THREE.LinearFilter;
+      
+      // Espelhar horizontalmente se necessário para transição suave
+      if (mirrorX) {
+        texture.repeat.x = -1;
+        texture.offset.x = 1;
+      }
       
       material = new THREE.MeshBasicMaterial({
         map: texture,
@@ -69,8 +75,8 @@ export function createDynamicHorizon(config: HorizonConfig) {
     rotation: { x: 0, y: 0, z: 0 },
   });
 
-  // Painel traseiro
-  const backPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl);
+  // Painel traseiro (espelhado para transição suave)
+  const backPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl, true);
   backPanel.position.set(0, horizonHeight / 2, horizonDistance);
   backPanel.rotation.y = Math.PI;
   panels.push({
