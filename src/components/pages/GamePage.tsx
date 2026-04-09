@@ -6,6 +6,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 import { handleTileInvasion } from '@/components/game/tileInvasion';
+import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useMapAttackStore } from '@/store/mapAttackStore';
@@ -23,7 +24,6 @@ import {
 } from '@/components/game/mapAttackEffects';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
-import { createDynamicHorizon, createTerrainRelief } from '@/components/game/createDynamicHorizon';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -35,7 +35,7 @@ const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 const HORIZON_TEXTURE =
-  'https://static.wixstatic.com/media/50f4bf_20f0b19d58ab4edc9679d404e75059ae~mv2.jpeg';
+  'https://static.wixstatic.com/media/50f4bf_ccd344777252495f9afc14f0bfa4548e~mv2.jpeg';
 
 const BARRACO_MODELS = [
   { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
@@ -87,8 +87,6 @@ export default function GamePage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const horizonRef = useRef<any>(null);
-  const reliefRef = useRef<any>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
@@ -297,8 +295,29 @@ squad.rotation.y = Math.PI;
     sceneRef.current = scene;
     scene.background = new THREE.Color('#000000');
 
-    // === HORIZONTE DINÂMICO 360° COM PRÉDIOS E RELEVO ===
-    // Será criado após a câmera estar pronta
+    // === HORIZONTE CINEMATOGRÁFICO AAA ===
+    const horizonTexture = new THREE.TextureLoader().load(HORIZON_TEXTURE);
+    horizonTexture.colorSpace = THREE.SRGBColorSpace;
+    horizonTexture.wrapS = THREE.ClampToEdgeWrapping;
+    horizonTexture.wrapT = THREE.ClampToEdgeWrapping;
+    horizonTexture.minFilter = THREE.LinearFilter;
+    horizonTexture.magFilter = THREE.LinearFilter;
+
+    const horizonMaterial = new THREE.MeshBasicMaterial({
+      map: horizonTexture,
+      transparent: false,
+      fog: false,
+      depthWrite: false,
+      depthTest: true,
+      side: THREE.FrontSide,
+    });
+
+    const horizonGeometry = new THREE.PlaneGeometry(220, 60, 1, 1);
+    const horizonPlane = new THREE.Mesh(horizonGeometry, horizonMaterial);
+
+    horizonPlane.position.set(0, 18, -58);
+    horizonPlane.renderOrder = -10;
+    scene.add(horizonPlane);
 
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -353,19 +372,6 @@ squad.rotation.y = Math.PI;
     controls.minDistance = 10;
     controls.maxDistance = 70;
 
-    // === CRIAR HORIZONTE DINÂMICO 360° ===
-    const horizon = createDynamicHorizon({
-      scene,
-      camera,
-      gridWidth: GRID_WIDTH,
-      gridHeight: GRID_HEIGHT,
-    });
-    horizonRef.current = horizon;
-
-    // === CRIAR RELEVO/MONTANHAS AO FUNDO ===
-    const relief = createTerrainRelief(scene, camera);
-    reliefRef.current = relief;
-
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
 
@@ -396,14 +402,12 @@ squad.rotation.y = Math.PI;
       console.log('TRIO TESTE carregado');
     }, 20);
 
-    // === CARREGANDO OS EDIFÍCIOS DO COMPLEXO === [DISABLED - Using horizon background instead]
-    // const complexoResult = createComplexoBuildings(loader);
-    // scene.add(complexoResult.group);
-    // loadedPlayerModels.push(complexoResult.group);
-    // complexoResult.load().catch(err => console.error('❌ Erro ao carregar edifícios do complexo:', err));
-    
-    // Create empty result to avoid errors in cleanup
-    const complexoResult = { group: new THREE.Group(), disposables: [], load: async () => {} };
+    // === CARREGANDO OS EDIFÍCIOS DO COMPLEXO ===
+    const complexoResult = createComplexoBuildings(loader);
+    scene.add(complexoResult.group);
+    loadedPlayerModels.push(complexoResult.group);
+
+    complexoResult.load().catch(err => console.error('❌ Erro ao carregar edifícios do complexo:', err));
 
     const fixDarkMaterials = (child: any) => {
       if (child.isMesh) {
@@ -625,14 +629,10 @@ squad.rotation.y = Math.PI;
     let animationId = 0;
     
     const updateHorizonParallax = () => {
-      // Atualizar horizonte dinâmico
-      if (horizonRef.current?.update) {
-        horizonRef.current.update();
-      }
-      // Atualizar relevo
-      if (reliefRef.current?.update) {
-        reliefRef.current.update();
-      }
+      // acompanha suavemente a câmera no eixo X para dar sensação de mundo vivo
+      horizonPlane.position.x = camera.position.x * 0.22;
+      // mantém o horizonte sempre ao fundo da cena, sem invadir o mapa
+      horizonPlane.position.z = camera.position.z - 72;
     };
 
     const animate = () => {
@@ -698,16 +698,6 @@ squad.rotation.y = Math.PI;
       topMaterial.dispose();
       sideMaterial.dispose();
       lineMaterial.dispose();
-
-      // Limpar horizonte dinâmico
-      if (horizonRef.current?.dispose) {
-        horizonRef.current.dispose();
-      }
-
-      // Limpar relevo
-      if (reliefRef.current?.dispose) {
-        reliefRef.current.dispose();
-      }
 
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
