@@ -5,25 +5,22 @@ interface HorizonConfig {
   camera: THREE.PerspectiveCamera;
   gridWidth: number;
   gridHeight: number;
+  horizonImageUrl?: string;
 }
 
 /**
- * Cria um horizonte dinâmico 360° com prédios e relevo
+ * Cria um horizonte dinâmico 360° com imagem de fundo
  * que acompanha a câmera e responde ao zoom
  */
 export function createDynamicHorizon(config: HorizonConfig) {
-  const { scene, camera, gridWidth, gridHeight } = config;
+  const { scene, camera, gridWidth, gridHeight, horizonImageUrl } = config;
 
   const horizonGroup = new THREE.Group();
   horizonGroup.name = 'DynamicHorizon';
 
-  // Cores da cidade
-  const buildingColors = [0x1a1a2e, 0x16213e, 0x0f3460, 0x2a2a4e, 0x3d3d5c];
-  const lightColors = [0xffff99, 0xffcc99, 0xffff66, 0xffdd99];
-
-  // Criar 4 painéis de horizonte (frente, trás, esquerda, direita)
-  const horizonDistance = Math.max(gridWidth, gridHeight) * 0.7;
-  const horizonHeight = 40;
+  // Distância e altura do horizonte
+  const horizonDistance = Math.max(gridWidth, gridHeight) * 0.8;
+  const horizonHeight = 50;
 
   interface HorizonPanel {
     mesh: THREE.Mesh;
@@ -32,14 +29,39 @@ export function createDynamicHorizon(config: HorizonConfig) {
   }
 
   const panels: HorizonPanel[] = [];
+  const textureLoader = new THREE.TextureLoader();
+
+  // Função para criar painel com textura
+  const createPanel = (width: number, height: number, imageUrl?: string) => {
+    let material: THREE.Material;
+
+    if (imageUrl) {
+      // Carregar textura da imagem
+      const texture = textureLoader.load(imageUrl);
+      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = THREE.LinearFilter;
+      
+      material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: false,
+        fog: false,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.FrontSide,
+      });
+    } else {
+      // Fallback: criar painel procedural
+      material = createProceduralMaterial();
+    }
+
+    const geometry = new THREE.PlaneGeometry(width, height, 1, 1);
+    const mesh = new THREE.Mesh(geometry, material);
+
+    return mesh;
+  };
 
   // Painel frontal
-  const frontPanel = createHorizonPanel(
-    horizonDistance * 2,
-    horizonHeight,
-    buildingColors,
-    lightColors
-  );
+  const frontPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl);
   frontPanel.position.set(0, horizonHeight / 2, -horizonDistance);
   panels.push({
     mesh: frontPanel,
@@ -48,12 +70,7 @@ export function createDynamicHorizon(config: HorizonConfig) {
   });
 
   // Painel traseiro
-  const backPanel = createHorizonPanel(
-    horizonDistance * 2,
-    horizonHeight,
-    buildingColors,
-    lightColors
-  );
+  const backPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl);
   backPanel.position.set(0, horizonHeight / 2, horizonDistance);
   backPanel.rotation.y = Math.PI;
   panels.push({
@@ -63,12 +80,7 @@ export function createDynamicHorizon(config: HorizonConfig) {
   });
 
   // Painel esquerdo
-  const leftPanel = createHorizonPanel(
-    horizonDistance * 2,
-    horizonHeight,
-    buildingColors,
-    lightColors
-  );
+  const leftPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl);
   leftPanel.position.set(-horizonDistance, horizonHeight / 2, 0);
   leftPanel.rotation.y = Math.PI / 2;
   panels.push({
@@ -78,18 +90,23 @@ export function createDynamicHorizon(config: HorizonConfig) {
   });
 
   // Painel direito
-  const rightPanel = createHorizonPanel(
-    horizonDistance * 2,
-    horizonHeight,
-    buildingColors,
-    lightColors
-  );
+  const rightPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl);
   rightPanel.position.set(horizonDistance, horizonHeight / 2, 0);
   rightPanel.rotation.y = -Math.PI / 2;
   panels.push({
     mesh: rightPanel,
     position: { x: horizonDistance, y: horizonHeight / 2, z: 0 },
     rotation: { x: 0, y: -Math.PI / 2, z: 0 },
+  });
+
+  // Painel superior (céu)
+  const topPanel = createPanel(horizonDistance * 2, horizonDistance * 2, horizonImageUrl);
+  topPanel.position.set(0, horizonHeight, 0);
+  topPanel.rotation.x = Math.PI / 2;
+  panels.push({
+    mesh: topPanel,
+    position: { x: 0, y: horizonHeight, z: 0 },
+    rotation: { x: Math.PI / 2, y: 0, z: 0 },
   });
 
   panels.forEach((panel) => {
@@ -101,14 +118,19 @@ export function createDynamicHorizon(config: HorizonConfig) {
   // Função para atualizar o horizonte conforme a câmera se move
   const updateHorizon = () => {
     const cameraPos = camera.position;
-    const zoomFactor = camera.position.length() / 50; // Normalizar baseado na distância
+    const cameraDistance = Math.sqrt(
+      cameraPos.x * cameraPos.x + cameraPos.y * cameraPos.y + cameraPos.z * cameraPos.z
+    );
+    
+    // Normalizar zoom factor (50 é a distância padrão)
+    const zoomFactor = cameraDistance / 50;
 
     // Mover o horizonte para acompanhar a câmera
     horizonGroup.position.copy(cameraPos);
     horizonGroup.position.y = 0; // Manter na altura correta
 
-    // Ajustar escala baseado no zoom
-    const scale = Math.max(0.8, Math.min(1.5, zoomFactor));
+    // Ajustar escala baseado no zoom (responde ao zoom in/out)
+    const scale = Math.max(0.6, Math.min(2.0, zoomFactor));
     horizonGroup.scale.setScalar(scale);
   };
 
@@ -130,6 +152,68 @@ export function createDynamicHorizon(config: HorizonConfig) {
       scene.remove(horizonGroup);
     },
   };
+}
+
+/**
+ * Cria um material procedural como fallback
+ */
+function createProceduralMaterial(): THREE.Material {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 512;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return new THREE.MeshBasicMaterial({ color: 0x1a1a2e });
+
+  // Gradiente de céu ao pôr do sol
+  const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  skyGradient.addColorStop(0, '#1a1a2e');
+  skyGradient.addColorStop(0.2, '#2d1b4e');
+  skyGradient.addColorStop(0.4, '#8b4513');
+  skyGradient.addColorStop(0.6, '#ff6b35');
+  skyGradient.addColorStop(0.8, '#f7931e');
+  skyGradient.addColorStop(1, '#0f3460');
+  ctx.fillStyle = skyGradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Desenhar silhueta de prédios
+  const buildingColors = ['#1a1a2e', '#16213e', '#0f3460'];
+  const buildingCount = 12;
+  let currentX = 0;
+
+  for (let i = 0; i < buildingCount; i++) {
+    const buildingWidth = 60 + Math.random() * 100;
+    const buildingHeight = 180 + Math.random() * 280;
+    const color = buildingColors[Math.floor(Math.random() * buildingColors.length)];
+
+    ctx.fillStyle = color;
+    ctx.fillRect(currentX, canvas.height - buildingHeight, buildingWidth, buildingHeight);
+
+    // Janelas
+    ctx.fillStyle = '#ffff99';
+    for (let y = canvas.height - buildingHeight + 30; y < canvas.height - 20; y += 20) {
+      for (let x = currentX + 15; x < currentX + buildingWidth - 15; x += 20) {
+        if (Math.random() > 0.4) {
+          ctx.fillRect(x, y, 8, 8);
+        }
+      }
+    }
+
+    currentX += buildingWidth + 8;
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+
+  return new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: false,
+    fog: false,
+    depthWrite: false,
+    depthTest: true,
+    side: THREE.FrontSide,
+  });
 }
 
 /**
