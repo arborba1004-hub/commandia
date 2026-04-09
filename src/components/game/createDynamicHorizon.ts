@@ -85,8 +85,8 @@ export function createDynamicHorizon(config: HorizonConfig) {
     rotation: { x: 0, y: Math.PI, z: 0 },
   });
 
-  // Painel esquerdo
-  const leftPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl);
+  // Painel esquerdo (espelhado para transição suave)
+  const leftPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl, true);
   leftPanel.position.set(-horizonDistance, horizonHeight / 2, 0);
   leftPanel.rotation.y = Math.PI / 2;
   panels.push({
@@ -95,8 +95,8 @@ export function createDynamicHorizon(config: HorizonConfig) {
     rotation: { x: 0, y: Math.PI / 2, z: 0 },
   });
 
-  // Painel direito
-  const rightPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl);
+  // Painel direito (espelhado para transição suave)
+  const rightPanel = createPanel(horizonDistance * 2, horizonHeight, horizonImageUrl, true);
   rightPanel.position.set(horizonDistance, horizonHeight / 2, 0);
   rightPanel.rotation.y = -Math.PI / 2;
   panels.push({
