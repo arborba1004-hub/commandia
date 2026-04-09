@@ -293,12 +293,31 @@ squad.rotation.y = Math.PI;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
+    scene.background = new THREE.Color('#000000');
 
+    // === HORIZONTE CINEMATOGRÁFICO AAA ===
     const horizonTexture = new THREE.TextureLoader().load(HORIZON_TEXTURE);
     horizonTexture.colorSpace = THREE.SRGBColorSpace;
-    horizonTexture.mapping = THREE.EquirectangularReflectionMapping;
+    horizonTexture.wrapS = THREE.ClampToEdgeWrapping;
+    horizonTexture.wrapT = THREE.ClampToEdgeWrapping;
+    horizonTexture.minFilter = THREE.LinearFilter;
+    horizonTexture.magFilter = THREE.LinearFilter;
 
-    scene.background = horizonTexture;
+    const horizonMaterial = new THREE.MeshBasicMaterial({
+      map: horizonTexture,
+      transparent: false,
+      fog: false,
+      depthWrite: false,
+      depthTest: true,
+      side: THREE.FrontSide,
+    });
+
+    const horizonGeometry = new THREE.PlaneGeometry(220, 60, 1, 1);
+    const horizonPlane = new THREE.Mesh(horizonGeometry, horizonMaterial);
+
+    horizonPlane.position.set(0, 18, -58);
+    horizonPlane.renderOrder = -10;
+    scene.add(horizonPlane);
 
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -608,9 +627,17 @@ squad.rotation.y = Math.PI;
     };
 
     let animationId = 0;
+    
+    const updateHorizonParallax = () => {
+      // acompanha suavemente a câmera no eixo X para dar sensação de mundo vivo
+      horizonPlane.position.x = camera.position.x * 0.22;
+      // mantém o horizonte sempre ao fundo da cena, sem invadir o mapa
+      horizonPlane.position.z = camera.position.z - 72;
+    };
 
     const animate = () => {
       controls.update();
+      updateHorizonParallax();
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
     };
