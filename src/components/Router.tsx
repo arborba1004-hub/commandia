@@ -1,6 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
-import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
+import ErrorPage from '@/components/pages/ErrorPage';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 
 const HomePage = lazy(() => import('@/components/pages/HomePage'));
