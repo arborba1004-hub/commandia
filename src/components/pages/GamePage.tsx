@@ -83,7 +83,7 @@ function createReliefTerrainBand(
   depth: number,
   segmentsW: number,
   segmentsD: number,
-  yBase = -0.6
+  yBase = -0.15
 ) {
   const geometry = new THREE.PlaneGeometry(width, depth, segmentsW, segmentsD);
   geometry.rotateX(-Math.PI / 2);
@@ -94,10 +94,10 @@ function createReliefTerrainBand(
     const x = pos.getX(i);
     const z = pos.getZ(i);
 
-    const waveA = Math.sin(x * 0.06) * 1.8;
-    const waveB = Math.cos(z * 0.05) * 1.4;
-    const waveC = Math.sin((x + z) * 0.035) * 1.2;
-    const edgeRise = Math.max(Math.abs(x) * 0.012, Math.abs(z) * 0.012);
+    const waveA = Math.sin(x * 0.045) * 0.9;
+    const waveB = Math.cos(z * 0.04) * 0.7;
+    const waveC = Math.sin((x + z) * 0.03) * 0.6;
+    const edgeRise = Math.max(Math.abs(x) * 0.004, Math.abs(z) * 0.004);
 
     const y = yBase + waveA + waveB + waveC + edgeRise;
     pos.setY(i, y);
@@ -107,7 +107,7 @@ function createReliefTerrainBand(
   geometry.computeVertexNormals();
 
   const material = new THREE.MeshStandardMaterial({
-    color: 0x141414,
+    color: 0x4a4036,
     roughness: 1,
     metalness: 0,
   });
@@ -384,8 +384,7 @@ squad.rotation.y = Math.PI;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color('#000000');
-    scene.fog = new THREE.Fog(0x000000, 18, 95);
+    scene.background = new THREE.Color(0x141923);
 
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -426,12 +425,12 @@ squad.rotation.y = Math.PI;
 
     cameraRef.current = camera;
 
-    const cameraTarget = new THREE.Vector3(playerWorldX, 1.2, playerWorldZ);
+    const cameraTarget = new THREE.Vector3(playerWorldX, 1.0, playerWorldZ);
 
     camera.position.set(
-      playerWorldX + 10,
-      11,
-      playerWorldZ + 12
+      playerWorldX + 6.5,
+      5.8,
+      playerWorldZ + 8.5
     );
     camera.lookAt(cameraTarget);
 
@@ -439,9 +438,9 @@ squad.rotation.y = Math.PI;
     controls.target.copy(cameraTarget);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.05;
-    controls.minDistance = 10;
-    controls.maxDistance = 70;
+    controls.maxPolarAngle = Math.PI / 2.2;
+    controls.minDistance = 6;
+    controls.maxDistance = 18;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
@@ -485,23 +484,23 @@ squad.rotation.y = Math.PI;
     const terrainShell = new THREE.Group();
     terrainShellRef.current = terrainShell;
 
-    const shellOffset = 22;
-    const shellThickness = 34;
+    const shellOffset = 8;
+    const shellThickness = 18;
 
     // norte
-    const northBand = createReliefTerrainBand(GRID_WIDTH + 90, shellThickness, 90, 24, -0.8);
+    const northBand = createReliefTerrainBand(GRID_WIDTH + 36, shellThickness, 48, 12, -0.15);
     northBand.position.set(0, 0, -(GRID_HEIGHT / 2) - shellOffset);
 
     // sul
-    const southBand = createReliefTerrainBand(GRID_WIDTH + 90, shellThickness, 90, 24, -0.8);
+    const southBand = createReliefTerrainBand(GRID_WIDTH + 36, shellThickness, 48, 12, -0.15);
     southBand.position.set(0, 0, (GRID_HEIGHT / 2) + shellOffset);
 
     // oeste
-    const westBand = createReliefTerrainBand(shellThickness, GRID_HEIGHT + 90, 24, 90, -0.8);
+    const westBand = createReliefTerrainBand(shellThickness, GRID_HEIGHT + 36, 12, 48, -0.15);
     westBand.position.set(-(GRID_WIDTH / 2) - shellOffset, 0, 0);
 
     // leste
-    const eastBand = createReliefTerrainBand(shellThickness, GRID_HEIGHT + 90, 24, 90, -0.8);
+    const eastBand = createReliefTerrainBand(shellThickness, GRID_HEIGHT + 36, 12, 48, -0.15);
     eastBand.position.set((GRID_WIDTH / 2) + shellOffset, 0, 0);
 
     terrainShell.add(northBand);
@@ -691,8 +690,8 @@ squad.rotation.y = Math.PI;
       }
 
       if (terrainShellRef.current) {
-        terrainShellRef.current.position.x = camera.position.x * 0.55;
-        terrainShellRef.current.position.z = camera.position.z * 0.55;
+        terrainShellRef.current.position.x = camera.position.x * 0.28;
+        terrainShellRef.current.position.z = camera.position.z * 0.28;
       }
       
       renderer.render(scene, camera);
