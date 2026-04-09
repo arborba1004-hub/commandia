@@ -18,6 +18,8 @@ const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
+const HORIZON_TEXTURE =
+  'https://static.wixstatic.com/media/50f4bf_ccd344777252495f9afc14f0bfa4548e~mv2.jpeg';
 
 const BARRACO_MODELS = [
   { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
@@ -139,7 +141,32 @@ export default function Map3D() {
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
+    sceneRef.current = scene;
     scene.background = new THREE.Color('#000000');
+
+    // === HORIZONTE CINEMATOGRÁFICO AAA ===
+    const horizonTexture = new THREE.TextureLoader().load(HORIZON_TEXTURE);
+    horizonTexture.colorSpace = THREE.SRGBColorSpace;
+    horizonTexture.wrapS = THREE.ClampToEdgeWrapping;
+    horizonTexture.wrapT = THREE.ClampToEdgeWrapping;
+    horizonTexture.minFilter = THREE.LinearFilter;
+    horizonTexture.magFilter = THREE.LinearFilter;
+
+    const horizonMaterial = new THREE.MeshBasicMaterial({
+      map: horizonTexture,
+      transparent: false,
+      fog: false,
+      depthWrite: false,
+      depthTest: true,
+      side: THREE.FrontSide,
+    });
+
+    const horizonGeometry = new THREE.PlaneGeometry(220, 60, 1, 1);
+    const horizonPlane = new THREE.Mesh(horizonGeometry, horizonMaterial);
+
+    horizonPlane.position.set(0, 18, -58);
+    horizonPlane.renderOrder = -10;
+    scene.add(horizonPlane);
 
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -460,7 +487,14 @@ export default function Map3D() {
     }
     scene.add(gridGroup);
 
-    // === SISTEMA DE CLIQUE INTELIGENTE ===
+    const updateHorizonParallax = () => {
+      // acompanha suavemente a câmera no eixo X para dar sensação de mundo vivo
+      horizonPlane.position.x = camera.position.x * 0.22;
+      // mantém o horizonte sempre ao fundo da cena, sem invadir o mapa
+      horizonPlane.position.z = camera.position.z - 72;
+    };
+
+    // ... keep existing code (pointer event handlers)
     let pointerDownPos = { x: 0, y: 0 };
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -533,6 +567,7 @@ export default function Map3D() {
 
     let animationId = 0;
     const animate = () => {
+      updateHorizonParallax();
       controls.update();
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
