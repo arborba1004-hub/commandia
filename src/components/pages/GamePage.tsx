@@ -36,7 +36,7 @@ const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 const HORIZON_IMAGE =
-  'https://static.wixstatic.com/media/50f4bf_56ba2ce61b634d3ca31245b80a7b328d~mv2.jpeg';
+  'https://static.wixstatic.com/media/50f4bf_908b6c6d2def45dcbe3bdd4b1b1a73e8~mv2.jpeg';
 
 const BARRACO_MODELS = [
   { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
