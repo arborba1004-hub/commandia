@@ -33,6 +33,7 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       { index: true, element: <HomePage /> },
+      { index: true, element: <HomePage /> },
       { path: 'galeria', element: <GaleriaPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'game', element: <GamePage /> },
