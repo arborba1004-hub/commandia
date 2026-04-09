@@ -12,8 +12,8 @@ import { handleTileInvasion, worldToTileCoordinates, OtherPlayer } from '@/compo
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
-const GRID_WIDTH = 40;
-const GRID_HEIGHT = 20;
+const GRID_WIDTH = 80;
+const GRID_HEIGHT = 60;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
@@ -34,8 +34,8 @@ const COMPLEXO_BUILDINGS = [
     url: 'https://static.wixstatic.com/3d/50f4bf_938928189a844f56ac340bada0b551bd.glb',
     x: 0,
     z: 0,
-    width: 4,
-    depth: 4,
+    width: 8,
+    depth: 8,
     route: '/qg',
     rotationY: 0,
   },
@@ -44,20 +44,20 @@ const COMPLEXO_BUILDINGS = [
     url: 'https://static.wixstatic.com/3d/50f4bf_122d344399914dd7b74c6e9c166a2d57.glb',
     x: 17,
     z: -3,
-    width: 4,
-    depth: 2,
+    width: 6,
+    depth: 6,
     route: '/centro-comercial',
-    rotationY: Math.PI / 2,
+    rotationY: -Math.PI / 2,
   },
   {
     name: 'Centro Comunitário',
     url: 'https://static.wixstatic.com/3d/50f4bf_1641be50f6a74954848cfaae281d6b15.glb',
     x: 17,
     z: 2,
-    width: 4,
-    depth: 2,
+    width: 6,
+    depth: 6,
     route: '/centro-comunitario',
-    rotationY: 0,
+    rotationY: Math.PI / 2,
   },
 ] as const;
 
