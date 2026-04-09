@@ -24,7 +24,6 @@ import {
 } from '@/components/game/mapAttackEffects';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
-import { createDynamicHorizon } from '@/components/game/createDynamicHorizon';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -35,8 +34,6 @@ const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
-const HORIZON_IMAGE =
-  'https://static.wixstatic.com/media/50f4bf_908b6c6d2def45dcbe3bdd4b1b1a73e8~mv2.jpeg';
 
 const BARRACO_MODELS = [
   { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
@@ -88,7 +85,6 @@ export default function GamePage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const horizonRef = useRef<any>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
@@ -397,15 +393,6 @@ squad.rotation.y = Math.PI;
     controls.minDistance = 10;
     controls.maxDistance = 70;
 
-    // === CRIAR HORIZONTE DINÂMICO 360° ===
-    horizonRef.current = createDynamicHorizon({
-      scene,
-      camera,
-      gridWidth: GRID_WIDTH,
-      gridHeight: GRID_HEIGHT,
-      horizonImageUrl: HORIZON_IMAGE,
-    });
-
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
 
@@ -424,17 +411,6 @@ squad.rotation.y = Math.PI;
     const modelUrl = getBarracoModelUrl(level);
     let barraco: THREE.Object3D | null = null;
     const loadedPlayerModels: THREE.Object3D[] = [];
-
-    // === TEMPORARY TEST: Load squad model ===
-    loadSquadModel((model) => {
-      model.position.x = playerWorldX + 2;
-      model.position.z = playerWorldZ;
-      model.position.y = 0.25;
-      model.rotation.y = Math.PI;
-      scene.add(model);
-      loadedPlayerModels.push(model);
-      console.log('TRIO TESTE carregado');
-    }, 20);
 
     // === CARREGANDO OS EDIFÍCIOS DO COMPLEXO ===
     const complexoResult = createComplexoBuildings(loader);
@@ -665,11 +641,6 @@ squad.rotation.y = Math.PI;
     const animate = () => {
       controls.update();
       
-      // === ATUALIZAR HORIZONTE DINÂMICO ===
-      if (horizonRef.current?.update) {
-        horizonRef.current.update();
-      }
-      
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
     };
@@ -694,11 +665,6 @@ squad.rotation.y = Math.PI;
       container.removeEventListener('pointerup', handlePointerUp);
 
       controls.dispose();
-
-      // === LIMPAR HORIZONTE ===
-      if (horizonRef.current?.dispose) {
-        horizonRef.current.dispose();
-      }
 
       if (activeAnimationRef.current?.stop) {
         activeAnimationRef.current.stop();
