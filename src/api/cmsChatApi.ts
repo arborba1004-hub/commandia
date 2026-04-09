@@ -1,7 +1,27 @@
 /**
- * CMS-based Chat API
- * Replaces external backend chat with Wix Realtime API
- * Stores chat messages in CMS collections
+ * ⚠️ DEPRECATED - CMS-based Chat API (LEGACY)
+ * 
+ * PHASE 8: This file is ISOLATED from the main application flow.
+ * 
+ * Status: LEGACY - DO NOT USE
+ * Reason: Application now uses external backend API for chat operations
+ * 
+ * This file is preserved for reference only and contains CMS-based chat operations
+ * using Wix Realtime API.
+ * 
+ * All active chat operations use the external backend at:
+ * - https://comando-backend.onrender.com
+ * - Endpoints: /chat/complexo, /chat/faccao, /mail/*
+ * 
+ * Chat state management is handled by:
+ * - /src/store/chatStore.ts (uses backend API)
+ * 
+ * If you need to use Wix Realtime for chat in the future:
+ * 1. Import from this file
+ * 2. Update chatStore.ts to use these functions
+ * 3. Remove backend API calls from chatStore.ts
+ * 
+ * DO NOT import this file in active components or stores.
  */
 
 import { subscribe } from 'wix-realtime';

@@ -1,7 +1,21 @@
 /**
- * CMS-based Player API
- * Replaces external Render backend with Wix CMS collections
- * Uses BaseCrudService for all data operations
+ * ⚠️ DEPRECATED - CMS-based Player API (LEGACY)
+ * 
+ * PHASE 8: This file is ISOLATED from the main application flow.
+ * 
+ * Status: LEGACY - DO NOT USE
+ * Reason: Application now uses external backend API (/src/api/playerApi.ts)
+ * 
+ * This file is preserved for reference only and contains CMS-based player operations.
+ * All active player data operations use the external backend at:
+ * - https://comando-backend.onrender.com
+ * 
+ * If you need to use CMS collections for player data in the future:
+ * 1. Import from this file
+ * 2. Update playerStore.ts to use these functions
+ * 3. Remove imports from playerApi.ts
+ * 
+ * DO NOT import this file in active components or stores.
  */
 
 import { BaseCrudService } from '@/integrations';
