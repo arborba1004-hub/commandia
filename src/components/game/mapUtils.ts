@@ -41,8 +41,8 @@ export const fixDarkMaterials = (child: any) => {
 
                                                                                     // 3. Constantes de Configuração
                                                                                     export const GRID_CONFIG = {
-                                                                                      WIDTH: 40,
-                                                                                        HEIGHT: 20,
+                                                                                      WIDTH: 120,
+                                                                                        HEIGHT: 120,
                                                                                           TILE_SIZE: 1,
                                                                                             PLATFORM_Y: 1.2,
                                                                                             };

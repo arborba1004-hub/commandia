@@ -72,7 +72,7 @@ function mapPlayerToProgress(player: PlayerState): PlayerProgress {
   return {
     _id: player._id ? `prog_${player._id}` : crypto.randomUUID(),
     availableSpins: player.niveis?.playerLevel ? Math.floor(player.niveis.playerLevel / 5) : 0,
-    mapPosition: JSON.stringify(player.mapPosition || { tileX: 40, tileY: 20 }),
+    mapPosition: JSON.stringify(player.mapPosition || { tileX: 120, tileY: 120 }),
     shackStatus: player.punishments?.active?.some(p => p.type === 'blitz') || false,
     bribeStatus: player.punishments?.active?.some(p => p.type === 'threat') || false,
     moneyLaunderingStatus: player.laundryProgress?.activeOperations?.length > 0 || false,
@@ -136,7 +136,7 @@ function mapInventoryToPlayer(inventory: PlayerInventories): Partial<PlayerState
  */
 function mapProgressToPlayer(progress: PlayerProgress): Partial<PlayerState> {
   try {
-    const mapPosition = progress.mapPosition ? JSON.parse(progress.mapPosition) : { tileX: 40, tileY: 20 };
+    const mapPosition = progress.mapPosition ? JSON.parse(progress.mapPosition) : { tileX: 120, tileY: 120 };
 
     return {
       mapPosition,
