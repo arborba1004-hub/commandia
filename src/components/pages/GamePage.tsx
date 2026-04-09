@@ -425,12 +425,12 @@ squad.rotation.y = Math.PI;
 
     cameraRef.current = camera;
 
-    const cameraTarget = new THREE.Vector3(playerWorldX, 1.0, playerWorldZ);
+    const cameraTarget = new THREE.Vector3(playerWorldX, 1.2, playerWorldZ);
 
     camera.position.set(
-      playerWorldX + 6.5,
-      5.8,
-      playerWorldZ + 8.5
+      playerWorldX + 10,
+      11,
+      playerWorldZ + 12
     );
     camera.lookAt(cameraTarget);
 
@@ -438,9 +438,10 @@ squad.rotation.y = Math.PI;
     controls.target.copy(cameraTarget);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2.2;
-    controls.minDistance = 6;
-    controls.maxDistance = 18;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
+    controls.minDistance = 10;
+    controls.maxDistance = 70;
+    controls.update();
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
@@ -684,15 +685,6 @@ squad.rotation.y = Math.PI;
     
     const animate = () => {
       controls.update();
-
-      if (horizonMeshRef.current) {
-        horizonMeshRef.current.position.x = camera.position.x * 0.55;
-      }
-
-      if (terrainShellRef.current) {
-        terrainShellRef.current.position.x = camera.position.x * 0.28;
-        terrainShellRef.current.position.z = camera.position.z * 0.28;
-      }
       
       renderer.render(scene, camera);
       animationId = requestAnimationFrame(animate);
