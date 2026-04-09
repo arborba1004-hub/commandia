@@ -1,0 +1,42 @@
+import { useGangBattleStore } from '@/stores/gangBattleStore';
+import { motion } from 'framer-motion';
+
+const formations = [
+  { id: 'offensive', label: 'OFENSIVA', icon: '⚔️', bonus: '+20% ataque, -10% defesa', color: 'from-red-600 to-orange-600' },
+  { id: 'defensive', label: 'DEFENSIVA', icon: '🛡️', bonus: '+25% defesa, -10% ataque', color: 'from-blue-600 to-cyan-600' },
+  { id: 'stealth', label: 'FURTIVA', icon: '🌙', bonus: '+30% saque', color: 'from-purple-600 to-indigo-600' },
+];
+
+export default function GangFormationSelector() {
+  const { formation, setFormation } = useGangBattleStore();
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
+      {formations.map((f) => (
+        <motion.button
+          key={f.id}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setFormation(f.id as any)}
+          className={`relative p-5 rounded-2xl border-2 transition-all overflow-hidden ${
+            formation === f.id
+              ? `bg-gradient-to-r ${f.color} border-white shadow-lg shadow-${f.id === 'offensive' ? 'red' : f.id === 'defensive' ? 'blue' : 'purple'}-500/50`
+              : 'bg-black/60 border-white/20 hover:border-white/40'
+          }`}
+        >
+          <div className="text-5xl mb-2">{f.icon}</div>
+          <div className="font-black text-xl">{f.label}</div>
+          <div className="text-sm opacity-80">{f.bonus}</div>
+          {formation === f.id && (
+            <motion.div
+              layoutId="activeFormation"
+              className="absolute bottom-0 left-0 right-0 h-1 bg-white"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            />
+          )}
+        </motion.button>
+      ))}
+    </div>
+  );
+}
