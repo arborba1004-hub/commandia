@@ -12,8 +12,8 @@ import { handleTileInvasion, worldToTileCoordinates, OtherPlayer } from '@/compo
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
-const GRID_WIDTH = 80;
-const GRID_HEIGHT = 60;
+const GRID_WIDTH = 120;
+const GRID_HEIGHT = 120;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
