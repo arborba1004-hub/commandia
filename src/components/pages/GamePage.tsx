@@ -33,9 +33,7 @@ const GRID_HEIGHT = 120;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
-  'https://static.wixstatic.com/media/50f4bf_0ffb79a57bcc4d81ad4671faa5329c44~mv2.jpeg';
-const HORIZON_IMAGE =
-  'https://static.wixstatic.com/media/50f4bf_ccd344777252495f9afc14f0bfa4548e~mv2.jpeg';
+  'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
 const BARRACO_MODELS = [
   { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
@@ -88,7 +86,6 @@ export default function GamePage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const horizonMeshRef = useRef<THREE.Mesh | null>(null);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
@@ -342,7 +339,7 @@ squad.rotation.y = Math.PI;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color(0x141923);
+    scene.background = new THREE.Color('#000000');
 
     const highlightGeometry = new THREE.PlaneGeometry(1, 1);
     const highlightMaterial = new THREE.MeshBasicMaterial({
@@ -399,7 +396,6 @@ squad.rotation.y = Math.PI;
     controls.maxPolarAngle = Math.PI / 2 - 0.05;
     controls.minDistance = 10;
     controls.maxDistance = 70;
-    controls.update();
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
@@ -412,33 +408,6 @@ squad.rotation.y = Math.PI;
     const fillLight = new THREE.DirectionalLight(0xffe0b0, 2);
     fillLight.position.set(-15, 10, -10);
     scene.add(fillLight);
-
-    // === HORIZON MESH ===
-    const horizonTexture = new THREE.TextureLoader().load(HORIZON_IMAGE);
-    horizonTexture.colorSpace = THREE.SRGBColorSpace;
-    horizonTexture.wrapS = THREE.ClampToEdgeWrapping;
-    horizonTexture.wrapT = THREE.ClampToEdgeWrapping;
-    horizonTexture.minFilter = THREE.LinearFilter;
-    horizonTexture.magFilter = THREE.LinearFilter;
-
-    const horizonMaterial = new THREE.MeshBasicMaterial({
-      map: horizonTexture,
-      transparent: false,
-      depthWrite: false,
-      fog: false,
-    });
-
-    const horizonGeometry = new THREE.PlaneGeometry(GRID_WIDTH * 2.2, 34);
-    const horizonMesh = new THREE.Mesh(horizonGeometry, horizonMaterial);
-
-    // COLADO NA BORDA NORTE DO GRID
-    horizonMesh.position.set(0, 14, -(GRID_HEIGHT / 2) - 10);
-
-    // reto, olhando para dentro do mapa
-    horizonMesh.rotation.y = 0;
-
-    scene.add(horizonMesh);
-    horizonMeshRef.current = horizonMesh;
 
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
@@ -649,7 +618,7 @@ squad.rotation.y = Math.PI;
         squadRef.current = null;
       }
 
-      // ... keep existing code (complexo disposables cleanup)
+      // Limpar disposables do complexo
       complexoResult.disposables.forEach(disposable => {
         if (disposable.dispose) {
           disposable.dispose();
