@@ -6,7 +6,6 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
 import { handleTileInvasion } from '@/components/game/tileInvasion';
-import { createComplexoBuildings } from '@/components/map/createComplexoBuidings';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useMapAttackStore } from '@/store/mapAttackStore';
@@ -397,12 +396,14 @@ squad.rotation.y = Math.PI;
       console.log('TRIO TESTE carregado');
     }, 20);
 
-    // === CARREGANDO OS EDIFÍCIOS DO COMPLEXO ===
-    const complexoResult = createComplexoBuildings(loader);
-    scene.add(complexoResult.group);
-    loadedPlayerModels.push(complexoResult.group);
-
-    complexoResult.load().catch(err => console.error('❌ Erro ao carregar edifícios do complexo:', err));
+    // === CARREGANDO OS EDIFÍCIOS DO COMPLEXO === [DISABLED - Using horizon background instead]
+    // const complexoResult = createComplexoBuildings(loader);
+    // scene.add(complexoResult.group);
+    // loadedPlayerModels.push(complexoResult.group);
+    // complexoResult.load().catch(err => console.error('❌ Erro ao carregar edifícios do complexo:', err));
+    
+    // Create empty result to avoid errors in cleanup
+    const complexoResult = { group: new THREE.Group(), disposables: [], load: async () => {} };
 
     const fixDarkMaterials = (child: any) => {
       if (child.isMesh) {
