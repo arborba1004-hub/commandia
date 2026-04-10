@@ -216,7 +216,7 @@ type PlayerStore = {
   localVersion: number;
   lastSyncAt: number;
 
-  loadPlayer: () => void;
+  loadPlayer: () => Promise<void>;
   setPlayer: (incoming: Partial<PlayerState>) => void;
   hydratePlayerFromServer: (playerData: Partial<PlayerState>) => void;
   clearPlayer: () => void;
@@ -498,35 +498,53 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   localVersion: 0,
   lastSyncAt: 0,
 
-  loadPlayer: () => {
+  loadPlayer: async () => {
     try {
+      const token = localStorage.getItem('authToken');
       const stored = localStorage.getItem(STORAGE_KEY);
 
-      if (!stored) {
+      // 1) sempre tenta aproveitar o cache local primeiro
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const merged = clearExpiredPunishments(mergePlayer(parsed));
+
+        set({
+          player: merged,
+          isLoaded: true,
+          syncError: null,
+          lastSyncAt: Date.now(),
+        });
+      } else {
         set({
           player: initialPlayer,
           isLoaded: true,
           syncError: null,
           lastSyncAt: Date.now(),
         });
-        return;
       }
 
-      const parsed = JSON.parse(stored);
-      const merged = clearExpiredPunishments(mergePlayer(parsed));
+      // 2) se tiver token, o backend é a fonte de verdade
+      if (!token) return;
+
+      const serverPlayer = await fetchCurrentPlayer();
+      if (!serverPlayer) return;
+
+      const mergedServer = clearExpiredPunishments(mergePlayer(serverPlayer));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedServer));
 
       set({
-        player: merged,
+        player: mergedServer,
         isLoaded: true,
         syncError: null,
         lastSyncAt: Date.now(),
+        pollingAttempts: 0,
       });
     } catch (error) {
       console.error('Erro ao carregar playerData:', error);
       set({
         player: initialPlayer,
         isLoaded: true,
-        syncError: 'Erro ao carregar player local',
+        syncError: 'Erro ao carregar player',
         lastSyncAt: Date.now(),
       });
     }
