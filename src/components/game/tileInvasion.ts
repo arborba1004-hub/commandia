@@ -5,8 +5,8 @@
 
 import { usePlayerStore } from '@/store/playerStore';
 
-const GRID_WIDTH = 40;
-const GRID_HEIGHT = 20;
+const GRID_WIDTH = 120;
+const GRID_HEIGHT = 120;
 const TILE_SIZE = 1;
 
 export interface TilePosition {
