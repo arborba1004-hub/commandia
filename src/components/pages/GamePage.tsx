@@ -266,6 +266,15 @@ squad.rotation.y = Math.PI;
 
   const barracoSize = getBarracoSize(level);
 
+  // === VERIFICAÇÃO: MAPPOSITION DEVE ESTAR PRONTO ===
+  if (!playerState?.mapPosition) {
+    return (
+      <div className="w-full h-full bg-black flex items-center justify-center text-white">
+        Carregando mapa...
+      </div>
+    );
+  }
+
   // === FUNÇÃO PARA CARREGAR OUTROS PLAYERS ===
   const fetchOtherPlayers = async () => {
     try {
@@ -364,8 +373,8 @@ squad.rotation.y = Math.PI;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const myTileX = playerState?.mapPosition?.tileX ?? (GRID_WIDTH / 2);
-    const myTileY = playerState?.mapPosition?.tileY ?? (GRID_HEIGHT / 2);
+    const myTileX = playerState.mapPosition.tileX;
+    const myTileY = playerState.mapPosition.tileY;
 
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
@@ -396,6 +405,7 @@ squad.rotation.y = Math.PI;
     controls.maxPolarAngle = Math.PI / 2 - 0.05;
     controls.minDistance = 10;
     controls.maxDistance = 70;
+    controls.update();
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
