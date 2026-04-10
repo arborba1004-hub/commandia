@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { useCart } from '@/integrations';
+import FeatureLevelLock from '@/components/FeatureLevelLock';
+import { canAccessFeature, getFeatureLevelRequirement } from '@/utils/levelRequirements';
 
 interface Weapon {
   _id: string;
@@ -51,7 +53,28 @@ export default function ArsenalPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   // ÚNICA FONTE: playerStore
+  const playerLevel = player.niveis.playerLevel || 1;
   const dirtyMoney = player.balances.dirtyMoney;
+  const requiredLevel = getFeatureLevelRequirement('arsenal');
+  const isFeatureUnlocked = canAccessFeature(playerLevel, 'arsenal');
+
+  // Se a funcionalidade não está desbloqueada, mostrar lock screen
+  if (!isFeatureUnlocked) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4">
+          <FeatureLevelLock
+            playerLevel={playerLevel}
+            requiredLevel={requiredLevel}
+            featureName="Arsenal"
+            onNavigateToBarraco={() => navigate('/barraco')}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   // Fetch weapons and cases
   useEffect(() => {

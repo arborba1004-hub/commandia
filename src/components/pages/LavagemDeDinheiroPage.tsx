@@ -7,7 +7,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGangBonus } from '@/hooks/useGangBonus';
+import { useNavigate } from 'react-router-dom';
 import SoapBubbleAnimation from '@/components/SoapBubbleAnimation';
+import FeatureLevelLock from '@/components/FeatureLevelLock';
+import { canAccessFeature, getFeatureLevelRequirement } from '@/utils/levelRequirements';
 
 interface Business {
   id: number;
@@ -80,6 +83,7 @@ const businesses: Business[] = [
 ];
 
 export default function LavagemDeDinheiroPage() {
+  const navigate = useNavigate();
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [animatingBusinessId, setAnimatingBusinessId] = useState<number | null>(null);
   const [timerStates, setTimerStates] = useState<Record<number, number>>({});
@@ -90,11 +94,31 @@ export default function LavagemDeDinheiroPage() {
   const { getLaundryTaxReduction } = useGangBonus();
   
   // ÚNICA FONTE: playerStore
-  const playerLevel = player.niveis.playerLevel;
+  const playerLevel = player.niveis.playerLevel || 1;
+  const requiredLevel = getFeatureLevelRequirement('lavagem');
+  const isFeatureUnlocked = canAccessFeature(playerLevel, 'lavagem');
   const levelMultiplier = Math.pow(1.1, playerLevel - 1);
   const dirtyMoney = player.balances.dirtyMoney;
   const activeOperations = player?.laundryProgress?.activeOperations || [];
   const taxReduction = getLaundryTaxReduction();
+
+  // Se a funcionalidade não está desbloqueada, mostrar lock screen
+  if (!isFeatureUnlocked) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4">
+          <FeatureLevelLock
+            playerLevel={playerLevel}
+            requiredLevel={requiredLevel}
+            featureName="Lavagem de Dinheiro"
+            onNavigateToBarraco={() => navigate('/barraco')}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   // Carrega os dados do jogador e limpa operações diárias antigas
   useEffect(() => {

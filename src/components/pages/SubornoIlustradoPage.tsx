@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Image } from '@/components/ui/image';
 import SafeVaultModal from '@/components/SafeVaultModal';
+import FeatureLevelLock from '@/components/FeatureLevelLock';
+import { canAccessFeature, getFeatureLevelRequirement } from '@/utils/levelRequirements';
 import {
   getRandomPunishment,
   applyPunishment,
@@ -182,8 +184,29 @@ export default function SubornoIlustradoPage() {
 
   if (!player) return null;
 
+  const playerLevel = player?.niveis?.playerLevel || 1;
   const barrackLevel = player?.niveis?.barracoLevel || 1;
   const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
+  const requiredLevel = getFeatureLevelRequirement('suborno');
+  const isFeatureUnlocked = canAccessFeature(playerLevel, 'suborno');
+
+  // Se a funcionalidade não está desbloqueada, mostrar lock screen
+  if (!isFeatureUnlocked) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4">
+          <FeatureLevelLock
+            playerLevel={playerLevel}
+            requiredLevel={requiredLevel}
+            featureName="Suborno Ilustrado"
+            onNavigateToBarraco={() => navigate('/barraco')}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   // Determinar autoridade baseado no nível do barraco
   useEffect(() => {

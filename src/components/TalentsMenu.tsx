@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BaseCrudService } from '@/integrations';
 import { TalentosDoCrime } from '@/entities';
 import { useTalentStore } from '@/store/talentStore';
+import { usePlayerStore } from '@/store/playerStore';
 import { getEffectValue, TALENT_IDS } from '@/utils/talentEffects';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -28,15 +29,16 @@ export default function TalentsMenu() {
   const [talents, setTalents] = useState<TalentWithProgress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('available');
-  const [dirtyMoney, setDirtyMoney] = useState(0);
-  const [playerLevel, setPlayerLevel] = useState(1);
   const [notification, setNotification] = useState<string | null>(null);
   const talentStore = useTalentStore();
+  const player = usePlayerStore((state) => state.player);
+
+  const dirtyMoney = player.balances.dirtyMoney || 0;
+  const playerLevel = player.niveis.playerLevel || 1;
 
   useEffect(() => {
     loadTalents();
-    loadPlayerData();
-  }, []);
+  }, [playerLevel]);
 
   const loadTalents = async () => {
     try {
@@ -56,17 +58,6 @@ export default function TalentsMenu() {
       console.error('Erro ao carregar talentos:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadPlayerData = async () => {
-    try {
-      // Aqui você carregaria dados do jogador (nível, dinheiro sujo)
-      // Por enquanto, usando valores de exemplo
-      setDirtyMoney(500000);
-      setPlayerLevel(50);
-    } catch (error) {
-      console.error('Erro ao carregar dados do jogador:', error);
     }
   };
 
@@ -93,7 +84,16 @@ export default function TalentsMenu() {
     }
 
     talentStore.unlockTalent(talent._id!, talent.skillName || '');
-    setDirtyMoney(dirtyMoney - cost);
+    
+    // Atualiza o player store
+    const setPlayer = usePlayerStore.getState().setPlayer;
+    setPlayer({
+      ...player,
+      balances: {
+        ...player.balances,
+        dirtyMoney: dirtyMoney - cost,
+      },
+    });
 
     // Notificação em gíria
     const slang = [
@@ -116,7 +116,17 @@ export default function TalentsMenu() {
     }
 
     talentStore.upgradeTalent(talent._id!);
-    setDirtyMoney(dirtyMoney - cost);
+    
+    // Atualiza o player store
+    const setPlayer = usePlayerStore.getState().setPlayer;
+    setPlayer({
+      ...player,
+      balances: {
+        ...player.balances,
+        dirtyMoney: dirtyMoney - cost,
+      },
+    });
+    
     showNotification(`⬆️ ${talent.skillName} evoluiu para nível ${nextLevel}!`);
 
     loadTalents();

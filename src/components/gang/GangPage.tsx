@@ -1,12 +1,15 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Coins, Trophy, TrendingUp, Shield, PlusCircle, Crown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import FeatureLevelLock from '@/components/FeatureLevelLock';
+import { canAccessFeature, getFeatureLevelRequirement } from '@/utils/levelRequirements';
 
 import MemberCard from './MemberCard';
 import RecruitModal from './RecruitModal';
@@ -17,6 +20,7 @@ import GangSkillsPanel from './GangSkillsPanel';
 import type { GangMember } from '@/types/gang';
 
 export default function GangPage() {
+  const navigate = useNavigate();
   const { myGang, fetchMyGang, isLoading, donateToTreasury } = useGangStore();
   const player = usePlayerStore((state) => state.player);
 
@@ -26,6 +30,28 @@ export default function GangPage() {
   const [showTrainModal, setShowTrainModal] = useState(false);
   const [showEquipModal, setShowEquipModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'members' | 'treasury' | 'skills'>('members');
+
+  const playerLevel = player.niveis.playerLevel || 1;
+  const requiredLevel = getFeatureLevelRequirement('gang');
+  const isFeatureUnlocked = canAccessFeature(playerLevel, 'gang');
+
+  // Se a funcionalidade não está desbloqueada, mostrar lock screen
+  if (!isFeatureUnlocked) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4">
+          <FeatureLevelLock
+            playerLevel={playerLevel}
+            requiredLevel={requiredLevel}
+            featureName="Gang"
+            onNavigateToBarraco={() => navigate('/barraco')}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   // Carrega a quadrilha ao montar o componente
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BaseCrudService } from '@/integrations';
 import { usePlayerStore } from '@/store/playerStore';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -8,6 +9,8 @@ import { Image } from '@/components/ui/image';
 import { motion } from 'framer-motion';
 import { AcessriosdeFuga, EscapeVehicles } from '@/entities';
 import { getAccessoryBonus } from '@/utils/accessoryBonus';
+import FeatureLevelLock from '@/components/FeatureLevelLock';
+import { canAccessFeature, getFeatureLevelRequirement } from '@/utils/levelRequirements';
 
 const VEHICLE_ACCESSORIES = [
   { name: 'Turbo Reforçado', bonus: 'agility' },
@@ -30,6 +33,7 @@ interface VehicleAccessory {
 }
 
 export default function FugaIlustradaPage() {
+  const navigate = useNavigate();
   const [vehicles, setVehicles] = useState<EscapeVehicles[]>([]);
   const [accessories, setAccessories] = useState<AcessriosdeFuga[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,9 +50,30 @@ export default function FugaIlustradaPage() {
   const addSkillBonus = usePlayerStore((s) => s.addSkillBonus);
   const setPlayer = usePlayerStore((s) => s.setPlayer);
   
+  const playerLevel = player.niveis.playerLevel || 1;
   const cleanMoney = player.balances.cleanMoney;
   const ownedVehicles = player.ownedVehicles || [];
   const purchasedAccessories = player.purchasedAccessories || [];
+  const requiredLevel = getFeatureLevelRequirement('fuga');
+  const isFeatureUnlocked = canAccessFeature(playerLevel, 'fuga');
+
+  // Se a funcionalidade não está desbloqueada, mostrar lock screen
+  if (!isFeatureUnlocked) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4">
+          <FeatureLevelLock
+            playerLevel={playerLevel}
+            requiredLevel={requiredLevel}
+            featureName="Fuga Ilustrada"
+            onNavigateToBarraco={() => navigate('/barraco')}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   useEffect(() => {
     const loadData = async () => {
