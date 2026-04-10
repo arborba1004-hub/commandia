@@ -9,9 +9,9 @@ export default function Header() {
 
   const isAuthenticated = !!player?._id;
   // ÚNICA FONTE: playerStore
-  const dirtyMoney = player.balances.dirtyMoney;
-  const cleanMoney = player.balances.cleanMoney;
-  const corre = player.balances.corre;
+  const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
+  const cleanMoney = player?.balances?.cleanMoney ?? 0;
+  const corre = player?.balances?.corre ?? 0;
   const playerName = playerData?.name || 'Jogador';
 
   // Ensure values are numbers for toLocaleString
