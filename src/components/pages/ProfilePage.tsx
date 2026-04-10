@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { Image } from '@/components/ui/image';
 import { useEffect } from 'react';
+import HierarchyBadgesDisplay from '@/components/HierarchyBadgesDisplay';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -85,6 +86,14 @@ export default function ProfilePage() {
             >
               Sair da conta
             </button>
+          </div>
+
+          {/* Hierarchy Badges Section */}
+          <div className="mt-12">
+            <HierarchyBadgesDisplay
+              playerLevel={player.niveis.barracoLevel || 1}
+              currentRank={player.currentRank}
+            />
           </div>
         </div>
       </section>

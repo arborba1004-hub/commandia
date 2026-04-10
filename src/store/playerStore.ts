@@ -181,6 +181,8 @@ export type PlayerState = {
 
   power: number;
   hierarchyBadge: string;
+  currentRank?: string;
+  unlockedRanks?: string[];
 
   barracoPosition: BarracoPosition;
 
@@ -261,6 +263,8 @@ type PlayerStore = {
   // POWER / BADGE / GRID
   setPower: (value: number) => void;
   setHierarchyBadge: (badge: string) => void;
+  setCurrentRank: (rank: string) => void;
+  addUnlockedRank: (rank: string) => void;
   setBarracoPosition: (position: Partial<BarracoPosition>) => void;
 
   // HEADER CUSTOMIZATION
@@ -352,6 +356,8 @@ const initialPlayer: PlayerState = {
 
   power: 0,
   hierarchyBadge: 'Antena',
+  currentRank: 'Atividade',
+  unlockedRanks: ['Atividade'],
 
   barracoPosition: {
     x: 0,
@@ -944,6 +950,26 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       ...player,
       hierarchyBadge: badge,
     }));
+  },
+
+  setCurrentRank: (rank) => {
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      currentRank: rank,
+    }));
+  },
+
+  addUnlockedRank: (rank) => {
+    get().applyPlayerUpdate((player) => {
+      const unlockedRanks = player.unlockedRanks || [];
+      if (!unlockedRanks.includes(rank)) {
+        return {
+          ...player,
+          unlockedRanks: [...unlockedRanks, rank],
+        };
+      }
+      return player;
+    });
   },
 
   // ==========================================

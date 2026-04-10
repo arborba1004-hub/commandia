@@ -24,6 +24,8 @@ import {
 } from '@/components/game/mapAttackEffects';
 import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
+import { getPlayerRank, checkRankPromotion } from '@/utils/hierarchySystem';
+import RankPromotionNotification from '@/components/RankPromotionNotification';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -52,7 +54,7 @@ function getBarracoModelUrl(level: number) {
 }
 
 // === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
-function createTextLabel(text: string): THREE.Sprite | THREE.Group {
+function createTextLabel(text: string, rank?: string): THREE.Sprite | THREE.Group {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   if (!context) return new THREE.Group();
@@ -67,7 +69,9 @@ function createTextLabel(text: string): THREE.Sprite | THREE.Group {
   context.font = 'bold 54px Oswald, Impact, Arial';
   context.textAlign = 'center';
   context.fillStyle = '#d9b764';
-  context.fillText(text.toUpperCase(), 256, 85);
+  
+  const displayText = rank ? `${text.toUpperCase()} (${rank})` : text.toUpperCase();
+  context.fillText(displayText, 256, 85);
 
   const texture = new THREE.CanvasTexture(canvas);
   const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
@@ -89,6 +93,9 @@ export default function GamePage() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
+  const [promotionRank, setPromotionRank] = useState<any>(null);
+  const [showPromotion, setShowPromotion] = useState(false);
+  const previousLevelRef = useRef<number>(1);
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
 
   // === FUNÇÃO DE ATAQUE ===
@@ -276,6 +283,29 @@ squad.rotation.y = Math.PI;
       loadPlayer();
     }
   }, [isLoaded, loadPlayer]);
+
+  // === MONITORA PROMOÇÃO DE CARGO ===
+  useEffect(() => {
+    if (!playerState?.niveis?.barracoLevel) return;
+
+    const currentLevel = playerState.niveis.barracoLevel;
+    const previousLevel = previousLevelRef.current;
+
+    if (currentLevel !== previousLevel) {
+      const promotion = checkRankPromotion(previousLevel, currentLevel);
+      if (promotion) {
+        setPromotionRank(promotion);
+        setShowPromotion(true);
+
+        // Atualiza o rank no store
+        const { setCurrentRank, addUnlockedRank } = usePlayerStore.getState();
+        setCurrentRank(promotion.title);
+        addUnlockedRank(promotion.title);
+      }
+
+      previousLevelRef.current = currentLevel;
+    }
+  }, [playerState?.niveis?.barracoLevel]);
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -500,8 +530,9 @@ squad.rotation.y = Math.PI;
         scene.add(barraco);
         loadedPlayerModels.push(barraco);
 
-        // NOME DO JOGADOR LOGADO
-        const label = createTextLabel(displayName);
+        // NOME DO JOGADOR LOGADO COM CARGO
+        const playerRank = getPlayerRank(playerState?.niveis?.barracoLevel || 1);
+        const label = createTextLabel(displayName, playerRank.title);
         label.position.set(playerWorldX, finalBox.max.y + 1.2, playerWorldZ);
         scene.add(label);
         loadedPlayerModels.push(label);
@@ -794,7 +825,7 @@ squad.rotation.y = Math.PI;
           dirtyMoney: p.dirtyMoney || 100000,
         });
 
-        const vLabel = createTextLabel(p.name || 'VIZINHO');
+        const vLabel = createTextLabel(p.name || 'VIZINHO', getPlayerRank(pLevel).title);
         vLabel.position.set(posX, 3.5, posZ);
 
         model.userData.nameLabel = vLabel;
@@ -839,6 +870,13 @@ squad.rotation.y = Math.PI;
 
       {/* Attack Result Overlay */}
       <AttackResultOverlay />
+
+      {/* Rank Promotion Notification */}
+      <RankPromotionNotification
+        rank={promotionRank}
+        isVisible={showPromotion}
+        onClose={() => setShowPromotion(false)}
+      />
 
       {/* Invadir Barraco Modal */}
       {previewOpen && (
