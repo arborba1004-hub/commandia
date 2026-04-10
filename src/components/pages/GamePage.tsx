@@ -778,7 +778,7 @@ squad.rotation.y = Math.PI;
         existing.position.x = posX;
         existing.position.z = posZ;
 
-        attachEnemyBarracoData({
+        attachEnemyBarracoData(existing, {
           playerId,
           playerName: p.name || 'VIZINHO',
           tileX: p.tileX,
