@@ -181,7 +181,7 @@ export default function HomePage() {
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('playerData', JSON.stringify(data.player));
         await loadPlayer();
-        window.location.href = '/game';
+        navigate('/game');
 
       } catch (error) {
         const message =
