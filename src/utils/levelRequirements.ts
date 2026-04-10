@@ -13,35 +13,35 @@ export const LEVEL_REQUIREMENTS = {
 
   // Fuga (Escape Vehicles)
   fuga: {
-    unlock: 5,
+    unlock: 1,
     maxLevel: 100,
     description: 'Veículos de Fuga',
   },
 
   // Arsenal (Weapons)
   arsenal: {
-    unlock: 10,
+    unlock: 1,
     maxLevel: 100,
     description: 'Arsenal de Armas',
   },
 
   // Loja de Luxo (Luxury Shop)
   luxo: {
-    unlock: 15,
+    unlock: 1,
     maxLevel: 100,
     description: 'Loja de Itens de Luxo',
   },
 
   // Gang
   gang: {
-    unlock: 20,
+    unlock: 1,
     maxLevel: 100,
     description: 'Sistema de Gang',
   },
 
   // Lavagem de Dinheiro (Money Laundering)
   lavagem: {
-    unlock: 25,
+    unlock: 1,
     maxLevel: 100,
     description: 'Lavagem de Dinheiro',
   },
