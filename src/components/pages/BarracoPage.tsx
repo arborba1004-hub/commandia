@@ -27,7 +27,7 @@ export default function BarracoPage() {
   const cleanMoney = player.balances.cleanMoney;
 
   const BASE_COST = 500;
-  const MULTIPLIER = 1.1;
+  const MULTIPLIER = 1.115;
 
   const getUpgradeCost = () => {
     return Math.floor(BASE_COST * Math.pow(MULTIPLIER, level - 1));
