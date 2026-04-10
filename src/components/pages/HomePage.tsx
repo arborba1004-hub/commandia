@@ -2,14 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Shield, Flame, Play, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { Image } from '@/components/ui/image';
-import { gameAction } from '@/api/playerApi';
 
 declare global {
   interface Window {
@@ -48,60 +44,14 @@ const cards = [
   },
 ];
 
-function loadSquadModel(onLoaded: (model: THREE.Object3D) => void) {
-  const dracoLoader = new DRACOLoader();
-  dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/draco_wasm_wrapper_v1_4_3/');
-
-  const loader = new GLTFLoader();
-  loader.setDRACOLoader(dracoLoader);
-
-  loader.load(
-    'https://static.wixstatic.com/3d/50f4bf_471a8eec1715484ebc36bdd3b9002999.glb',
-    (gltf) => {
-      const model = gltf.scene;
-
-      model.traverse((child: any) => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-
-          if (child.material) {
-            child.material.metalness = 0;
-            child.material.roughness = 0.9;
-            child.material.emissive = new THREE.Color(0x220000);
-            child.material.emissiveIntensity = 0.15;
-            child.material.needsUpdate = true;
-          }
-        }
-      });
-
-      const box = new THREE.Box3().setFromObject(model);
-      const size = new THREE.Vector3();
-      box.getSize(size);
-
-      const desiredWidth = 1.4;
-      const scale = desiredWidth / Math.max(size.x, size.z, 1);
-      model.scale.setScalar(scale);
-
-      const finalBox = new THREE.Box3().setFromObject(model);
-      model.position.y -= finalBox.min.y;
-
-      model.name = 'ATTACK_SQUAD';
-
-      onLoaded(model);
-    },
-    undefined,
-    (error) => {
-      console.error('Erro ao carregar squad 3D:', error);
-    }
-  );
-}
-
 export default function HomePage() {
   const navigate = useNavigate();
   const manifestoRef = useRef<HTMLElement | null>(null);
 
-  const { player, isLoaded, loadPlayer } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
+  const clearPlayer = usePlayerStore((state) => state.clearPlayer);
 
   const [googleReady, setGoogleReady] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -110,7 +60,9 @@ export default function HomePage() {
   const isAuthenticated = !!player?._id;
 
   useEffect(() => {
-    if (!isLoaded) loadPlayer();
+    if (!isLoaded) {
+      void loadPlayer();
+    }
   }, [isLoaded, loadPlayer]);
 
   useEffect(() => {
@@ -156,7 +108,7 @@ export default function HomePage() {
         try {
           await fetch('https://comando-backend.onrender.com', { method: 'GET' });
         } catch {
-          // Render pode estar acordando; segue para o POST
+          // Backend pode estar acordando
         }
 
         const backendResponse = await fetch(
@@ -180,9 +132,9 @@ export default function HomePage() {
 
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('playerData', JSON.stringify(data.player));
-        await loadPlayer();
-        navigate('/game');
 
+        await loadPlayer();
+        navigate('/game', { replace: true });
       } catch (error) {
         const message =
           error instanceof Error
@@ -226,13 +178,19 @@ export default function HomePage() {
         width: 280,
       });
     }
-  }, [googleReady, isAuthenticated]);
+  }, [googleReady, isAuthenticated, loadPlayer, navigate]);
 
   const scrollToManifesto = () => {
     manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  return (
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('playerData');
+    clearPlayer();
+    navigate('/', { replace: true });
+  };
+return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
       <Header />
 
@@ -266,7 +224,11 @@ export default function HomePage() {
                 transition={{ duration: 0.9 }}
                 className="mb-5 flex justify-center lg:justify-start"
               >
-                <Image src={LOGO_URL} alt="Domínio do Comando" className="w-[220px] sm:w-[260px] md:w-[320px] lg:w-[360px] object-contain drop-shadow-[0_0_16px_rgba(255,210,120,0.12)]" />
+                <Image
+                  src={LOGO_URL}
+                  alt="Domínio do Comando"
+                  className="w-[220px] sm:w-[260px] md:w-[320px] lg:w-[360px] object-contain drop-shadow-[0_0_16px_rgba(255,210,120,0.12)]"
+                />
               </motion.div>
 
               <motion.h1
@@ -294,7 +256,7 @@ export default function HomePage() {
                 className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start"
               >
                 <button
-  onClick={() => (isAuthenticated ? navigate('/game') : scrollToManifesto())}
+                  onClick={() => (isAuthenticated ? navigate('/game') : scrollToManifesto())}
                   className="group relative w-full max-w-[320px] overflow-hidden rounded-2xl border border-amber-300/25 bg-gradient-to-r from-red-950 via-red-800 to-red-950 px-8 py-4 text-sm font-bold uppercase tracking-[0.28em] text-white shadow-[0_12px_40px_rgba(110,0,0,0.35)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_16px_55px_rgba(150,0,0,0.45)] sm:w-auto z-50"
                 >
                   <span className="absolute inset-0 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.15),transparent)] translate-x-[-120%] transition-transform duration-700 group-hover:translate-x-[120%]" />
@@ -317,7 +279,7 @@ export default function HomePage() {
               transition={{ delay: 0.35, duration: 0.95 }}
               className="hidden lg:block"
             >
-              {isAuthenticated && player ? (
+              {isAuthenticated ? (
                 <div className="relative">
                   <div className="absolute inset-0 rounded-[30px] bg-red-900/15 blur-2xl" />
                   <div className="relative rounded-[30px] border border-white/10 bg-black/35 p-6 backdrop-blur-xl shadow-[0_25px_90px_rgba(0,0,0,0.45)]">
@@ -361,12 +323,7 @@ export default function HomePage() {
                       </button>
 
                       <button
-                        onClick={() => {
-                          localStorage.removeItem('authToken');
-                          localStorage.removeItem('playerData');
-                          loadPlayer();
-                          window.location.href = '/';
-                        }}
+                        onClick={handleLogout}
                         className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-950/35 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-red-200 transition hover:bg-red-900/35"
                       >
                         <LogOut className="h-4 w-4" />
@@ -446,7 +403,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {isAuthenticated && player && (
+        {isAuthenticated && (
           <div className="relative z-20 px-6 pb-12 lg:hidden">
             <div className="mx-auto max-w-md rounded-[28px] border border-white/10 bg-black/35 p-5 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
               <p className="text-center text-[10px] uppercase tracking-[0.32em] text-zinc-500">
@@ -468,7 +425,9 @@ export default function HomePage() {
                 </div>
                 <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
                   <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">SUJO</p>
-                  <p className="mt-2 text-lg font-bold text-red-300">{(player.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}</p>
+                  <p className="mt-2 text-lg font-bold text-red-300">
+                    {(player.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}
+                  </p>
                 </div>
               </div>
 
@@ -480,12 +439,7 @@ export default function HomePage() {
                   CONTINUAR
                 </button>
                 <button
-                  onClick={() => {
-                    localStorage.removeItem('authToken');
-                    localStorage.removeItem('playerData');
-                    loadPlayer();
-                    window.location.href = '/';
-                  }}
+                  onClick={handleLogout}
                   className="w-full rounded-2xl border border-red-500/25 bg-red-950/35 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-red-200"
                 >
                   SAIR
@@ -595,37 +549,6 @@ export default function HomePage() {
       </section>
 
       <Footer />
-
-      <button
-        onClick={async () => {
-          const data = await gameAction({
-            action: 'player_update',
-            data: {
-              balances: {
-                dirtyMoney: 999999,
-                cleanMoney: 888888,
-                corre: 777,
-              },
-            },
-          });
-
-          console.log(data);
-
-          alert('Backend respondeu. Confere o saldo agora.');
-        }}
-        style={{
-          position: 'fixed',
-          bottom: 20,
-          right: 20,
-          zIndex: 9999,
-          padding: '12px 16px',
-          background: 'red',
-          color: 'white',
-          borderRadius: '8px',
-        }}
-      >
-        TESTAR BACKEND
-      </button>
     </div>
   );
 }
