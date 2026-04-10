@@ -1,10 +1,14 @@
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
+import { syncPlayerUpdate } from '@/api/playerApi';
 
 export default function BarracoPage() {
-  const navigate = useNavigate();
   const player = usePlayerStore((state) => state.player);
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
+
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!player) {
     return (
@@ -15,6 +19,17 @@ export default function BarracoPage() {
   }
 
   const level = player.niveis?.barracoLevel || 1;
+  const cleanMoney = player.balances?.cleanMoney || 0;
+
+  const BASE_COST = 500;
+  const MULTIPLIER = 1.1;
+
+  const getUpgradeCost = () => {
+    return Math.floor(BASE_COST * Math.pow(MULTIPLIER, level - 1));
+  };
+
+  const upgradeCost = getUpgradeCost();
+  const canUpgrade = cleanMoney >= upgradeCost && !isUpgrading;
 
   const getBarracoName = () => {
     if (level >= 100) return 'Castelo do Comando';
@@ -48,13 +63,62 @@ export default function BarracoPage() {
     return 'https://static.wixstatic.com/3d/50f4bf_0a763db5131547a588ce702d6de0a388.glb';
   };
 
+  const handleUpgrade = async () => {
+    if (!canUpgrade) return;
+
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      setError('Você precisa fazer login novamente.');
+      return;
+    }
+
+    setError(null);
+    setIsUpgrading(true);
+
+    const nextLevel = level + 1;
+    const nextMoney = cleanMoney - upgradeCost;
+
+    const optimisticPlayer = {
+      ...player,
+      niveis: {
+        ...player.niveis,
+        barracoLevel: nextLevel,
+      },
+      balances: {
+        ...player.balances,
+        cleanMoney: nextMoney,
+      },
+    };
+
+    setPlayer(optimisticPlayer);
+
+    try {
+      const response = await syncPlayerUpdate({
+        niveis: {
+          ...player.niveis,
+          barracoLevel: nextLevel,
+        },
+        balances: {
+          ...player.balances,
+          cleanMoney: nextMoney,
+        },
+      });
+
+      setPlayer(response.player);
+    } catch (err: any) {
+      setPlayer(player);
+      setError(err?.message || 'Erro ao evoluir barraco');
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
   return (
     <div
-      className="min-h-screen w-full text-white flex flex-col items-center justify-center p-6 bg-cover bg-center bg-no-repeat cursor-pointer hover:opacity-90 transition-opacity"
+      className="min-h-screen w-full text-white flex flex-col items-center justify-center p-6 bg-cover bg-center bg-no-repeat"
       style={{
         backgroundImage: `url('${getBarracoBackground()}')`,
       }}
-      onClick={() => navigate('/barraco-detail')}
     >
       <motion.div
         className="w-full max-w-md bg-black/70 rounded-2xl p-6 shadow-xl border border-white/10 backdrop-blur-sm"
@@ -65,13 +129,38 @@ export default function BarracoPage() {
 
         <p className="text-center text-sm opacity-70 mb-4">{getBarracoName()}</p>
 
-        <div className="text-center mb-6">
+        <div className="text-center mb-3">
           <span className="text-3xl font-bold">Nível {level}</span>
         </div>
 
-        <p className="text-center text-xs opacity-50 mt-4 font-paragraph">
-          Clique para ver detalhes
-        </p>
+        <div className="mb-4 text-center text-xs opacity-60 break-all">
+          Modelo 3D atual: {getBarracoModel()}
+        </div>
+
+        <div className="mb-6 text-center">
+          <p className="text-sm opacity-70">Custo do upgrade</p>
+          <p className="text-lg font-bold text-emerald-400">
+            {upgradeCost.toLocaleString('pt-BR')} 💰
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-500/20 border border-red-500/30 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={handleUpgrade}
+          disabled={!canUpgrade}
+          className={`w-full py-3 rounded-xl font-bold transition ${
+            canUpgrade
+              ? 'bg-emerald-500 hover:bg-emerald-600'
+              : 'bg-gray-700 opacity-50 cursor-not-allowed'
+          }`}
+        >
+          {isUpgrading ? 'Evoluindo...' : 'Evoluir Barraco'}
+        </button>
       </motion.div>
     </div>
   );
