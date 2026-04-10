@@ -35,20 +35,28 @@ const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
-const BARRACO_MODELS = [
-  { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb' },
-  { min: 10, max: 19, url: 'https://static.wixstatic.com/3d/50f4bf_e10d19cfeff147ce95eee1d04a31b04a.glb' },
-  { min: 20, max: 29, url: 'https://static.wixstatic.com/3d/50f4bf_ad7304550b404996b3b82c425be28df8.glb' },
-  { min: 30, max: 39, url: 'https://static.wixstatic.com/3d/50f4bf_d2c8efd640c24cabb3bda73016b7a6b7.glb' },
-  { min: 40, max: 49, url: 'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb' },
-  { min: 50, max: 59, url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb' },
-];
-
 function getBarracoModelUrl(level: number) {
-  return (
-    BARRACO_MODELS.find((model) => level >= model.min && level <= model.max)?.url ??
-    BARRACO_MODELS[0].url
-  );
+  if (level >= 50) {
+    return 'https://static.wixstatic.com/3d/50f4bf_815f96c9cc12483791282cc3b64ce96f.glb';
+  }
+
+  if (level >= 40) {
+    return 'https://static.wixstatic.com/3d/50f4bf_676c492cb62e4eb0baf04e16492966cc.glb';
+  }
+
+  if (level >= 30) {
+    return 'https://static.wixstatic.com/3d/50f4bf_f78d5d13df3d4a9e9b62061425cc4f30.glb';
+  }
+
+  if (level >= 20) {
+    return 'https://static.wixstatic.com/3d/50f4bf_a089f0d52f38465f8db77877509f12d6.glb';
+  }
+
+  if (level >= 10) {
+    return 'https://static.wixstatic.com/3d/50f4bf_e10d19cfeff147ce95eee1d04a31b04a.glb';
+  }
+
+  return 'https://static.wixstatic.com/3d/50f4bf_0a763db5131547a588ce702d6de0a388.glb';
 }
 
 // === FUNÇÃO PARA CRIAR O NOME FLUTUANTE ===
@@ -734,11 +742,9 @@ squad.rotation.y = Math.PI;
       }
 
       // se não existe, cria
-      const mInfo =
-        BARRACO_MODELS.find((m) => pLevel >= m.min && pLevel <= m.max) ||
-        BARRACO_MODELS[0];
+      const modelUrl = getBarracoModelUrl(pLevel);
 
-      loader.load(mInfo.url, (gltf) => {
+      loader.load(modelUrl, (gltf) => {
         const model = gltf.scene;
 
         const bSize = getBarracoSize(pLevel);
