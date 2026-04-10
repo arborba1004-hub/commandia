@@ -362,6 +362,8 @@ const initialPlayer: PlayerState = {
   mapPosition: {
     tileX: GRID_WIDTH / 2,
     tileY: GRID_HEIGHT / 2,
+    worldX: 0,
+    worldY: 0,
   },
 
   laundryProgress: {
@@ -435,6 +437,8 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     mapPosition: {
       tileX: incoming?.mapPosition?.tileX ?? initialPlayer.mapPosition?.tileX ?? GRID_WIDTH / 2,
       tileY: incoming?.mapPosition?.tileY ?? initialPlayer.mapPosition?.tileY ?? GRID_HEIGHT / 2,
+      worldX: incoming?.mapPosition?.worldX ?? initialPlayer.mapPosition?.worldX ?? 0,
+      worldY: incoming?.mapPosition?.worldY ?? initialPlayer.mapPosition?.worldY ?? 0,
     },
 
     headerCustomization: {
