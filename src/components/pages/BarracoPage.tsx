@@ -1,8 +1,26 @@
+import { useEffect } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 
 export default function BarracoPage() {
-  const { player, setPlayer } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
+  const setPlayer = usePlayerStore((state) => state.setPlayer);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      loadPlayer();
+    }
+  }, [isLoaded, loadPlayer]);
+
+  if (!isLoaded || !player?._id) {
+    return (
+      <div className="min-h-screen w-full bg-black text-white flex items-center justify-center">
+        Carregando...
+      </div>
+    );
+  }
 
   // ÚNICA FONTE: playerStore
   const level = player.niveis.barracoLevel;
