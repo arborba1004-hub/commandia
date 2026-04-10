@@ -233,3 +233,38 @@ export interface PlayerProgress {
   /** @wixFieldType boolean */
   moneyLaunderingStatus?: boolean;
 }
+
+
+/**
+ * Collection ID: talentosdocrime
+ * Interface for TalentosdoCrime
+ */
+export interface TalentosdoCrime {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType text */
+  skillName?: string;
+  /** @wixFieldType text */
+  category?: string;
+  /** @wixFieldType text */
+  description?: string;
+  /** @wixFieldType number */
+  unlockLevel?: number;
+  /** @wixFieldType number */
+  minEffectValue?: number;
+  /** @wixFieldType number */
+  maxEffectValue?: number;
+  /** @wixFieldType text */
+  effectUnit?: string;
+  /** @wixFieldType text */
+  cooldownDescription?: string;
+  /** @wixFieldType number */
+  unlockCostDirtyMoney?: number;
+  /** @wixFieldType boolean */
+  isAutoUnlock?: boolean;
+  /** @wixFieldType boolean */
+  isFactionLeaderOnly?: boolean;
+  /** @wixFieldType number */
+  maxSkillLevel?: number;
+}

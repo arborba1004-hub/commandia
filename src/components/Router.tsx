@@ -17,6 +17,7 @@ import LuxoItemPage from '@/components/pages/LuxoItemPage';
 import BarracoPage from '@/components/pages/BarracoPage';
 import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 import ChatPage from '@/components/pages/ChatPage';
+import TalentsPage from '@/components/pages/TalentsPage';
 
 // FASE 6: Páginas legadas/experimentais removidas do fluxo principal
 // - HomePageNew (arquivo preservado em src/components/pages/HomePageNew.tsx)
@@ -54,6 +55,7 @@ const router = createBrowserRouter([
       { path: 'luxo-item', element: <LuxoItemPage /> },
       { path: 'barraco', element: <BarracoPage /> },
       { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
+      { path: 'talentos', element: <TalentsPage /> },
       // FASE 6: Rotas legadas removidas
       // { path: 'home-new', element: <HomePageNew /> },
       // { path: 'match', element: <MatchPage /> },
