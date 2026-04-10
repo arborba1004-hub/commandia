@@ -1,14 +1,10 @@
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
-import { syncPlayerUpdate } from '@/api/playerApi';
 
 export default function BarracoPage() {
+  const navigate = useNavigate();
   const player = usePlayerStore((state) => state.player);
-  const setPlayer = usePlayerStore((state) => state.setPlayer);
-
-  const [isUpgrading, setIsUpgrading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   if (!player) {
     return (
@@ -19,61 +15,6 @@ export default function BarracoPage() {
   }
 
   const level = player.niveis?.barracoLevel || 1;
-  const cleanMoney = player.balances?.cleanMoney || 0;
-
-  const BASE_COST = 500;
-  const MULTIPLIER = 1.1;
-
-  const getUpgradeCost = () => {
-    return Math.floor(BASE_COST * Math.pow(MULTIPLIER, level - 1));
-  };
-
-  const upgradeCost = getUpgradeCost();
-  const canUpgrade = cleanMoney >= upgradeCost && !isUpgrading;
-
-  const handleUpgrade = async () => {
-    if (!canUpgrade) return;
-
-    setError(null);
-    setIsUpgrading(true);
-
-    const optimisticPlayer = {
-      ...player,
-      niveis: {
-        ...player.niveis,
-        barracoLevel: level + 1,
-      },
-      balances: {
-        ...player.balances,
-        cleanMoney: cleanMoney - upgradeCost,
-      },
-    };
-
-    // atualiza imediatamente na UI
-    setPlayer(optimisticPlayer);
-
-    try {
-      const response = await syncPlayerUpdate({
-        niveis: {
-          ...player.niveis,
-          barracoLevel: level + 1,
-        },
-        balances: {
-          ...player.balances,
-          cleanMoney: cleanMoney - upgradeCost,
-        },
-      });
-
-      // garante que o store fique com o que o backend devolveu
-      setPlayer(response.player);
-    } catch (err: any) {
-      // rollback
-      setPlayer(player);
-      setError(err?.message || 'Erro ao evoluir barraco');
-    } finally {
-      setIsUpgrading(false);
-    }
-  };
 
   const getBarracoName = () => {
     if (level >= 100) return 'Castelo do Comando';
@@ -109,10 +50,11 @@ export default function BarracoPage() {
 
   return (
     <div
-      className="min-h-screen w-full text-white flex flex-col items-center justify-center p-6 bg-cover bg-center bg-no-repeat"
+      className="min-h-screen w-full text-white flex flex-col items-center justify-center p-6 bg-cover bg-center bg-no-repeat cursor-pointer hover:opacity-90 transition-opacity"
       style={{
         backgroundImage: `url('${getBarracoBackground()}')`,
       }}
+      onClick={() => navigate('/barraco-detail')}
     >
       <motion.div
         className="w-full max-w-md bg-black/70 rounded-2xl p-6 shadow-xl border border-white/10 backdrop-blur-sm"
@@ -127,30 +69,9 @@ export default function BarracoPage() {
           <span className="text-3xl font-bold">Nível {level}</span>
         </div>
 
-        <div className="mb-6 text-center">
-          <p className="text-sm opacity-70">Custo do upgrade</p>
-          <p className="text-lg font-bold text-emerald-400">
-            {upgradeCost.toLocaleString('pt-BR')} 💰
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-4 rounded-xl bg-red-500/20 border border-red-500/30 px-4 py-3 text-sm text-red-200">
-            {error}
-          </div>
-        )}
-
-        <button
-          onClick={handleUpgrade}
-          disabled={!canUpgrade}
-          className={`w-full py-3 rounded-xl font-bold transition ${
-            canUpgrade
-              ? 'bg-emerald-500 hover:bg-emerald-600'
-              : 'bg-gray-700 opacity-50 cursor-not-allowed'
-          }`}
-        >
-          {isUpgrading ? 'Evoluindo...' : 'Evoluir Barraco'}
-        </button>
+        <p className="text-center text-xs opacity-50 mt-4 font-paragraph">
+          Clique para ver detalhes
+        </p>
       </motion.div>
     </div>
   );
