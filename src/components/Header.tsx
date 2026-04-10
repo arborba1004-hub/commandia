@@ -1,18 +1,26 @@
 import { Link } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LogOut, User } from 'lucide-react';
+import { getPlayerRank } from '@/utils/hierarchySystem';
+import { Image } from '@/components/ui/image';
 
 export default function Header() {
-  const { player } = usePlayerStore();
-  const { playerData, logout } = useGoogleAuth();
+  const { player, clearPlayer } = usePlayerStore();
 
   const isAuthenticated = !!player?._id;
   // ÚNICA FONTE: playerStore
   const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
   const cleanMoney = player?.balances?.cleanMoney ?? 0;
   const corre = player?.balances?.corre ?? 0;
-  const playerName = playerData?.name || 'Jogador';
+  
+  const playerName =
+    player?.headerCustomization?.customName ||
+    player?.name ||
+    'Jogador';
+
+  const playerLevel = player?.niveis?.barracoLevel || 1;
+  const hierarchyTitle = getPlayerRank(playerLevel).title;
+  const avatar = player?.avatar || '';
 
   // Ensure values are numbers for toLocaleString
   const formatMoney = (value: any) => {
@@ -21,7 +29,9 @@ export default function Header() {
   };
 
   const handleLogout = () => {
-    logout();
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('playerData');
+    clearPlayer();
     window.location.href = '/';
   };
 
@@ -97,10 +107,22 @@ export default function Header() {
             {isAuthenticated ? (
               <>
                 <Link
+                  to="/galeria"
+                  className="flex items-center gap-2"
+                >
+                  {avatar ? (
+                    <Image src={avatar} alt={playerName} className="w-8 h-8 rounded-full object-cover border border-primary" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary flex items-center justify-center">
+                      <User className="w-4 h-4 text-primary" />
+                    </div>
+                  )}
+                </Link>
+
+                <Link
                   to="/game"
                   className="flex items-center gap-2 font-heading text-sm uppercase tracking-wider text-foreground hover:text-primary transition-colors"
                 >
-                  <User className="w-4 h-4" />
                   {playerName}
                 </Link>
 
