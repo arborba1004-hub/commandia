@@ -234,8 +234,10 @@ squad.rotation.y = Math.PI;
   }
 
   const playerState = usePlayerStore((state) => state.player);
-  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
+  const startPolling = usePlayerStore((state) => state.startPolling);
+  const stopPolling = usePlayerStore((state) => state.stopPolling);
   const level = playerState?.niveis?.barracoLevel || 1;
   const displayName = playerState?.headerCustomization?.customName || playerState?.name || 'CAPO GHOST';
 
@@ -275,8 +277,19 @@ squad.rotation.y = Math.PI;
     }
   }, [isLoaded, loadPlayer]);
 
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token || !isLoaded) return;
+
+    startPolling();
+
+    return () => {
+      stopPolling();
+    };
+  }, [isLoaded, startPolling, stopPolling]);
+
   // === VERIFICAÇÃO: PLAYER E MAPPOSITION DEVEM ESTAR PRONTOS ===
-  if (!isLoaded || !playerState?.mapPosition) {
+  if (!isLoaded || !playerState?._id || !playerState?.mapPosition) {
     return (
       <div className="w-full h-full bg-black flex items-center justify-center text-white">
         Carregando mapa...
