@@ -288,8 +288,8 @@ squad.rotation.y = Math.PI;
     };
   }, [isLoaded, startPolling, stopPolling]);
 
-  // === VERIFICAÇÃO: PLAYER E MAPPOSITION DEVEM ESTAR PRONTOS ===
-  if (!isLoaded || !playerState?._id || !playerState?.mapPosition) {
+  // === VERIFICAÇÃO: PLAYER DEVE ESTAR CARREGADO ===
+  if (!isLoaded) {
     return (
       <div className="w-full h-full bg-black flex items-center justify-center text-white">
         Carregando mapa...
@@ -395,8 +395,8 @@ squad.rotation.y = Math.PI;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const myTileX = playerState.mapPosition.tileX;
-    const myTileY = playerState.mapPosition.tileY;
+    const myTileX = playerState?.mapPosition?.tileX ?? 60;
+    const myTileY = playerState?.mapPosition?.tileY ?? 60;
 
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
@@ -687,7 +687,7 @@ squad.rotation.y = Math.PI;
       cameraRef.current = null;
       rendererRef.current = null;
     };
-  }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id, displayName]);
+  }, [isLoaded]);
 
   useEffect(() => {
     const scene = sceneRef.current;
