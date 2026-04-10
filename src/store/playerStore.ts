@@ -77,6 +77,8 @@ type BarracoPosition = {
 type MapPosition = {
   tileX: number;
   tileY: number;
+  worldX?: number;
+  worldY?: number;
 };
 
 type ActiveOperation = {
