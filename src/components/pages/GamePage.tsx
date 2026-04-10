@@ -718,7 +718,7 @@ squad.rotation.y = Math.PI;
       cameraRef.current = null;
       rendererRef.current = null;
     };
-  }, [isLoaded]);
+  }, [isLoaded, playerState?._id]);
 
   useEffect(() => {
     const scene = sceneRef.current;
