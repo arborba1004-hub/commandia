@@ -68,6 +68,7 @@ function areMessagesEqual(a: ChatMessage[], b: ChatMessage[]) {
       ma.id !== mb.id ||
       ma.read !== mb.read ||
       ma.body !== mb.body ||
+      ma.subject !== mb.subject ||
       ma.createdAt !== mb.createdAt
     ) {
       return false;
@@ -149,6 +150,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           if (areMessagesEqual(state.complexoMessages, messages)) {
             return silent ? {} : { isLoading: false };
           }
+
           return {
             complexoMessages: messages,
             ...(silent ? {} : { isLoading: false }),
@@ -159,6 +161,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           if (areMessagesEqual(state.faccaoMessages, messages)) {
             return silent ? {} : { isLoading: false };
           }
+
           return {
             faccaoMessages: messages,
             ...(silent ? {} : { isLoading: false }),
@@ -209,8 +212,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (chatPollingInterval) {
       clearInterval(chatPollingInterval);
     }
-
-    get().loadChat();
 
     chatPollingInterval = setInterval(() => {
       get().fetchMessages('complexo', true);
