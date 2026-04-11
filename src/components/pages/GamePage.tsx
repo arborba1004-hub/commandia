@@ -26,6 +26,8 @@ import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import { getPlayerRank, checkRankPromotion } from '@/utils/hierarchySystem';
 import RankPromotionNotification from '@/components/RankPromotionNotification';
 
+// ... keep existing code (constants and models)
+
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
@@ -220,11 +222,14 @@ export default function GamePage() {
 
   const navigate = useNavigate();
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
-const playerState = usePlayerStore((state) => state.player);
+  const playerState = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const startPolling = usePlayerStore((state) => state.startPolling);
   const stopPolling = usePlayerStore((state) => state.stopPolling);
+  const applyRemoteAttackResult = usePlayerStore((state) => state.applyRemoteAttackResult);
+  const addAttackHistoryItem = usePlayerStore((state) => state.addAttackHistoryItem);
+  const addNotification = usePlayerStore((state) => state.addNotification);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
@@ -348,6 +353,40 @@ const playerState = usePlayerStore((state) => state.player);
               if (obj) shakeObject(obj);
 
               useMapAttackStore.getState().setResolution(report.resolution);
+
+              // Apply battle results and update player state
+              applyRemoteAttackResult({
+                dirtyMoneyDelta: report.resolution.success
+                  ? report.resolution.loot
+                  : -Math.floor((report.resolution.loot || 0) * 0.1),
+                pvpProtectionUntil: null,
+              });
+
+              usePlayerStore.getState().removeCorre(10);
+
+              addAttackHistoryItem({
+                id: report.battleId,
+                attackerId: report.attacker.playerId,
+                attackerName: report.attacker.playerName,
+                targetId: report.defender.playerId,
+                targetName: report.defender.playerName,
+                success: report.resolution.success,
+                loot: report.resolution.loot || 0,
+                createdAt: new Date().toISOString(),
+              });
+
+              addNotification({
+                id: `battle_${report.battleId}`,
+                type: report.resolution.success ? 'attack_success' : 'attack_failed',
+                attackerId: report.attacker.playerId,
+                attackerName: report.attacker.playerName,
+                targetId: report.defender.playerId,
+                targetName: report.defender.playerName,
+                success: report.resolution.success,
+                loot: report.resolution.loot || 0,
+                createdAt: new Date().toISOString(),
+                read: false,
+              });
 
               setTimeout(() => {
                 returnSquad();
