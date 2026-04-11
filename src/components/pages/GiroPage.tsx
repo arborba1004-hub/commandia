@@ -208,7 +208,7 @@ export default function GiroPage() {
   const reelBase = 'absolute top-[42%] -translate-y-1/2 h-[12%] w-[14%] rounded-[18px] overflow-hidden';
 
   return (
-    <div className="min-h-screen bg-[#07090d] text-white relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#07090d] text-white relative overflow-x-hidden pt-[140px] md:pt-[160px]">
       <Header />
       <AnimatePresence>
         {policeFlash && (
@@ -353,7 +353,7 @@ export default function GiroPage() {
                   <li>• cada giro consome corre conforme multiplicador</li>
                   <li>• prêmio entra no Commands Sujo da playerStore</li>
                   <li>• prisão leva 30% do Commands Sujo</li>
-                  <li>• 2 viaturas ativam “olha ozomi”</li>
+                  <li>• 2 viaturas ativam "olha ozomi"</li>
                   <li>• o Header acompanha o mesmo cofre em tempo real</li>
                 </ul>
               </div>

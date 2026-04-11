@@ -1,3 +1,4 @@
+import { Image } from '@/components/ui/image';
 type ChatChannelType = 'complexo' | 'faccao' | 'mail';
 
 interface ChatTabsProps {
@@ -54,12 +55,7 @@ export default function ChatTabs({
               tab.disabled ? 'cursor-not-allowed opacity-50' : '',
             ].join(' ')}
           >
-            <img
-              src={TAB_ICONS[tab.key]}
-              alt={tab.label}
-              className="h-10 w-10 object-contain"
-              draggable={false}
-            />
+            <Image src={TAB_ICONS[tab.key]} alt={tab.label} className="h-10 w-10 object-contain" draggable={false} />
 
             <span className="text-xs font-black uppercase tracking-wide">
               {tab.label}

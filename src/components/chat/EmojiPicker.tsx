@@ -1,3 +1,4 @@
+import { Image } from '@/components/ui/image';
 type EmojiPickerItem =
   | { type: 'unicode'; value: string }
   | { type: 'image'; id: string; src: string; alt: string };
@@ -80,12 +81,7 @@ export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
             {item.type === 'unicode' ? (
               <span className="text-xl">{item.value}</span>
             ) : (
-              <img
-                src={item.src}
-                alt={item.alt}
-                className="h-10 w-10 object-contain"
-                draggable={false}
-              />
+              <Image src={item.src} alt={item.alt} className="h-10 w-10 object-contain" draggable={false} />
             )}
           </button>
         ))}

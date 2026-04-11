@@ -72,7 +72,7 @@ export default function BarracoPage() {
 
   return (
     <div 
-      className="min-h-screen w-full text-white flex flex-col items-center justify-center p-6 bg-cover bg-center bg-no-repeat"
+      className="min-h-screen w-full text-white flex flex-col items-center justify-center p-6 bg-cover bg-center bg-no-repeat pt-[140px] md:pt-[160px]"
       style={{
         backgroundImage: `url('https://static.wixstatic.com/media/50f4bf_83a2805595564007a2ade265972e89c6~mv2.png')`,
       }}

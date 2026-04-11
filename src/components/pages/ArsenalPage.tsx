@@ -189,7 +189,7 @@ export default function ArsenalPage() {
 
   if (isLoading) {
     return (
-      <div className="w-full min-h-screen bg-black flex flex-col items-center justify-center">
+      <div className="w-full min-h-screen bg-black flex flex-col items-center justify-center pt-[140px] md:pt-[160px]">
         <Header />
         <LoadingSpinner />
         <Footer />

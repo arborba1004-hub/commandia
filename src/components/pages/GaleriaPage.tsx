@@ -148,7 +148,7 @@ export default function GaleriaPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden py-20 px-4">
+      <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden py-20 px-4 pt-[140px] md:pt-[160px]">
         <div className="max-w-[100rem] mx-auto w-full">
           <motion.div
             className="text-center mb-40 mt-20"

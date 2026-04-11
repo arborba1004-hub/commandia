@@ -107,7 +107,7 @@ export default function LavagemDeDinheiroPage() {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center px-4">
+        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
           <FeatureLevelLock
             playerLevel={playerLevel}
             requiredLevel={requiredLevel}
@@ -242,7 +242,7 @@ export default function LavagemDeDinheiroPage() {
         buttonRef={buttonRefs.current[animatingBusinessId || 0] ? { current: buttonRefs.current[animatingBusinessId || 0] } : { current: null }}
       />
       
-      <main className="w-full max-w-[100rem] mx-auto px-4 py-16">
+      <main className="w-full max-w-[100rem] mx-auto px-4 py-16 pt-[140px] md:pt-[160px]">
         {/* Hero Section */}
         <section className="mb-20">
           <motion.div

@@ -74,12 +74,7 @@ export default function Header() {
         {!isAuthenticated ? (
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#3c2407] bg-gradient-to-r from-[#140b06] via-[#1a120a] to-[#140b06] px-4 py-3">
             <Link to="/" className="flex min-w-0 items-center">
-              <img
-                src={LOGO_URL}
-                alt="Domínio do Comando"
-                className="h-14 w-auto object-contain sm:h-16"
-                draggable={false}
-              />
+              <Image src={LOGO_URL} alt="Domínio do Comando" className="h-14 w-auto object-contain sm:h-16" draggable={false} />
             </Link>
 
             <div className="flex items-center gap-2">
@@ -106,12 +101,7 @@ export default function Header() {
                   to="/"
                   className="flex h-full w-full items-center justify-center"
                 >
-                  <img
-                    src={LOGO_URL}
-                    alt="Domínio do Comando"
-                    className="h-full w-full object-contain"
-                    draggable={false}
-                  />
+                  <Image src={LOGO_URL} alt="Domínio do Comando" className="h-full w-full object-contain" draggable={false} />
                 </Link>
               </div>
 
@@ -159,12 +149,7 @@ export default function Header() {
                       className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10"
                       aria-label="Abrir chat do complexo"
                     >
-                      <img
-                        src={CHAT_COMPLEXO_ICON_URL}
-                        alt="Chat do Complexo"
-                        className="h-7 w-7 object-contain"
-                        draggable={false}
-                      />
+                      <Image src={CHAT_COMPLEXO_ICON_URL} alt="Chat do Complexo" className="h-7 w-7 object-contain" draggable={false} />
                     </button>
 
                     <button
@@ -173,12 +158,7 @@ export default function Header() {
                       className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10"
                       aria-label="Abrir chat da facção"
                     >
-                      <img
-                        src={CHAT_FACCAO_ICON_URL}
-                        alt="Chat da Facção"
-                        className="h-7 w-7 object-contain"
-                        draggable={false}
-                      />
+                      <Image src={CHAT_FACCAO_ICON_URL} alt="Chat da Facção" className="h-7 w-7 object-contain" draggable={false} />
                     </button>
 
                     <button
@@ -187,12 +167,7 @@ export default function Header() {
                       className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10"
                       aria-label="Abrir correio pessoal"
                     >
-                      <img
-                        src={CHAT_MAIL_ICON_URL}
-                        alt="Correio Pessoal"
-                        className="h-7 w-7 object-contain"
-                        draggable={false}
-                      />
+                      <Image src={CHAT_MAIL_ICON_URL} alt="Correio Pessoal" className="h-7 w-7 object-contain" draggable={false} />
 
                       {unreadMailCount > 0 && (
                         <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-[#ffde59] px-1 text-center text-[10px] font-black text-black">
@@ -237,12 +212,7 @@ export default function Header() {
                       Dinheiro Sujo
                     </div>
                     <div className="flex items-center gap-1 text-sm font-black text-white md:text-xl">
-                      <img
-                        src={COMMANDS_ICON_URL}
-                        alt="Commands"
-                        className="h-5 w-5 object-contain"
-                        draggable={false}
-                      />
+                      <Image src={COMMANDS_ICON_URL} alt="Commands" className="h-5 w-5 object-contain" draggable={false} />
                       <span>{formatCompact(dirtyMoney)}</span>
                     </div>
                   </div>
@@ -252,12 +222,7 @@ export default function Header() {
                       Dinheiro Limpo
                     </div>
                     <div className="flex items-center gap-1 text-sm font-black text-white md:text-xl">
-                      <img
-                        src={COMMANDS_ICON_URL}
-                        alt="Commands"
-                        className="h-5 w-5 object-contain"
-                        draggable={false}
-                      />
+                      <Image src={COMMANDS_ICON_URL} alt="Commands" className="h-5 w-5 object-contain" draggable={false} />
                       <span>{formatCompact(cleanMoney)}</span>
                     </div>
                   </div>

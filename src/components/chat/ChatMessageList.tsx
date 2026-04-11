@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 import type { ChatMessage } from '@/store/chatStore';
+import { Image } from '@/components/ui/image';
 
 interface ChatMessageListProps {
   messages: ChatMessage[];
@@ -83,14 +84,7 @@ const MessageBody = memo(function MessageBody({ body }: { body: string }) {
         }
 
         return (
-          <img
-            key={`img-${part.id}-${index}`}
-            src={part.src}
-            alt={part.alt}
-            className="my-2 h-20 w-20 object-contain"
-            draggable={false}
-            loading="lazy"
-          />
+          <Image key={`img-${part.id}-${index}`} src={part.src} alt={part.alt} className="my-2 h-20 w-20 object-contain" draggable={false} loading="lazy" />
         );
       })}
     </div>
