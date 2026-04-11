@@ -226,6 +226,7 @@ const playerState = usePlayerStore((state) => state.player);
   const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
   const [promotionRank, setPromotionRank] = useState<any>(null);
   const [showPromotion, setShowPromotion] = useState(false);
+  const [isStartingBattle, setIsStartingBattle] = useState(false);
 
   const level = playerState?.niveis?.barracoLevel || 1;
   const displayName =
@@ -266,6 +267,8 @@ const playerState = usePlayerStore((state) => state.player);
 
     if (!scene || !state.origin || !state.target) return;
 
+    setIsStartingBattle(true);
+
     const route = buildManhattanAttackRoute({
       fromTileX: state.origin.tileX,
       fromTileY: state.origin.tileY,
@@ -274,7 +277,10 @@ const playerState = usePlayerStore((state) => state.player);
       includeOrigin: true,
     });
 
-    if (!route.length) return;
+    if (!route.length) {
+      setIsStartingBattle(false);
+      return;
+    }
 
     loadSquadModel((squad) => {
       const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
@@ -305,7 +311,10 @@ const playerState = usePlayerStore((state) => state.player);
         gridWidth: GRID_WIDTH,
         gridHeight: GRID_HEIGHT,
         y: squadY,
-        onComplete: resolveCombat,
+        onComplete: () => {
+          resolveCombat();
+          setIsStartingBattle(false);
+        },
       });
     }, 20);
   }
@@ -999,9 +1008,10 @@ platformGeometry.dispose();
 
               <button
                 onClick={executeMapAttack}
-                className="flex-1 rounded-2xl bg-red-600 px-4 py-4 font-black text-white"
+                disabled={isStartingBattle}
+                className="flex-1 rounded-2xl bg-red-600 px-4 py-4 font-black text-white disabled:opacity-50"
               >
-                INVADIR
+                {isStartingBattle ? 'INVADINDO...' : 'INVADIR'}
               </button>
             </div>
           </div>
