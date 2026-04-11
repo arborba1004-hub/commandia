@@ -9,7 +9,11 @@ import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { buildManhattanAttackRoute } from '@/components/game/mapAttackPath';
-import { resolveMapAttack } from '@/components/game/mapAttackResolver';
+import {
+  getAttackEstimate,
+  startBattle,
+  resolveBattleById,
+} from '@/api/attackApi';
 import { loadSquadModel } from '@/components/game/createSquadVisual';
 import { animateSquadOnRoute } from '@/components/game/animateSquadOnRoute';
 import {
@@ -227,6 +231,8 @@ const playerState = usePlayerStore((state) => state.player);
   const [promotionRank, setPromotionRank] = useState<any>(null);
   const [showPromotion, setShowPromotion] = useState(false);
   const [isStartingBattle, setIsStartingBattle] = useState(false);
+  const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
+  const [battleReport, setBattleReport] = useState<any | null>(null);
 
   const level = playerState?.niveis?.barracoLevel || 1;
   const displayName =
@@ -261,112 +267,104 @@ const playerState = usePlayerStore((state) => state.player);
     return 2;
   };
 
-  function executeMapAttack() {
+  async function executeMapAttack() {
     const state = useMapAttackStore.getState();
     const scene = sceneRef.current;
 
-    if (!scene || !state.origin || !state.target) return;
+    if (!scene || !state.origin || !state.target || isStartingBattle) return;
 
-    setIsStartingBattle(true);
+    try {
+      setIsStartingBattle(true);
 
-    const route = buildManhattanAttackRoute({
-      fromTileX: state.origin.tileX,
-      fromTileY: state.origin.tileY,
-      toTileX: state.target.tileX,
-      toTileY: state.target.tileY,
-      includeOrigin: true,
-    });
-
-    if (!route.length) {
-      setIsStartingBattle(false);
-      return;
-    }
-
-    loadSquadModel((squad) => {
-      const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
-      const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
-
-      squad.position.x = startX;
-      squad.position.z = startZ;
-      squad.position.y = 0.25;
-      squad.rotation.y = Math.PI;
-
-      const squadY = squad.position.y;
-
-      scene.add(squad);
-      squadRef.current = squad;
-
-      useMapAttackStore.getState().startAttack({
+      const startResponse = await startBattle({
         origin: state.origin,
         target: state.target,
-        routeToTarget: route,
-        routeBack: [...route].reverse(),
-        squadWorldPosition: { x: startX, y: squadY, z: startZ },
       });
 
-      activeAnimationRef.current = animateSquadOnRoute({
-        squad,
-        route,
-        tileSize: TILE_SIZE,
-        gridWidth: GRID_WIDTH,
-        gridHeight: GRID_HEIGHT,
-        y: squadY,
-        onComplete: () => {
-          resolveCombat();
-          setIsStartingBattle(false);
-        },
+      setActiveBattleId(startResponse.battleId);
+
+      const route = buildManhattanAttackRoute({
+        fromTileX: state.origin.tileX,
+        fromTileY: state.origin.tileY,
+        toTileX: state.target.tileX,
+        toTileY: state.target.tileY,
+        includeOrigin: true,
       });
-    }, 20);
-  }
 
-  function resolveCombat() {
-    const state = useMapAttackStore.getState();
-    const scene = sceneRef.current;
-    const currentPlayerState = usePlayerStore.getState().player;
+      if (!route.length) {
+        setIsStartingBattle(false);
+        return;
+      }
 
-    if (!state.target || !scene) return;
+      loadSquadModel((squad) => {
+        const startX = (route[0].tileX - GRID_WIDTH / 2) * TILE_SIZE;
+        const startZ = (route[0].tileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
-    const result = resolveMapAttack({
-      attacker: {
-        attack: 120,
-        agility: 80,
-        weaponBonus: 30,
-        prestige: 0,
-        corre: 0,
-        level: currentPlayerState?.niveis?.barracoLevel || 1,
-      },
-      defender: {
-        defense: 100,
-        resistance: 90,
-        protectionBonus: 20,
-        prestige: 0,
-        corre: 0,
-        level: state.target?.barracoLevel || 1,
-        luxuryItems: [],
-      },
-      targetDirtyMoney: state.target.dirtyMoney || 0,
-    });
+        squad.position.x = startX;
+        squad.position.z = startZ;
+        squad.position.y = 0.25;
+        squad.rotation.y = Math.PI;
 
-    pushAttackFeed(
-      result.success
-        ? `🔥 Você dominou ${state.target.playerName}`
-        : `💀 ${state.target.playerName} resistiu ao ataque`
-    );
+        const squadY = squad.position.y;
 
-    const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
-    const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+        scene.add(squad);
+        squadRef.current = squad;
 
-    createImpactFlash({
-      scene,
-      position: new THREE.Vector3(posX, 0.6, posZ),
-    });
+        useMapAttackStore.getState().startAttack({
+          origin: state.origin,
+          target: state.target,
+          routeToTarget: route,
+          routeBack: [...route].reverse(),
+          squadWorldPosition: { x: startX, y: squadY, z: startZ },
+        });
 
-    const obj = enemyBarracoMapRef.current[state.target.playerId];
-    if (obj) shakeObject(obj);
+        activeAnimationRef.current = animateSquadOnRoute({
+          squad,
+          route,
+          tileSize: TILE_SIZE,
+          gridWidth: GRID_WIDTH,
+          gridHeight: GRID_HEIGHT,
+          y: squadY,
+          onComplete: async () => {
+            try {
+              const report = await resolveBattleById(startResponse.battleId);
+              setBattleReport(report);
 
-    useMapAttackStore.getState().setResolution(result);
+              pushAttackFeed(
+                report.resolution.success
+                  ? `🔥 Você dominou ${report.defender.playerName}`
+                  : `💀 ${report.defender.playerName} resistiu ao ataque`
+              );
 
-    setTimeout(returnSquad, 800);
+              const posX = (state.target.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+              const posZ = (state.target.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+              createImpactFlash({
+                scene,
+                position: new THREE.Vector3(posX, 0.6, posZ),
+              });
+
+              const obj = enemyBarracoMapRef.current[state.target.playerId];
+              if (obj) shakeObject(obj);
+
+              useMapAttackStore.getState().setResolution(report.resolution);
+
+              setTimeout(() => {
+                returnSquad();
+              }, 800);
+            } catch (error) {
+              console.error('Erro ao resolver batalha:', error);
+              finishAttack();
+            } finally {
+              setIsStartingBattle(false);
+            }
+          },
+        });
+      }, 20);
+    } catch (error) {
+      console.error('Erro ao iniciar batalha:', error);
+      setIsStartingBattle(false);
+    }
   }
 
   function returnSquad() {
@@ -407,6 +405,7 @@ const playerState = usePlayerStore((state) => state.player);
     }
 
     activeAnimationRef.current = null;
+    setActiveBattleId(null);
     useMapAttackStore.getState().finishAttack();
   }
 
@@ -757,17 +756,25 @@ COMPLEXO_BUILDINGS.forEach((building) => {
       const target = pickEnemyBarracoFromIntersections(enemyHits);
 
       if (target && playerState) {
-        useMapAttackStore.getState().openPreview({
-          origin: {
-            playerId: playerState._id,
-            playerName: playerState.name,
-            tileX: playerState?.mapPosition?.tileX ?? 60,
-            tileY: playerState?.mapPosition?.tileY ?? 60,
-          },
-          target,
-          estimatedLoot: Math.floor((target.dirtyMoney || 0) * 0.2),
-          estimatedChance: 0.6,
-        });
+        (async () => {
+          try {
+            const estimate = await getAttackEstimate(target);
+
+            useMapAttackStore.getState().openPreview({
+              origin: {
+                playerId: playerState._id,
+                playerName: playerState.name,
+                tileX: playerState?.mapPosition?.tileX ?? 60,
+                tileY: playerState?.mapPosition?.tileY ?? 60,
+              },
+              target,
+              estimatedLoot: estimate.estimatedLoot,
+              estimatedChance: estimate.estimatedChance / 100,
+            });
+          } catch (error) {
+            console.error('Erro ao calcular estimativa de ataque:', error);
+          }
+        })();
         return;
       }
 
