@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 
 export default function BarracoPage() {
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const player = usePlayerStore((state) => state.player);
   const setPlayer = usePlayerStore((state) => state.setPlayer);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
@@ -53,6 +54,7 @@ export default function BarracoPage() {
     };
 
     setPlayer(updatedPlayer);
+    setShowSuccessModal(true);
   };
 
   const getBarracoName = () => {
@@ -115,6 +117,48 @@ export default function BarracoPage() {
           Evoluir Barraco
         </button>
       </motion.div>
+
+      {/* Modal de Sucesso */}
+      {showSuccessModal && (
+        <motion.div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="relative w-full max-w-md rounded-2xl bg-zinc-900 p-6 shadow-2xl border border-emerald-500/30"
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+          >
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 text-white text-xl font-bold flex items-center justify-center"
+              aria-label="Fechar modal"
+            >
+              ×
+            </button>
+
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-4 text-emerald-400">
+                🎉 Parabéns!
+              </h2>
+              <p className="text-white mb-2">
+                Seu barraco evoluiu para o nível {level + 1}!
+              </p>
+              <p className="text-sm opacity-70 mb-6">
+                {getBarracoName()}
+              </p>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg font-bold transition"
+              >
+                Fechar
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }
