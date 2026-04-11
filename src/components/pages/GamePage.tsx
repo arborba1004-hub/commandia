@@ -25,6 +25,7 @@ import { pushAttackFeed } from '@/components/game/mapAttackFeed';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import { getPlayerRank, checkRankPromotion } from '@/utils/hierarchySystem';
 import RankPromotionNotification from '@/components/RankPromotionNotification';
+import Header from '@/components/Header';
 
 // ... keep existing code (constants and models)
 
@@ -1005,14 +1006,16 @@ platformGeometry.dispose();
   }
 
   return (
-    <div className="w-full h-full relative">
-      <button
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg hover:bg-opacity-90 transition-all"
-        aria-label="Toggle menu"
-      >
-        {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
+    <div className="w-full h-full relative flex flex-col">
+      <Header />
+      <div className="flex-1 relative">
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg hover:bg-opacity-90 transition-all"
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
 
       {isMenuOpen && (
         <div className="absolute top-16 left-4 z-40 bg-background border border-primary rounded-lg shadow-lg p-4 max-w-xs max-h-96 overflow-y-auto">
@@ -1166,6 +1169,7 @@ platformGeometry.dispose();
         ref={containerRef}
         className="w-full h-full cursor-grab active:cursor-grabbing outline-none"
       />
+      </div>
     </div>
   );
 }
