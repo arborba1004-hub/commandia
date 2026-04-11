@@ -206,9 +206,16 @@ export default function GamePage() {
   // === FUNÇÃO PARA RETORNAR O SQUAD (FORA DO useEffect) ===
   function returnSquad() {
     const state = useMapAttackStore.getState();
-    const backRoute = [...state.routeToTarget].reverse();
+    const backRoute = state.routeBack && state.routeBack.length > 0 
+      ? state.routeBack 
+      : (state.routeToTarget && state.routeToTarget.length > 0 
+        ? [...state.routeToTarget].reverse() 
+        : []);
 
-    if (!squadRef.current) return;
+    if (!squadRef.current || backRoute.length === 0) {
+      finishAttack();
+      return;
+    }
 
     const squadY = squadRef.current.position.y;
 
