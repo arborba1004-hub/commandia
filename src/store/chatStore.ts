@@ -56,6 +56,27 @@ async function chatRequest<T>(endpoint: string, options: RequestInit = {}): Prom
   return data as T;
 }
 
+function areMessagesEqual(a: ChatMessage[], b: ChatMessage[]) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const ma = a[i];
+    const mb = b[i];
+
+    if (
+      ma.id !== mb.id ||
+      ma.read !== mb.read ||
+      ma.body !== mb.body ||
+      ma.createdAt !== mb.createdAt
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 type ChatStore = {
   complexoMessages: ChatMessage[];
   faccaoMessages: ChatMessage[];
@@ -69,11 +90,7 @@ type ChatStore = {
 
   setActiveChannel: (channel: ChatChannelType) => void;
 
-  setComplexoMessages: (messages: ChatMessage[]) => void;
-  setFaccaoMessages: (messages: ChatMessage[]) => void;
-  setMailMessages: (messages: ChatMessage[]) => void;
-
-  fetchMessages: (channel?: ChatChannelType) => Promise<void>;
+  fetchMessages: (channel?: ChatChannelType, silent?: boolean) => Promise<void>;
   loadChat: () => Promise<void>;
 
   startChatPolling: () => void;
@@ -114,33 +131,56 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   setActiveChannel: (channel) => set({ activeChannel: channel }),
 
-  setComplexoMessages: (messages) => set({ complexoMessages: messages }),
-  setFaccaoMessages: (messages) => set({ faccaoMessages: messages }),
-  setMailMessages: (messages) => set({ mailMessages: messages }),
-
-  fetchMessages: async (channel) => {
+  fetchMessages: async (channel, silent = false) => {
     const currentChannel = channel || get().activeChannel;
 
     try {
-      set({ isLoading: true, syncError: null });
+      if (!silent) {
+        set({ isLoading: true, syncError: null });
+      }
 
       const messages = await chatRequest<ChatMessage[]>(
         `/chat/messages?channel=${encodeURIComponent(currentChannel)}`,
         { method: 'GET' }
       );
 
-      if (currentChannel === 'complexo') {
-        set({ complexoMessages: messages });
-      } else if (currentChannel === 'faccao') {
-        set({ faccaoMessages: messages });
-      } else {
-        set({ mailMessages: messages });
-      }
+      set((state) => {
+        if (currentChannel === 'complexo') {
+          if (areMessagesEqual(state.complexoMessages, messages)) {
+            return silent ? {} : { isLoading: false };
+          }
+          return {
+            complexoMessages: messages,
+            ...(silent ? {} : { isLoading: false }),
+          };
+        }
 
-      set({ isLoading: false });
+        if (currentChannel === 'faccao') {
+          if (areMessagesEqual(state.faccaoMessages, messages)) {
+            return silent ? {} : { isLoading: false };
+          }
+          return {
+            faccaoMessages: messages,
+            ...(silent ? {} : { isLoading: false }),
+          };
+        }
+
+        if (areMessagesEqual(state.mailMessages, messages)) {
+          return silent ? {} : { isLoading: false };
+        }
+
+        return {
+          mailMessages: messages,
+          ...(silent ? {} : { isLoading: false }),
+        };
+      });
+
+      if (!silent) {
+        set({ isLoading: false });
+      }
     } catch (error) {
       set({
-        isLoading: false,
+        ...(silent ? {} : { isLoading: false }),
         syncError: error instanceof Error ? error.message : 'Erro ao buscar mensagens',
       });
     }
@@ -151,9 +191,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set({ isLoading: true, syncError: null });
 
       await Promise.all([
-        get().fetchMessages('complexo'),
-        get().fetchMessages('faccao'),
-        get().fetchMessages('mail'),
+        get().fetchMessages('complexo', true),
+        get().fetchMessages('faccao', true),
+        get().fetchMessages('mail', true),
       ]);
 
       set({ isLoading: false });
@@ -173,9 +213,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     get().loadChat();
 
     chatPollingInterval = setInterval(() => {
-      get().fetchMessages('complexo');
-      get().fetchMessages('faccao');
-      get().fetchMessages('mail');
+      get().fetchMessages('complexo', true);
+      get().fetchMessages('faccao', true);
+      get().fetchMessages('mail', true);
     }, POLLING_INTERVAL);
   },
 
@@ -202,7 +242,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }),
       });
 
-      await get().fetchMessages('complexo');
+      await get().fetchMessages('complexo', true);
       set({ isSending: false });
       return true;
     } catch (error) {
@@ -231,7 +271,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }),
       });
 
-      await get().fetchMessages('faccao');
+      await get().fetchMessages('faccao', true);
       set({ isSending: false });
       return true;
     } catch (error) {
@@ -271,7 +311,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }),
       });
 
-      await get().fetchMessages('mail');
+      await get().fetchMessages('mail', true);
       set({ isSending: false });
       return true;
     } catch (error) {
@@ -288,8 +328,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!id) return false;
 
     try {
-      set({ syncError: null });
-
       await chatRequest<{ success: boolean; message: ChatMessage }>(
         `/chat/messages/${encodeURIComponent(id)}/read`,
         {
