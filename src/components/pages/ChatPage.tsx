@@ -33,6 +33,7 @@ export default function ChatPage() {
   const isSending = useChatStore((state) => state.isSending);
   const syncError = useChatStore((state) => state.syncError);
   const loadChat = useChatStore((state) => state.loadChat);
+  const fetchMessages = useChatStore((state) => state.fetchMessages);
   const startChatPolling = useChatStore((state) => state.startChatPolling);
   const stopChatPolling = useChatStore((state) => state.stopChatPolling);
   const sendComplexoMessage = useChatStore((state) => state.sendComplexoMessage);
@@ -72,14 +73,15 @@ export default function ChatPage() {
     return () => {
       stopChatPolling();
     };
-  }, [hasBootstrapped]);
+  }, [hasBootstrapped, loadChat, startChatPolling, stopChatPolling]);
 
   useEffect(() => {
     if (!hasBootstrapped) return;
 
     sessionStorage.setItem('chat_active_channel', activeChannel);
     setSearchParams({ channel: activeChannel }, { replace: true });
-  }, [activeChannel, hasBootstrapped, setSearchParams]);
+    void fetchMessages(activeChannel, true);
+  }, [activeChannel, hasBootstrapped, setSearchParams, fetchMessages]);
 
   const currentMessages = useMemo(() => {
     if (activeChannel === 'complexo') return complexoMessages;
