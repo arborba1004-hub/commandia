@@ -21,6 +21,9 @@ const CHAT_FACCAO_ICON_URL =
 const CHAT_MAIL_ICON_URL =
   'https://static.wixstatic.com/media/50f4bf_e602f889654541a9aa2dfd057dad00bc~mv2.png';
 
+const FACTION_ICON_URL =
+  'https://static.wixstatic.com/media/50f4bf_955d7ef0f91d47578b492594f2a5b5ca~mv2.png';
+
 export default function Header() {
   const navigate = useNavigate();
   const { player, clearPlayer } = usePlayerStore();
@@ -170,6 +173,18 @@ export default function Header() {
                       {unreadMailCount}
                     </span>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/faccao')}
+                  className="relative flex w-[62px] flex-col items-center justify-center rounded-xl border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 md:w-[72px]"
+                  aria-label="Abrir página da facção"
+                >
+                  <Image src={FACTION_ICON_URL} alt="Facção" className="h-8 w-8 object-contain md:h-9 md:w-9" draggable={false} />
+                  <span className="mt-1 text-[9px] font-black uppercase leading-none text-white md:text-[10px]">
+                    Facção
+                  </span>
                 </button>
               </div>
             </div>
