@@ -155,6 +155,7 @@ export default function GamePage() {
   function resolveCombat() {
     const state = useMapAttackStore.getState();
     const scene = sceneRef.current;
+    const currentPlayerState = usePlayerStore.getState().player;
 
     if (!state.target || !scene) return;
 
@@ -165,7 +166,7 @@ export default function GamePage() {
         weaponBonus: 30,
         prestige: 0,
         corre: 0,
-        level: playerState?.niveis?.playerLevel || playerState?.niveis?.barracoLevel || 1,
+        level: currentPlayerState?.niveis?.playerLevel || currentPlayerState?.niveis?.barracoLevel || 1,
       },
       defender: {
         defense: 100,
