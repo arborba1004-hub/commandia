@@ -1,150 +1,239 @@
-// src/components/pages/ChatPage.tsx (PARTE 1)
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import ChatTabs from '@/components/chat/chatTabs';
+import ChatMessageList from '@/components/chat/ChatMessageList';
+import ChatComposer from '@/components/chat/ChatComposer';
 import { useChatStore } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Smile, AtSign, Hash, Shield } from 'lucide-react';
-import EmojiPicker from '@/components/chat/EmojiPicker';
+
+type MailRecipient = {
+  id: string;
+  name: string;
+};
 
 export default function ChatPage() {
-  const token = localStorage.getItem('authToken');
-  const { player, loadPlayer, isLoaded } = usePlayerStore();
-  const { 
-    activeChannel, setActiveChannel, 
-    complexoMessages, faccaoMessages, mailMessages,
-    sendComplexoMessage, sendFaccaoMessage, sendMailMessage,
-    loadChat, startChatPolling, stopChatPolling, isLoading,
-    setCurrentUser
+  const player = usePlayerStore((state) => state.player);
+
+  const {
+    activeChannel,
+    setActiveChannel,
+    complexoMessages,
+    faccaoMessages,
+    mailMessages,
+    isLoading,
+    isSending,
+    syncError,
+    loadChat,
+    startChatPolling,
+    stopChatPolling,
+    sendComplexoMessage,
+    sendFaccaoMessage,
+    sendMailMessage,
+    markMailAsRead,
   } = useChatStore();
 
-  const [messageText, setMessageText] = useState('');
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [recipientId, setRecipientId] = useState('');
-  const [recipientName, setRecipientName] = useState('');
-  const [subject, setSubject] = useState('');
-// PARTE 2 – useEffect e lógica principal
-  useEffect(() => {
-    if (token && !isLoaded) loadPlayer();
-  }, [token, isLoaded]);
+  const [mailRecipientId, setMailRecipientId] = useState('');
+  const [mailRecipientName, setMailRecipientName] = useState('');
+  const [mailSubject, setMailSubject] = useState('');
 
   useEffect(() => {
-    if (player?._id) {
-      // Set current user and faction for backend polling
-      setCurrentUser(player._id, player.factionId);
-      loadChat();
-      startChatPolling();
-      return () => {
-        stopChatPolling();
-      };
-    }
-  }, [player?._id, player?.factionId]);
+    void loadChat();
+    startChatPolling();
 
-  if (!token || !player?._id) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-center p-6 rounded-2xl bg-red-950/40 border border-red-500/30">
-          <p className="text-red-300 text-xl font-black">🔒 ACESSO NEGADO</p>
-          <p className="text-gray-400 mt-2">Faça login para acessar o chat</p>
-          <button onClick={() => window.location.href='/'} className="mt-4 bg-primary px-6 py-2 rounded-xl">Voltar</button>
-        </div>
-      </div>
-    );
-  }
+    return () => {
+      stopChatPolling();
+    };
+  }, [loadChat, startChatPolling, stopChatPolling]);
 
-  const messages = activeChannel === 'complexo' ? complexoMessages :
-                    activeChannel === 'faccao' ? faccaoMessages : mailMessages;
+  const currentMessages = useMemo(() => {
+    if (activeChannel === 'complexo') return complexoMessages;
+    if (activeChannel === 'faccao') return faccaoMessages;
+    return mailMessages;
+  }, [activeChannel, complexoMessages, faccaoMessages, mailMessages]);
 
-  const handleSend = async () => {
-    if (!messageText.trim()) return;
+  const unreadMailCount = useMemo(() => {
+    const myId = String(player?._id || player?.googleId || '');
+    return mailMessages.filter(
+      (message) =>
+        message.channel === 'mail' &&
+        String(message.recipientId || '') === myId &&
+        !message.read
+    ).length;
+  }, [mailMessages, player?._id, player?.googleId]);
+
+  const handleSendMessage = async (body: string) => {
     if (activeChannel === 'complexo') {
-      await sendComplexoMessage({ senderId: player._id, senderName: player.name, body: messageText });
-    } else if (activeChannel === 'faccao') {
-      await sendFaccaoMessage({ senderId: player._id, senderName: player.name, factionId: player.factionId, body: messageText });
-    } else if (activeChannel === 'mail') {
-      if (!recipientId || !recipientName) return;
-      await sendMailMessage({
-        senderId: player._id, senderName: player.name,
-        recipientId, recipientName, subject: subject || '📨 Mensagem', body: messageText
-      });
-      setRecipientId(''); setRecipientName(''); setSubject('');
+      return sendComplexoMessage({ body });
     }
-    setMessageText('');
-    setShowEmojiPicker(false);
+
+    if (activeChannel === 'faccao') {
+      return sendFaccaoMessage({
+        body,
+        factionId: (player as any)?.factionId || null,
+      });
+    }
+
+    return sendMailMessage({
+      recipientId: mailRecipientId,
+      recipientName: mailRecipientName,
+      subject: mailSubject,
+      body,
+    });
   };
 
-// PARTE 3 – JSX com abas temáticas
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black">
-      <Header />
-      <main className="max-w-6xl mx-auto px-4 pt-28 pb-20">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center">
-          <h1 className="text-5xl font-black bg-gradient-to-r from-yellow-500 via-red-500 to-purple-500 bg-clip-text text-transparent">COMPLEXO DO CRIME</h1>
-          <p className="text-gray-400 mt-2">Comunique-se com o submundo</p>
-        </motion.div>
+  const handleMailOpen = async (messageId: string) => {
+    await markMailAsRead(messageId);
+  };
 
-        {/* Abas estilizadas */}
-        <div className="flex gap-3 mb-8 justify-center flex-wrap">
-          {[
-            { id: 'complexo', label: '🌍 COMPLEXO', icon: <Hash />, color: 'from-blue-600 to-cyan-600' },
-            { id: 'faccao', label: '👥 FACÇÃO', icon: <Shield />, color: 'from-red-700 to-orange-700' },
-            { id: 'mail', label: '📩 CORREIO', icon: <AtSign />, color: 'from-emerald-700 to-teal-700' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveChannel(tab.id as any)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-wider transition-all ${
-                activeChannel === tab.id
-                  ? `bg-gradient-to-r ${tab.color} text-white shadow-lg shadow-${tab.id === 'complexo' ? 'blue' : tab.id === 'faccao' ? 'red' : 'green'}-500/50`
-                  : 'bg-zinc-900 text-gray-400 hover:bg-zinc-800 border border-white/10'
-              }`}
-            >
-              {tab.icon} {tab.label}
-            </button>
-          ))}
+  const mailRecipientsPreview: MailRecipient[] = useMemo(() => {
+    const myId = String(player?._id || player?.googleId || '');
+
+    const map = new Map<string, MailRecipient>();
+
+    for (const message of mailMessages) {
+      const senderId = String(message.senderId || '');
+      const recipientId = String(message.recipientId || '');
+
+      if (senderId && senderId !== myId) {
+        map.set(senderId, {
+          id: senderId,
+          name: message.senderName || 'Jogador',
+        });
+      }
+
+      if (recipientId && recipientId !== myId) {
+        map.set(recipientId, {
+          id: recipientId,
+          name: message.recipientName || 'Jogador',
+        });
+      }
+    }
+
+    return Array.from(map.values()).slice(0, 8);
+  }, [mailMessages, player?._id, player?.googleId]);
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Header />
+
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-28 pt-4">
+        <div className="mb-4">
+          <h1 className="font-heading text-3xl font-black uppercase tracking-wide">
+            Comunicação
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Chat do complexo, chat da facção e correio pessoal.
+          </p>
         </div>
 
-        {/* Campo de destinatário e assunto para correio */}
-        {activeChannel === 'mail' && (
-          <div className="bg-black/50 border border-white/10 rounded-2xl p-4 mb-4 space-y-3">
-            <input type="text" placeholder="👤 Nome do destinatário" value={recipientName} onChange={e => setRecipientName(e.target.value)} className="w-full bg-zinc-900 rounded-xl p-3 text-white" />
-            <input type="text" placeholder="🆔 ID do destinatário" value={recipientId} onChange={e => setRecipientId(e.target.value)} className="w-full bg-zinc-900 rounded-xl p-3 text-white" />
-            <input type="text" placeholder="📌 Assunto" value={subject} onChange={e => setSubject(e.target.value)} className="w-full bg-zinc-900 rounded-xl p-3 text-white" />
+        <div className="mb-4">
+          <ChatTabs
+            activeChannel={activeChannel}
+            onChangeChannel={setActiveChannel}
+            unreadMailCount={unreadMailCount}
+            hasFaction={Boolean((player as any)?.factionId)}
+          />
+        </div>
+
+        {syncError && (
+          <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {syncError}
           </div>
         )}
 
-// PARTE 4 – Lista de mensagens e input com emojis
-        <div className="bg-black/60 backdrop-blur-sm border border-white/10 rounded-3xl p-5 mb-4 h-[500px] overflow-y-auto space-y-3">
-          {messages.map(msg => {
-            const isMyMsg = msg.senderId === player._id;
-            const senderFac = msg.factionId ? `🔫 ${msg.factionId}` : '💀 SOLITÁRIO';
-            const displaySenderName = msg.senderName || 'ANÔNIMO';
-            return (
-              <div key={msg.id} className={`flex ${isMyMsg ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl p-3 ${isMyMsg ? 'bg-gradient-to-r from-red-800 to-red-950 text-white' : 'bg-zinc-900 border border-white/10 text-gray-200'}`}>
-                  <div className="flex items-center gap-2 mb-1 text-xs">
-                    <span className="font-black">{displaySenderName}</span>
-                    {!isMyMsg && <span className="text-yellow-500 text-[10px]">{senderFac}</span>}
-                    <span className="text-gray-500 text-[10px]">{new Date(msg.createdAt).toLocaleTimeString()}</span>
-                  </div>
-                  {msg.subject && <p className="text-primary text-xs font-bold mb-1">📌 {msg.subject}</p>}
-                  <p className="break-words">{msg.body}</p>
+        {activeChannel === 'mail' && (
+          <div className="mb-4 rounded-3xl border border-border bg-card p-4">
+            <h2 className="mb-3 font-heading text-lg font-bold uppercase">
+              Novo correio
+            </h2>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <input
+                value={mailRecipientId}
+                onChange={(e) => setMailRecipientId(e.target.value)}
+                placeholder="ID do destinatário"
+                className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
+              />
+
+              <input
+                value={mailRecipientName}
+                onChange={(e) => setMailRecipientName(e.target.value)}
+                placeholder="Nome do destinatário"
+                className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
+              />
+
+              <div className="md:col-span-2">
+                <input
+                  value={mailSubject}
+                  onChange={(e) => setMailSubject(e.target.value)}
+                  placeholder="Assunto"
+                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 outline-none"
+                />
+              </div>
+            </div>
+
+            {mailRecipientsPreview.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+                  Contatos recentes
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  {mailRecipientsPreview.map((recipient) => (
+                    <button
+                      key={recipient.id}
+                      onClick={() => {
+                        setMailRecipientId(recipient.id);
+                        setMailRecipientName(recipient.name);
+                      }}
+                      className="rounded-full border border-border bg-background px-3 py-2 text-sm hover:bg-muted"
+                      type="button"
+                    >
+                      {recipient.name}
+                    </button>
+                  ))}
                 </div>
               </div>
-            );
-          })}
-          {messages.length === 0 && <div className="text-center text-gray-500 py-10">💬 Nenhuma mensagem ainda. Domine o chat.</div>}
-        </div>
+            )}
+          </div>
+        )}
 
-        {/* Área de envio com emojis */}
-        <div className="bg-black/50 border border-white/10 rounded-2xl p-3 flex gap-2 items-center">
-          <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="text-2xl p-2 hover:bg-zinc-800 rounded-xl">😎</button>
-          <input type="text" value={messageText} onChange={e => setMessageText(e.target.value)} placeholder="Digite sua mensagem..." className="flex-1 bg-transparent p-3 text-white outline-none" onKeyPress={e => e.key === 'Enter' && handleSend()} />
-          <button onClick={handleSend} disabled={isLoading} className="bg-primary text-black p-3 rounded-xl font-black disabled:opacity-50"><Send size={20} /></button>
+        <div className="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              {activeChannel === 'complexo'
+                ? 'Chat do Complexo'
+                : activeChannel === 'faccao'
+                  ? 'Chat da Facção'
+                  : 'Correio Pessoal'}
+            </p>
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            <ChatMessageList
+              messages={currentMessages}
+              channel={activeChannel}
+              currentUserId={String(player?._id || player?.googleId || '')}
+              isLoading={isLoading}
+              onOpenMail={handleMailOpen}
+            />
+          </div>
+
+          <div className="border-t border-border p-4">
+            <ChatComposer
+              channel={activeChannel}
+              onSendMessage={handleSendMessage}
+              isSending={isSending}
+              mailReady={
+                activeChannel !== 'mail' ||
+                Boolean(mailRecipientId.trim() && mailRecipientName.trim())
+              }
+            />
+          </div>
         </div>
-        {showEmojiPicker && <EmojiPicker onSelect={(emoji) => setMessageText(prev => prev + emoji)} />}
       </main>
+
       <Footer />
     </div>
   );
