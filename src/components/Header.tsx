@@ -45,15 +45,9 @@ export default function Header() {
 
   const formatCompact = (value: number) => {
     if (!Number.isFinite(value)) return '0';
-    if (value >= 1_000_000_000) {
-      return `${(value / 1_000_000_000).toFixed(1)}B`;
-    }
-    if (value >= 1_000_000) {
-      return `${(value / 1_000_000).toFixed(1)}M`;
-    }
-    if (value >= 1_000) {
-      return `${(value / 1_000).toFixed(1)}K`;
-    }
+    if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+    if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
     return value.toLocaleString('pt-BR');
   };
 
@@ -68,16 +62,16 @@ export default function Header() {
     navigate(`/chat?channel=${channel}`);
   };
 
-  return (
-    <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#6e4300] bg-black/95 backdrop-blur-sm">
-      <div className="mx-auto w-full max-w-[1400px] px-2 py-2 sm:px-3">
-        {!isAuthenticated ? (
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#3c2407] bg-gradient-to-r from-[#140b06] via-[#1a120a] to-[#140b06] px-4 py-3">
-            <Link to="/" className="flex min-w-0 items-center">
+  if (!isAuthenticated) {
+    return (
+      <header className="fixed left-0 right-0 top-0 z-50 bg-black/95 px-3 py-2 backdrop-blur-sm">
+        <div className="mx-auto max-w-[1400px] overflow-hidden rounded-2xl border border-[#4b2a08] bg-[linear-gradient(90deg,#120804_0%,#2a1207_50%,#120804_100%)]">
+          <div className="flex min-h-[74px] items-center justify-between px-4">
+            <Link to="/" className="flex items-center">
               <img
                 src={LOGO_URL}
                 alt="Domínio do Comando"
-                className="h-14 w-auto object-contain sm:h-16"
+                className="h-12 w-auto object-contain"
                 draggable={false}
               />
             </Link>
@@ -85,207 +79,213 @@ export default function Header() {
             <div className="flex items-center gap-2">
               <Link
                 to="/"
-                className="rounded-xl border border-[#7b4a11] px-4 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:bg-white/10"
+                className="rounded-xl border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-wide text-white"
               >
                 Entrar
               </Link>
-
               <Link
                 to="/"
-                className="rounded-xl bg-[#ff003c] px-4 py-2 text-xs font-black uppercase tracking-wide text-white transition hover:opacity-90"
+                className="rounded-xl bg-[#ff0050] px-4 py-2 text-xs font-black uppercase tracking-wide text-white"
               >
                 Jogar
               </Link>
             </div>
           </div>
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-[#6e4300] bg-[radial-gradient(circle_at_center,_rgba(120,26,10,0.45)_0%,_rgba(22,9,5,0.96)_55%,_rgba(5,5,5,0.98)_100%)] shadow-[0_0_30px_rgba(0,0,0,0.45)]">
-            <div className="grid min-h-[106px] grid-cols-[88px_1fr] md:grid-cols-[170px_1fr]">
-              <div className="flex items-center justify-center border-r border-[#6e4300] bg-black/30 p-1 md:p-2">
-                <Link
-                  to="/"
-                  className="flex h-full w-full items-center justify-center"
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header className="fixed left-0 right-0 top-0 z-50 px-2 py-2">
+      <div className="mx-auto max-w-[1500px] overflow-hidden rounded-[22px] border border-[#7a4a13] bg-[linear-gradient(90deg,#0d0d0d_0%,#2a0c05_12%,#5f180c_25%,#2e0d06_42%,#0c0c0c_58%,#2e0d06_74%,#61190d_88%,#0c0c0c_100%)] shadow-[0_0_35px_rgba(0,0,0,0.55)]">
+        <div className="grid min-h-[118px] grid-cols-[94px_1fr] md:min-h-[132px] md:grid-cols-[220px_1fr]">
+          {/* BLOCO ESQUERDO: LOGO */}
+          <div className="flex h-full items-center justify-center border-r border-[#7a4a13] bg-black/25 p-1 md:p-2">
+            <Link to="/" className="flex h-full w-full items-center justify-center">
+              <img
+                src={LOGO_URL}
+                alt="Domínio do Comando"
+                className="h-full w-full object-contain"
+                draggable={false}
+              />
+            </Link>
+          </div>
+
+          {/* BLOCO DIREITO */}
+          <div className="flex min-w-0 flex-col justify-between px-2 py-2 md:px-4 md:py-3">
+            {/* TOPO */}
+            <div className="flex items-start justify-between gap-3">
+              {/* AVATAR + NOME + CARGO */}
+              <div className="flex min-w-0 items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate('/galeria')}
+                  className="shrink-0"
+                  aria-label="Abrir galeria do equipamento"
                 >
-                  <img
-                    src={LOGO_URL}
-                    alt="Domínio do Comando"
-                    className="h-full w-full object-contain"
-                    draggable={false}
-                  />
-                </Link>
+                  {avatar ? (
+                    <Image
+                      src={avatar}
+                      alt={playerName}
+                      className="h-16 w-16 rounded-full border-[3px] border-[#d4a64d] object-cover shadow-[0_0_14px_rgba(212,166,77,0.55)] md:h-20 md:w-20"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-[#d4a64d] bg-[#241107] shadow-[0_0_14px_rgba(212,166,77,0.55)] md:h-20 md:w-20">
+                      <User className="h-8 w-8 text-[#f0ca73]" />
+                    </div>
+                  )}
+                </button>
+
+                <div className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/profile')}
+                    className="block truncate text-left font-heading text-[22px] font-black uppercase leading-none tracking-wide text-[#f6cf73] md:text-[42px]"
+                  >
+                    {playerName}
+                  </button>
+
+                  <div className="mt-1 inline-flex rounded-full bg-[linear-gradient(90deg,#7f0000_0%,#cf1717_50%,#7f0000_100%)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white md:text-xs">
+                    {hierarchyTitle}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex min-w-0 flex-col justify-between px-2 py-2 md:px-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => navigate('/galeria')}
-                      className="shrink-0"
-                      aria-label="Abrir galeria do equipamento"
-                    >
-                      {avatar ? (
-                        <Image
-                          src={avatar}
-                          alt={playerName}
-                          className="h-14 w-14 rounded-full border-2 border-[#d8a84a] object-cover shadow-[0_0_12px_rgba(216,168,74,0.45)] md:h-16 md:w-16"
-                        />
-                      ) : (
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#d8a84a] bg-[#23140b] shadow-[0_0_12px_rgba(216,168,74,0.45)] md:h-16 md:w-16">
-                          <User className="h-7 w-7 text-[#e9c16f]" />
-                        </div>
-                      )}
-                    </button>
+              {/* ÍCONES SUPERIOR DIREITO */}
+              <div className="flex shrink-0 items-start gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => openChatChannel('complexo')}
+                  className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#7a4a13] bg-black/35 hover:bg-white/10 md:h-11 md:w-11"
+                  aria-label="Abrir chat do complexo"
+                >
+                  <img
+                    src={CHAT_COMPLEXO_ICON_URL}
+                    alt="Chat do Complexo"
+                    className="h-7 w-7 object-contain md:h-8 md:w-8"
+                    draggable={false}
+                  />
+                </button>
 
-                    <div className="min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => navigate('/game')}
-                        className="block truncate text-left text-xl font-black uppercase tracking-wide text-[#f2cc73] md:text-3xl"
-                      >
-                        {playerName}
-                      </button>
+                <button
+                  type="button"
+                  onClick={() => openChatChannel('faccao')}
+                  className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#7a4a13] bg-black/35 hover:bg-white/10 md:h-11 md:w-11"
+                  aria-label="Abrir chat da facção"
+                >
+                  <img
+                    src={CHAT_FACCAO_ICON_URL}
+                    alt="Chat da Facção"
+                    className="h-7 w-7 object-contain md:h-8 md:w-8"
+                    draggable={false}
+                  />
+                </button>
 
-                      <div className="mt-1 inline-flex rounded-full bg-[#a10e12] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white md:text-xs">
-                        {hierarchyTitle}
-                      </div>
-                    </div>
-                  </div>
+                <button
+                  type="button"
+                  onClick={() => openChatChannel('mail')}
+                  className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#7a4a13] bg-black/35 hover:bg-white/10 md:h-11 md:w-11"
+                  aria-label="Abrir correio pessoal"
+                >
+                  <img
+                    src={CHAT_MAIL_ICON_URL}
+                    alt="Correio Pessoal"
+                    className="h-7 w-7 object-contain md:h-8 md:w-8"
+                    draggable={false}
+                  />
 
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openChatChannel('complexo')}
-                      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10"
-                      aria-label="Abrir chat do complexo"
-                    >
-                      <img
-                        src={CHAT_COMPLEXO_ICON_URL}
-                        alt="Chat do Complexo"
-                        className="h-7 w-7 object-contain"
-                        draggable={false}
-                      />
-                    </button>
+                  {unreadMailCount > 0 && (
+                    <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-[#ffe35a] px-1 text-center text-[10px] font-black text-black">
+                      {unreadMailCount}
+                    </span>
+                  )}
+                </button>
 
-                    <button
-                      type="button"
-                      onClick={() => openChatChannel('faccao')}
-                      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10"
-                      aria-label="Abrir chat da facção"
-                    >
-                      <img
-                        src={CHAT_FACCAO_ICON_URL}
-                        alt="Chat da Facção"
-                        className="h-7 w-7 object-contain"
-                        draggable={false}
-                      />
-                    </button>
+                <button
+                  onClick={handleLogout}
+                  className="hidden items-center gap-2 rounded-xl border border-[#7a4a13] bg-black/35 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-white hover:bg-white/10 md:flex"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </button>
+              </div>
+            </div>
 
-                    <button
-                      type="button"
-                      onClick={() => openChatChannel('mail')}
-                      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10"
-                      aria-label="Abrir correio pessoal"
-                    >
-                      <img
-                        src={CHAT_MAIL_ICON_URL}
-                        alt="Correio Pessoal"
-                        className="h-7 w-7 object-contain"
-                        draggable={false}
-                      />
-
-                      {unreadMailCount > 0 && (
-                        <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-[#ffde59] px-1 text-center text-[10px] font-black text-black">
-                          {unreadMailCount}
-                        </span>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={handleLogout}
-                      className="hidden items-center gap-2 rounded-xl border border-[#6e4300] bg-black/35 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-white transition hover:bg-white/10 md:flex"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Sair
-                    </button>
-                  </div>
+            {/* BASE DE STATS */}
+            <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-3">
+              <div className="rounded-xl bg-black/38 px-2 py-2">
+                <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f2ca57]">
+                  Nível
                 </div>
-
-                <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
-                  <div className="rounded-xl bg-black/35 px-2 py-2">
-                    <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f1c84c]">
-                      Nível
-                    </div>
-                    <div className="flex items-center gap-1 text-sm font-black text-white md:text-xl">
-                      <span>⭐</span>
-                      <span>{playerLevel}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-black/35 px-2 py-2">
-                    <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f1c84c]">
-                      Poder
-                    </div>
-                    <div className="flex items-center gap-1 text-sm font-black text-white md:text-xl">
-                      <span>⚡</span>
-                      <span>{formatCompact(power)}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-black/35 px-2 py-2">
-                    <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f1c84c]">
-                      Dinheiro Sujo
-                    </div>
-                    <div className="flex items-center gap-1 text-sm font-black text-white md:text-xl">
-                      <img
-                        src={COMMANDS_ICON_URL}
-                        alt="Commands"
-                        className="h-5 w-5 object-contain"
-                        draggable={false}
-                      />
-                      <span>{formatCompact(dirtyMoney)}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-black/35 px-2 py-2">
-                    <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f1c84c]">
-                      Dinheiro Limpo
-                    </div>
-                    <div className="flex items-center gap-1 text-sm font-black text-white md:text-xl">
-                      <img
-                        src={COMMANDS_ICON_URL}
-                        alt="Commands"
-                        className="h-5 w-5 object-contain"
-                        draggable={false}
-                      />
-                      <span>{formatCompact(cleanMoney)}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-black/35 px-2 py-2">
-                    <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f1c84c]">
-                      Giros
-                    </div>
-                    <div className="flex items-center gap-1 text-sm font-black text-white md:text-xl">
-                      <span>🌀</span>
-                      <span>{formatCompact(corre)}</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-1 text-sm font-black text-white md:text-[28px]">
+                  <span>⭐</span>
+                  <span>{playerLevel}</span>
                 </div>
+              </div>
 
-                <div className="mt-2 flex justify-end md:hidden">
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 rounded-xl border border-[#6e4300] bg-black/35 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-white transition hover:bg-white/10"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sair
-                  </button>
+              <div className="rounded-xl bg-black/38 px-2 py-2">
+                <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f2ca57]">
+                  Poder
+                </div>
+                <div className="flex items-center gap-1 text-sm font-black text-white md:text-[28px]">
+                  <span>⚡</span>
+                  <span>{formatCompact(power)}</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-black/38 px-2 py-2">
+                <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f2ca57]">
+                  Dinheiro Sujo
+                </div>
+                <div className="flex items-center gap-1 text-sm font-black text-white md:text-[28px]">
+                  <img
+                    src={COMMANDS_ICON_URL}
+                    alt="Commands"
+                    className="h-5 w-5 object-contain md:h-6 md:w-6"
+                    draggable={false}
+                  />
+                  <span>{formatCompact(dirtyMoney)}</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-black/38 px-2 py-2">
+                <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f2ca57]">
+                  Dinheiro Limpo
+                </div>
+                <div className="flex items-center gap-1 text-sm font-black text-white md:text-[28px]">
+                  <img
+                    src={COMMANDS_ICON_URL}
+                    alt="Commands"
+                    className="h-5 w-5 object-contain md:h-6 md:w-6"
+                    draggable={false}
+                  />
+                  <span>{formatCompact(cleanMoney)}</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-black/38 px-2 py-2">
+                <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#f2ca57]">
+                  Giros
+                </div>
+                <div className="flex items-center gap-1 text-sm font-black text-white md:text-[28px]">
+                  <span>🌀</span>
+                  <span>{formatCompact(corre)}</span>
                 </div>
               </div>
             </div>
+
+            <div className="mt-2 flex justify-end md:hidden">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 rounded-xl border border-[#7a4a13] bg-black/35 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-white hover:bg-white/10"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair
+              </button>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </header>
   );
