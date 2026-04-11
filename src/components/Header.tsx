@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Edit2 } from 'lucide-react';
 import { usePlayerStore } from '@/store/playerStore';
 import { getPlayerRank } from '@/utils/hierarchySystem';
 import { Image } from '@/components/ui/image';
+import { useState } from 'react';
+import AvatarNameCustomizationModal from '@/components/AvatarNameCustomizationModal';
 
 const LOGO_URL =
   'https://static.wixstatic.com/media/50f4bf_9e06e6237b1c4e87997633edc2d94227~mv2.png';
@@ -22,6 +24,7 @@ const CHAT_MAIL_ICON_URL =
 export default function Header() {
   const navigate = useNavigate();
   const { player, clearPlayer } = usePlayerStore();
+  const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
 
   const isAuthenticated = !!player?._id;
   const playerLevel = player?.niveis?.barracoLevel || 45;
@@ -66,7 +69,12 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 px-2 py-2">
+    <>
+      <AvatarNameCustomizationModal
+        isOpen={isCustomizationOpen}
+        onClose={() => setIsCustomizationOpen(false)}
+      />
+      <header className="fixed left-0 right-0 top-0 z-50 px-2 py-2">
       <div className="mx-auto max-w-[1600px] overflow-hidden rounded-[22px] border border-[#6f3d08] bg-[linear-gradient(90deg,#120804_0%,#2d0d06_12%,#6d190d_24%,#3a1008_38%,#111111_56%,#3a1008_74%,#6d190d_88%,#111111_100%)] shadow-[0_0_35px_rgba(0,0,0,0.55)]">
         <div className="grid min-h-[122px] grid-cols-[110px_1fr] md:min-h-[144px] md:grid-cols-[255px_1fr]">
           {/* LOGO */}
@@ -86,26 +94,31 @@ export default function Header() {
             {/* LINHA SUPERIOR */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate('/galeria')}
-                  className="shrink-0"
-                  aria-label="Abrir galeria do equipamento"
-                >
-                  {avatarUrl ? (
-                    <Image src={avatarUrl} alt={gamerName} className="h-16 w-16 rounded-full border-[3px] border-[#d7a84a] object-cover shadow-[0_0_14px_rgba(215,168,74,0.55)] md:h-20 md:w-20" draggable={false} />
-                  ) : (
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-[#d7a84a] bg-[radial-gradient(circle_at_30%_30%,#3f2a14_0%,#1b1008_65%,#0d0d0d_100%)] shadow-[0_0_14px_rgba(215,168,74,0.55)] md:h-20 md:w-20">
-                      <User className="h-8 w-8 text-[#f4cb70]" />
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomizationOpen(true)}
+                    className="shrink-0 relative group"
+                    aria-label="Personalizar avatar"
+                  >
+                    {avatarUrl ? (
+                      <Image src={avatarUrl} alt={gamerName} className="h-16 w-16 rounded-full border-[3px] border-[#d7a84a] object-cover shadow-[0_0_14px_rgba(215,168,74,0.55)] md:h-20 md:w-20" draggable={false} />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-[#d7a84a] bg-[radial-gradient(circle_at_30%_30%,#3f2a14_0%,#1b1008_65%,#0d0d0d_100%)] shadow-[0_0_14px_rgba(215,168,74,0.55)] md:h-20 md:w-20">
+                        <User className="h-8 w-8 text-[#f4cb70]" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Edit2 className="h-5 w-5 text-white" />
                     </div>
-                  )}
-                </button>
+                  </button>
+                </div>
 
                 <div className="min-w-0">
                   <button
                     type="button"
-                    onClick={() => navigate('/profile')}
-                    className="block max-w-full truncate text-left font-heading text-[20px] font-black uppercase leading-none tracking-wide text-[#f6d27b] md:text-[40px]"
+                    onClick={() => setIsCustomizationOpen(true)}
+                    className="block max-w-full truncate text-left font-heading text-[20px] font-black uppercase leading-none tracking-wide text-[#f6d27b] md:text-[40px] hover:text-[#ffe8a3] transition-colors"
                   >
                     {gamerName}
                   </button>
@@ -243,5 +256,6 @@ export default function Header() {
         </div>
       </div>
     </header>
+    </>
   );
 }
