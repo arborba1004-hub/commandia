@@ -18,6 +18,7 @@ import BarracoPage from '@/components/pages/BarracoPage';
 import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 import ChatPage from '@/components/pages/ChatPage';
 import TalentsPage from '@/components/pages/TalentsPage';
+import FactionPage from '@/components/pages/FactionPage';
 
 // FASE 6: Páginas legadas/experimentais removidas do fluxo principal
 // - HomePageNew (arquivo preservado em src/components/pages/HomePageNew.tsx)
@@ -56,6 +57,7 @@ const router = createBrowserRouter([
       { path: 'barraco', element: <BarracoPage /> },
       { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
       { path: 'talentos', element: <TalentsPage /> },
+      { path: 'faccao', element: <FactionPage /> },
       // FASE 6: Rotas legadas removidas
       // { path: 'home-new', element: <HomePageNew /> },
       // { path: 'match', element: <MatchPage /> },

@@ -258,6 +258,7 @@ export default function GamePage() {
     { name: 'Arsenal', path: '/arsenal' },
     { name: 'Armas', path: '/armas' },
     { name: 'Gang', path: '/gang' },
+    { name: 'Facção', path: '/faccao' },
     { name: 'Barraco', path: '/barraco' },
     { name: 'Fuga', path: '/fuga' },
   ];
