@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ChatTabs from '@/components/chat/chatTabs';
@@ -12,39 +13,73 @@ type MailRecipient = {
   name: string;
 };
 
+type ChatChannelType = 'complexo' | 'faccao' | 'mail';
+
+function isValidChannel(value: string | null): value is ChatChannelType {
+  return value === 'complexo' || value === 'faccao' || value === 'mail';
+}
+
 export default function ChatPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const player = usePlayerStore((state) => state.player);
 
-  const {
-    activeChannel,
-    setActiveChannel,
-    complexoMessages,
-    faccaoMessages,
-    mailMessages,
-    isLoading,
-    isSending,
-    syncError,
-    loadChat,
-    startChatPolling,
-    stopChatPolling,
-    sendComplexoMessage,
-    sendFaccaoMessage,
-    sendMailMessage,
-    markMailAsRead,
-  } = useChatStore();
+  const activeChannel = useChatStore((state) => state.activeChannel);
+  const setActiveChannel = useChatStore((state) => state.setActiveChannel);
+  const complexoMessages = useChatStore((state) => state.complexoMessages);
+  const faccaoMessages = useChatStore((state) => state.faccaoMessages);
+  const mailMessages = useChatStore((state) => state.mailMessages);
+  const isLoading = useChatStore((state) => state.isLoading);
+  const isSending = useChatStore((state) => state.isSending);
+  const syncError = useChatStore((state) => state.syncError);
+  const loadChat = useChatStore((state) => state.loadChat);
+  const startChatPolling = useChatStore((state) => state.startChatPolling);
+  const stopChatPolling = useChatStore((state) => state.stopChatPolling);
+  const sendComplexoMessage = useChatStore((state) => state.sendComplexoMessage);
+  const sendFaccaoMessage = useChatStore((state) => state.sendFaccaoMessage);
+  const sendMailMessage = useChatStore((state) => state.sendMailMessage);
+  const markMailAsRead = useChatStore((state) => state.markMailAsRead);
 
   const [mailRecipientId, setMailRecipientId] = useState('');
   const [mailRecipientName, setMailRecipientName] = useState('');
   const [mailSubject, setMailSubject] = useState('');
+  const [hasBootstrapped, setHasBootstrapped] = useState(false);
+
+  const currentUserId = String(player?._id || player?.googleId || '');
+  const hasFaction = Boolean((player as any)?.factionId);
 
   useEffect(() => {
+    if (hasBootstrapped) return;
+
+    const queryChannel = searchParams.get('channel');
+    const sessionChannel = sessionStorage.getItem('chat_active_channel');
+
+    if (isValidChannel(queryChannel)) {
+      setActiveChannel(queryChannel);
+    } else if (isValidChannel(sessionChannel)) {
+      setActiveChannel(sessionChannel);
+    }
+
+    setHasBootstrapped(true);
+  }, [hasBootstrapped, searchParams, setActiveChannel]);
+
+  useEffect(() => {
+    if (!hasBootstrapped) return;
+
     void loadChat();
     startChatPolling();
 
     return () => {
       stopChatPolling();
     };
-  }, [loadChat, startChatPolling, stopChatPolling]);
+  }, [hasBootstrapped]);
+
+  useEffect(() => {
+    if (!hasBootstrapped) return;
+
+    sessionStorage.setItem('chat_active_channel', activeChannel);
+    setSearchParams({ channel: activeChannel }, { replace: true });
+  }, [activeChannel, hasBootstrapped, setSearchParams]);
 
   const currentMessages = useMemo(() => {
     if (activeChannel === 'complexo') return complexoMessages;
@@ -53,14 +88,13 @@ export default function ChatPage() {
   }, [activeChannel, complexoMessages, faccaoMessages, mailMessages]);
 
   const unreadMailCount = useMemo(() => {
-    const myId = String(player?._id || player?.googleId || '');
     return mailMessages.filter(
       (message) =>
         message.channel === 'mail' &&
-        String(message.recipientId || '') === myId &&
+        String(message.recipientId || '') === currentUserId &&
         !message.read
     ).length;
-  }, [mailMessages, player?._id, player?.googleId]);
+  }, [mailMessages, currentUserId]);
 
   const handleSendMessage = async (body: string) => {
     if (activeChannel === 'complexo') {
@@ -86,23 +120,25 @@ export default function ChatPage() {
     await markMailAsRead(messageId);
   };
 
-  const mailRecipientsPreview: MailRecipient[] = useMemo(() => {
-    const myId = String(player?._id || player?.googleId || '');
+  const handleChangeChannel = (channel: ChatChannelType) => {
+    setActiveChannel(channel);
+  };
 
+  const mailRecipientsPreview: MailRecipient[] = useMemo(() => {
     const map = new Map<string, MailRecipient>();
 
     for (const message of mailMessages) {
       const senderId = String(message.senderId || '');
       const recipientId = String(message.recipientId || '');
 
-      if (senderId && senderId !== myId) {
+      if (senderId && senderId !== currentUserId) {
         map.set(senderId, {
           id: senderId,
           name: message.senderName || 'Jogador',
         });
       }
 
-      if (recipientId && recipientId !== myId) {
+      if (recipientId && recipientId !== currentUserId) {
         map.set(recipientId, {
           id: recipientId,
           name: message.recipientName || 'Jogador',
@@ -111,13 +147,13 @@ export default function ChatPage() {
     }
 
     return Array.from(map.values()).slice(0, 8);
-  }, [mailMessages, player?._id, player?.googleId]);
+  }, [mailMessages, currentUserId]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-28 pt-4">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-28 pt-[140px] md:pt-[160px]">
         <div className="mb-4">
           <h1 className="font-heading text-3xl font-black uppercase tracking-wide">
             Comunicação
@@ -130,9 +166,9 @@ export default function ChatPage() {
         <div className="mb-4">
           <ChatTabs
             activeChannel={activeChannel}
-            onChangeChannel={setActiveChannel}
+            onChangeChannel={handleChangeChannel}
             unreadMailCount={unreadMailCount}
-            hasFaction={Boolean((player as any)?.factionId)}
+            hasFaction={hasFaction}
           />
         </div>
 
@@ -214,7 +250,7 @@ export default function ChatPage() {
             <ChatMessageList
               messages={currentMessages}
               channel={activeChannel}
-              currentUserId={String(player?._id || player?.googleId || '')}
+              currentUserId={currentUserId}
               isLoading={isLoading}
               onOpenMail={handleMailOpen}
             />
