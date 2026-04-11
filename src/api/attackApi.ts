@@ -1,10 +1,13 @@
-// src/api/attackApi.ts
-import { useGangStore } from '@/store/gangStore';
-import { useGangBattleStore } from '@/stores/gangBattleStore';
 import { fetchCurrentPlayer } from './playerApi';
+import type {
+  AttackOrigin,
+  AttackResolution,
+  AttackTarget,
+  SpoilsResult,
+} from '@/store/mapAttackStore';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
-const REQUEST_TIMEOUT_MS = 60000; // 60 segundos (para Render acordar)
+const REQUEST_TIMEOUT_MS = 60000;
 
 function getAuthToken(): string | null {
   return localStorage.getItem('authToken');
@@ -12,125 +15,284 @@ function getAuthToken(): string | null {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
   };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const res = await fetch(`${BACKEND_URL}${endpoint}`, {
+    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       ...options,
       headers,
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `Erro na requisição ${endpoint}`);
+
+    let data: any = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || `Erro ao acessar ${endpoint}`);
+    }
+
     return data as T;
   } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
+    if (error?.name === 'AbortError') {
       throw new Error(`Tempo limite excedido ao acessar ${endpoint}`);
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
-// ==========================================
-// Cálculo do poder da gangue para batalha
-// ==========================================
-export function calculateGangBattlePower() {
-  const { myGang } = useGangStore.getState();
-  const { formation, getFormationBonus } = useGangBattleStore.getState();
-  if (!myGang) return { totalPower: 0, attackBonus: 0, defenseBonus: 0, lootBonus: 0 };
+export type BattleStartPayload = {
+  target: AttackTarget;
+  origin: AttackOrigin;
+};
 
-  const activeMembers = myGang.members.filter(m => myGang.activeMemberIds.includes(m.id));
-  let totalPower = 0;
-  let attackBonus = 0;
-  let defenseBonus = 0;
-  let lootBonus = 0;
-
-  for (const member of activeMembers) {
-    let power = member.level * 10;
-    if (member.rarity === 'Raro') power += 20;
-    if (member.rarity === 'Épico') power += 50;
-    if (member.rarity === 'Lendário') power += 100;
-    if (member.rarity === 'Mítico') power += 200;
-    totalPower += power;
-
-    if (member.class === 'Executor') attackBonus += 5;
-    if (member.class === 'Capanga') defenseBonus += 5;
-    if (member.class === 'Ladrão') lootBonus += 5;
-  }
-
-  const formationBonus = getFormationBonus(formation);
-  attackBonus += formationBonus.attackPercent;
-  defenseBonus += formationBonus.defensePercent;
-  lootBonus += formationBonus.lootPercent;
-
-  return { totalPower, attackBonus, defenseBonus, lootBonus };
-}
-
-// ==========================================
-// Função principal de ataque
-// ==========================================
-export interface AttackResult {
-  success: boolean;
-  critical: boolean;
-  loot: number;
-  chance: number;
+export type BattleEstimate = {
+  estimatedLoot: number;
+  estimatedChance: number;
   attackerPower: number;
   defenderPower: number;
+  correCost: number;
+};
+
+export type BattleStartResponse = {
+  battleId: string;
+  success: boolean;
   message: string;
-  attacker: any;
-  defender: any;
-  spoils?: any;
+  estimatedLoot: number;
+  estimatedChance: number;
+  attackerPower: number;
+  defenderPower: number;
+  route?: {
+    fromTileX: number;
+    fromTileY: number;
+    toTileX: number;
+    toTileY: number;
+  };
+};
+
+export type BattleReportResponse = {
+  battleId: string;
+  resolution: AttackResolution;
+  attacker: {
+    playerId: string;
+    playerName: string;
+  };
+  defender: {
+    playerId: string;
+    playerName: string;
+  };
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
-// 🔥 Mude para false quando o backend estiver estável
-const useMock = true;  // ⚠️ ENQUANTO O BACKEND NÃO RESPONDER, DEIXE true
+function safeNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
 
-export async function initiateAttack(targetId: string, options?: { gangPower?: any }): Promise<AttackResult> {
-  if (useMock) {
-    // Simulação local (rápida, sem backend)
-    const player = await fetchCurrentPlayer();
-    const { totalPower: gangPower, attackBonus, defenseBonus, lootBonus } = calculateGangBattlePower();
-    const attackerPower = (player?.power || 100) + gangPower + attackBonus;
-    const defenderPower = (player?.power || 100) + defenseBonus; // mock
-    const chance = Math.min(0.9, Math.max(0.3, attackerPower / (attackerPower + defenderPower)));
-    const success = Math.random() < chance;
-    const isCritical = success && Math.random() < 0.15;
-    const loot = success ? Math.floor(Math.random() * 5000) * (1 + lootBonus / 100) : 0;
+function normalizeSpoils(raw?: Partial<SpoilsResult> | null): SpoilsResult {
+  return {
+    dirtyMoneyLoot: safeNumber(raw?.dirtyMoneyLoot),
+    correLoot: safeNumber(raw?.correLoot),
+    prestigeLoot: safeNumber(raw?.prestigeLoot),
+    brokenLuxuryItemId: raw?.brokenLuxuryItemId ?? null,
+    brokenLuxuryItemName: raw?.brokenLuxuryItemName ?? null,
+    brokenLuxuryItemValue:
+      raw?.brokenLuxuryItemValue == null ? null : safeNumber(raw?.brokenLuxuryItemValue),
+    luxuryConvertedDirtyMoney: safeNumber(raw?.luxuryConvertedDirtyMoney),
+  };
+}
 
-    return {
-      success,
-      critical: isCritical,
-      loot,
-      chance,
-      attackerPower,
-      defenderPower,
-      message: success ? (isCritical ? 'ATAQUE CRÍTICO!' : 'Ataque bem-sucedido!') : 'Falha no ataque.',
-      attacker: player,
-      defender: player,
-      spoils: {
-        dirtyMoneyLoot: success ? loot : 0,
-        correLoot: success ? Math.floor(Math.random() * 100) : 0,
-        prestigeLoot: success ? 10 : 0,
-      },
+function normalizeResolution(raw: any): AttackResolution {
+  return {
+    success: !!raw?.success,
+    loot: safeNumber(raw?.loot),
+    chance: safeNumber(raw?.chance),
+    attackerPower: safeNumber(raw?.attackerPower),
+    defenderPower: safeNumber(raw?.defenderPower),
+    message: raw?.message || 'Batalha concluída.',
+    critical: !!raw?.critical,
+    spoils: normalizeSpoils(raw?.spoils),
+  };
+}
+
+function buildLocalEstimate(
+  attacker: {
+    power?: number;
+    balances?: { corre?: number };
+    skills?: {
+      attack?: number;
+      defense?: number;
+      intelligence?: number;
+      agility?: number;
+      respect?: number;
+      vigor?: number;
     };
-  }
+    gangMembers?: {
+      frente?: { level?: number };
+      muralha?: { level?: number };
+      nitro?: { level?: number };
+      certeiro?: { level?: number };
+      wifi?: { level?: number };
+    };
+  } | null,
+  target: AttackTarget
+): BattleEstimate {
+  const attack = safeNumber(attacker?.skills?.attack);
+  const defense = safeNumber(attacker?.skills?.defense);
+  const intelligence = safeNumber(attacker?.skills?.intelligence);
+  const agility = safeNumber(attacker?.skills?.agility);
+  const respect = safeNumber(attacker?.skills?.respect);
+  const vigor = safeNumber(attacker?.skills?.vigor);
 
-  // Chamada real ao backend
-  const body: any = { targetId };
-  if (options?.gangPower) {
-    body.gangPower = options.gangPower;
-  }
-  return request<AttackResult>('/attack/initiate', {
+  const frente = safeNumber(attacker?.gangMembers?.frente?.level);
+  const muralha = safeNumber(attacker?.gangMembers?.muralha?.level);
+  const nitro = safeNumber(attacker?.gangMembers?.nitro?.level);
+  const certeiro = safeNumber(attacker?.gangMembers?.certeiro?.level);
+  const wifi = safeNumber(attacker?.gangMembers?.wifi?.level);
+
+  const attackerBasePower = safeNumber(attacker?.power, 100);
+  const attackerComputedPower =
+    attackerBasePower +
+    attack * 8 +
+    defense * 4 +
+    intelligence * 5 +
+    agility * 6 +
+    respect * 3 +
+    vigor * 5 +
+    frente * 30 +
+    muralha * 30 +
+    nitro * 26 +
+    certeiro * 30 +
+    wifi * 24;
+
+  const defenderComputedPower =
+    safeNumber(target?.power, 100) +
+    safeNumber(target?.barracoLevel, 1) * 45;
+
+  const estimatedChance = clamp(
+    attackerComputedPower / Math.max(attackerComputedPower + defenderComputedPower, 1),
+    0.15,
+    0.85
+  );
+
+  const targetDirtyMoney = safeNumber(target?.dirtyMoney);
+  const lootBonus = attack * 0.003 + frente * 0.01;
+  const defenseReduction = defense * 0.001 + muralha * 0.004;
+
+  const estimatedLoot = Math.max(
+    0,
+    Math.floor(targetDirtyMoney * 0.18 * (1 + lootBonus - defenseReduction))
+  );
+
+  return {
+    estimatedLoot,
+    estimatedChance: Number((estimatedChance * 100).toFixed(2)),
+    attackerPower: Math.round(attackerComputedPower),
+    defenderPower: Math.round(defenderComputedPower),
+    correCost: 10,
+  };
+}
+
+export async function getAttackEstimate(target: AttackTarget): Promise<BattleEstimate> {
+  const player = await fetchCurrentPlayer();
+  return buildLocalEstimate(player as any, target);
+}
+
+export async function startBattle(
+  payload: BattleStartPayload
+): Promise<BattleStartResponse> {
+  const body = {
+    targetId: payload.target.playerId,
+    targetName: payload.target.playerName,
+    targetTileX: payload.target.tileX,
+    targetTileY: payload.target.tileY,
+    originTileX: payload.origin.tileX,
+    originTileY: payload.origin.tileY,
+  };
+
+  return request<BattleStartResponse>('/battle/start', {
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+export async function resolveBattleById(
+  battleId: string
+): Promise<BattleReportResponse> {
+  const data = await request<any>(`/battle/resolve/${battleId}`, {
+    method: 'POST',
+  });
+
+  return {
+    battleId: data?.battleId || battleId,
+    resolution: normalizeResolution(data?.resolution || data),
+    attacker: {
+      playerId: data?.attacker?.playerId || '',
+      playerName: data?.attacker?.playerName || 'ATACANTE',
+    },
+    defender: {
+      playerId: data?.defender?.playerId || '',
+      playerName: data?.defender?.playerName || 'DEFENSOR',
+    },
+  };
+}
+
+export async function getBattleReport(
+  battleId: string
+): Promise<BattleReportResponse> {
+  const data = await request<any>(`/battle/report/${battleId}`, {
+    method: 'GET',
+  });
+
+  return {
+    battleId: data?.battleId || battleId,
+    resolution: normalizeResolution(data?.resolution || data),
+    attacker: {
+      playerId: data?.attacker?.playerId || '',
+      playerName: data?.attacker?.playerName || 'ATACANTE',
+    },
+    defender: {
+      playerId: data?.defender?.playerId || '',
+      playerName: data?.defender?.playerName || 'DEFENSOR',
+    },
+  };
+}
+
+export async function getBattleHistory(): Promise<BattleReportResponse[]> {
+  const data = await request<any[]>('/battle/history', {
+    method: 'GET',
+  });
+
+  if (!Array.isArray(data)) return [];
+
+  return data.map((item) => ({
+    battleId: item?.battleId || '',
+    resolution: normalizeResolution(item?.resolution || item),
+    attacker: {
+      playerId: item?.attacker?.playerId || '',
+      playerName: item?.attacker?.playerName || 'ATACANTE',
+    },
+    defender: {
+      playerId: item?.defender?.playerId || '',
+      playerName: item?.defender?.playerName || 'DEFENSOR',
+    },
+  }));
 }
