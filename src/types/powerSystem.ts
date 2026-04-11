@@ -1,170 +1,176 @@
-/**
- * Sistema de Poder - Tipos e Interfaces
- * Define estruturas para Skills, Investments, Gang Members, Battle Stats e Faction
- */
-
-// ============================================================================
-// SKILLS - Habilidades do Jogador
-// ============================================================================
+export type PlayerSkillKey =
+  | 'attack'
+  | 'defense'
+  | 'intelligence'
+  | 'agility'
+  | 'respect'
+  | 'vigor';
 
 export interface PlayerSkills {
-  attack: number;        // Ataque - Dano base
-  defense: number;       // Defesa - Redução de dano
-  intelligence: number;  // Inteligência - Bônus em operações
-  agility: number;       // Agilidade - Velocidade e esquiva
-  respect: number;       // Respeito - Influência social
-  vigor: number;         // Vigor - Resistência e saúde
+  attack: number;
+  defense: number;
+  intelligence: number;
+  agility: number;
+  respect: number;
+  vigor: number;
 }
 
-export interface SkillBonus {
-  skillName: keyof PlayerSkills;
-  baseBonus: number;
-  percentBonus: number;
-  description: string;
-}
-
-// ============================================================================
-// INVESTMENTS - Investimentos do Jogador
-// ============================================================================
+export type PlayerInvestmentKey =
+  | 'war'
+  | 'laundering'
+  | 'fuga'
+  | 'luxury'
+  | 'comando';
 
 export interface PlayerInvestments {
-  war: number;           // Investimento em Guerra - Bônus de ataque
-  laundering: number;    // Lavagem de Dinheiro - Geração de renda
-  fuga: number;          // Fuga - Velocidade de escape
-  faction: number;       // Facção - Bônus coletivo
-  luxury: number;        // Luxo - Respeito e status
-  comando: number;       // Comando - Liderança da quadrilha
+  war: number;
+  laundering: number;
+  fuga: number;
+  luxury: number;
+  comando: number;
 }
 
-export interface InvestmentBonus {
-  investmentType: keyof PlayerInvestments;
-  baseBonus: number;
-  percentBonus: number;
-  affectedStats: (keyof PlayerSkills)[];
-  description: string;
-}
-
-// ============================================================================
-// GANG MEMBERS - Membros da Quadrilha
-// ============================================================================
-
-export type GangMemberRole = 'frente' | 'muralha' | 'nitro' | 'certeiro' | 'wifi';
+export type GangMemberRole =
+  | 'frente'
+  | 'muralha'
+  | 'nitro'
+  | 'certeiro'
+  | 'wifi';
 
 export interface GangMember {
   role: GangMemberRole;
+  nickname: string;
   level: number;
-  experience: number;
-  health: number;
-  maxHealth: number;
-  isAlive: boolean;
-  bonusMultiplier: number; // Multiplicador de bônus baseado no nível
 }
 
 export interface GangMembers {
-  frente: GangMember;      // Frente de batalha - Defesa
-  muralha: GangMember;     // Muralha - Proteção
-  nitro: GangMember;       // Nitro - Velocidade/Ataque
-  certeiro: GangMember;    // Certeiro - Precisão/Inteligência
-  wifi: GangMember;        // WiFi - Informações/Suporte
+  frente: GangMember;
+  muralha: GangMember;
+  nitro: GangMember;
+  certeiro: GangMember;
+  wifi: GangMember;
 }
 
-export interface GangMemberBonus {
-  role: GangMemberRole;
-  affectedStats: (keyof PlayerSkills)[];
-  bonusPerLevel: number;
-  description: string;
+export interface GangComputedBonuses {
+  attackPercent: number;
+  invasionPercent: number;
+  lootPercent: number;
+
+  defensePercent: number;
+  lifePercent: number;
+  lossReductionPercent: number;
+
+  escapePercent: number;
+  mobilityPercent: number;
+  cooldownReductionPercent: number;
+
+  critPercent: number;
+  damagePercent: number;
+  accuracyPercent: number;
+
+  launderingFeeReductionPercent: number;
+  bribePercent: number;
+  operationRiskReductionPercent: number;
+  tacticalPercent: number;
 }
 
-// ============================================================================
-// BATTLE STATS - Estatísticas de Batalha
-// ============================================================================
+export interface PowerSourcesBreakdown {
+  barraco: number;
+  arsenal: number;
+  hierarchy: number;
+  luxury: number;
+  skills: number;
+  investments: number;
+  gang: number;
+}
+
+export interface PowerCalculationBreakdown {
+  totalPower: number;
+  sources: PowerSourcesBreakdown;
+}
 
 export interface BattleStats {
   totalPower: number;
-  attackPower: number;
-  defensePower: number;
-  intelligencePower: number;
-  agilityPower: number;
-  respectPower: number;
-  vigorPower: number;
+
+  attackScore: number;
+  defenseScore: number;
+  tacticalScore: number;
+  mobilityScore: number;
+  supportScore: number;
+
   healthPoints: number;
-  maxHealthPoints: number;
   criticalChance: number;
-  dodgeChance: number;
+  escapeChance: number;
   damageReduction: number;
-  timestamp: number; // Quando o snapshot foi criado
+  lootBonusPercent: number;
+  cooldownReductionPercent: number;
+
+  launderingEfficiencyPercent: number;
+  bribeEfficiencyPercent: number;
+}
+
+export interface PlayerBattleContext {
+  playerId: string;
+  playerName: string;
+
+  barracoLevel: number;
+  arsenalLevel: number;
+  hierarchyLevel: number;
+  luxuryLevel: number;
+
+  dirtyMoney: number;
+  cleanMoney: number;
+  corre: number;
+
+  skills: PlayerSkills;
+  investments: PlayerInvestments;
+  gangMembers: GangMembers;
 }
 
 export interface BattleSnapshot {
   playerId: string;
-  playerLevel: number;
   playerName: string;
-  skills: PlayerSkills;
-  investments: PlayerInvestments;
-  gangMembers: GangMembers;
+  createdAt: number;
+
+  context: PlayerBattleContext;
+  gangBonuses: GangComputedBonuses;
+  powerBreakdown: PowerCalculationBreakdown;
   battleStats: BattleStats;
-  factionId: string | null;
-  factionBonus: number;
-  timestamp: number;
 }
 
-// ============================================================================
-// FACTION - Facção (Sistema Social Coletivo)
-// ============================================================================
-
-export interface Faction {
-  _id: string;
-  name: string;
-  description: string;
-  leader: string; // Player ID do líder
-  members: string[]; // Array de Player IDs
-  level: number;
-  experience: number;
-  treasury: number; // Tesouro coletivo
-  bonusMultiplier: number; // Bônus coletivo
-  createdAt: Date | string;
-  updatedAt: Date | string;
+export interface BattleResolutionInput {
+  attacker: BattleSnapshot;
+  defender: BattleSnapshot;
 }
 
-export interface FactionBonus {
-  level: number;
-  bonusPercentage: number;
-  affectedStats: (keyof PlayerSkills)[];
-  description: string;
+export interface BattleLosses {
+  hpDamage: number;
+  correLoss: number;
+  dirtyMoneyLoss: number;
 }
 
-// ============================================================================
-// POWER CALCULATION - Cálculo de Poder
-// ============================================================================
+export interface BattleResolutionResult {
+  success: boolean;
+  winner: 'attacker' | 'defender';
+  winChance: number;
 
-export interface PowerCalculationBreakdown {
-  baseSkillsPower: number;
-  skillBonuses: number;
-  investmentBonuses: number;
-  gangMemberBonuses: number;
-  factionBonus: number;
-  totalPower: number;
-  details: {
-    skillsBreakdown: Record<keyof PlayerSkills, number>;
-    investmentsBreakdown: Record<keyof PlayerInvestments, number>;
-    gangMembersBreakdown: Record<GangMemberRole, number>;
+  attackerScore: number;
+  defenderScore: number;
+
+  loot: number;
+
+  attackerLosses: BattleLosses;
+  defenderLosses: BattleLosses;
+
+  attackerRemainingDirtyMoney: number;
+  defenderRemainingDirtyMoney: number;
+
+  report: {
+    attacker: BattleStats;
+    defender: BattleStats;
+    attackerPower: number;
+    defenderPower: number;
+    attackerGangBonuses: GangComputedBonuses;
+    defenderGangBonuses: GangComputedBonuses;
   };
-}
-
-// ============================================================================
-// PROGRESSION - Progressão e Leveling
-// ============================================================================
-
-export interface ProgressionConfig {
-  skillPointsPerLevel: number;
-  investmentPointsPerLevel: number;
-  experienceMultiplier: number;
-  powerScalingFactor: number;
-}
-
-export interface LevelRequirement {
-  level: number;
-  experienceRequired: number;
-  skillPointsGained: number;
-  investmentPointsGained: number;
 }
