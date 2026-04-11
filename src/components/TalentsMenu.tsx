@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Lock, Unlock, Star, TrendingUp } from 'lucide-react';
+import TalentUpgradeModal from '@/components/TalentUpgradeModal';
 
 interface TalentWithProgress extends TalentosDoCrime {
   currentLevel: number;
@@ -30,6 +31,8 @@ export default function TalentsMenu() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('available');
   const [notification, setNotification] = useState<string | null>(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [selectedTalentForUpgrade, setSelectedTalentForUpgrade] = useState<TalentWithProgress | null>(null);
   const talentStore = useTalentStore();
   const player = usePlayerStore((state) => state.player);
 
@@ -231,7 +234,10 @@ export default function TalentsMenu() {
               <UnlockedTalentCard
                 key={talent._id}
                 talent={talent}
-                onUpgrade={() => handleUpgradeTalent(talent)}
+                onUpgrade={() => {
+                  setSelectedTalentForUpgrade(talent);
+                  setUpgradeModalOpen(true);
+                }}
                 canUpgrade={canUpgradeTalent(talent)}
                 nextLevelCost={
                   talent.currentLevel < (talent.maxSkillLevel || 5)
@@ -249,6 +255,31 @@ export default function TalentsMenu() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Upgrade Modal */}
+      {selectedTalentForUpgrade && (
+        <TalentUpgradeModal
+          talent={selectedTalentForUpgrade}
+          isOpen={upgradeModalOpen}
+          onClose={() => {
+            setUpgradeModalOpen(false);
+            setSelectedTalentForUpgrade(null);
+          }}
+          onConfirm={() => handleUpgradeTalent(selectedTalentForUpgrade)}
+          nextLevelCost={
+            selectedTalentForUpgrade.currentLevel < (selectedTalentForUpgrade.maxSkillLevel || 5)
+              ? LEVEL_COSTS[(selectedTalentForUpgrade.currentLevel + 1) as keyof typeof LEVEL_COSTS]
+              : 0
+          }
+          canAfford={
+            selectedTalentForUpgrade.currentLevel < (selectedTalentForUpgrade.maxSkillLevel || 5)
+              ? dirtyMoney >=
+                LEVEL_COSTS[(selectedTalentForUpgrade.currentLevel + 1) as keyof typeof LEVEL_COSTS]
+              : false
+          }
+          isMaxed={selectedTalentForUpgrade.currentLevel >= (selectedTalentForUpgrade.maxSkillLevel || 5)}
+        />
+      )}
     </div>
   );
 }
