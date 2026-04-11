@@ -8,6 +8,15 @@ import ChatComposer from '@/components/chat/ChatComposer';
 import { useChatStore } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
 
+// Interface estendida do jogador para incluir factionId
+interface ExtendedPlayer {
+  _id?: string;
+  googleId?: string;
+  factionId?: string;
+  name?: string;
+  email?: string;
+}
+
 type MailRecipient = {
   id: string;
   name: string;
@@ -22,7 +31,8 @@ function isValidChannel(value: string | null): value is ChatChannelType {
 export default function ChatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const player = usePlayerStore((state) => state.player);
+  const player = usePlayerStore((state) => state.player) as ExtendedPlayer | null;
+  const isPlayerLoading = usePlayerStore((state) => state.isLoading);
 
   const activeChannel = useChatStore((state) => state.activeChannel);
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
@@ -47,8 +57,18 @@ export default function ChatPage() {
   const [hasBootstrapped, setHasBootstrapped] = useState(false);
 
   const currentUserId = String(player?._id || player?.googleId || '');
-  const hasFaction = Boolean((player as any)?.factionId);
+  const hasFaction = Boolean(player?.factionId);
 
+  // Aguarda o carregamento do jogador
+  if (isPlayerLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-white">Carregando chat...</p>
+      </div>
+    );
+  }
+
+  // Restaura o canal ativo da URL ou sessionStorage
   useEffect(() => {
     if (hasBootstrapped) return;
 
@@ -64,6 +84,7 @@ export default function ChatPage() {
     setHasBootstrapped(true);
   }, [hasBootstrapped, searchParams, setActiveChannel]);
 
+  // Inicializa o chat e o polling
   useEffect(() => {
     if (!hasBootstrapped) return;
 
@@ -75,11 +96,13 @@ export default function ChatPage() {
     };
   }, [hasBootstrapped, loadChat, startChatPolling, stopChatPolling]);
 
+  // Persiste o canal ativo e busca mensagens quando ele muda
   useEffect(() => {
     if (!hasBootstrapped) return;
 
     sessionStorage.setItem('chat_active_channel', activeChannel);
     setSearchParams({ channel: activeChannel }, { replace: true });
+    // A busca é feita apenas quando o canal muda, evitando duplicação
     void fetchMessages(activeChannel, true);
   }, [activeChannel, hasBootstrapped, setSearchParams, fetchMessages]);
 
@@ -104,10 +127,21 @@ export default function ChatPage() {
     }
 
     if (activeChannel === 'faccao') {
+      // Impede envio se o jogador não tiver facção
+      if (!hasFaction) {
+        console.warn('Tentativa de enviar mensagem na facção sem pertencer a uma.');
+        return;
+      }
       return sendFaccaoMessage({
         body,
-        factionId: (player as any)?.factionId || null,
+        factionId: player?.factionId || null,
       });
+    }
+
+    // Canal de correio
+    if (!mailRecipientId.trim() || !mailRecipientName.trim()) {
+      console.warn('Destinatário não informado');
+      return;
     }
 
     return sendMailMessage({
@@ -123,6 +157,8 @@ export default function ChatPage() {
   };
 
   const handleChangeChannel = (channel: ChatChannelType) => {
+    // Não permite mudar para facção se não tiver facção
+    if (channel === 'faccao' && !hasFaction) return;
     setActiveChannel(channel);
   };
 
@@ -265,8 +301,9 @@ export default function ChatPage() {
               isSending={isSending}
               mailReady={
                 activeChannel !== 'mail' ||
-                Boolean(mailRecipientId.trim() && mailRecipientName.trim())
+                (mailRecipientId.trim() && mailRecipientName.trim())
               }
+              disabled={activeChannel === 'faccao' && !hasFaction}
             />
           </div>
         </div>
