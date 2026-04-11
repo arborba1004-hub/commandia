@@ -1,145 +1,90 @@
-import { useEffect, useMemo, useRef } from 'react';
-import type { ChatMessage } from '@/store/chatStore';
+import { useState } from 'react';
+import EmojiPicker from '@/components/chat/EmojiPicker';
 
-interface ChatMessageListProps {
-  messages: ChatMessage[];
+interface ChatComposerProps {
   channel: 'complexo' | 'faccao' | 'mail';
-  currentUserId: string;
-  isLoading?: boolean;
-  onOpenMail?: (messageId: string) => void;
+  onSendMessage: (body: string) => Promise<boolean> | boolean;
+  isSending?: boolean;
+  mailReady?: boolean;
 }
 
-function formatDate(value: string) {
-  try {
-    return new Date(value).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return value;
-  }
-}
-
-export default function ChatMessageList({
-  messages,
+export default function ChatComposer({
   channel,
-  currentUserId,
-  isLoading = false,
-  onOpenMail,
-}: ChatMessageListProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  onSendMessage,
+  isSending = false,
+  mailReady = true,
+}: ChatComposerProps) {
+  const [message, setMessage] = useState('');
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.scrollTop = containerRef.current.scrollHeight;
-  }, [messages]);
+  const placeholder =
+    channel === 'complexo'
+      ? 'Manda a visão pro complexo...'
+      : channel === 'faccao'
+        ? 'Fala com a facção...'
+        : 'Escreva seu correio pessoal...';
 
-  const orderedMessages = useMemo(() => {
-    return [...messages].sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
-  }, [messages]);
+  const canSend = message.trim().length > 0 && !isSending && mailReady;
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center px-4 py-10 text-sm text-muted-foreground">
-        Carregando mensagens...
-      </div>
-    );
-  }
+  const handleSend = async () => {
+    const body = message.trim();
+    if (!body || !canSend) return;
 
-  if (!orderedMessages.length) {
-    return (
-      <div className="flex h-full items-center justify-center px-4 py-10 text-sm text-muted-foreground">
-        {channel === 'mail'
-          ? 'Nenhum correio encontrado.'
-          : 'Nenhuma mensagem ainda.'}
-      </div>
-    );
-  }
+    const ok = await onSendMessage(body);
+    if (ok) {
+      setMessage('');
+      setEmojiOpen(false);
+    }
+  };
 
   return (
-    <div ref={containerRef} className="h-full overflow-y-auto px-4 py-4">
-      <div className="flex flex-col gap-3">
-        {orderedMessages.map((message) => {
-          const isMine = String(message.senderId || '') === String(currentUserId || '');
-          const isMail = channel === 'mail';
-          const isUnreadMail =
-            isMail &&
-            String(message.recipientId || '') === String(currentUserId || '') &&
-            !message.read;
+    <div className="relative">
+      {emojiOpen && (
+        <div className="absolute bottom-[72px] left-0 z-20">
+          <EmojiPicker
+            onSelectEmoji={(emoji) => {
+              setMessage((prev) => prev + emoji);
+            }}
+          />
+        </div>
+      )}
 
-          return (
-            <button
-              key={message.id}
-              type="button"
-              onClick={() => {
-                if (isMail && onOpenMail) onOpenMail(message.id);
-              }}
-              className={[
-                'w-full rounded-2xl border text-left transition-all',
-                isMine
-                  ? 'self-end border-red-500/30 bg-red-500/10'
-                  : 'border-border bg-card',
-                isMail ? 'p-4 hover:bg-muted/60' : 'p-3',
-                isUnreadMail ? 'ring-1 ring-yellow-400/60' : '',
-              ].join(' ')}
-            >
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black uppercase tracking-wide">
-                    {message.senderName || 'Jogador'}
-                  </p>
+      <div className="flex items-end gap-3">
+        <button
+          type="button"
+          onClick={() => setEmojiOpen((prev) => !prev)}
+          className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background text-xl hover:bg-muted"
+        >
+          😊
+        </button>
 
-                  {isMail && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {isMine
-                        ? `Para: ${message.recipientName || 'Destinatário'}`
-                        : `De: ${message.senderName || 'Remetente'}`}
-                    </p>
-                  )}
-                </div>
+        <div className="flex-1 rounded-2xl border border-border bg-background px-4 py-3">
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={mailReady ? placeholder : 'Preencha destinatário e nome primeiro...'}
+            disabled={isSending || !mailReady}
+            rows={2}
+            className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void handleSend();
+              }
+            }}
+          />
+        </div>
 
-                <div className="shrink-0 text-[11px] text-muted-foreground">
-                  {formatDate(message.createdAt)}
-                </div>
-              </div>
-
-              {isMail && message.subject && (
-                <p className="mb-2 text-sm font-bold text-foreground">
-                  Assunto: {message.subject}
-                </p>
-              )}
-
-              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
-                {message.body}
-              </p>
-
-              <div className="mt-3 flex items-center gap-2">
-                {message.system && (
-                  <span className="rounded-full bg-blue-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-300">
-                    Sistema
-                  </span>
-                )}
-
-                {isMail && isUnreadMail && (
-                  <span className="rounded-full bg-yellow-400/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-yellow-300">
-                    Não lida
-                  </span>
-                )}
-
-                {isMail && !isUnreadMail && (
-                  <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-300">
-                    {message.read ? 'Lida' : 'Enviada'}
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
+        <button
+          type="button"
+          onClick={() => {
+            void handleSend();
+          }}
+          disabled={!canSend}
+          className="h-12 rounded-2xl bg-red-600 px-5 text-sm font-black uppercase tracking-wide text-white disabled:opacity-50"
+        >
+          {isSending ? 'Enviando...' : 'Enviar'}
+        </button>
       </div>
     </div>
   );
