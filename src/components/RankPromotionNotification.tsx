@@ -34,13 +34,17 @@ export default function RankPromotionNotification({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
       >
         {showConfetti && (
-          <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div
+            className="fixed inset-0 pointer-events-none overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             {[...Array(20)].map((_, i) => (
               <motion.div
                 key={i}
@@ -70,6 +74,7 @@ export default function RankPromotionNotification({
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0, y: 50 }}
           transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+          onClick={(e) => e.stopPropagation()}
         >
           <motion.div
             className="absolute inset-0 rounded-2xl blur-3xl opacity-50"
@@ -84,6 +89,7 @@ export default function RankPromotionNotification({
               borderColor: rank.color,
               backgroundColor: 'rgba(0, 0, 0, 0.9)',
             }}
+            onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={onClose}
