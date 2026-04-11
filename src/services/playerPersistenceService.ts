@@ -126,7 +126,6 @@ function mapInventoryToPlayer(inventory: PlayerInventories): Partial<PlayerState
       skills,
     };
   } catch (error) {
-    console.error('Error mapping inventory:', error);
     return {};
   }
 }
@@ -152,7 +151,6 @@ function mapProgressToPlayer(progress: PlayerProgress): Partial<PlayerState> {
       },
     };
   } catch (error) {
-    console.error('Error mapping progress:', error);
     return {};
   }
 }
@@ -163,7 +161,6 @@ function mapProgressToPlayer(progress: PlayerProgress): Partial<PlayerState> {
 export async function savePlayerToCMS(player: PlayerState): Promise<boolean> {
   try {
     if (!player._id) {
-      console.warn('Cannot save player without _id');
       return false;
     }
 
@@ -179,10 +176,8 @@ export async function savePlayerToCMS(player: PlayerState): Promise<boolean> {
     const progress = mapPlayerToProgress(player);
     await BaseCrudService.update<PlayerProgress>(COLLECTION_IDS.PROGRESS, progress);
 
-    console.log('Player data saved to CMS:', player._id);
     return true;
   } catch (error) {
-    console.error('Error saving player to CMS:', error);
     return false;
   }
 }
@@ -193,14 +188,12 @@ export async function savePlayerToCMS(player: PlayerState): Promise<boolean> {
 export async function loadPlayerFromCMS(playerId: string): Promise<Partial<PlayerState> | null> {
   try {
     if (!playerId) {
-      console.warn('Cannot load player without playerId');
       return null;
     }
 
     // Load from PlayerProfiles
     const profile = await BaseCrudService.getById<PlayerProfiles>(COLLECTION_IDS.PROFILES, playerId);
     if (!profile) {
-      console.warn('Player profile not found:', playerId);
       return null;
     }
 
@@ -219,10 +212,8 @@ export async function loadPlayerFromCMS(playerId: string): Promise<Partial<Playe
       ...mapProgressToPlayer(progress || {}),
     };
 
-    console.log('Player data loaded from CMS:', playerId);
     return playerData;
   } catch (error) {
-    console.error('Error loading player from CMS:', error);
     return null;
   }
 }
@@ -233,7 +224,6 @@ export async function loadPlayerFromCMS(playerId: string): Promise<Partial<Playe
 export async function createPlayerInCMS(player: PlayerState): Promise<boolean> {
   try {
     if (!player._id) {
-      console.warn('Cannot create player without _id');
       return false;
     }
 
@@ -249,10 +239,8 @@ export async function createPlayerInCMS(player: PlayerState): Promise<boolean> {
     const progress = mapPlayerToProgress(player);
     await BaseCrudService.create<PlayerProgress>(COLLECTION_IDS.PROGRESS, progress);
 
-    console.log('New player created in CMS:', player._id);
     return true;
   } catch (error) {
-    console.error('Error creating player in CMS:', error);
     return false;
   }
 }
@@ -269,8 +257,6 @@ export function startPlayerSync(player: PlayerState, onSync?: (success: boolean)
     const success = await savePlayerToCMS(player);
     onSync?.(success);
   }, SYNC_INTERVAL);
-
-  console.log('Player sync started with interval:', SYNC_INTERVAL);
 }
 
 /**
@@ -280,7 +266,6 @@ export function stopPlayerSync(): void {
   if (syncInterval) {
     clearInterval(syncInterval);
     syncInterval = null;
-    console.log('Player sync stopped');
   }
 }
 
@@ -297,7 +282,6 @@ export async function syncPlayerNow(player: PlayerState): Promise<boolean> {
 export async function deletePlayerFromCMS(playerId: string): Promise<boolean> {
   try {
     if (!playerId) {
-      console.warn('Cannot delete player without playerId');
       return false;
     }
 
@@ -306,10 +290,8 @@ export async function deletePlayerFromCMS(playerId: string): Promise<boolean> {
     await BaseCrudService.delete(COLLECTION_IDS.INVENTORIES, `inv_${playerId}`);
     await BaseCrudService.delete(COLLECTION_IDS.PROGRESS, `prog_${playerId}`);
 
-    console.log('Player deleted from CMS:', playerId);
     return true;
   } catch (error) {
-    console.error('Error deleting player from CMS:', error);
     return false;
   }
 }
