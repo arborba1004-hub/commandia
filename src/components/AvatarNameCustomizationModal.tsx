@@ -1,9 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Upload } from 'lucide-react';
 import { usePlayerStore } from '@/store/playerStore';
 import { Image } from '@/components/ui/image';
-import { BaseCrudService } from '@/integrations';
-import { AcessriosdeFuga } from '@/entities';
 
 interface AvatarNameCustomizationModalProps {
   isOpen: boolean;
@@ -17,10 +15,9 @@ export default function AvatarNameCustomizationModal({
   const { player, setPlayer } = usePlayerStore();
   const [customName, setCustomName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState('');
-  const [accessories, setAccessories] = useState<AcessriosdeFuga[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'avatar' | 'name'>('avatar');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -30,21 +27,18 @@ export default function AvatarNameCustomizationModal({
           ''
       );
       setSelectedAvatar(player?.avatar || '');
-      loadAccessories();
     }
   }, [isOpen, player]);
 
-  const loadAccessories = async () => {
-    try {
-      setIsLoading(true);
-      const result = await BaseCrudService.getAll<AcessriosdeFuga>(
-        'accessories'
-      );
-      setAccessories(result.items || []);
-    } catch (error) {
-      console.error('Erro ao carregar acessórios:', error);
-    } finally {
-      setIsLoading(false);
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setSelectedAvatar(result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -137,47 +131,25 @@ export default function AvatarNameCustomizationModal({
                 )}
               </div>
 
-              {/* Accessories Gallery */}
+              {/* Upload from Device */}
               <div>
                 <p className="text-sm text-white/60 mb-4 uppercase tracking-wide font-bold">
-                  Selecione um Avatar da Galeria
+                  Selecione uma Foto do Seu Dispositivo
                 </p>
-                {isLoading ? (
-                  <div className="text-center text-white/60 py-8">
-                    Carregando galeria...
-                  </div>
-                ) : accessories.length > 0 ? (
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-                    {accessories.map((accessory) => (
-                      <button
-                        key={accessory._id}
-                        onClick={() => setSelectedAvatar(accessory.itemImage || '')}
-                        className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                          selectedAvatar === accessory.itemImage
-                            ? 'border-[#f6d27b] shadow-lg shadow-[#f6d27b]/50'
-                            : 'border-[#d7a84a]/30 hover:border-[#d7a84a]'
-                        }`}
-                      >
-                        {accessory.itemImage && (
-                          <Image
-                            src={accessory.itemImage}
-                            alt={accessory.itemName || 'Acessório'}
-                            className="h-24 w-24 object-cover"
-                          />
-                        )}
-                        {selectedAvatar === accessory.itemImage && (
-                          <div className="absolute inset-0 bg-[#f6d27b]/20 flex items-center justify-center">
-                            <div className="text-2xl">✓</div>
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center text-white/60 py-8">
-                    Nenhum acessório disponível
-                  </div>
-                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full px-6 py-4 rounded-lg border-2 border-dashed border-[#d7a84a]/50 bg-[#1a1a1a] hover:bg-[#2a2a2a] hover:border-[#d7a84a] transition-colors flex items-center justify-center gap-3 text-white font-bold uppercase tracking-wide"
+                >
+                  <Upload className="h-6 w-6" />
+                  Abrir Galeria do Dispositivo
+                </button>
               </div>
             </div>
           )}
