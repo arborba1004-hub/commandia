@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BaseCrudService } from '@/integrations';
-import { TalentosDoCrime } from '@/entities';
+import { TalentosdoCrime } from '@/entities';
 import { useTalentStore } from '@/store/talentStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { getEffectValue, TALENT_IDS } from '@/utils/talentEffects';
