@@ -9,7 +9,8 @@ export type BranchKey =
   | 'bribery'
   | 'hierarchy'
   | 'faction'
-  | 'talents';
+  | 'talents'
+  | 'fuga';
 
 export type BranchRequirementResult = {
   unlocked: boolean;
@@ -19,13 +20,25 @@ export type BranchRequirementResult = {
   requiredValue?: number;
 };
 
+function getBarracoLevel(player: PlayerState): number {
+  return Number(player?.niveis?.barracoLevel || 1);
+}
+
+function getLavagemLevel(player: PlayerState): number {
+  return Number(player?.pageLevels?.lavagem || 1);
+}
+
+function getPower(player: PlayerState): number {
+  return Number(player?.power || 0);
+}
+
 export function getBranchRequirement(
   branch: BranchKey,
   player: PlayerState
 ): BranchRequirementResult {
-  const barracoLevel = player?.niveis?.barracoLevel ?? 1;
-  const lavagemLevel = player?.pageLevels?.lavagem ?? 1;
-  const power = player?.power ?? 0;
+  const barracoLevel = getBarracoLevel(player);
+  const lavagemLevel = getLavagemLevel(player);
+  const power = getPower(player);
 
   switch (branch) {
     case 'barraco':
@@ -37,74 +50,83 @@ export function getBranchRequirement(
 
     case 'giro':
       return {
-        unlocked: barracoLevel >= 2,
+        unlocked: barracoLevel >= 1,
         title: 'Giro',
-        reason: 'Evolua o barraco até o nível 2 para desbloquear o Giro.',
+        reason: 'Giro está disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
-        requiredValue: 2,
+        requiredValue: 1,
       };
 
     case 'lavagem':
       return {
-        unlocked: barracoLevel >= 5,
+        unlocked: barracoLevel >= 1,
         title: 'Lavagem',
-        reason: 'Evolua o barraco até o nível 5 para desbloquear a Lavagem.',
+        reason: 'Lavagem está disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
-        requiredValue: 5,
+        requiredValue: 1,
       };
 
     case 'luxury':
       return {
-        unlocked: barracoLevel >= 8,
-        title: 'Luxo',
-        reason: 'Evolua o barraco até o nível 8 para desbloquear a Galeria.',
+        unlocked: barracoLevel >= 1,
+        title: 'Galeria',
+        reason: 'Galeria está disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
-        requiredValue: 8,
+        requiredValue: 1,
       };
 
     case 'arsenal':
       return {
-        unlocked: barracoLevel >= 12 && lavagemLevel >= 3,
+        unlocked: barracoLevel >= 1,
         title: 'Arsenal',
-        reason: 'Arsenal exige barraco nível 12 e lavagem nível 3.',
+        reason: 'Arsenal está disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
-        requiredValue: 12,
+        requiredValue: 1,
       };
 
     case 'bribery':
       return {
-        unlocked: barracoLevel >= 15 && power >= 500,
+        unlocked: barracoLevel >= 1,
         title: 'Suborno',
-        reason: 'Suborno exige barraco nível 15 e poder mínimo 500.',
+        reason: 'Suborno está disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
-        requiredValue: 15,
+        requiredValue: 1,
       };
 
     case 'hierarchy':
       return {
-        unlocked: barracoLevel >= 10,
+        unlocked: barracoLevel >= 1,
         title: 'Hierarquia',
-        reason: 'Hierarquia exige barraco nível 10.',
+        reason: 'Hierarquia está disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
-        requiredValue: 10,
+        requiredValue: 1,
       };
 
     case 'faction':
       return {
-        unlocked: barracoLevel >= 6,
+        unlocked: barracoLevel >= 1,
         title: 'Facção',
-        reason: 'Facção exige barraco nível 6.',
+        reason: 'Facção está disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
-        requiredValue: 6,
+        requiredValue: 1,
       };
 
     case 'talents':
       return {
-        unlocked: barracoLevel >= 7,
+        unlocked: barracoLevel >= 1,
         title: 'Talentos',
-        reason: 'Talentos exige barraco nível 7.',
+        reason: 'Talentos estão disponíveis a partir do barraco nível 1.',
         currentValue: barracoLevel,
-        requiredValue: 7,
+        requiredValue: 1,
+      };
+
+    case 'fuga':
+      return {
+        unlocked: barracoLevel >= 1,
+        title: 'Fuga',
+        reason: 'Fuga está disponível a partir do barraco nível 1.',
+        currentValue: barracoLevel,
+        requiredValue: 1,
       };
 
     default:
@@ -114,4 +136,12 @@ export function getBranchRequirement(
         reason: '',
       };
   }
+}
+
+export function getBranchRequirementSummary(player: PlayerState) {
+  return {
+    barracoLevel: getBarracoLevel(player),
+    lavagemLevel: getLavagemLevel(player),
+    power: getPower(player),
+  };
 }
