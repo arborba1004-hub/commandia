@@ -49,7 +49,15 @@ const router = createBrowserRouter(
         { path: 'profile', element: <ProfilePage /> },
         { path: 'game', element: <GamePage /> },
         { path: 'chat', element: <ChatPage /> },
-        { path: 'giro', element: <GiroPage /> },
+
+        {
+          path: 'giro',
+          element: (
+            <FeatureGateRoute branch="giro">
+              <GiroPage />
+            </FeatureGateRoute>
+          ),
+        },
 
         {
           path: 'lavagem-de-dinheiro',
@@ -60,7 +68,15 @@ const router = createBrowserRouter(
           ),
         },
 
-        { path: 'suborno-ilustrado', element: <SubornoIlustradoPage /> },
+        {
+          path: 'suborno-ilustrado',
+          element: (
+            <FeatureGateRoute branch="bribery">
+              <SubornoIlustradoPage />
+            </FeatureGateRoute>
+          ),
+        },
+
         { path: 'delacao-premiada', element: <DelacaoPremiadaPage /> },
 
         {
@@ -75,7 +91,15 @@ const router = createBrowserRouter(
         { path: 'armas', element: <ArmasPage /> },
         { path: 'luxo-item', element: <LuxoItemPage /> },
         { path: 'barraco', element: <BarracoPage /> },
-        { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
+
+        {
+          path: 'fuga-ilustrada',
+          element: (
+            <FeatureGateRoute branch="fuga">
+              <FugaIlustradaPage />
+            </FeatureGateRoute>
+          ),
+        },
 
         {
           path: 'talentos',
@@ -95,7 +119,6 @@ const router = createBrowserRouter(
           ),
         },
 
-        // Rotas legadas redirecionadas
         { path: 'gang', element: <Navigate to="/faccao" replace /> },
         { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
         { path: 'lavagemdedinheiro', element: <Navigate to="/lavagem-de-dinheiro" replace /> },
