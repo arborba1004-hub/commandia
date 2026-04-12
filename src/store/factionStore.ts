@@ -63,18 +63,34 @@ type FactionStore = {
   setFaction: (faction: Faction | null) => void;
 };
 
+let loadingCounter = 0;
+
+function beginLoading(set: (partial: Partial<FactionStore>) => void) {
+  loadingCounter += 1;
+  set({ isLoading: true, error: null });
+}
+
+function endLoading(set: (partial: Partial<FactionStore>) => void) {
+  loadingCounter = Math.max(0, loadingCounter - 1);
+  set({ isLoading: loadingCounter > 0 });
+}
+
 function syncPlayerFactionId(factionId: string | null) {
   const playerStore = usePlayerStore.getState();
   const currentFactionId = playerStore.player?.factionId ?? null;
 
   if (currentFactionId === factionId) return;
 
-  playerStore.setPlayer({
+  playerStore.hydratePlayerFromServer({
+    ...playerStore.player,
     factionId,
   } as any);
 }
 
-function syncPlayerBalancesFromFactionDonationBeforeAfter(before: Faction | null, after: Faction | null) {
+function syncPlayerBalancesFromFactionDonationBeforeAfter(
+  before: Faction | null,
+  after: Faction | null
+) {
   if (!before || !after) return;
 
   const playerStore = usePlayerStore.getState();
@@ -82,21 +98,36 @@ function syncPlayerBalancesFromFactionDonationBeforeAfter(before: Faction | null
 
   if (!currentPlayer?.balances) return;
 
-  const dirtyDiff = Math.max(0, (after.treasury.dirtyMoney || 0) - (before.treasury.dirtyMoney || 0));
-  const cleanDiff = Math.max(0, (after.treasury.cleanMoney || 0) - (before.treasury.cleanMoney || 0));
-  const correDiff = Math.max(0, (after.treasury.corre || 0) - (before.treasury.corre || 0));
+  const dirtyDiff = Math.max(
+    0,
+    Number(after.treasury.dirtyMoney || 0) - Number(before.treasury.dirtyMoney || 0)
+  );
+  const cleanDiff = Math.max(
+    0,
+    Number(after.treasury.cleanMoney || 0) - Number(before.treasury.cleanMoney || 0)
+  );
+  const correDiff = Math.max(
+    0,
+    Number(after.treasury.corre || 0) - Number(before.treasury.corre || 0)
+  );
 
   if (dirtyDiff === 0 && cleanDiff === 0 && correDiff === 0) return;
 
-  playerStore.setPlayer({
+  playerStore.hydratePlayerFromServer({
+    ...currentPlayer,
     balances: {
-      dirtyMoney: Math.max(0, Number(currentPlayer.balances.dirtyMoney || 0) - dirtyDiff),
-      cleanMoney: Math.max(0, Number(currentPlayer.balances.cleanMoney || 0) - cleanDiff),
+      dirtyMoney: Math.max(
+        0,
+        Number(currentPlayer.balances.dirtyMoney || 0) - dirtyDiff
+      ),
+      cleanMoney: Math.max(
+        0,
+        Number(currentPlayer.balances.cleanMoney || 0) - cleanDiff
+      ),
       corre: Math.max(0, Number(currentPlayer.balances.corre || 0) - correDiff),
     },
   } as any);
 }
-
 export const useFactionStore = create<FactionStore>((set, get) => ({
   myFaction: null,
   factionList: [],
@@ -108,13 +139,12 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
 
   loadMyFaction: async () => {
     try {
-      set({ isLoading: true, error: null });
+      beginLoading(set);
 
       const faction = await fetchMyFaction();
 
       set({
         myFaction: faction,
-        isLoading: false,
         error: null,
         lastLoadedAt: Date.now(),
       });
@@ -123,22 +153,22 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
       return Boolean(faction);
     } catch (error) {
       set({
-        isLoading: false,
         error: error instanceof Error ? error.message : 'Erro ao carregar facção',
       });
       return false;
+    } finally {
+      endLoading(set);
     }
   },
 
   loadFactionList: async () => {
     try {
-      set({ isLoading: true, error: null });
+      beginLoading(set);
 
       const factions = await fetchFactionList();
 
       set({
         factionList: factions,
-        isLoading: false,
         error: null,
         lastLoadedAt: Date.now(),
       });
@@ -146,10 +176,11 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
       return true;
     } catch (error) {
       set({
-        isLoading: false,
         error: error instanceof Error ? error.message : 'Erro ao listar facções',
       });
       return false;
+    } finally {
+      endLoading(set);
     }
   },
 
@@ -163,11 +194,16 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
 
       const faction = await createFactionRequest({
         name: String(payload?.name || '').trim(),
-        tag: String(payload?.tag || '').trim().toUpperCase(),
+        tag: String(payload?.tag || '')
+          .trim()
+          .toUpperCase(),
         description: String(payload?.description || '').trim(),
         isPrivate: Boolean(payload?.isPrivate),
         minimumPower: Number(payload?.minimumPower || 0),
-        minimumBarracoLevel: Math.max(1, Number(payload?.minimumBarracoLevel || 1)),
+        minimumBarracoLevel: Math.max(
+          1,
+          Number(payload?.minimumBarracoLevel || 1)
+        ),
         allowMemberInvites: Boolean(payload?.allowMemberInvites),
         allowJoinRequests: Boolean(payload?.allowJoinRequests ?? true),
         autoAcceptRequests: Boolean(payload?.autoAcceptRequests),
@@ -231,6 +267,7 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
       });
 
       syncPlayerFactionId(response.faction?.id || null);
+
       if (!response.faction) {
         syncPlayerFactionId(null);
       }
@@ -246,9 +283,10 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
     }
   },
 
-  donate: async (currency, amount) => {
+donate: async (currency, amount) => {
     try {
       const currentFaction = get().myFaction;
+
       set({ isSubmitting: true, error: null });
 
       const faction = await donateToFaction({
@@ -294,7 +332,8 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
     } catch (error) {
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao investir na facção',
+        error:
+          error instanceof Error ? error.message : 'Erro ao investir na facção',
       });
       return false;
     }
@@ -318,7 +357,10 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
     } catch (error) {
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao atualizar configurações da facção',
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Erro ao atualizar configurações da facção',
       });
       return false;
     }
@@ -337,11 +379,13 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
         lastLoadedAt: Date.now(),
       });
 
+      await get().loadFactionList();
       return true;
     } catch (error) {
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao alterar cargo do membro',
+        error:
+          error instanceof Error ? error.message : 'Erro ao alterar cargo do membro',
       });
       return false;
     }
@@ -384,20 +428,21 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
         lastLoadedAt: Date.now(),
       });
 
+      await get().loadFactionList();
       return true;
     } catch (error) {
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao transferir liderança',
+        error:
+          error instanceof Error ? error.message : 'Erro ao transferir liderança',
       });
       return false;
     }
   },
 
-  clearFaction: () => {
+clearFaction: () => {
     set({
       myFaction: null,
-      factionList: [],
       error: null,
       isLoading: false,
       isSubmitting: false,
@@ -411,6 +456,8 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
     set({
       myFaction: faction,
       error: null,
+      isLoading: false,
+      isSubmitting: false,
       lastLoadedAt: Date.now(),
     });
 
