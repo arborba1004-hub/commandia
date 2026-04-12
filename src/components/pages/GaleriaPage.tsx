@@ -144,31 +144,19 @@ export default function GaleriaPage() {
                   whileHover={{ scale: 1.02 }}
                 >
                   {item === 1 ? (
-                    <video
+                    <TintedVideoCard
                       src="https://video.wixstatic.com/video/50f4bf_5c5ff0aa73984169aee6006f54c6643a/480p/mp4/file.mp4"
-                      controls
-                      loop
-                      autoPlay
-                      muted
-                      className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                      palette={videoPalette}
                     />
                   ) : item === 2 ? (
-                    <video
+                    <TintedVideoCard
                       src="https://video.wixstatic.com/video/50f4bf_250b2ec2185b4a9f9ee60ee62867b785/720p/mp4/file.mp4"
-                      controls
-                      loop
-                      autoPlay
-                      muted
-                      className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                      palette={videoPalette}
                     />
                   ) : item === 3 ? (
-                    <video
+                    <TintedVideoCard
                       src="https://video.wixstatic.com/video/50f4bf_9b3fc97f452e45a7a1bde3afb5825aef/720p/mp4/file.mp4"
-                      controls
-                      loop
-                      autoPlay
-                      muted
-                      className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                      palette={videoPalette}
                     />
                   ) : (
                     <>
