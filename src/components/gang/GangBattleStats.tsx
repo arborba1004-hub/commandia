@@ -1,73 +1,89 @@
-import { useMemo } from 'react';
-import { Shield, Sword, Coins, Users } from 'lucide-react';
+import { Shield, Swords, Users, Wallet } from 'lucide-react';
 import { useGangStore } from '@/store/gangStore';
 import { useGangBattleStore } from '@/stores/gangBattleStore';
 
 export default function GangBattleStats() {
-  const myGang = useGangStore((state) => state.myGang);
-  const getBattleSnapshot = useGangStore((state) => state.getBattleSnapshot);
+  const stats = useGangStore((state) => state.getBattleStats());
   const formation = useGangBattleStore((state) => state.formation);
-  const getFormationBonus = useGangBattleStore((state) => state.getFormationBonus);
+  const gang = useGangStore((state) => state.myGang);
 
-  const snapshot = useMemo(() => getBattleSnapshot(), [getBattleSnapshot, myGang]);
-  const bonus = getFormationBonus(formation);
+  const treasury = gang?.treasury || {
+    dirtyMoney: 0,
+    cleanMoney: 0,
+    corre: 0,
+  };
 
   return (
-    <div className="bg-black/60 border border-white/10 rounded-2xl p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-bold">⚔️ PODER TÁTICO DA GANGUE</h3>
-          <p className="text-sm text-zinc-400 mt-1">
-            Formação atual: <span className="text-white font-bold uppercase">{formation}</span>
-          </p>
-        </div>
-
-        <div className="rounded-full bg-primary/10 border border-primary/30 px-4 py-2">
-          <span className="text-sm text-zinc-400">Poder total</span>
-          <div className="text-2xl font-black text-primary">
-            {snapshot.totalPower.toLocaleString('pt-BR')}
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="rounded-3xl border border-red-500/20 bg-black/50 p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+              Poder da composição
+            </p>
+            <p className="mt-2 text-3xl font-black text-red-300">
+              {stats.totalPower.toLocaleString('pt-BR')}
+            </p>
           </div>
+          <Swords className="h-8 w-8 text-red-400" />
         </div>
+        <p className="mt-3 text-sm text-zinc-400">
+          Bônus de ataque: +{stats.attackBonusPercent}%
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3">
-          <div className="flex items-center gap-2 text-zinc-300 text-sm">
-            <Users size={16} />
-            Ativos
+      <div className="rounded-3xl border border-cyan-500/20 bg-black/50 p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+              Resistência
+            </p>
+            <p className="mt-2 text-3xl font-black text-cyan-300">
+              +{stats.defenseBonusPercent}%
+            </p>
           </div>
-          <div className="mt-1 text-xl font-black">{snapshot.activeMembers.length}</div>
+          <Shield className="h-8 w-8 text-cyan-400" />
         </div>
-
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3">
-          <div className="flex items-center gap-2 text-zinc-300 text-sm">
-            <Sword size={16} />
-            Ataque
-          </div>
-          <div className="mt-1 text-xl font-black">{snapshot.attackPower.toLocaleString('pt-BR')}</div>
-        </div>
-
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3">
-          <div className="flex items-center gap-2 text-zinc-300 text-sm">
-            <Shield size={16} />
-            Defesa
-          </div>
-          <div className="mt-1 text-xl font-black">{snapshot.defensePower.toLocaleString('pt-BR')}</div>
-        </div>
-
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3">
-          <div className="flex items-center gap-2 text-zinc-300 text-sm">
-            <Coins size={16} />
-            Saque
-          </div>
-          <div className="mt-1 text-xl font-black">{snapshot.lootPower.toLocaleString('pt-BR')}</div>
-        </div>
+        <p className="mt-3 text-sm text-zinc-400">
+          Formação atual: <span className="capitalize">{formation}</span>
+        </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mt-4 text-sm text-zinc-300">
-        <div>⚔️ Ataque: {bonus.attackPercent > 0 ? `+${bonus.attackPercent}` : bonus.attackPercent}%</div>
-        <div>🛡️ Defesa: {bonus.defensePercent > 0 ? `+${bonus.defensePercent}` : bonus.defensePercent}%</div>
-        <div>💰 Saque: {bonus.lootPercent > 0 ? `+${bonus.lootPercent}` : bonus.lootPercent}%</div>
+      <div className="rounded-3xl border border-amber-500/20 bg-black/50 p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+              Tropa ativa
+            </p>
+            <p className="mt-2 text-3xl font-black text-amber-200">
+              {stats.activeCount}
+              <span className="text-lg text-zinc-500"> / {stats.activeCount + stats.reserveCount}</span>
+            </p>
+          </div>
+          <Users className="h-8 w-8 text-amber-400" />
+        </div>
+        <p className="mt-3 text-sm text-zinc-400">
+          Nível médio dos ativos: {stats.avgLevel}
+        </p>
+      </div>
+
+      <div className="rounded-3xl border border-emerald-500/20 bg-black/50 p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+              Saque e tesouro
+            </p>
+            <p className="mt-2 text-3xl font-black text-emerald-300">
+              +{stats.lootBonusPercent}%
+            </p>
+          </div>
+          <Wallet className="h-8 w-8 text-emerald-400" />
+        </div>
+        <div className="mt-3 space-y-1 text-sm text-zinc-400">
+          <p>Sujo: {Number(treasury.dirtyMoney || 0).toLocaleString('pt-BR')}</p>
+          <p>Limpo: {Number(treasury.cleanMoney || 0).toLocaleString('pt-BR')}</p>
+          <p>Corre: {Number(treasury.corre || 0).toLocaleString('pt-BR')}</p>
+        </div>
       </div>
     </div>
   );
