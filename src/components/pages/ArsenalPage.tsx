@@ -9,11 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { useCart } from '@/integrations';
-import FeatureLevelLock from '@/components/FeatureLevelLock';
-import {
-  canAccessFeature,
-  getFeatureLevelRequirement,
-} from '@/utils/levelRequirements';
 
 interface Weapon {
   _id: string;
@@ -61,20 +56,16 @@ function weaponAlreadyOwned(player: any, weapon: Weapon | null) {
   return items.some(
     (item: any) =>
       item?.type === 'weapon' &&
-      (item?.weaponId === weapon._id ||
-        item?._id === weapon._id ||
-        item?.name === weapon.weaponName)
+      (item?.weaponId === weapon._id || item?._id === weapon._id || item?.name === weapon.weaponName)
   );
 }
 
 export default function ArsenalPage() {
   const navigate = useNavigate();
-
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const applyPlayerUpdate = usePlayerStore((state) => state.applyPlayerUpdate);
-
   const { addToCart } = useCart();
 
   const [weapons, setWeapons] = useState<Weapon[]>([]);
@@ -104,17 +95,8 @@ export default function ArsenalPage() {
       try {
         setIsLoadingData(true);
 
-        const weaponsResult = await BaseCrudService.getAll<Weapon>(
-          'armasarsenal',
-          {},
-          { limit: 100 }
-        );
-
-        const casesResult = await BaseCrudService.getAll<WeaponCase>(
-          'casesdearmas',
-          {},
-          { limit: 600 }
-        );
+        const weaponsResult = await BaseCrudService.getAll<Weapon>('armasarsenal', {}, { limit: 100 });
+        const casesResult = await BaseCrudService.getAll<WeaponCase>('casesdearmas', {}, { limit: 600 });
 
         setWeapons(weaponsResult.items || []);
         setCases(casesResult.items || []);
@@ -130,11 +112,19 @@ export default function ArsenalPage() {
     void fetchData();
   }, []);
 
-  const playerLevel = player?.niveis?.playerLevel || 1;
-  const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
-  const requiredLevel = getFeatureLevelRequirement('arsenal');
-  const isFeatureUnlocked = canAccessFeature(playerLevel, 'arsenal');
+  if (!isLoaded || !player?._id || isLoadingData) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          <LoadingSpinner />
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
+  const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
   const selectedWeaponOwned = useMemo(
     () => weaponAlreadyOwned(player, selectedWeapon),
     [player, selectedWeapon]
@@ -178,10 +168,7 @@ export default function ArsenalPage() {
           ...currentPlayer,
           balances: {
             ...currentPlayer.balances,
-            dirtyMoney: Math.max(
-              0,
-              Number(currentPlayer.balances?.dirtyMoney || 0) - price
-            ),
+            dirtyMoney: Math.max(0, Number(currentPlayer.balances?.dirtyMoney || 0) - price),
           },
           inventory: {
             ...currentPlayer.inventory,
@@ -247,50 +234,13 @@ export default function ArsenalPage() {
     setSelectedWeapon(weapon);
 
     const weaponName = String(weapon.weaponName || '').trim().toLowerCase();
-
     const weaponCases = cases.filter((caseItem) =>
-      String(caseItem.itemName || '')
-        .trim()
-        .toLowerCase()
-        .includes(weaponName)
+      String(caseItem.itemName || '').trim().toLowerCase().includes(weaponName)
     );
 
     setSelectedWeaponCases(weaponCases);
     setShowCasesModal(true);
   };
-
-  const handleCloseResult = () => {
-    setShowResult(false);
-  };
-
-  if (!isLoaded || !player?._id || isLoadingData) {
-    return (
-      <>
-        <Header />
-        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
-          <LoadingSpinner />
-        </div>
-        <Footer />
-      </>
-    );
-  }
-
-  if (!isFeatureUnlocked) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
-          <FeatureLevelLock
-            playerLevel={playerLevel}
-            requiredLevel={requiredLevel}
-            featureName="Arsenal"
-            onNavigateToBarraco={() => navigate('/barraco')}
-          />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="w-full min-h-screen bg-black flex flex-col text-white">
@@ -350,11 +300,9 @@ export default function ArsenalPage() {
         <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-12">
           {activeTab === 'weapons' && (
             <div>
-              <h2 className="text-3xl font-heading text-white mb-8">
-                Catálogo de Armas
-              </h2>
+              <h2 className="text-3xl font-heading text-white mb-8">Catálogo de Armas</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {weapons.map((weapon) => {
                   const owned = weaponAlreadyOwned(player, weapon);
 
@@ -376,21 +324,16 @@ export default function ArsenalPage() {
 
                       <div className="p-4">
                         <div className="flex justify-between items-start mb-2 gap-3">
-                          <h3 className="text-xl font-heading text-primary">
-                            {weapon.weaponName}
-                          </h3>
+                          <h3 className="text-xl font-heading text-primary">{weapon.weaponName}</h3>
                           <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-bold whitespace-nowrap">
                             Nv. {weapon.level}
                           </span>
                         </div>
 
-                        <p className="text-gray-400 text-sm mb-3">
-                          {weapon.description}
-                        </p>
+                        <p className="text-gray-400 text-sm mb-3">{weapon.description}</p>
 
                         <p className="text-yellow-400 text-sm mb-2">
-                          <span className="font-bold">Bônus:</span>{' '}
-                          {weapon.abilityBonus || 'Sem bônus'}
+                          <span className="font-bold">Bônus:</span> {weapon.abilityBonus || 'Sem bônus'}
                         </p>
 
                         <p className="text-white font-bold mb-4">
@@ -429,9 +372,7 @@ export default function ArsenalPage() {
 
           {activeTab === 'cases' && (
             <div>
-              <h2 className="text-3xl font-heading text-white mb-8">
-                Cases de Estampa
-              </h2>
+              <h2 className="text-3xl font-heading text-white mb-8">Cases de Estampa</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {cases.map((caseItem) => (
@@ -451,17 +392,12 @@ export default function ArsenalPage() {
                     )}
 
                     <div className="p-4">
-                      <h3 className="text-xl font-heading text-primary mb-2">
-                        {caseItem.itemName}
-                      </h3>
+                      <h3 className="text-xl font-heading text-primary mb-2">{caseItem.itemName}</h3>
 
-                      <p className="text-gray-400 text-sm mb-3">
-                        {caseItem.itemDescription}
-                      </p>
+                      <p className="text-gray-400 text-sm mb-3">{caseItem.itemDescription}</p>
 
                       <p className="text-green-400 text-sm mb-2">
-                        <span className="font-bold">Bônus:</span> +1%{' '}
-                        {caseItem.abilityBonusType || 'skill'}
+                        <span className="font-bold">Bônus:</span> +1% {caseItem.abilityBonusType || 'skill'}
                       </p>
 
                       <p className="text-yellow-400 font-bold text-lg mb-4">
@@ -508,9 +444,7 @@ export default function ArsenalPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-black/50 rounded-lg p-3 text-center">
                 <p className="text-gray-400 text-sm">Nível</p>
-                <p className="text-2xl font-bold text-primary">
-                  {selectedWeapon?.level}
-                </p>
+                <p className="text-2xl font-bold text-primary">{selectedWeapon?.level}</p>
               </div>
 
               <div className="bg-black/50 rounded-lg p-3 text-center">
@@ -528,9 +462,7 @@ export default function ArsenalPage() {
 
             <div className="bg-black/50 rounded-lg p-3">
               <p className="text-gray-400 text-sm mb-2">Bônus</p>
-              <p className="text-green-400 font-bold">
-                {selectedWeapon?.abilityBonus || 'Sem bônus'}
-              </p>
+              <p className="text-green-400 font-bold">{selectedWeapon?.abilityBonus || 'Sem bônus'}</p>
             </div>
 
             {selectedWeaponOwned && (
@@ -549,10 +481,7 @@ export default function ArsenalPage() {
 
               <Button
                 onClick={() => setShowVaultModal(true)}
-                disabled={
-                  selectedWeaponOwned ||
-                  dirtyMoney < Number(selectedWeapon?.dirtyMoneyPrice || 0)
-                }
+                disabled={selectedWeaponOwned || dirtyMoney < Number(selectedWeapon?.dirtyMoneyPrice || 0)}
                 className="flex-1 bg-primary hover:bg-pink-600 text-white font-heading py-6 rounded-lg disabled:opacity-50"
               >
                 COMPRAR
@@ -592,21 +521,10 @@ export default function ArsenalPage() {
                     </div>
                   )}
 
-                  <h4 className="text-lg font-heading text-primary mb-2">
-                    {caseItem.itemName}
-                  </h4>
-
-                  <p className="text-gray-400 text-sm mb-2">
-                    {caseItem.itemDescription}
-                  </p>
-
-                  <p className="text-green-400 text-sm mb-3">
-                    +1% {caseItem.abilityBonusType || 'skill'}
-                  </p>
-
-                  <p className="text-yellow-400 font-bold mb-3">
-                    R$ {Number(caseItem.itemPrice || 0).toFixed(2)}
-                  </p>
+                  <h4 className="text-lg font-heading text-primary mb-2">{caseItem.itemName}</h4>
+                  <p className="text-gray-400 text-sm mb-2">{caseItem.itemDescription}</p>
+                  <p className="text-green-400 text-sm mb-3">+1% {caseItem.abilityBonusType || 'skill'}</p>
+                  <p className="text-yellow-400 font-bold mb-3">R$ {Number(caseItem.itemPrice || 0).toFixed(2)}</p>
 
                   <button
                     onClick={() => {
@@ -630,12 +548,9 @@ export default function ArsenalPage() {
               Confirmar Compra
             </DialogTitle>
           </DialogHeader>
-
-          <div className="text-center py-8 space-y-4">
+<div className="text-center py-8 space-y-4">
             <p className="text-gray-300">Você está prestes a comprar:</p>
-            <p className="text-2xl font-heading text-primary">
-              {selectedWeapon?.weaponName}
-            </p>
+            <p className="text-2xl font-heading text-primary">{selectedWeapon?.weaponName}</p>
             <p className="text-yellow-400 text-xl font-bold">
               {Number(selectedWeapon?.dirtyMoneyPrice || 0).toLocaleString('pt-BR')} Dirtymoney
             </p>
@@ -678,7 +593,7 @@ export default function ArsenalPage() {
           </div>
 
           <Button
-            onClick={handleCloseResult}
+            onClick={() => setShowResult(false)}
             className="w-full bg-primary hover:bg-pink-600 text-white font-heading text-lg py-6 rounded-lg"
           >
             FECHAR
