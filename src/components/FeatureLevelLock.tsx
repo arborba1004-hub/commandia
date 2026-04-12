@@ -3,19 +3,24 @@ import { Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface FeatureLevelLockProps {
-  playerLevel: number;
-  requiredLevel: number;
-  featureName: string;
+  title: string;
+  unlocked: boolean;
+  reason: string;
+  currentValue?: number;
+  requiredValue?: number;
   onNavigateToBarraco?: () => void;
 }
 
 export default function FeatureLevelLock({
-  playerLevel,
-  requiredLevel,
-  featureName,
+  title,
+  unlocked,
+  reason,
+  currentValue = 0,
+  requiredValue = 0,
   onNavigateToBarraco,
 }: FeatureLevelLockProps) {
-  const progress = (playerLevel / requiredLevel) * 100;
+  const progress =
+    requiredValue > 0 ? Math.min(100, (currentValue / requiredValue) * 100) : 0;
 
   return (
     <motion.div
@@ -38,23 +43,23 @@ export default function FeatureLevelLock({
 
         {/* Title */}
         <h2 className="text-3xl font-bold font-heading text-white mb-2">
-          {featureName}
+          {title}
         </h2>
 
         {/* Description */}
         <p className="text-gray-400 font-paragraph mb-6">
-          Esta funcionalidade está bloqueada até que você atinja o nível necessário.
+          {reason}
         </p>
 
         {/* Level Info */}
         <div className="bg-gray-900/50 rounded-lg p-4 mb-6 border border-gray-800">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-gray-300 font-paragraph">Seu Nível</span>
-            <span className="text-primary font-bold text-lg">{playerLevel}</span>
+            <span className="text-gray-300 font-paragraph">Valor Atual</span>
+            <span className="text-primary font-bold text-lg">{currentValue}</span>
           </div>
           <div className="flex justify-between items-center mb-3">
-            <span className="text-gray-300 font-paragraph">Nível Necessário</span>
-            <span className="text-red-500 font-bold text-lg">{requiredLevel}</span>
+            <span className="text-gray-300 font-paragraph">Valor Necessário</span>
+            <span className="text-red-500 font-bold text-lg">{requiredValue}</span>
           </div>
 
           {/* Progress Bar */}
@@ -67,7 +72,7 @@ export default function FeatureLevelLock({
             />
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            {requiredLevel - playerLevel} níveis para desbloquear
+            {Math.max(0, requiredValue - currentValue)} para desbloquear
           </p>
         </div>
 
