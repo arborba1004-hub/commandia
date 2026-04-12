@@ -21,9 +21,12 @@ const CHAT_MAIL_ICON_URL =
 
 export default function Header() {
   const navigate = useNavigate();
-  const { player, clearPlayer } = usePlayerStore();
+  const { player, clearPlayer, isLoaded } = usePlayerStore();
 
   const isAuthenticated = !!player?._id;
+  const isLoadedReady = Boolean(isLoaded);
+  const isPlayerReady = Boolean(player?._id);
+  const disableQuickActions = !isLoadedReady || !isPlayerReady;
 
   const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
   const cleanMoney = player?.balances?.cleanMoney ?? 0;
@@ -61,7 +64,7 @@ export default function Header() {
     localStorage.removeItem('authToken');
     localStorage.removeItem('playerData');
     clearPlayer();
-    window.location.href = '/';
+    navigate('/', { replace: true });
   };
 
   const openChatChannel = (channel: 'complexo' | 'faccao' | 'mail') => {
@@ -146,7 +149,8 @@ export default function Header() {
                     <button
                       type="button"
                       onClick={() => openChatChannel('complexo')}
-                      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10"
+                      disabled={disableQuickActions}
+                      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
                       aria-label="Abrir chat do complexo"
                     >
                       <Image src={CHAT_COMPLEXO_ICON_URL} alt="Chat do Complexo" className="h-7 w-7 object-contain" draggable={false} />
@@ -155,7 +159,8 @@ export default function Header() {
                     <button
                       type="button"
                       onClick={() => openChatChannel('faccao')}
-                      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10"
+                      disabled={disableQuickActions || !isAuthenticated}
+                      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
                       aria-label="Abrir chat da facção"
                     >
                       <Image src={CHAT_FACCAO_ICON_URL} alt="Chat da Facção" className="h-7 w-7 object-contain" draggable={false} />
@@ -164,12 +169,13 @@ export default function Header() {
                     <button
                       type="button"
                       onClick={() => openChatChannel('mail')}
-                      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10"
+                      disabled={disableQuickActions}
+                      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#6e4300] bg-black/35 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
                       aria-label="Abrir correio pessoal"
                     >
                       <Image src={CHAT_MAIL_ICON_URL} alt="Correio Pessoal" className="h-7 w-7 object-contain" draggable={false} />
 
-                      {unreadMailCount > 0 && (
+                      {isAuthenticated && unreadMailCount > 0 && (
                         <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-[#ffde59] px-1 text-center text-[10px] font-black text-black">
                           {unreadMailCount}
                         </span>

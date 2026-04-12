@@ -32,6 +32,7 @@ export default function Header() {
   const isLoadedReady = Boolean(isLoaded);
   const isPlayerReady = Boolean(player?._id);
   const showPlayerState = isLoadedReady && isPlayerReady;
+  const disableQuickActions = !isLoadedReady || !isPlayerReady;
   const playerLevel = player?.niveis?.barracoLevel ?? 0;
   const hierarchyTitle = playerLevel > 0 ? getPlayerRank(playerLevel).title : 'Sem patente';
 
@@ -72,7 +73,7 @@ export default function Header() {
     localStorage.removeItem('authToken');
     localStorage.removeItem('playerData');
     clearPlayer();
-    window.location.href = '/';
+    navigate('/', { replace: true });
   };
 
   return (
@@ -156,7 +157,8 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => openChatChannel('complexo')}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 md:w-[48px]"
+                    disabled={disableQuickActions}
+                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
                     aria-label="Abrir chat do complexo"
                   >
                     <Image
@@ -173,7 +175,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => openChatChannel('faccao')}
-                    disabled={!hasFaction}
+                    disabled={disableQuickActions || !hasFaction}
                     className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
                     aria-label="Abrir chat da facção"
                   >
@@ -191,7 +193,8 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => openChatChannel('mail')}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 md:w-[48px]"
+                    disabled={disableQuickActions}
+                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
                     aria-label="Abrir correio pessoal"
                   >
                     <Image
@@ -204,7 +207,7 @@ export default function Header() {
                       Correio
                     </span>
 
-                    {unreadMailCount > 0 && (
+                    {showPlayerState && unreadMailCount > 0 && (
                       <span className="absolute -right-1 -top-1 min-w-[15px] rounded-full bg-[#ffe25a] px-1 text-center text-[8px] font-black text-black md:min-w-[16px] md:text-[9px]">
                         {unreadMailCount}
                       </span>
@@ -214,7 +217,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => navigate('/faccao')}
-                    disabled={!hasFaction}
+                    disabled={disableQuickActions || !hasFaction}
                     className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
                     aria-label="Abrir página da facção"
                   >
