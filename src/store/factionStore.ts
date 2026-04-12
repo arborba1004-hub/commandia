@@ -1,47 +1,41 @@
 import { create } from 'zustand';
 import { usePlayerStore } from '@/store/playerStore';
+import type {
+  Faction,
+  FactionInvestmentBranch,
+  FactionListItem,
+  FactionRole,
+  FactionSettings,
+  FactionTreasury,
+} from '@/types/faction';
+import {
+  createFaction as createFactionRequest,
+  donateToFaction,
+  fetchFactionList,
+  fetchMyFaction,
+  joinFaction as joinFactionRequest,
+  kickFactionMember,
+  leaveFaction as leaveFactionRequest,
+  transferFactionLeadership,
+  updateFactionMemberRole,
+  updateFactionSettings,
+  upgradeFactionInvestment,
+} from '@/services/factionService';
 
-const BACKEND_URL = 'https://comando-backend.onrender.com';
-
-export type FactionTreasury = {
-  dirtyMoney: number;
-  cleanMoney: number;
-  corre: number;
-};
-
-export type Faction = {
-  id: string;
+type CreateFactionPayload = {
   name: string;
   tag: string;
-  leaderId: string;
-  memberIds: string[];
-  treasury: FactionTreasury;
-  level: number;
-  exp: number;
-  expToNext: number;
-  createdAtIso: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-};
-
-export type FactionMember = {
-  id: string;
-  name: string;
-  avatar: string;
-  factionId: string | null;
-  power: number;
-  hierarchyBadge: string;
-  barracoLevel: number;
-  isLeader: boolean;
-};
-
-export type FactionListItem = Faction & {
-  memberCount: number;
+  description?: string;
+  isPrivate?: boolean;
+  minimumPower?: number;
+  minimumBarracoLevel?: number;
+  allowMemberInvites?: boolean;
+  allowJoinRequests?: boolean;
+  autoAcceptRequests?: boolean;
 };
 
 type FactionStore = {
   myFaction: Faction | null;
-  myFactionMembers: FactionMember[];
   factionList: FactionListItem[];
 
   isLoading: boolean;
@@ -51,101 +45,27 @@ type FactionStore = {
 
   loadMyFaction: () => Promise<boolean>;
   loadFactionList: () => Promise<boolean>;
+  reloadAllFactionData: () => Promise<void>;
 
-  createFaction: (name: string, tag: string) => Promise<boolean>;
+  createFaction: (payload: CreateFactionPayload) => Promise<boolean>;
   joinFaction: (factionId: string) => Promise<boolean>;
   leaveFaction: () => Promise<boolean>;
-  kickMember: (memberId: string) => Promise<boolean>;
-  transferLeadership: (memberId: string) => Promise<boolean>;
+
+  donate: (currency: keyof FactionTreasury, amount: number) => Promise<boolean>;
+  upgradeInvestment: (branch: FactionInvestmentBranch) => Promise<boolean>;
+
+  updateSettings: (payload: Partial<FactionSettings>) => Promise<boolean>;
+  updateMemberRole: (targetPlayerId: string, role: FactionRole) => Promise<boolean>;
+  kickMember: (targetPlayerId: string) => Promise<boolean>;
+  transferLeadership: (targetPlayerId: string) => Promise<boolean>;
 
   clearFaction: () => void;
-  setFaction: (faction: Faction | null, members?: FactionMember[]) => void;
+  setFaction: (faction: Faction | null) => void;
 };
-
-function getAuthToken(): string | null {
-  return localStorage.getItem('authToken');
-}
-
-async function factionRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getAuthToken();
-
-  if (!token) {
-    throw new Error('Usuário não autenticado');
-  }
-
-  const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
-
-  let data: any = null;
-
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
-
-  if (!response.ok) {
-    const error = new Error(data?.error || 'Erro ao comunicar com a facção');
-    (error as any).status = response.status;
-    throw error;
-  }
-
-  return data as T;
-}
-
-function normalizeFaction(input: any): Faction {
-  return {
-    id: String(input?.id || ''),
-    name: String(input?.name || ''),
-    tag: String(input?.tag || ''),
-    leaderId: String(input?.leaderId || ''),
-    memberIds: Array.isArray(input?.memberIds) ? input.memberIds.map(String) : [],
-    treasury: {
-      dirtyMoney: Number(input?.treasury?.dirtyMoney || 0),
-      cleanMoney: Number(input?.treasury?.cleanMoney || 0),
-      corre: Number(input?.treasury?.corre || 0),
-    },
-    level: Math.max(1, Number(input?.level || 1)),
-    exp: Math.max(0, Number(input?.exp || 0)),
-    expToNext: Math.max(1, Number(input?.expToNext || 100)),
-    createdAtIso: input?.createdAtIso || null,
-    createdAt: input?.createdAt || null,
-    updatedAt: input?.updatedAt || null,
-  };
-}
-
-function normalizeFactionMember(input: any): FactionMember {
-  return {
-    id: String(input?.id || ''),
-    name: String(input?.name || 'Jogador'),
-    avatar: String(input?.avatar || ''),
-    factionId: input?.factionId ? String(input.factionId) : null,
-    power: Number(input?.power || 0),
-    hierarchyBadge: String(input?.hierarchyBadge || ''),
-    barracoLevel: Math.max(1, Number(input?.barracoLevel || 1)),
-    isLeader: Boolean(input?.isLeader),
-  };
-}
-
-function normalizeFactionListItem(input: any): FactionListItem {
-  return {
-    ...normalizeFaction(input),
-    memberCount: Math.max(
-      0,
-      Number(input?.memberCount ?? (Array.isArray(input?.memberIds) ? input.memberIds.length : 0))
-    ),
-  };
-}
 
 function syncPlayerFactionId(factionId: string | null) {
   const playerStore = usePlayerStore.getState();
-  const currentPlayer = playerStore.player;
+  const currentPlayer = playerStore.player || {};
 
   playerStore.setPlayer({
     ...currentPlayer,
@@ -153,9 +73,31 @@ function syncPlayerFactionId(factionId: string | null) {
   } as any);
 }
 
+function syncPlayerBalancesFromFactionDonationBeforeAfter(before: Faction | null, after: Faction | null) {
+  if (!before || !after) return;
+
+  const playerStore = usePlayerStore.getState();
+  const currentPlayer = playerStore.player;
+
+  if (!currentPlayer?.balances) return;
+
+  const dirtyDiff = Math.max(0, (after.treasury.dirtyMoney || 0) - (before.treasury.dirtyMoney || 0));
+  const cleanDiff = Math.max(0, (after.treasury.cleanMoney || 0) - (before.treasury.cleanMoney || 0));
+  const correDiff = Math.max(0, (after.treasury.corre || 0) - (before.treasury.corre || 0));
+
+  if (dirtyDiff === 0 && cleanDiff === 0 && correDiff === 0) return;
+
+  playerStore.setPlayer({
+    balances: {
+      dirtyMoney: Math.max(0, Number(currentPlayer.balances.dirtyMoney || 0) - dirtyDiff),
+      cleanMoney: Math.max(0, Number(currentPlayer.balances.cleanMoney || 0) - cleanDiff),
+      corre: Math.max(0, Number(currentPlayer.balances.corre || 0) - correDiff),
+    },
+  } as any);
+}
+
 export const useFactionStore = create<FactionStore>((set, get) => ({
   myFaction: null,
-  myFactionMembers: [],
   factionList: [],
 
   isLoading: false,
@@ -165,70 +107,36 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
 
   loadMyFaction: async () => {
     try {
-      set({
-        isLoading: true,
-        error: null,
-      });
+      set({ isLoading: true, error: null });
 
-      const response = await factionRequest<{ faction: any; members?: any[] }>('/faction/my', {
-        method: 'GET',
-      });
-
-      const faction = normalizeFaction(response.faction);
-      const members = Array.isArray(response.members)
-        ? response.members.map(normalizeFactionMember)
-        : [];
+      const faction = await fetchMyFaction();
 
       set({
         myFaction: faction,
-        myFactionMembers: members,
         isLoading: false,
         error: null,
         lastLoadedAt: Date.now(),
       });
 
-      syncPlayerFactionId(faction.id);
-      return true;
-    } catch (error: any) {
-      const status = error?.status;
-
-      if (status === 404) {
-        set({
-          myFaction: null,
-          myFactionMembers: [],
-          isLoading: false,
-          error: null,
-          lastLoadedAt: Date.now(),
-        });
-
-        syncPlayerFactionId(null);
-        return false;
-      }
-
+      syncPlayerFactionId(faction?.id || null);
+      return Boolean(faction);
+    } catch (error) {
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Erro ao carregar facção',
       });
-
       return false;
     }
   },
 
   loadFactionList: async () => {
     try {
-      set({
-        isLoading: true,
-        error: null,
-      });
+      set({ isLoading: true, error: null });
 
-      const response = await factionRequest<{ factions: any[] }>('/faction/list', {
-        method: 'GET',
-      });
+      const factions = await fetchFactionList();
 
       set({
-        factionList: Array.isArray(response.factions)
-          ? response.factions.map(normalizeFactionListItem)
-          : [],
+        factionList: factions,
         isLoading: false,
         error: null,
         lastLoadedAt: Date.now(),
@@ -244,41 +152,34 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
     }
   },
 
-  createFaction: async (name: string, tag: string) => {
-    const safeName = String(name || '').trim();
-    const safeTag = String(tag || '').trim().toUpperCase();
+  reloadAllFactionData: async () => {
+    await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
+  },
 
-    if (!safeName || !safeTag) {
-      set({ error: 'Nome e tag são obrigatórios' });
-      return false;
-    }
-
+  createFaction: async (payload) => {
     try {
-      set({
-        isSubmitting: true,
-        error: null,
-      });
+      set({ isSubmitting: true, error: null });
 
-      const response = await factionRequest<{ faction: any }>('/faction/create', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: safeName,
-          tag: safeTag,
-        }),
+      const faction = await createFactionRequest({
+        name: String(payload?.name || '').trim(),
+        tag: String(payload?.tag || '').trim().toUpperCase(),
+        description: String(payload?.description || '').trim(),
+        isPrivate: Boolean(payload?.isPrivate),
+        minimumPower: Number(payload?.minimumPower || 0),
+        minimumBarracoLevel: Math.max(1, Number(payload?.minimumBarracoLevel || 1)),
+        allowMemberInvites: Boolean(payload?.allowMemberInvites),
+        allowJoinRequests: Boolean(payload?.allowJoinRequests ?? true),
+        autoAcceptRequests: Boolean(payload?.autoAcceptRequests),
       });
-
-      const faction = normalizeFaction(response.faction);
 
       set({
         myFaction: faction,
-        myFactionMembers: [],
         isSubmitting: false,
         error: null,
         lastLoadedAt: Date.now(),
       });
 
       syncPlayerFactionId(faction.id);
-      await get().loadMyFaction();
       await get().loadFactionList();
       return true;
     } catch (error) {
@@ -290,28 +191,11 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
     }
   },
 
-  joinFaction: async (factionId: string) => {
-    const safeFactionId = String(factionId || '').trim();
-
-    if (!safeFactionId) {
-      set({ error: 'factionId é obrigatório' });
-      return false;
-    }
-
+  joinFaction: async (factionId) => {
     try {
-      set({
-        isSubmitting: true,
-        error: null,
-      });
+      set({ isSubmitting: true, error: null });
 
-      const response = await factionRequest<{ faction: any }>('/faction/join', {
-        method: 'POST',
-        body: JSON.stringify({
-          factionId: safeFactionId,
-        }),
-      });
-
-      const faction = normalizeFaction(response.faction);
+      const faction = await joinFactionRequest(String(factionId || '').trim());
 
       set({
         myFaction: faction,
@@ -321,7 +205,6 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
       });
 
       syncPlayerFactionId(faction.id);
-      await get().loadMyFaction();
       await get().loadFactionList();
       return true;
     } catch (error) {
@@ -335,27 +218,22 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
 
   leaveFaction: async () => {
     try {
-      set({
-        isSubmitting: true,
-        error: null,
-      });
+      set({ isSubmitting: true, error: null });
 
-      await factionRequest<{ success: boolean; factionDeleted?: boolean; faction?: any }>(
-        '/faction/leave',
-        {
-          method: 'POST',
-        }
-      );
+      const response = await leaveFactionRequest();
 
       set({
-        myFaction: null,
-        myFactionMembers: [],
+        myFaction: response.faction,
         isSubmitting: false,
         error: null,
         lastLoadedAt: Date.now(),
       });
 
-      syncPlayerFactionId(null);
+      syncPlayerFactionId(response.faction?.id || null);
+      if (!response.faction) {
+        syncPlayerFactionId(null);
+      }
+
       await get().loadFactionList();
       return true;
     } catch (error) {
@@ -367,38 +245,120 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
     }
   },
 
-  kickMember: async (memberId: string) => {
-    const safeMemberId = String(memberId || '').trim();
-
-    if (!safeMemberId) {
-      set({ error: 'memberId é obrigatório' });
-      return false;
-    }
-
+  donate: async (currency, amount) => {
     try {
+      const currentFaction = get().myFaction;
+      set({ isSubmitting: true, error: null });
+
+      const faction = await donateToFaction({
+        currency,
+        amount: Number(amount || 0),
+      });
+
+      syncPlayerBalancesFromFactionDonationBeforeAfter(currentFaction, faction);
+
       set({
-        isSubmitting: true,
-        error: null,
-      });
-
-      const response = await factionRequest<{ success: boolean; faction: any }>('/faction/kick', {
-        method: 'POST',
-        body: JSON.stringify({
-          memberId: safeMemberId,
-        }),
-      });
-
-      const faction = normalizeFaction(response.faction);
-
-      set((state) => ({
         myFaction: faction,
-        myFactionMembers: state.myFactionMembers.filter((member) => member.id !== safeMemberId),
         isSubmitting: false,
         error: null,
         lastLoadedAt: Date.now(),
-      }));
+      });
 
-      await get().loadMyFaction();
+      await get().loadFactionList();
+      return true;
+    } catch (error) {
+      set({
+        isSubmitting: false,
+        error: error instanceof Error ? error.message : 'Erro ao doar para a facção',
+      });
+      return false;
+    }
+  },
+
+  upgradeInvestment: async (branch) => {
+    try {
+      set({ isSubmitting: true, error: null });
+
+      const faction = await upgradeFactionInvestment({ branch });
+
+      set({
+        myFaction: faction,
+        isSubmitting: false,
+        error: null,
+        lastLoadedAt: Date.now(),
+      });
+
+      await get().loadFactionList();
+      return true;
+    } catch (error) {
+      set({
+        isSubmitting: false,
+        error: error instanceof Error ? error.message : 'Erro ao investir na facção',
+      });
+      return false;
+    }
+  },
+
+  updateSettings: async (payload) => {
+    try {
+      set({ isSubmitting: true, error: null });
+
+      const faction = await updateFactionSettings(payload);
+
+      set({
+        myFaction: faction,
+        isSubmitting: false,
+        error: null,
+        lastLoadedAt: Date.now(),
+      });
+
+      await get().loadFactionList();
+      return true;
+    } catch (error) {
+      set({
+        isSubmitting: false,
+        error: error instanceof Error ? error.message : 'Erro ao atualizar configurações da facção',
+      });
+      return false;
+    }
+  },
+
+  updateMemberRole: async (targetPlayerId, role) => {
+    try {
+      set({ isSubmitting: true, error: null });
+
+      const faction = await updateFactionMemberRole({ targetPlayerId, role });
+
+      set({
+        myFaction: faction,
+        isSubmitting: false,
+        error: null,
+        lastLoadedAt: Date.now(),
+      });
+
+      return true;
+    } catch (error) {
+      set({
+        isSubmitting: false,
+        error: error instanceof Error ? error.message : 'Erro ao alterar cargo do membro',
+      });
+      return false;
+    }
+  },
+
+  kickMember: async (targetPlayerId) => {
+    try {
+      set({ isSubmitting: true, error: null });
+
+      const faction = await kickFactionMember(targetPlayerId);
+
+      set({
+        myFaction: faction,
+        isSubmitting: false,
+        error: null,
+        lastLoadedAt: Date.now(),
+      });
+
       await get().loadFactionList();
       return true;
     } catch (error) {
@@ -410,45 +370,19 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
     }
   },
 
-  transferLeadership: async (memberId: string) => {
-    const safeMemberId = String(memberId || '').trim();
-
-    if (!safeMemberId) {
-      set({ error: 'memberId é obrigatório' });
-      return false;
-    }
-
+  transferLeadership: async (targetPlayerId) => {
     try {
+      set({ isSubmitting: true, error: null });
+
+      const faction = await transferFactionLeadership(targetPlayerId);
+
       set({
-        isSubmitting: true,
-        error: null,
-      });
-
-      const response = await factionRequest<{ success: boolean; faction: any }>(
-        '/faction/transfer-leadership',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            memberId: safeMemberId,
-          }),
-        }
-      );
-
-      const faction = normalizeFaction(response.faction);
-
-      set((state) => ({
         myFaction: faction,
-        myFactionMembers: state.myFactionMembers.map((member) => ({
-          ...member,
-          isLeader: member.id === safeMemberId,
-        })),
         isSubmitting: false,
         error: null,
         lastLoadedAt: Date.now(),
-      }));
+      });
 
-      await get().loadMyFaction();
-      await get().loadFactionList();
       return true;
     } catch (error) {
       set({
@@ -462,20 +396,19 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
   clearFaction: () => {
     set({
       myFaction: null,
-      myFactionMembers: [],
       factionList: [],
       error: null,
       isLoading: false,
       isSubmitting: false,
+      lastLoadedAt: null,
     });
 
     syncPlayerFactionId(null);
   },
 
-  setFaction: (faction, members = []) => {
+  setFaction: (faction) => {
     set({
       myFaction: faction,
-      myFactionMembers: members,
       error: null,
       lastLoadedAt: Date.now(),
     });
