@@ -655,12 +655,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       player: merged,
       syncError: null,
       lastSyncAt: Date.now(),
+      lastServerHydrationAt: Date.now(),
       pollingAttempts: 0,
+      pendingLocalChanges: false,
     });
 
     void syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null);
-
-    // Não dispara scheduleSync para evitar loop de sincronização
   },
 
   applyPlayerUpdate: (updater) => {
@@ -675,6 +675,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       syncError: null,
       localVersion: newVersion,
       lastSyncAt: Date.now(),
+      lastLocalMutationAt: Date.now(),
+      pendingLocalChanges: true,
     });
 
     get().scheduleSync();
