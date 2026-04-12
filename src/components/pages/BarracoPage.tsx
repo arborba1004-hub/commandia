@@ -22,9 +22,13 @@ export default function BarracoPage() {
 
   if (!isLoaded || !player?._id) {
     return (
-      <div className="min-h-screen w-full bg-black text-white flex items-center justify-center">
-        Carregando...
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen w-full bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando...
+        </div>
+        <Footer />
+      </>
     );
   }
 
@@ -36,13 +40,19 @@ export default function BarracoPage() {
   const canUpgrade = requirements.allowed;
 
   const handleUpgrade = () => {
-    if (!canUpgrade || !player) return;
+    if (isUpgrading) return;
 
     setIsUpgrading(true);
     setUpgradeError('');
 
     try {
-      upgradeBarracoLocal();
+      const result = upgradeBarracoLocal();
+
+      if (!result?.ok) {
+        setUpgradeError(result?.reason || 'Não foi possível evoluir o barraco.');
+        return;
+      }
+
       setShowSuccessModal(true);
     } catch (error) {
       setUpgradeError(error instanceof Error ? error.message : 'Erro ao evoluir barraco');
@@ -70,7 +80,7 @@ export default function BarracoPage() {
           </h1>
 
           <p className="text-center text-sm opacity-70 mb-4">
-            {getBarracoName(level + 1)}
+            {getBarracoName(level)}
           </p>
 
           <div className="text-center mb-6">
@@ -103,6 +113,12 @@ export default function BarracoPage() {
           {upgradeError && (
             <p className="mt-3 text-center text-sm text-red-400">
               {upgradeError}
+            </p>
+          )}
+
+          {!canUpgrade && requirements.reason && !upgradeError && (
+            <p className="mt-3 text-center text-sm text-yellow-400">
+              {requirements.reason}
             </p>
           )}
         </motion.div>
