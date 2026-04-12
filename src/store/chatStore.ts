@@ -2,6 +2,11 @@ import { create } from 'zustand';
 
 export type ChatChannelType = 'complexo' | 'faccao' | 'mail';
 
+export type ChatMessageType =
+  | 'text'
+  | 'faction_help_request'
+  | 'faction_help_update';
+
 export type ChatMessage = {
   id: string;
   channel: ChatChannelType;
@@ -15,6 +20,25 @@ export type ChatMessage = {
   createdAt: string;
   read: boolean;
   system?: boolean;
+  messageType?: ChatMessageType;
+  metadata?: Record<string, any>;
+};
+
+export type FactionHelpRequest = {
+  id: string;
+  factionId: string;
+  requesterId: string;
+  requesterName: string;
+  message: string;
+  helpCount: number;
+  maxHelps: number;
+  helperIds: string[];
+  rewardPerHelp: number;
+  totalRewardGranted: number;
+  status: 'active' | 'completed' | 'expired';
+  requestDate: string;
+  createdAtIso: string;
+  completedAtIso?: string;
 };
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
@@ -23,7 +47,20 @@ const POLLING_INTERVAL = 3000;
 let chatPollingInterval: ReturnType<typeof setInterval> | null = null;
 
 function getAuthToken(): string | null {
-  return localStorage.getItem('authToken');
+  const candidates = [
+    localStorage.getItem('authToken'),
+    localStorage.getItem('token'),
+    localStorage.getItem('jwt'),
+    localStorage.getItem('wix_auth_token'),
+  ];
+
+  for (const token of candidates) {
+    if (token && token.trim()) {
+      return token.trim();
+    }
+  }
+
+  return null;
 }
 
 async function chatRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -69,7 +106,32 @@ function areMessagesEqual(a: ChatMessage[], b: ChatMessage[]) {
       ma.read !== mb.read ||
       ma.body !== mb.body ||
       ma.subject !== mb.subject ||
-      ma.createdAt !== mb.createdAt
+      ma.createdAt !== mb.createdAt ||
+      ma.messageType !== mb.messageType ||
+      JSON.stringify(ma.metadata || {}) !== JSON.stringify(mb.metadata || {})
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function areHelpRequestsEqual(a: FactionHelpRequest[], b: FactionHelpRequest[]) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const ra = a[i];
+    const rb = b[i];
+
+    if (
+      ra.id !== rb.id ||
+      ra.helpCount !== rb.helpCount ||
+      ra.status !== rb.status ||
+      ra.totalRewardGranted !== rb.totalRewardGranted ||
+      ra.completedAtIso !== rb.completedAtIso ||
+      JSON.stringify(ra.helperIds || []) !== JSON.stringify(rb.helperIds || [])
     ) {
       return false;
     }
@@ -83,15 +145,19 @@ type ChatStore = {
   faccaoMessages: ChatMessage[];
   mailMessages: ChatMessage[];
 
+  factionHelpRequests: FactionHelpRequest[];
+
   activeChannel: ChatChannelType;
 
   isLoading: boolean;
   isSending: boolean;
+  isHelpingRequest: boolean;
   syncError: string | null;
 
   setActiveChannel: (channel: ChatChannelType) => void;
 
   fetchMessages: (channel?: ChatChannelType, silent?: boolean) => Promise<void>;
+  fetchFactionHelpRequests: (silent?: boolean) => Promise<void>;
   loadChat: () => Promise<void>;
 
   startChatPolling: () => void;
@@ -117,17 +183,22 @@ type ChatStore = {
   }) => Promise<boolean>;
 
   markMailAsRead: (messageId: string) => Promise<boolean>;
+
+  createFactionHelpRequest: (payload?: { message?: string }) => Promise<boolean>;
+  helpFactionRequest: (requestId: string) => Promise<boolean>;
 };
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   complexoMessages: [],
   faccaoMessages: [],
   mailMessages: [],
+  factionHelpRequests: [],
 
   activeChannel: 'complexo',
 
   isLoading: false,
   isSending: false,
+  isHelpingRequest: false,
   syncError: null,
 
   setActiveChannel: (channel) => set({ activeChannel: channel }),
@@ -189,14 +260,43 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
+  fetchFactionHelpRequests: async (silent = false) => {
+    try {
+      const response = await chatRequest<{ requests: FactionHelpRequest[] }>(
+        '/faction-help/list',
+        { method: 'GET' }
+      );
+
+      const requests = Array.isArray(response?.requests) ? response.requests : [];
+
+      set((state) => {
+        if (areHelpRequestsEqual(state.factionHelpRequests, requests)) {
+          return {};
+        }
+
+        return {
+          factionHelpRequests: requests,
+          ...(silent ? {} : { syncError: null }),
+        };
+      });
+    } catch (error) {
+      if (!silent) {
+        set({
+          syncError:
+            error instanceof Error ? error.message : 'Erro ao buscar pedidos de corre',
+        });
+      }
+    }
+  },
+
   loadChat: async () => {
     try {
       set({ isLoading: true, syncError: null });
-
-      await Promise.all([
+await Promise.all([
         get().fetchMessages('complexo', true),
         get().fetchMessages('faccao', true),
         get().fetchMessages('mail', true),
+        get().fetchFactionHelpRequests(true),
       ]);
 
       set({ isLoading: false });
@@ -217,6 +317,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       get().fetchMessages('complexo', true);
       get().fetchMessages('faccao', true);
       get().fetchMessages('mail', true);
+      get().fetchFactionHelpRequests(true);
     }, POLLING_INTERVAL);
   },
 
@@ -347,6 +448,68 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set({
         syncError:
           error instanceof Error ? error.message : 'Erro ao marcar correio como lido',
+      });
+      return false;
+    }
+  },
+
+  createFactionHelpRequest: async (payload = {}) => {
+    try {
+      set({ isHelpingRequest: true, syncError: null });
+
+      await chatRequest<{ success: boolean; request: FactionHelpRequest }>(
+        '/faction-help/request',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            message: String(payload.message || '').trim(),
+          }),
+        }
+      );
+
+      await Promise.all([
+        get().fetchMessages('faccao', true),
+        get().fetchFactionHelpRequests(true),
+      ]);
+
+      set({ isHelpingRequest: false });
+      return true;
+    } catch (error) {
+      set({
+        isHelpingRequest: false,
+        syncError:
+          error instanceof Error ? error.message : 'Erro ao criar pedido de corre',
+      });
+      return false;
+    }
+  },
+
+  helpFactionRequest: async (requestId) => {
+    const id = String(requestId || '').trim();
+    if (!id) return false;
+
+    try {
+      set({ isHelpingRequest: true, syncError: null });
+
+      await chatRequest<{ success: boolean; request: FactionHelpRequest }>(
+        `/faction-help/help/${encodeURIComponent(id)}`,
+        {
+          method: 'POST',
+        }
+      );
+
+      await Promise.all([
+        get().fetchMessages('faccao', true),
+        get().fetchFactionHelpRequests(true),
+      ]);
+
+      set({ isHelpingRequest: false });
+      return true;
+    } catch (error) {
+      set({
+        isHelpingRequest: false,
+        syncError:
+          error instanceof Error ? error.message : 'Erro ao ajudar pedido de corre',
       });
       return false;
     }
