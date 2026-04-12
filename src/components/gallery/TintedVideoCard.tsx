@@ -17,6 +17,7 @@ export default function TintedVideoCard({
         loop
         autoPlay
         muted
+        playsInline
         className="absolute inset-0 h-full w-full object-cover rounded-lg"
         style={{
           filter: `
