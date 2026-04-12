@@ -910,15 +910,12 @@ const rect = containerRef.current.getBoundingClientRect();
   }, [
     isLoaded,
     navigate,
-    otherPlayers,
     playerState?._id,
     playerState?.mapPosition?.tileX,
     playerState?.mapPosition?.tileY,
     playerState?.niveis?.barracoLevel,
     (playerState as any)?.headerCustomization?.customName,
     playerState?.name,
-    level,
-    displayName,
   ]);
 
   useEffect(() => {
