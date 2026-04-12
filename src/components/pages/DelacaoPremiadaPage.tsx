@@ -432,4 +432,11 @@ export default function DelacaoPremiadaPage() {
                 </button>
               </motion.div>
             )}
-          </Animate
+          </AnimatePresence>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
