@@ -291,7 +291,11 @@ export default function Header() {
                 </div>
 
                 <div className="col-span-2 flex items-end justify-end sm:col-span-1">
-                  {isPlayerReady ? (
+                  {!isLoadedReady ? (
+                    <div className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white/60 md:text-[10px]">
+                      Carregando...
+                    </div>
+                  ) : showPlayerState ? (
                     <button
                       onClick={handleLogout}
                       className="rounded-lg border border-[#6f3d08] bg-black/35 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white hover:bg-white/10 md:text-[10px]"
