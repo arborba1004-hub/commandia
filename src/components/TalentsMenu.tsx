@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BaseCrudService } from '@/integrations';
 import { TalentosDoCrime } from '@/entities';
 import { useTalentStore } from '@/store/talentStore';
 import { usePlayerStore } from '@/store/playerStore';
-import { getEffectValue, TALENT_IDS } from '@/utils/talentEffects';
+import { getEffectValue } from '@/utils/talentEffects';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,28 +24,31 @@ const LEVEL_COSTS = {
   5: 200000,
 };
 
-const AUTO_UNLOCK_LEVELS = [70, 75, 90, 95, 100];
-
 export default function TalentsMenu() {
   const [talents, setTalents] = useState<TalentWithProgress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('available');
   const [notification, setNotification] = useState<string | null>(null);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
-  const [selectedTalentForUpgrade, setSelectedTalentForUpgrade] = useState<TalentWithProgress | null>(null);
+  const [selectedTalentForUpgrade, setSelectedTalentForUpgrade] =
+    useState<TalentWithProgress | null>(null);
+
   const talentStore = useTalentStore();
   const player = usePlayerStore((state) => state.player);
+  const applyPlayerUpdate = usePlayerStore((state) => state.applyPlayerUpdate);
+  const syncPlayerToBackend = usePlayerStore((state) => state.syncPlayerToBackend);
 
-  const dirtyMoney = player.balances.dirtyMoney || 0;
-  const playerLevel = player.niveis.playerLevel || 1;
+  const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
+  const playerLevel = Number(player?.niveis?.playerLevel || 1);
 
   useEffect(() => {
-    loadTalents();
+    void loadTalents();
   }, [playerLevel]);
 
   const loadTalents = async () => {
     try {
       setIsLoading(true);
+
       const result = await BaseCrudService.getAll<TalentosDoCrime>('talentosdocrime', [], {
         limit: 100,
       });
@@ -56,7 +59,9 @@ export default function TalentsMenu() {
         isUnlocked: talentStore.isTalentUnlocked(talent._id!),
       }));
 
-      setTalents(talentsWithProgress.sort((a, b) => (a.unlockLevel || 0) - (b.unlockLevel || 0)));
+      setTalents(
+        talentsWithProgress.sort((a, b) => (a.unlockLevel || 0) - (b.unlockLevel || 0))
+      );
     } catch (error) {
       console.error('Erro ao carregar talentos:', error);
     } finally {
@@ -68,7 +73,11 @@ export default function TalentsMenu() {
     if (talent.isAutoUnlock && playerLevel >= (talent.unlockLevel || 0)) {
       return true;
     }
-    return playerLevel >= (talent.unlockLevel || 0) && !talentStore.isTalentUnlocked(talent._id!);
+
+    return (
+      playerLevel >= (talent.unlockLevel || 0) &&
+      !talentStore.isTalentUnlocked(talent._id!)
+    );
   };
 
   const canUpgradeTalent = (talent: TalentWithProgress): boolean => {
@@ -79,34 +88,41 @@ export default function TalentsMenu() {
   };
 
   const handleUnlockTalent = async (talent: TalentosDoCrime) => {
-    const cost = talent.isAutoUnlock ? 1 : (talent.unlockCostDirtyMoney || 10000);
+    const cost = talent.isAutoUnlock ? 1 : talent.unlockCostDirtyMoney || 10000;
 
     if (dirtyMoney < cost) {
       showNotification('❌ Dinheiro sujo insuficiente!');
       return;
     }
 
-    talentStore.unlockTalent(talent._id!, talent.skillName || '');
-    
-    // Atualiza o player store
-    const setPlayer = usePlayerStore.getState().setPlayer;
-    setPlayer({
-      ...player,
-      balances: {
-        ...player.balances,
-        dirtyMoney: dirtyMoney - cost,
-      },
-    });
+    try {
+      talentStore.unlockTalent(talent._id!, talent.skillName || '');
 
-    // Notificação em gíria
-    const slang = [
-      `Desbloqueou a braba: ${talent.skillName}, menor!`,
-      `Ó o talento aí! ${talent.skillName} tá na conta!`,
-      `Bora lá! Conseguiu ${talent.skillName}!`,
-    ];
-    showNotification(slang[Math.floor(Math.random() * slang.length)]);
+      applyPlayerUpdate((currentPlayer) => ({
+        ...currentPlayer,
+        balances: {
+          ...currentPlayer.balances,
+          dirtyMoney: Math.max(
+            0,
+            Number(currentPlayer.balances?.dirtyMoney || 0) - cost
+          ),
+        },
+      }));
 
-    loadTalents();
+      await syncPlayerToBackend();
+
+      const slang = [
+        `Desbloqueou a braba: ${talent.skillName}, menor!`,
+        `Ó o talento aí! ${talent.skillName} tá na conta!`,
+        `Bora lá! Conseguiu ${talent.skillName}!`,
+      ];
+
+      showNotification(slang[Math.floor(Math.random() * slang.length)]);
+      await loadTalents();
+    } catch (error) {
+      console.error('Erro ao desbloquear talento:', error);
+      showNotification('❌ Erro ao desbloquear talento.');
+    }
   };
 
   const handleUpgradeTalent = async (talent: TalentWithProgress) => {
@@ -118,26 +134,33 @@ export default function TalentsMenu() {
       return;
     }
 
-    talentStore.upgradeTalent(talent._id!);
-    
-    // Atualiza o player store
-    const setPlayer = usePlayerStore.getState().setPlayer;
-    setPlayer({
-      ...player,
-      balances: {
-        ...player.balances,
-        dirtyMoney: dirtyMoney - cost,
-      },
-    });
-    
-    showNotification(`⬆️ ${talent.skillName} evoluiu para nível ${nextLevel}!`);
+    try {
+      talentStore.upgradeTalent(talent._id!);
 
-    loadTalents();
+      applyPlayerUpdate((currentPlayer) => ({
+        ...currentPlayer,
+        balances: {
+          ...currentPlayer.balances,
+          dirtyMoney: Math.max(
+            0,
+            Number(currentPlayer.balances?.dirtyMoney || 0) - cost
+          ),
+        },
+      }));
+
+      await syncPlayerToBackend();
+
+      showNotification(`⬆️ ${talent.skillName} evoluiu para nível ${nextLevel}!`);
+      await loadTalents();
+    } catch (error) {
+      console.error('Erro ao evoluir talento:', error);
+      showNotification('❌ Erro ao evoluir talento.');
+    }
   };
 
   const showNotification = (message: string) => {
     setNotification(message);
-    setTimeout(() => setNotification(null), 3000);
+    window.setTimeout(() => setNotification(null), 3000);
   };
 
   const availableTalents = talents.filter((t) => !t.isUnlocked && canUnlockTalent(t));
@@ -153,16 +176,16 @@ export default function TalentsMenu() {
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6 bg-black text-white">
-      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold font-heading text-primary mb-2">TALENTOS DO CRIME</h1>
+        <h1 className="text-4xl font-bold font-heading text-primary mb-2">
+          TALENTOS DO CRIME
+        </h1>
         <p className="text-gray-400 font-paragraph">
-          Desbloqueie habilidades criminosas e evolua seu império. Cada talento oferece bônus únicos
-          nas suas operações.
+          Desbloqueie habilidades criminosas e evolua seu império. Cada talento oferece
+          bônus únicos nas suas operações.
         </p>
       </div>
 
-      {/* Player Stats */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <Card className="bg-gray-900 border-primary p-4">
           <div className="text-sm text-gray-400">Nível</div>
@@ -170,30 +193,29 @@ export default function TalentsMenu() {
         </Card>
         <Card className="bg-gray-900 border-primary p-4">
           <div className="text-sm text-gray-400">Dinheiro Sujo</div>
-          <div className="text-2xl font-bold text-primary">${dirtyMoney.toLocaleString()}</div>
+          <div className="text-2xl font-bold text-primary">
+            ${dirtyMoney.toLocaleString()}
+          </div>
         </Card>
       </div>
 
-      {/* Notification */}
       {notification && (
         <div className="mb-4 p-4 bg-primary text-black rounded-lg font-bold text-center animate-pulse">
           {notification}
         </div>
       )}
 
-      {/* Tutorial */}
       <Card className="bg-gray-900 border-gray-700 p-4 mb-6">
         <h3 className="font-bold text-lg mb-2">📚 COMO FUNCIONA</h3>
         <ul className="text-sm text-gray-300 space-y-1">
           <li>• Desbloqueie talentos ao atingir o nível necessário</li>
-          <li>• Evolua cada talento de 1 a 5 (exceto o último) com dinheiro sujo</li>
-          <li>• Alguns talentos são desbloqueados automaticamente (nível 70, 75, 90, 95, 100)</li>
-          <li>• Talentos de facção só funcionam se você for líder</li>
-          <li>• Efeitos são aplicados automaticamente em todas as operações</li>
+          <li>• Evolua cada talento de 1 a 5 com dinheiro sujo</li>
+          <li>• Alguns talentos são desbloqueados automaticamente</li>
+          <li>• Talentos especiais dependem das regras do próprio sistema</li>
+          <li>• Efeitos são aplicados automaticamente nas operações</li>
         </ul>
       </Card>
 
-      {/* Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-gray-900">
           <TabsTrigger value="available" className="data-[state=active]:bg-primary">
@@ -204,7 +226,6 @@ export default function TalentsMenu() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Available Talents */}
         <TabsContent value="available" className="space-y-4">
           {availableTalents.length === 0 ? (
             <Card className="bg-gray-900 border-gray-700 p-8 text-center">
@@ -215,7 +236,7 @@ export default function TalentsMenu() {
               <TalentCard
                 key={talent._id}
                 talent={talent}
-                onUnlock={() => handleUnlockTalent(talent)}
+                onUnlock={() => void handleUnlockTalent(talent)}
                 cost={talent.unlockCostDirtyMoney || 10000}
                 canAfford={dirtyMoney >= (talent.unlockCostDirtyMoney || 10000)}
               />
@@ -223,7 +244,6 @@ export default function TalentsMenu() {
           )}
         </TabsContent>
 
-        {/* Unlocked Talents */}
         <TabsContent value="unlocked" className="space-y-4">
           {unlockedTalents.length === 0 ? (
             <Card className="bg-gray-900 border-gray-700 p-8 text-center">
@@ -256,7 +276,6 @@ export default function TalentsMenu() {
         </TabsContent>
       </Tabs>
 
-      {/* Upgrade Modal */}
       {selectedTalentForUpgrade && (
         <TalentUpgradeModal
           talent={selectedTalentForUpgrade}
@@ -265,19 +284,26 @@ export default function TalentsMenu() {
             setUpgradeModalOpen(false);
             setSelectedTalentForUpgrade(null);
           }}
-          onConfirm={() => handleUpgradeTalent(selectedTalentForUpgrade)}
+          onConfirm={() => void handleUpgradeTalent(selectedTalentForUpgrade)}
           nextLevelCost={
             selectedTalentForUpgrade.currentLevel < (selectedTalentForUpgrade.maxSkillLevel || 5)
-              ? LEVEL_COSTS[(selectedTalentForUpgrade.currentLevel + 1) as keyof typeof LEVEL_COSTS]
+              ? LEVEL_COSTS[
+                  (selectedTalentForUpgrade.currentLevel + 1) as keyof typeof LEVEL_COSTS
+                ]
               : 0
           }
           canAfford={
             selectedTalentForUpgrade.currentLevel < (selectedTalentForUpgrade.maxSkillLevel || 5)
               ? dirtyMoney >=
-                LEVEL_COSTS[(selectedTalentForUpgrade.currentLevel + 1) as keyof typeof LEVEL_COSTS]
+                LEVEL_COSTS[
+                  (selectedTalentForUpgrade.currentLevel + 1) as keyof typeof LEVEL_COSTS
+                ]
               : false
           }
-          isMaxed={selectedTalentForUpgrade.currentLevel >= (selectedTalentForUpgrade.maxSkillLevel || 5)}
+          isMaxed={
+            selectedTalentForUpgrade.currentLevel >=
+            (selectedTalentForUpgrade.maxSkillLevel || 5)
+          }
         />
       )}
     </div>
@@ -326,8 +352,8 @@ function TalentCard({ talent, onUnlock, cost, canAfford }: TalentCardProps) {
             isAutoUnlock
               ? 'bg-green-600 hover:bg-green-700'
               : canAfford
-                ? 'bg-primary hover:bg-pink-600'
-                : 'bg-gray-700 cursor-not-allowed'
+              ? 'bg-primary hover:bg-pink-600'
+              : 'bg-gray-700 cursor-not-allowed'
           }`}
         >
           {isAutoUnlock ? (
@@ -337,8 +363,7 @@ function TalentCard({ talent, onUnlock, cost, canAfford }: TalentCardProps) {
             </>
           ) : (
             <>
-              <Star className="w-4 h-4 mr-2" />
-              ${cost.toLocaleString()}
+              <Star className="w-4 h-4 mr-2" />${cost.toLocaleString()}
             </>
           )}
         </Button>
@@ -380,7 +405,11 @@ function UnlockedTalentCard({
           <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
             <div>
               <span className="text-gray-400">Efeito atual:</span>{' '}
-              {getEffectValue(talent.minEffectValue || 0, talent.maxEffectValue || 0, talent.currentLevel)}
+              {getEffectValue(
+                talent.minEffectValue || 0,
+                talent.maxEffectValue || 0,
+                talent.currentLevel
+              )}
               {talent.effectUnit}
             </div>
             {talent.cooldownDescription && (
@@ -390,7 +419,6 @@ function UnlockedTalentCard({
             )}
           </div>
 
-          {/* Progress Bar */}
           <div className="mt-3 w-full bg-gray-800 rounded-full h-2">
             <div
               className="bg-primary h-2 rounded-full transition-all"
@@ -405,8 +433,8 @@ function UnlockedTalentCard({
             isMaxed
               ? 'bg-gray-700 cursor-not-allowed'
               : canAfford
-                ? 'bg-primary hover:bg-pink-600'
-                : 'bg-gray-700 cursor-not-allowed'
+              ? 'bg-primary hover:bg-pink-600'
+              : 'bg-gray-700 cursor-not-allowed'
           }`}
         >
           {isMaxed ? (
@@ -416,8 +444,7 @@ function UnlockedTalentCard({
             </>
           ) : (
             <>
-              <TrendingUp className="w-4 h-4 mr-2" />
-              ${nextLevelCost.toLocaleString()}
+              <TrendingUp className="w-4 h-4 mr-2" />${nextLevelCost.toLocaleString()}
             </>
           )}
         </Button>
