@@ -2,7 +2,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 import { getCollectionNameByLevel, getLuxuryPrice, getLuxuryPriceWithInsurance, getSkillByItemId } from '@/data/luxoItems';
-import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PurchaseInsuranceModal from '@/components/PurchaseInsuranceModal';
 import CardTransactionModal from '@/components/CardTransactionModal';
@@ -145,10 +144,8 @@ export default function GaleriaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header />
-
-      <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden py-20 px-4 pt-[140px] md:pt-[160px]">
+    <>
+      <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden py-20 px-4">
         <div className="max-w-[100rem] mx-auto w-full">
           <motion.div
             className="text-center mb-40 mt-20"
@@ -263,6 +260,6 @@ export default function GaleriaPage() {
       />
 
       <Footer />
-    </div>
+    </>
   );
 }

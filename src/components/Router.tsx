@@ -1,6 +1,7 @@
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
+import Layout from '@/components/Layout';
 import HomePage from '@/components/pages/HomePage';
 import GaleriaPage from '@/components/pages/GaleriaPage';
 import ProfilePage from '@/components/pages/ProfilePage';
@@ -24,15 +25,6 @@ import FactionPage from '@/components/pages/FactionPage';
 // - HomePageNew (arquivo preservado em src/components/pages/HomePageNew.tsx)
 // - MatchPage (arquivo preservado em src/components/pages/MatchPage.tsx)
 // - MatchmakingPage (arquivo preservado em src/components/pages/MatchmakingPage.tsx)
-
-function Layout() {
-  return (
-    <>
-      <ScrollToTop />
-      <Outlet />
-    </>
-  );
-}
 
 const router = createBrowserRouter([
   {
@@ -70,5 +62,10 @@ const router = createBrowserRouter([
 });
 
 export default function AppRouter() {
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <ScrollToTop />
+      <RouterProvider router={router} />
+    </>
+  );
 }
