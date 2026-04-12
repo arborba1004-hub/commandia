@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
@@ -219,7 +219,7 @@ export default function GamePage() {
   const activeAnimationRef = useRef<any>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const previousLevelRef = useRef<number>(playerState?.niveis?.barracoLevel || 1);
+  const previousLevelRef = useRef<number | null>(null);
 
   const navigate = useNavigate();
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
@@ -352,7 +352,6 @@ export default function GamePage() {
 
               useMapAttackStore.getState().setResolution(report.resolution);
 
-              // Apply battle results and update player state
               applyRemoteAttackResult({
                 dirtyMoneyDelta: report.resolution.success
                   ? report.resolution.loot
@@ -386,7 +385,7 @@ export default function GamePage() {
                 read: false,
               });
 
-              setTimeout(() => {
+              window.setTimeout(() => {
                 returnSquad();
               }, 800);
             } catch (error) {
@@ -410,8 +409,8 @@ export default function GamePage() {
       state.routeBack && state.routeBack.length > 0
         ? state.routeBack
         : state.routeToTarget && state.routeToTarget.length > 0
-          ? [...state.routeToTarget].reverse()
-          : [];
+        ? [...state.routeToTarget].reverse()
+        : [];
 
     if (!squadRef.current || backRoute.length === 0) {
       finishAttack();
@@ -452,10 +451,15 @@ export default function GamePage() {
     }
   }, [isLoaded, loadPlayer]);
 
-  useEffect(() => {
-    if (!playerState?.niveis?.barracoLevel) return;
+useEffect(() => {
+    const currentLevel = playerState?.niveis?.barracoLevel;
+    if (!currentLevel) return;
 
-    const currentLevel = playerState.niveis.barracoLevel;
+    if (previousLevelRef.current === null) {
+      previousLevelRef.current = currentLevel;
+      return;
+    }
+
     const previousLevel = previousLevelRef.current;
 
     if (currentLevel !== previousLevel) {
@@ -478,7 +482,7 @@ export default function GamePage() {
     };
   }, [isLoaded, startPolling, stopPolling]);
 
-  const fetchOtherPlayers = async () => {
+  const fetchOtherPlayers = useCallback(async () => {
     try {
       const data = await fetchOtherPlayersMap();
 
@@ -496,29 +500,31 @@ export default function GamePage() {
     } catch (error) {
       console.error('Erro no polling de players:', error);
     }
-  };
+  }, [playerState]);
 
   useEffect(() => {
-    let playersInterval: ReturnType<typeof setInterval> | null = null;
+    void fetchOtherPlayers();
 
-    fetchOtherPlayers();
-
-    playersInterval = setInterval(fetchOtherPlayers, 3000);
+    const playersInterval = setInterval(() => {
+      void fetchOtherPlayers();
+    }, 3000);
 
     return () => {
-      if (playersInterval) clearInterval(playersInterval);
+      clearInterval(playersInterval);
     };
-  }, [playerState?._id]);
+  }, [fetchOtherPlayers]);
 
   useEffect(() => {
     if (!containerRef.current || !isLoaded) return;
 
-let isMounted = true;
+    let isMounted = true;
     const container = containerRef.current;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     publicBuildingsRef.current = [];
     playerBarracoRef.current = null;
+    enemyBarracosRef.current = [];
+    enemyBarracoMapRef.current = {};
 
     const renderer = new THREE.WebGLRenderer({
       antialias: !isMobile,
@@ -649,7 +655,7 @@ let isMounted = true;
       (error) => console.error('❌ Erro crítico ao carregar o barraco:', error)
     );
 
-COMPLEXO_BUILDINGS.forEach((building) => {
+    COMPLEXO_BUILDINGS.forEach((building) => {
       loader.load(
         building.url,
         (gltf) => {
@@ -753,7 +759,7 @@ COMPLEXO_BUILDINGS.forEach((building) => {
         Math.abs(event.clientY - pointerDownPos.y);
       if (moveDistance > 5) return;
 
-      const rect = containerRef.current.getBoundingClientRect();
+const rect = containerRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -867,6 +873,8 @@ COMPLEXO_BUILDINGS.forEach((building) => {
 
       publicBuildingsRef.current = [];
       playerBarracoRef.current = null;
+      enemyBarracosRef.current = [];
+      enemyBarracoMapRef.current = {};
 
       loadedObjects.forEach((obj) => {
         scene.remove(obj);
@@ -883,7 +891,11 @@ COMPLEXO_BUILDINGS.forEach((building) => {
         });
       });
 
-platformGeometry.dispose();
+      highlightGeometry.dispose();
+      highlightMaterial.dispose();
+      playerGeometry.dispose();
+      playerMaterial.dispose();
+      platformGeometry.dispose();
       topMaterial.dispose();
       sideMaterial.dispose();
       lineMaterial.dispose();
@@ -896,7 +908,19 @@ platformGeometry.dispose();
       sceneRef.current = null;
       rendererRef.current = null;
     };
-  }, [isLoaded, playerState?._id]);
+  }, [
+    isLoaded,
+    navigate,
+    otherPlayers,
+    playerState?._id,
+    playerState?.mapPosition?.tileX,
+    playerState?.mapPosition?.tileY,
+    playerState?.niveis?.barracoLevel,
+    (playerState as any)?.headerCustomization?.customName,
+    playerState?.name,
+    level,
+    displayName,
+  ]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -999,6 +1023,7 @@ platformGeometry.dispose();
   return (
     <div className="w-full h-full relative flex flex-col">
       <Header />
+
       <div className="flex-1 relative">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -1008,158 +1033,165 @@ platformGeometry.dispose();
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
-      {isMenuOpen && (
-        <div className="absolute top-16 left-4 z-40 bg-background border border-primary rounded-lg shadow-lg p-4 max-w-xs max-h-96 overflow-y-auto">
-          <h3 className="text-primary font-heading text-lg mb-4">Páginas</h3>
-          <div className="grid grid-cols-1 gap-2">
-            {pages.map((page) => (
-              <button
-                key={page.path}
-                onClick={() => handleNavigate(page.path)}
-                className="w-full text-left px-4 py-2 rounded-lg bg-custom4 text-foreground hover:bg-primary hover:text-primary-foreground transition-colors font-paragraph text-sm"
-              >
-                {page.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <AttackResultOverlay />
-
-{battleReport && (
-  <div className="absolute inset-0 z-[70] bg-black/70 flex items-center justify-center p-4">
-    <div className="relative w-full max-w-2xl rounded-3xl border border-red-500/30 bg-[#090909] p-6 text-white shadow-2xl">
-      <button
-        onClick={() => setBattleReport(null)}
-        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl font-bold text-white hover:bg-white/20"
-        aria-label="Fechar relatório"
-      >
-        ×
-      </button>
-
-      <div className="mb-6 text-center">
-        <p className="text-xs uppercase tracking-[0.28em] text-zinc-400">
-          Relatório de batalha
-        </p>
-        <h2 className="mt-2 text-3xl font-black uppercase tracking-[0.08em]">
-          {battleReport.resolution.success ? 'Vitória' : 'Derrota'}
-        </h2>
-        <p className="mt-2 text-sm text-zinc-300">
-          {battleReport.resolution.message || 'Confronto concluído.'}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-            Atacante
-          </p>
-          <p className="mt-2 text-lg font-bold text-red-200">
-            {battleReport.attacker.playerName}
-          </p>
-          <p className="mt-2 text-sm text-zinc-300">
-            Poder: {battleReport.resolution.attackerPower?.toLocaleString?.('pt-BR') ?? battleReport.resolution.attackerPower ?? 0}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-            Defensor
-          </p>
-          <p className="mt-2 text-lg font-bold text-zinc-100">
-            {battleReport.defender.playerName}
-          </p>
-          <p className="mt-2 text-sm text-zinc-300">
-            Poder: {battleReport.resolution.defenderPower?.toLocaleString?.('pt-BR') ?? battleReport.resolution.defenderPower ?? 0}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-            Chance
-          </p>
-          <p className="mt-2 text-xl font-black text-amber-200">
-            {battleReport.resolution.chance ?? 0}%
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-            Espólio
-          </p>
-          <p className="mt-2 text-xl font-black text-green-300">
-            {(battleReport.resolution.loot || 0).toLocaleString('pt-BR')}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-            Crítico
-          </p>
-          <p className="mt-2 text-xl font-black text-red-300">
-            {battleReport.resolution.critical ? 'SIM' : 'NÃO'}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-            Resultado
-          </p>
-          <p className="mt-2 text-xl font-black text-white">
-            {battleReport.resolution.success ? 'DOMINOU' : 'FALHOU'}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          onClick={() => setBattleReport(null)}
-          className="rounded-2xl bg-red-600 px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-white hover:bg-red-500"
-        >
-          Fechar
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-      <RankPromotionNotification
-        rank={promotionRank}
-        isVisible={showPromotion}
-        onClose={() => setShowPromotion(false)}
-      />
-
-      {previewOpen && (
-        <div className="absolute inset-0 z-50 bg-black/60 flex items-end justify-center">
-          <div className="w-full max-w-md rounded-t-3xl bg-[#090909] border border-red-500/30 p-5">
-            <h2 className="text-2xl font-black text-white mb-4">Invadir barraco</h2>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => useMapAttackStore.getState().closePreview()}
-                className="flex-1 rounded-2xl bg-zinc-700 px-4 py-4 font-bold text-white"
-              >
-                Cancelar
-              </button>
-
-              <button
-                onClick={executeMapAttack}
-                disabled={isStartingBattle}
-                className="flex-1 rounded-2xl bg-red-600 px-4 py-4 font-black text-white disabled:opacity-50"
-              >
-                {isStartingBattle ? 'INVADINDO...' : 'INVADIR'}
-              </button>
+        {isMenuOpen && (
+          <div className="absolute top-16 left-4 z-40 bg-background border border-primary rounded-lg shadow-lg p-4 max-w-xs max-h-96 overflow-y-auto">
+            <h3 className="text-primary font-heading text-lg mb-4">Páginas</h3>
+            <div className="grid grid-cols-1 gap-2">
+              {pages.map((page) => (
+                <button
+                  key={page.path}
+                  onClick={() => handleNavigate(page.path)}
+                  className="w-full text-left px-4 py-2 rounded-lg bg-custom4 text-foreground hover:bg-primary hover:text-primary-foreground transition-colors font-paragraph text-sm"
+                >
+                  {page.name}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div
-        ref={containerRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing outline-none"
-      />
+       <AttackResultOverlay />
+
+        {battleReport && (
+          <div className="absolute inset-0 z-[70] bg-black/70 flex items-center justify-center p-4">
+            <div className="relative w-full max-w-2xl rounded-3xl border border-red-500/30 bg-[#090909] p-6 text-white shadow-2xl">
+              <button
+                onClick={() => setBattleReport(null)}
+                className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl font-bold text-white hover:bg-white/20"
+                aria-label="Fechar relatório"
+              >
+                ×
+              </button>
+
+              <div className="mb-6 text-center">
+                <p className="text-xs uppercase tracking-[0.28em] text-zinc-400">
+                  Relatório de batalha
+                </p>
+                <h2 className="mt-2 text-3xl font-black uppercase tracking-[0.08em]">
+                  {battleReport.resolution.success ? 'Vitória' : 'Derrota'}
+                </h2>
+                <p className="mt-2 text-sm text-zinc-300">
+                  {battleReport.resolution.message || 'Confronto concluído.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                    Atacante
+                  </p>
+                  <p className="mt-2 text-lg font-bold text-red-200">
+                    {battleReport.attacker.playerName}
+                  </p>
+                  <p className="mt-2 text-sm text-zinc-300">
+                    Poder:{' '}
+                    {battleReport.resolution.attackerPower?.toLocaleString?.('pt-BR') ??
+                      battleReport.resolution.attackerPower ??
+                      0}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                    Defensor
+                  </p>
+                  <p className="mt-2 text-lg font-bold text-zinc-100">
+                    {battleReport.defender.playerName}
+                  </p>
+                  <p className="mt-2 text-sm text-zinc-300">
+                    Poder:{' '}
+                    {battleReport.resolution.defenderPower?.toLocaleString?.('pt-BR') ??
+                      battleReport.resolution.defenderPower ??
+                      0}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    Chance
+                  </p>
+                  <p className="mt-2 text-xl font-black text-amber-200">
+                    {battleReport.resolution.chance ?? 0}%
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    Espólio
+                  </p>
+                  <p className="mt-2 text-xl font-black text-green-300">
+                    {(battleReport.resolution.loot || 0).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    Crítico
+                  </p>
+                  <p className="mt-2 text-xl font-black text-red-300">
+                    {battleReport.resolution.critical ? 'SIM' : 'NÃO'}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    Resultado
+                  </p>
+                  <p className="mt-2 text-xl font-black text-white">
+                    {battleReport.resolution.success ? 'DOMINOU' : 'FALHOU'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setBattleReport(null)}
+                  className="rounded-2xl bg-red-600 px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-white hover:bg-red-500"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <RankPromotionNotification
+          rank={promotionRank}
+          isVisible={showPromotion}
+          onClose={() => setShowPromotion(false)}
+        />
+
+        {previewOpen && (
+          <div className="absolute inset-0 z-50 bg-black/60 flex items-end justify-center">
+            <div className="w-full max-w-md rounded-t-3xl bg-[#090909] border border-red-500/30 p-5">
+              <h2 className="text-2xl font-black text-white mb-4">Invadir barraco</h2>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => useMapAttackStore.getState().closePreview()}
+                  className="flex-1 rounded-2xl bg-zinc-700 px-4 py-4 font-bold text-white"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  onClick={executeMapAttack}
+                  disabled={isStartingBattle}
+                  className="flex-1 rounded-2xl bg-red-600 px-4 py-4 font-black text-white disabled:opacity-50"
+                >
+                  {isStartingBattle ? 'INVADINDO...' : 'INVADIR'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div
+          ref={containerRef}
+          className="w-full h-full cursor-grab active:cursor-grabbing outline-none"
+        />
       </div>
     </div>
   );
