@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,8 +22,9 @@ export default function LuxuryshowroomPage() {
   // Se a funcionalidade não está desbloqueada, mostrar lock screen
   if (!isFeatureUnlocked) {
     return (
-      <>
-        <main className="flex-1 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
           <FeatureLevelLock
             playerLevel={playerLevel}
             requiredLevel={requiredLevel}
@@ -31,7 +33,7 @@ export default function LuxuryshowroomPage() {
           />
         </main>
         <Footer />
-      </>
+      </div>
     );
   }
 
@@ -56,8 +58,10 @@ export default function LuxuryshowroomPage() {
   }, [showDialog, showButton]);
 
   return (
-    <>
-      <div className="relative flex-1 w-full overflow-hidden">
+    <div className="w-full min-h-screen bg-black overflow-hidden flex flex-col">
+      <Header />
+
+      <div className="relative flex-1 w-full overflow-hidden pt-[140px] md:pt-[160px]">
         <video
           ref={videoRef}
           src="https://video.wixstatic.com/video/50f4bf_01db91a09f984c8fb0dd332626b5fb37/720p/mp4/file.mp4"
@@ -212,6 +216,6 @@ export default function LuxuryshowroomPage() {
         </AnimatePresence>
       </div>
       <Footer />
-    </>
+    </div>
   );
 }

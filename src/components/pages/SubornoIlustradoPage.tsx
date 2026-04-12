@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
+import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -192,7 +193,8 @@ export default function SubornoIlustradoPage() {
   // Se a funcionalidade não está desbloqueada, mostrar lock screen
   if (!isFeatureUnlocked) {
     return (
-      <>
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
         <main className="flex-1 flex items-center justify-center px-4">
           <FeatureLevelLock
             playerLevel={playerLevel}
@@ -202,7 +204,7 @@ export default function SubornoIlustradoPage() {
           />
         </main>
         <Footer />
-      </>
+      </div>
     );
   }
 
@@ -384,7 +386,9 @@ export default function SubornoIlustradoPage() {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
+      <Header />
+
       {/* BACKGROUND CINEMÁTICO AAA */}
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.7)_0%,rgba(20,20,20,0.95)_100%)]" />
       <div className="absolute inset-0 z-0 opacity-10 bg-[repeating-linear-gradient(45deg,#111_0px,#111_4px,transparent_4px,transparent_12px)]" />
@@ -544,8 +548,6 @@ export default function SubornoIlustradoPage() {
           </Button>
         </DialogContent>
       </Dialog>
-
-      <Footer />
-    </>
+    </div>
   );
 }

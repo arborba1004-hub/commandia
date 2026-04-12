@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Send, Smile, AtSign, Hash, Lock, Mail, HandCoins } from 'lucide-react';
+import { Send, Smile, AtSign, Hash, Lock, Mail } from 'lucide-react';
+import { useChatStore } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
 
 const EMOJIS = [
@@ -32,16 +33,6 @@ const EMOJIS = [
 
 type ChannelType = 'complexo' | 'faccao' | 'mail';
 
-interface ChatComposerProps {
-  channel: ChannelType;
-  onSendMessage: (body: string) => Promise<boolean | void>;
-  isSending?: boolean;
-  mailReady?: boolean;
-  disabled?: boolean;
-  onRequestHelp?: () => void;
-  requestHelpDisabled?: boolean;
-}
-
 function channelPlaceholder(channel: ChannelType) {
   if (channel === 'complexo') return 'Fale com todo o Complexo...';
   if (channel === 'faccao') return 'Mensagem para a facção...';
@@ -60,18 +51,21 @@ function channelIcon(channel: ChannelType) {
   return <Mail size={16} />;
 }
 
-export default function ChatComposer({
-  channel,
-  onSendMessage,
-  isSending = false,
-  mailReady = true,
-  disabled = false,
-  onRequestHelp,
-  requestHelpDisabled = false,
-}: ChatComposerProps) {
+export default function ChatComposer() {
+  const {
+    activeChannel,
+    sendComplexoMessage,
+    sendFaccaoMessage,
+    sendMailMessage,
+    isLoading,
+  } = useChatStore();
+
   const player = usePlayerStore((state) => state.player);
 
   const [body, setBody] = useState('');
+  const [subject, setSubject] = useState('');
+  const [recipientId, setRecipientId] = useState('');
+  const [recipientName, setRecipientName] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -82,10 +76,33 @@ export default function ChatComposer({
   const senderName = player?.name || 'Jogador';
   const factionId = player?.factionId || '';
 
+  const currentChannel = (activeChannel || 'complexo') as ChannelType;
+
+  const canSend = useMemo(() => {
+    if (!body.trim()) return false;
+    if (!senderId || !senderName) return false;
+
+    if (currentChannel === 'faccao') {
+      return !!factionId;
+    }
+
+    if (currentChannel === 'mail') {
+      return !!recipientId.trim() && !!recipientName.trim();
+    }
+
+    return true;
+  }, [body, senderId, senderName, currentChannel, factionId, recipientId, recipientName]);
+
   useEffect(() => {
     setErrorMessage('');
     setShowEmojiPicker(false);
-  }, [channel]);
+
+    if (currentChannel !== 'mail') {
+      setRecipientId('');
+      setRecipientName('');
+      setSubject('');
+    }
+  }, [currentChannel]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -104,17 +121,27 @@ export default function ChatComposer({
     };
   }, [showEmojiPicker]);
 
+  const resetMailFields = () => {
+    setRecipientId('');
+    setRecipientName('');
+    setSubject('');
+  };
+
+  const resetComposer = () => {
+    setBody('');
+    setShowEmojiPicker(false);
+    setErrorMessage('');
+    if (currentChannel === 'mail') {
+      resetMailFields();
+    }
+  };
+
   const addEmoji = (emoji: string) => {
     setBody((prev) => `${prev}${emoji}`);
     textareaRef.current?.focus();
   };
 
   const validateBeforeSend = () => {
-    if (disabled) {
-      setErrorMessage('Canal indisponível no momento.');
-      return false;
-    }
-
     if (!body.trim()) {
       setErrorMessage('Digite uma mensagem antes de enviar.');
       return false;
@@ -125,14 +152,21 @@ export default function ChatComposer({
       return false;
     }
 
-    if (channel === 'faccao' && !factionId) {
+    if (currentChannel === 'faccao' && !factionId) {
       setErrorMessage('Você precisa estar em uma facção para enviar aqui.');
       return false;
     }
 
-    if (channel === 'mail' && !mailReady) {
-      setErrorMessage('Preencha corretamente o destinatário do correio.');
-      return false;
+    if (currentChannel === 'mail') {
+      if (!recipientName.trim()) {
+        setErrorMessage('Informe o nome do destinatário.');
+        return false;
+      }
+
+      if (!recipientId.trim()) {
+        setErrorMessage('Informe o ID do destinatário.');
+        return false;
+      }
     }
 
     setErrorMessage('');
@@ -140,20 +174,35 @@ export default function ChatComposer({
   };
 
   const handleSend = async () => {
-    if (isSending) return;
+    if (isLoading) return;
     if (!validateBeforeSend()) return;
 
     try {
-      const ok = await onSendMessage(body.trim());
-
-      if (ok === false) {
-        setErrorMessage('Não foi possível enviar a mensagem agora.');
-        return;
+      if (currentChannel === 'complexo') {
+        await sendComplexoMessage({
+          senderId,
+          senderName,
+          body: body.trim(),
+        });
+      } else if (currentChannel === 'faccao') {
+        await sendFaccaoMessage({
+          senderId,
+          senderName,
+          factionId,
+          body: body.trim(),
+        });
+      } else {
+        await sendMailMessage({
+          senderId,
+          senderName,
+          recipientId: recipientId.trim(),
+          recipientName: recipientName.trim(),
+          subject: subject.trim() || 'Sem assunto',
+          body: body.trim(),
+        });
       }
 
-      setBody('');
-      setShowEmojiPicker(false);
-      setErrorMessage('');
+      resetComposer();
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       setErrorMessage('Não foi possível enviar a mensagem agora.');
@@ -174,35 +223,71 @@ export default function ChatComposer({
       ref={composerRef}
       className="relative rounded-3xl border border-white/10 bg-black/35 p-3 shadow-2xl backdrop-blur-sm"
     >
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+      <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.16em] text-white/80">
-          {channelIcon(channel)}
-          <span>{channelLabel(channel)}</span>
+          {channelIcon(currentChannel)}
+          <span>{channelLabel(currentChannel)}</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {channel === 'faccao' && onRequestHelp && (
-            <button
-              type="button"
-              onClick={onRequestHelp}
-              disabled={requestHelpDisabled}
-              className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/20 bg-yellow-500/10 px-3 py-2 text-xs font-black uppercase tracking-wide text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <HandCoins size={16} />
-              Pedir corre
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setShowEmojiPicker((prev) => !prev)}
-            className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
-            aria-label="Abrir emojis"
-          >
-            <Smile size={18} />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowEmojiPicker((prev) => !prev)}
+          className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+          aria-label="Abrir emojis"
+        >
+          <Smile size={18} />
+        </button>
       </div>
+
+      <AnimatePresence>
+        {currentChannel === 'mail' && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3"
+          >
+            <div className="rounded-2xl border border-white/10 bg-zinc-900/90 px-4 py-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-white/45">
+                <AtSign size={14} />
+                <span>Destinatário</span>
+              </div>
+              <input
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
+                placeholder="Nome do destinatário"
+                className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-zinc-900/90 px-4 py-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-white/45">
+                <Hash size={14} />
+                <span>ID do destinatário</span>
+              </div>
+              <input
+                value={recipientId}
+                onChange={(e) => setRecipientId(e.target.value)}
+                placeholder="ID do destinatário"
+                className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-zinc-900/90 px-4 py-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-white/45">
+                <Mail size={14} />
+                <span>Assunto</span>
+              </div>
+              <input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Assunto"
+                className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex items-end gap-3">
         <div className="relative flex-1">
@@ -211,10 +296,9 @@ export default function ChatComposer({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             onKeyDown={handleTextareaKeyDown}
-            placeholder={channelPlaceholder(channel)}
+            placeholder={channelPlaceholder(currentChannel)}
             rows={4}
-            disabled={disabled}
-            className="min-h-[96px] w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/90 px-4 py-3 pr-12 text-white outline-none transition placeholder:text-white/30 focus:border-red-500/60 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-[96px] w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/90 px-4 py-3 pr-12 text-white outline-none transition placeholder:text-white/30 focus:border-red-500/60"
           />
 
           <button
@@ -230,7 +314,7 @@ export default function ChatComposer({
         <button
           type="button"
           onClick={handleSend}
-          disabled={disabled || isSending || !body.trim()}
+          disabled={!canSend || isLoading}
           className="flex h-[56px] min-w-[56px] items-center justify-center rounded-2xl bg-gradient-to-r from-red-600 to-red-700 text-white transition hover:from-red-500 hover:to-red-600 disabled:cursor-not-allowed disabled:opacity-45"
           aria-label="Enviar mensagem"
         >
@@ -238,7 +322,7 @@ export default function ChatComposer({
         </button>
       </div>
 
-      {channel === 'faccao' && !factionId && (
+      {currentChannel === 'faccao' && !factionId && (
         <div className="mt-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
           Você ainda não está em uma facção.
         </div>
