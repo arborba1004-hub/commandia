@@ -79,7 +79,7 @@ export default function Header() {
   return (
     <>
       <AvatarNameCustomizationModal
-        isOpen={isCustomizationOpen}
+        isOpen={showPlayerState && isCustomizationOpen}
         onClose={() => setIsCustomizationOpen(false)}
       />
 
@@ -111,7 +111,9 @@ export default function Header() {
                   <div className="relative shrink-0">
                     <button
                       type="button"
-                      onClick={() => setIsCustomizationOpen(true)}
+                      onClick={() => {
+                        if (showPlayerState) setIsCustomizationOpen(true);
+                      }}
                       className="relative group"
                       aria-label="Personalizar avatar"
                     >
@@ -137,7 +139,9 @@ export default function Header() {
                   <div className="min-w-0">
                     <button
                       type="button"
-                      onClick={() => setIsCustomizationOpen(true)}
+                      onClick={() => {
+                        if (showPlayerState) setIsCustomizationOpen(true);
+                      }}
                       className="block max-w-full truncate text-left font-heading text-[13px] font-black uppercase leading-none tracking-wide text-[#f6d27b] transition-colors hover:text-[#ffe8a3] md:text-[20px]"
                     >
                       {gamerName}
