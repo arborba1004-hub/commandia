@@ -26,10 +26,13 @@ const FACTION_ICON_URL =
 
 export default function Header() {
   const navigate = useNavigate();
-  const { player, clearPlayer } = usePlayerStore();
+  const { player, clearPlayer, isLoaded } = usePlayerStore();
   const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
 
+  const isLoadedReady = Boolean(isLoaded);
   const isPlayerReady = Boolean(player?._id);
+  const showGuestState = isLoadedReady && !isPlayerReady;
+  const showPlayerState = isLoadedReady && isPlayerReady;
   const playerLevel = player?.niveis?.barracoLevel ?? 0;
   const hierarchyTitle = playerLevel > 0 ? getPlayerRank(playerLevel).title : 'Sem patente';
 
