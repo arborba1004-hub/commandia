@@ -1,69 +1,70 @@
+import type { CSSProperties } from 'react';
+
 export type GalleryVideoPalette = {
   hueRotate: number;
   saturate: number;
   brightness: number;
   contrast: number;
   overlay: string;
-  mixBlendMode?: React.CSSProperties['mixBlendMode'];
+  mixBlendMode?: CSSProperties['mixBlendMode'];
 };
 
-export function getGalleryVideoPalette(level: number): GalleryVideoPalette {
-  const paletteIndex = ((level - 1) % 6) + 1;
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
 
-  switch (paletteIndex) {
-    case 1:
-      return {
-        hueRotate: 0,
-        saturate: 1.25,
-        brightness: 0.95,
-        contrast: 1.12,
-        overlay: 'linear-gradient(135deg, rgba(60,110,255,0.22), rgba(170,80,255,0.18))',
-        mixBlendMode: 'soft-light',
-      };
-    case 2:
-      return {
-        hueRotate: 40,
-        saturate: 1.35,
-        brightness: 1,
-        contrast: 1.12,
-        overlay: 'linear-gradient(135deg, rgba(255,90,170,0.20), rgba(255,180,70,0.22))',
-        mixBlendMode: 'color',
-      };
-    case 3:
-      return {
-        hueRotate: 85,
-        saturate: 1.4,
-        brightness: 0.98,
-        contrast: 1.15,
-        overlay: 'linear-gradient(135deg, rgba(90,255,180,0.18), rgba(40,140,255,0.18))',
-        mixBlendMode: 'overlay',
-      };
-    case 4:
-      return {
-        hueRotate: 140,
-        saturate: 1.45,
-        brightness: 0.96,
-        contrast: 1.16,
-        overlay: 'linear-gradient(135deg, rgba(70,255,120,0.18), rgba(20,255,220,0.18))',
-        mixBlendMode: 'soft-light',
-      };
-    case 5:
-      return {
-        hueRotate: 220,
-        saturate: 1.5,
-        brightness: 0.94,
-        contrast: 1.18,
-        overlay: 'linear-gradient(135deg, rgba(255,60,90,0.20), rgba(120,40,255,0.20))',
-        mixBlendMode: 'color',
-      };
-    default:
-      return {
-        hueRotate: 300,
-        saturate: 1.35,
-        brightness: 0.97,
-        contrast: 1.14,
-        overlay: 'linear-gradient(135deg, rgba(255,230,90,0.16), rgba(255,120,40,0.18))',
-        mixBlendMode: 'soft-light',
-      };
+function lerp(start: number, end: number, t: number) {
+  return start + (end - start) * t;
+}
+
+function buildOverlay(
+  r1: number,
+  g1: number,
+  b1: number,
+  a1: number,
+  r2: number,
+  g2: number,
+  b2: number,
+  a2: number
+) {
+  return `linear-gradient(135deg, rgba(${Math.round(r1)},${Math.round(g1)},${Math.round(
+    b1
+  )},${a1}), rgba(${Math.round(r2)},${Math.round(g2)},${Math.round(b2)},${a2}))`;
+}
+
+export function getGalleryVideoPalette(level: number): GalleryVideoPalette {
+  const safeLevel = clamp(Math.floor(level || 1), 1, 100);
+  const t = (safeLevel - 1) / 99;
+
+  const hueRotate = Math.round(lerp(0, 320, t));
+  const saturate = Number(lerp(1.08, 1.68, t).toFixed(2));
+  const brightness = Number(lerp(0.93, 1.03, t).toFixed(3));
+  const contrast = Number(lerp(1.08, 1.24, t).toFixed(3));
+
+  const r1 = lerp(70, 255, t);
+  const g1 = lerp(110, 210, t);
+  const b1 = lerp(255, 80, t);
+
+  const r2 = lerp(130, 255, t);
+  const g2 = lerp(70, 110, t);
+  const b2 = lerp(255, 30, t);
+
+  const overlay = buildOverlay(r1, g1, b1, 0.18, r2, g2, b2, 0.14);
+
+  let mixBlendMode: CSSProperties['mixBlendMode'] = 'soft-light';
+
+  if (safeLevel >= 34 && safeLevel <= 66) {
+    mixBlendMode = 'overlay';
+  } else if (safeLevel >= 67) {
+    mixBlendMode = 'color';
   }
+
+  return {
+    hueRotate,
+    saturate,
+    brightness,
+    contrast,
+    overlay,
+    mixBlendMode,
+  };
 }
