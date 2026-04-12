@@ -2,7 +2,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 import { getCollectionNameByLevel, getLuxuryPrice, getLuxuryPriceWithInsurance, getSkillByItemId } from '@/data/luxoItems';
-import Footer from '@/components/Footer';
 import PurchaseInsuranceModal from '@/components/PurchaseInsuranceModal';
 import CardTransactionModal from '@/components/CardTransactionModal';
 import PurchaseResultModal from '@/components/PurchaseResultModal';
@@ -258,8 +257,6 @@ export default function GaleriaPage() {
         skillBonusPercent={skillBonus?.skillBonusPercent}
         onClose={handleCloseResult}
       />
-
-      <Footer />
     </>
   );
 }
