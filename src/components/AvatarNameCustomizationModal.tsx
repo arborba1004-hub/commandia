@@ -12,7 +12,10 @@ export default function AvatarNameCustomizationModal({
   isOpen,
   onClose,
 }: AvatarNameCustomizationModalProps) {
-  const { player, setPlayer } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
+  const applyPlayerUpdate = usePlayerStore((state) => state.applyPlayerUpdate);
+  const syncPlayerToBackend = usePlayerStore((state) => state.syncPlayerToBackend);
+
   const [customName, setCustomName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -20,12 +23,10 @@ export default function AvatarNameCustomizationModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setCustomName(player?.headerCustomization?.customName || player?.name || '');
-      setSelectedAvatar(
-        player?.headerCustomization?.customAvatar || player?.avatar || ''
-      );
-    }
+    if (!isOpen) return;
+
+    setCustomName(player?.headerCustomization?.customName || player?.name || '');
+    setSelectedAvatar(player?.headerCustomization?.customAvatar || player?.avatar || '');
   }, [isOpen, player]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,18 +47,19 @@ export default function AvatarNameCustomizationModal({
     try {
       setIsSaving(true);
 
-      const nextHeaderCustomization = {
-        ...(player?.headerCustomization || {}),
-        customName: customName.trim() || player?.name || 'CAPO GHOST',
-        customAvatar: selectedAvatar || player?.avatar || '',
-      };
+      const safeCustomName = customName.trim() || player?.name || 'CAPO GHOST';
+      const safeCustomAvatar = selectedAvatar || player?.avatar || '';
 
-      setPlayer({
-        headerCustomization: nextHeaderCustomization,
-      });
+      applyPlayerUpdate((currentPlayer) => ({
+        ...currentPlayer,
+        headerCustomization: {
+          ...(currentPlayer.headerCustomization || {}),
+          customName: safeCustomName,
+          customAvatar: safeCustomAvatar,
+        },
+      }));
 
-      await usePlayerStore.getState().syncPlayerToBackend();
-
+      await syncPlayerToBackend();
       onClose();
     } catch (error) {
       console.error('Erro ao salvar customizações:', error);
@@ -163,9 +165,7 @@ export default function AvatarNameCustomizationModal({
                   placeholder="Digite seu nome de jogador"
                   className="w-full rounded-lg border border-[#d7a84a]/30 bg-[#1a1a1a] px-4 py-3 text-white placeholder-white/40 transition-colors focus:border-[#f6d27b] focus:outline-none"
                 />
-                <p className="mt-2 text-xs text-white/40">
-                  {customName.length}/30 caracteres
-                </p>
+                <p className="mt-2 text-xs text-white/40">{customName.length}/30 caracteres</p>
               </div>
 
               <div className="rounded-lg border border-[#d7a84a]/20 bg-[#1a1a1a] p-4">
