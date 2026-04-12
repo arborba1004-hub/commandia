@@ -11,8 +11,16 @@ export type MemberClass =
   | 'Negociador';
 
 export type Rarity = 'Comum' | 'Raro' | 'Épico' | 'Lendário' | 'Mítico';
-export type RecruitMethod = 'mission' | 'market' | 'premium';
-export type GangUpgradeId = 'training' | 'hideout' | 'blackmarket';
+
+export type GangSkillKey =
+  | 'assalto'
+  | 'emboscada'
+  | 'resistencia'
+  | 'fuga'
+  | 'saque'
+  | 'disciplina';
+
+export type GangEquipmentType = 'weapon' | 'armor' | 'vehicle';
 
 export interface MemberSkill {
   id: string;
@@ -21,6 +29,12 @@ export interface MemberSkill {
   level: number;
   maxLevel: number;
   effect: string;
+}
+
+export interface GangMemberEquipment {
+  weaponId?: string;
+  armorId?: string;
+  vehicleId?: string;
 }
 
 export interface GangMember {
@@ -33,11 +47,7 @@ export interface GangMember {
   expToNext: number;
   loyalty: number;
   skills: MemberSkill[];
-  equipment: {
-    weaponId?: string;
-    armorId?: string;
-    vehicleId?: string;
-  };
+  equipment: GangMemberEquipment;
   active: boolean;
   recruitedAt: string;
   lastMissionAt?: string;
@@ -51,10 +61,13 @@ export interface GangTreasury {
   corre: number;
 }
 
-export interface GangUpgrades {
-  trainingGroundsLevel: number;
-  hideoutLevel: number;
-  blackMarketLevel: number;
+export interface GangDoctrineLevels {
+  assalto: number;
+  emboscada: number;
+  resistencia: number;
+  fuga: number;
+  saque: number;
+  disciplina: number;
 }
 
 export interface Gang {
@@ -68,30 +81,71 @@ export interface Gang {
   treasury: GangTreasury;
   members: GangMember[];
   activeMemberIds: string[];
-  upgrades: GangUpgrades;
+  doctrine: GangDoctrineLevels;
   createdAt: string;
   totalVictories: number;
+  totalDefeats: number;
 }
 
 export interface RecruitOptions {
-  method: RecruitMethod;
+  method: 'mission' | 'market' | 'premium';
   cost?: number;
-  costType?: 'dirty' | 'clean' | 'corre';
+  costType?: 'dirty' | 'clean' | 'premium_currency';
+  waitTimeSeconds?: number;
 }
 
-export interface GangDoctrineBonus {
-  trainingBonusPercent: number;
-  defenseBonusPercent: number;
-  lootBonusPercent: number;
-  rarityBonusPercent: number;
-}
-
-export interface GangBattleSnapshot {
-  activeMembers: GangMember[];
-  reserveMembers: GangMember[];
-  rawPower: number;
+export type GangBattleStats = {
   totalPower: number;
-  attackPower: number;
-  defensePower: number;
-  lootPower: number;
-}
+  avgLevel: number;
+  activeCount: number;
+  reserveCount: number;
+  lootBonusPercent: number;
+  attackBonusPercent: number;
+  defenseBonusPercent: number;
+};
+
+export type GangDoctrineDefinition = {
+  key: GangSkillKey;
+  name: string;
+  description: string;
+  baseCost: number;
+};
+
+export const GANG_DOCTRINE_DEFINITIONS: GangDoctrineDefinition[] = [
+  {
+    key: 'assalto',
+    name: 'Doutrina de Assalto',
+    description: 'Aumenta pressão ofensiva da composição.',
+    baseCost: 2500,
+  },
+  {
+    key: 'emboscada',
+    name: 'Doutrina de Emboscada',
+    description: 'Melhora ataques rápidos e vantagem inicial.',
+    baseCost: 3000,
+  },
+  {
+    key: 'resistencia',
+    name: 'Doutrina de Resistência',
+    description: 'Melhora sustentação da tropa em combate.',
+    baseCost: 3200,
+  },
+  {
+    key: 'fuga',
+    name: 'Doutrina de Fuga',
+    description: 'Aumenta mobilidade e saída tática.',
+    baseCost: 2200,
+  },
+  {
+    key: 'saque',
+    name: 'Doutrina de Saque',
+    description: 'Aumenta eficiência de espólio.',
+    baseCost: 2800,
+  },
+  {
+    key: 'disciplina',
+    name: 'Doutrina de Disciplina',
+    description: 'Reduz perda de lealdade e melhora consistência.',
+    baseCost: 2600,
+  },
+];
