@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import Header from '@/components/Header';
@@ -21,13 +21,6 @@ interface Authority {
   levelRange: string;
   dialog: string;
   image: string;
-}
-
-interface Punishment {
-  id: string;
-  name: string;
-  description: string;
-  duration: number;
 }
 
 const AUTHORITIES: Authority[] = [
@@ -132,186 +125,141 @@ const AUTHORITIES: Authority[] = [
   },
 ];
 
-const PUNISHMENTS: Punishment[] = [
-  {
-    id: 'fiscal',
-    name: 'Operação Fiscal',
-    description:
-      'Operação fiscal no centro comercial do Complexo. Você não pode lavar dinheiro por 24 horas.',
-    duration: 24,
-  },
-  {
-    id: 'arsenal',
-    name: 'Invasão no Arsenal',
-    description:
-      'Invasão surpresa no Arsenal! 5 armas aleatórias foram danificadas. Você perde os bônus delas por 24 horas.',
-    duration: 24,
-  },
-  {
-    id: 'militia',
-    name: 'Visita da Milícia',
-    description:
-      'Visita surpresa da milícia! 5 itens de luxo foram confiscados. Você perde os bônus deles por 24 horas (mesmo com seguro).',
-    duration: 24,
-  },
-  {
-    id: 'blitz',
-    name: 'Blitz Surpresa',
-    description:
-      'Blitz "surpresa"! Seu último veículo de fuga foi rebocado. Você perdeu o veículo e precisa comprar outro.',
-    duration: 0,
-  },
-  {
-    id: 'threat',
-    name: 'Ameaça de Morte',
-    description:
-      'Ameaça de morte! Você não pode fazer giro no asfalto por 24 horas. Não é seguro sair de casa.',
-    duration: 24,
-  },
-];
+function getAuthorityByLevel(level: number): Authority {
+  if (level <= 9) return AUTHORITIES[0];
+  if (level <= 19) return AUTHORITIES[1];
+  if (level <= 29) return AUTHORITIES[2];
+  if (level <= 39) return AUTHORITIES[3];
+  if (level <= 49) return AUTHORITIES[4];
+  if (level <= 59) return AUTHORITIES[5];
+  if (level <= 69) return AUTHORITIES[6];
+  if (level <= 79) return AUTHORITIES[7];
+  if (level <= 89) return AUTHORITIES[8];
+  if (level <= 99) return AUTHORITIES[9];
+
+  if (level >= 100 && level < 109) {
+    return {
+      ...AUTHORITIES[10],
+      dialog:
+        'Você ainda não tem poder suficiente para falar comigo. Volte quando dominar tudo.',
+    };
+  }
+
+  return AUTHORITIES[10];
+}
+
+function calculateSubornoValue(level: number): number {
+  return Math.floor(220 * Math.pow(1.1, level - 1));
+}
+
+const SKILLS = [
+  'attack',
+  'defense',
+  'agility',
+  'intelligence',
+  'respect',
+  'vigor',
+] as const;
 
 export default function SubornoIlustradoPage() {
   const navigate = useNavigate();
+
   const player = usePlayerStore((state) => state.player);
-  const setPlayer = usePlayerStore((state) => state.setPlayer);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
+  const applyPlayerUpdate = usePlayerStore((state) => state.applyPlayerUpdate);
 
   const [showVaultModal, setShowVaultModal] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const [selectedAuthority, setSelectedAuthority] = useState<Authority | null>(null);
-  const [subornoValue, setSubornoValue] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultMessage, setResultMessage] = useState('');
 
-  if (!player) return null;
+  useEffect(() => {
+    if (!isLoaded) {
+      void loadPlayer();
+    }
+  }, [isLoaded, loadPlayer]);
 
   const playerLevel = player?.niveis?.playerLevel || 1;
-  const barrackLevel = player?.niveis?.barracoLevel || 1;
+  const barracoLevel = player?.niveis?.barracoLevel || 1;
   const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
   const requiredLevel = getFeatureLevelRequirement('suborno');
   const isFeatureUnlocked = canAccessFeature(playerLevel, 'suborno');
 
-  // Se a funcionalidade não está desbloqueada, mostrar lock screen
-  if (!isFeatureUnlocked) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center px-4">
-          <FeatureLevelLock
-            playerLevel={playerLevel}
-            requiredLevel={requiredLevel}
-            featureName="Suborno Ilustrado"
-            onNavigateToBarraco={() => navigate('/barraco')}
-          />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  const selectedAuthority = useMemo(
+    () => getAuthorityByLevel(barracoLevel),
+    [barracoLevel]
+  );
 
-  // Determinar autoridade baseado no nível do barraco
-  useEffect(() => {
-    const authority = getAuthorityByLevel(barrackLevel);
-    setSelectedAuthority(authority);
-    setSubornoValue(calculateSubornoValue(barrackLevel));
-  }, [barrackLevel]);
-
-  const getAuthorityByLevel = (level: number): Authority => {
-    if (level <= 9) return AUTHORITIES[0];
-    if (level <= 19) return AUTHORITIES[1];
-    if (level <= 29) return AUTHORITIES[2];
-    if (level <= 39) return AUTHORITIES[3];
-    if (level <= 49) return AUTHORITIES[4];
-    if (level <= 59) return AUTHORITIES[5];
-    if (level <= 69) return AUTHORITIES[6];
-    if (level <= 79) return AUTHORITIES[7];
-    if (level <= 89) return AUTHORITIES[8];
-    if (level <= 99) return AUTHORITIES[9];
-
-    if (level >= 100 && level < 109) {
-      return {
-        ...AUTHORITIES[10],
-        dialog:
-          'Você ainda não tem poder suficiente para falar comigo. Volte quando dominar tudo.',
-      };
-    }
-
-    return AUTHORITIES[10];
-  };
-
-  const calculateSubornoValue = (level: number): number => {
-    return Math.floor(220 * Math.pow(1.1, level - 1));
-  };
+  const subornoValue = useMemo(
+    () => calculateSubornoValue(barracoLevel),
+    [barracoLevel]
+  );
 
   const handlePaySuborno = async () => {
+    if (!player || isProcessing) return;
+
     setIsProcessing(true);
 
     try {
-      const currentPlayer = usePlayerStore.getState().player;
-
-      if (!currentPlayer) {
-        setResultMessage('Jogador não carregado.');
-        setShowResult(true);
-        return;
-      }
-
-      const currentDirtyMoney = Number(currentPlayer.balances?.dirtyMoney || 0);
+      const currentDirtyMoney = Number(player.balances?.dirtyMoney || 0);
 
       if (currentDirtyMoney < subornoValue) {
-        setResultMessage('Você não tem dinheiro sujo suficiente!');
+        setResultMessage('Você não tem dinheiro sujo suficiente.');
         setShowVaultModal(false);
         setShowResult(true);
         return;
       }
 
-      const newDirtyMoney = currentDirtyMoney - subornoValue;
+      const nextBarracoLevel = Math.min(100, barracoLevel + 1);
+      const randomSkill =
+        SKILLS[Math.floor(Math.random() * SKILLS.length)];
 
-      if (barrackLevel === 100) {
-        setResultMessage(
-          'Você atingiu o nível máximo do jogo! Parabéns, você é agora o rei do crime!'
-        );
+      applyPlayerUpdate((currentPlayer) => {
+        const currentSkills = {
+          ...(currentPlayer.skills || {}),
+        } as Record<string, number>;
 
-        setPlayer({
+        const updatedSkills =
+          barracoLevel >= 100
+            ? currentSkills
+            : {
+                ...currentSkills,
+                [randomSkill]: (currentSkills[randomSkill] || 0) + 1,
+              };
+
+        return {
           ...currentPlayer,
           balances: {
             ...currentPlayer.balances,
-            dirtyMoney: newDirtyMoney,
+            dirtyMoney: Math.max(
+              0,
+              Number(currentPlayer.balances?.dirtyMoney || 0) - subornoValue
+            ),
           },
           niveis: {
             ...currentPlayer.niveis,
-            barracoLevel: 100,
+            barracoLevel: nextBarracoLevel,
           },
-        });
+          pageLevels: {
+            ...currentPlayer.pageLevels,
+            barraco: Math.max(
+              Number(currentPlayer.pageLevels?.barraco || 1),
+              nextBarracoLevel
+            ),
+          },
+          skills: updatedSkills,
+        };
+      });
+
+      if (barracoLevel >= 100) {
+        setResultMessage(
+          'Você já está no nível máximo do barraco. O suborno foi aceito, mas sua posição já está no topo.'
+        );
       } else {
-        const newLevel = barrackLevel + 1;
-        const skills = { ...(currentPlayer.skills || {}) } as Record<string, number>;
-
-        const SKILLS = [
-          'attack',
-          'defense',
-          'agility',
-          'intelligence',
-          'respect',
-          'vigor',
-        ];
-        const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
-        skills[randomSkill] = (skills[randomSkill] || 0) + 1;
-
         setResultMessage(
-          `Suborno pago! Você avançou para o nível ${newLevel}. Sua habilidade aumentou em 1%.`
+          `Suborno pago. Você avançou para o nível ${nextBarracoLevel} e ganhou +1 em uma habilidade.`
         );
-
-        setPlayer({
-          ...currentPlayer,
-          balances: {
-            ...currentPlayer.balances,
-            dirtyMoney: newDirtyMoney,
-          },
-          niveis: {
-            ...currentPlayer.niveis,
-            barracoLevel: newLevel,
-          },
-          skills,
-        });
       }
 
       setShowVaultModal(false);
@@ -322,55 +270,55 @@ export default function SubornoIlustradoPage() {
   };
 
   const handleDenounce = async () => {
+    if (!player || isProcessing) return;
+
     setIsProcessing(true);
 
     try {
-      const currentPlayer = usePlayerStore.getState().player;
+      if (barracoLevel === 100) {
+        const updated = applyDelacaoPremiada(player);
 
-      if (!currentPlayer) {
-        setResultMessage('Jogador não carregado.');
-        setShowResult(true);
-        return;
-      }
-
-      if (barrackLevel === 100) {
-        const updated = applyDelacaoPremiada(currentPlayer);
+        applyPlayerUpdate(() => updated);
 
         setResultMessage(
-          'DELAÇÃO PREMIADA ACEITA!\n\nVocê fez a coisa certa.\n\nSeus bens foram bloqueados por 72 horas, seu inventário perdeu os bônus temporariamente e seu dinheiro ficou indisponível.\n\nDurante esse período, você ficará sob proteção da Polícia Federal.\n\nAo final, receberá +100% em todas as habilidades.'
+          'DELAÇÃO PREMIADA ACEITA!\n\nSeus bens foram bloqueados temporariamente. Seu inventário perdeu os bônus por um período, seu dinheiro ficou indisponível e você entrou em proteção oficial.\n\nAo final do período, você receberá o bônus previsto pelo sistema.'
         );
-
-        setPlayer(updated);
       } else {
-        const type = getRandomPunishment();
-        const updated = applyPunishment(currentPlayer, type);
+        const punishmentType = getRandomPunishment();
+        const punishedPlayer = applyPunishment(player, punishmentType);
 
-        const newLevel = barrackLevel + 1;
-        const skills = { ...(updated.skills || {}) } as Record<string, number>;
+        const nextBarracoLevel = Math.min(100, barracoLevel + 1);
+        const randomSkill =
+          SKILLS[Math.floor(Math.random() * SKILLS.length)];
 
-        const SKILLS = [
-          'attack',
-          'defense',
-          'agility',
-          'intelligence',
-          'respect',
-          'vigor',
-        ];
-        const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
-        skills[randomSkill] = (skills[randomSkill] || 0) + 1;
+        applyPlayerUpdate(() => {
+          const punishedSkills = {
+            ...(punishedPlayer.skills || {}),
+          } as Record<string, number>;
+
+          return {
+            ...punishedPlayer,
+            niveis: {
+              ...punishedPlayer.niveis,
+              barracoLevel: nextBarracoLevel,
+            },
+            pageLevels: {
+              ...punishedPlayer.pageLevels,
+              barraco: Math.max(
+                Number(punishedPlayer.pageLevels?.barraco || 1),
+                nextBarracoLevel
+              ),
+            },
+            skills: {
+              ...punishedSkills,
+              [randomSkill]: (punishedSkills[randomSkill] || 0) + 1,
+            },
+          };
+        });
 
         setResultMessage(
-          `Então você pensou que podia me denunciar e ficar por isso mesmo?\n\nPunição aplicada por 24 horas!\n\nMas você avançou para o nível ${newLevel}!`
+          `Você denunciou a autoridade e sofreu uma punição temporária.\n\nMesmo assim, avançou para o nível ${nextBarracoLevel} e ganhou +1 em uma habilidade.`
         );
-
-        setPlayer({
-          ...updated,
-          niveis: {
-            ...updated.niveis,
-            barracoLevel: newLevel,
-          },
-          skills,
-        });
       }
 
       setShowVaultModal(false);
@@ -385,149 +333,171 @@ export default function SubornoIlustradoPage() {
     navigate('/game');
   };
 
+  if (!isLoaded || !player?._id) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando suborno...
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
+  if (!isFeatureUnlocked) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
+          <FeatureLevelLock
+            playerLevel={playerLevel}
+            requiredLevel={requiredLevel}
+            featureName="Suborno Ilustrado"
+            onNavigateToBarraco={() => navigate('/barraco')}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
       <Header />
 
-      {/* BACKGROUND CINEMÁTICO AAA */}
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.7)_0%,rgba(20,20,20,0.95)_100%)]" />
       <div className="absolute inset-0 z-0 opacity-10 bg-[repeating-linear-gradient(45deg,#111_0px,#111_4px,transparent_4px,transparent_12px)]" />
 
-      <main className="flex-1 max-w-[100rem] mx-auto w-full px-4 py-12 relative z-10">
+      <main className="flex-1 max-w-[100rem] mx-auto w-full px-4 py-12 pt-[140px] md:pt-[160px] relative z-10">
         <div className="mb-12 text-center">
           <div className="inline-flex items-center gap-3 bg-red-950/70 text-red-400 text-xs font-black tracking-[0.25em] px-8 py-3 rounded-3xl border border-red-400/30 mb-6 shadow-inner">
             ⚠️ SUBORNO ILUSTRADO
           </div>
-          <h1 className="font-heading text-7xl md:text-8xl tracking-[-0.04em] drop-shadow-[0_10px_40px_rgba(0,255,80,0.4)]">
+
+          <h1 className="font-heading text-6xl md:text-8xl tracking-[-0.04em] drop-shadow-[0_10px_40px_rgba(0,255,80,0.4)]">
             SUBORNO
           </h1>
-          <p className="font-paragraph text-3xl text-emerald-400 font-bold mt-2">
-            Nível do Barraco: <span className="text-white">{barrackLevel}</span>
+
+          <p className="font-paragraph text-2xl md:text-3xl text-emerald-400 font-bold mt-2">
+            Nível do Barraco: <span className="text-white">{barracoLevel}</span>
           </p>
-          <p className="font-paragraph text-xl text-gray-400 mt-1 flex items-center justify-center gap-2">
+
+          <p className="font-paragraph text-lg md:text-xl text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap">
             <span>Dinheiro Sujo:</span>
-            <span className="text-emerald-400 font-bold text-3xl">
+            <span className="text-emerald-400 font-bold text-2xl md:text-3xl">
               R$ {dirtyMoney.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
           </p>
         </div>
 
-        {selectedAuthority && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center bg-black/60 backdrop-blur-2xl border border-emerald-400/20 rounded-3xl p-8 md:p-12 shadow-[0_0_120px_-20px_rgba(0,255,80,0.5)]">
-            {/* IMAGEM DA AUTORIDADE - ESTILO PREMIUM AAA */}
-            <div className="flex justify-center">
-              <div className="relative group w-full max-w-md">
-                {/* GLOW EXTERNO */}
-                <div className="absolute -inset-4 bg-gradient-to-r from-emerald-400/30 to-transparent rounded-3xl blur-3xl opacity-70 group-hover:opacity-100 transition-all duration-500" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center bg-black/60 backdrop-blur-2xl border border-emerald-400/20 rounded-3xl p-8 md:p-12 shadow-[0_0_120px_-20px_rgba(0,255,80,0.5)]">
+          <div className="flex justify-center">
+            <div className="relative group w-full max-w-md">
+              <div className="absolute -inset-4 bg-gradient-to-r from-emerald-400/30 to-transparent rounded-3xl blur-3xl opacity-70 group-hover:opacity-100 transition-all duration-500" />
 
-                <div className="relative bg-gray-950 border-4 border-emerald-500/70 rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,255,80,0.6)]">
-                  {/* VINHETA INTERNA */}
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.4)_0%,transparent_70%)] z-10 pointer-events-none" />
+              <div className="relative bg-gray-950 border-4 border-emerald-500/70 rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,255,80,0.6)]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.4)_0%,transparent_70%)] z-10 pointer-events-none" />
 
-                  <Image
-                    src={selectedAuthority.image}
-                    alt={selectedAuthority.name}
-                    width={400}
-                    height={400}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
+                <Image
+                  src={selectedAuthority.image}
+                  alt={selectedAuthority.name}
+                  width={400}
+                  height={400}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
 
-                  {/* OVERLAY DE "OFICIAL" */}
-                  <div className="absolute bottom-6 left-6 bg-black/70 text-emerald-400 text-xs font-black tracking-widest px-5 py-1.5 rounded-2xl border border-emerald-400/40 backdrop-blur-md">
-                    AUTORIDADE
-                  </div>
+                <div className="absolute bottom-6 left-6 bg-black/70 text-emerald-400 text-xs font-black tracking-widest px-5 py-1.5 rounded-2xl border border-emerald-400/40 backdrop-blur-md">
+                  AUTORIDADE
                 </div>
-              </div>
-            </div>
-
-            {/* INFORMAÇÕES DA AUTORIDADE - LAYOUT AAA */}
-            <div className="space-y-10">
-              <div>
-                <h2 className="font-heading text-5xl md:text-6xl tracking-[-0.03em] text-white drop-shadow-lg">
-                  {selectedAuthority.name}
-                </h2>
-                <div className="flex items-center gap-3 mt-4">
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
-                  <p className="text-emerald-400 font-medium text-xl px-6 py-1 bg-emerald-950/60 border border-emerald-400/30 rounded-3xl">
-                    {selectedAuthority.levelRange}
-                  </p>
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
-                </div>
-              </div>
-
-              {/* QUOTE PREMIUM */}
-              <div className="relative bg-black/80 border border-emerald-400/30 rounded-3xl p-8 shadow-inner">
-                <div className="absolute -left-1 -top-4 text-8xl text-emerald-400/20 leading-none">
-                  "
-                </div>
-                <p className="font-paragraph text-2xl italic text-gray-200 leading-relaxed pl-8">
-                  {selectedAuthority.dialog}
-                </p>
-                <div className="absolute -right-1 -bottom-6 text-8xl text-emerald-400/20 leading-none rotate-180">
-                  "
-                </div>
-              </div>
-
-              {/* VALOR DO SUBORNO - DISPLAY COFRE AAA */}
-              <div className="bg-gradient-to-br from-emerald-950 to-black border border-emerald-400/60 rounded-3xl p-8 flex items-center justify-between shadow-[inset_0_0_60px_rgba(0,255,80,0.2)]">
-                <div>
-                  <p className="text-emerald-400/70 text-sm font-medium tracking-widest">
-                    VALOR EXIGIDO
-                  </p>
-                  <p className="font-heading text-6xl text-emerald-400 tracking-tighter">
-                    R$ {subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-                <div className="text-7xl">💰</div>
-              </div>
-
-              {/* BOTÕES - ESTILO COFRE PREMIUM */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button
-                  onClick={() => setShowVaultModal(true)}
-                  className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-heading text-2xl py-8 rounded-3xl shadow-[0_0_60px_rgba(0,255,80,0.7)] hover:shadow-[0_0_90px_rgba(0,255,80,1)] transition-all duration-300 active:scale-[0.97] flex items-center justify-center gap-3"
-                  disabled={isProcessing}
-                >
-                  <span className="text-4xl">🔐</span>
-                  {isProcessing ? 'ABRINDO COFRE...' : 'PAGAR SUBORNO'}
-                </Button>
-
-                <Button
-                  onClick={() => {
-                    if (barrackLevel === 100) {
-                      navigate('/delacao-premiada');
-                    } else {
-                      handleDenounce();
-                    }
-                  }}
-                  className="flex-1 bg-destructive hover:bg-destructive/80 text-white font-heading text-lg py-6"
-                  disabled={isProcessing}
-                >
-                  {isProcessing
-                    ? 'Processando...'
-                    : barrackLevel === 100
-                      ? 'Delação Premiada'
-                      : 'Denunciar'}
-                </Button>
               </div>
             </div>
           </div>
-        )}
+
+          <div className="space-y-10">
+            <div>
+              <h2 className="font-heading text-5xl md:text-6xl tracking-[-0.03em] text-white drop-shadow-lg">
+                {selectedAuthority.name}
+              </h2>
+
+              <div className="flex items-center gap-3 mt-4">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
+                <p className="text-emerald-400 font-medium text-xl px-6 py-1 bg-emerald-950/60 border border-emerald-400/30 rounded-3xl">
+                  {selectedAuthority.levelRange}
+                </p>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
+              </div>
+            </div>
+
+            <div className="relative bg-black/80 border border-emerald-400/30 rounded-3xl p-8 shadow-inner">
+              <div className="absolute -left-1 -top-4 text-8xl text-emerald-400/20 leading-none">
+                "
+              </div>
+              <p className="font-paragraph text-2xl italic text-gray-200 leading-relaxed pl-8">
+                {selectedAuthority.dialog}
+              </p>
+              <div className="absolute -right-1 -bottom-6 text-8xl text-emerald-400/20 leading-none rotate-180">
+                "
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-950 to-black border border-emerald-400/60 rounded-3xl p-8 flex items-center justify-between shadow-[inset_0_0_60px_rgba(0,255,80,0.2)]">
+              <div>
+                <p className="text-emerald-400/70 text-sm font-medium tracking-widest">
+                  VALOR EXIGIDO
+                </p>
+                <p className="font-heading text-5xl md:text-6xl text-emerald-400 tracking-tighter">
+                  R$ {subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="text-7xl">💰</div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button
+                onClick={() => setShowVaultModal(true)}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-heading text-xl md:text-2xl py-8 rounded-3xl shadow-[0_0_60px_rgba(0,255,80,0.7)] hover:shadow-[0_0_90px_rgba(0,255,80,1)] transition-all duration-300 active:scale-[0.97] flex items-center justify-center gap-3"
+                disabled={isProcessing}
+              >
+                <span className="text-4xl">🔐</span>
+                {isProcessing ? 'ABRINDO COFRE...' : 'PAGAR SUBORNO'}
+              </Button>
+
+              <Button
+                onClick={() => {
+                  if (barracoLevel === 100) {
+                    navigate('/delacao-premiada');
+                  } else {
+                    void handleDenounce();
+                  }
+                }}
+                className="flex-1 bg-destructive hover:bg-destructive/80 text-white font-heading text-lg py-6"
+                disabled={isProcessing}
+              >
+                {isProcessing
+                  ? 'Processando...'
+                  : barracoLevel === 100
+                  ? 'Delação Premiada'
+                  : 'Denunciar'}
+              </Button>
+            </div>
+          </div>
+        </div>
       </main>
 
       <Footer />
 
-      {/* Safe Vault Modal - IMAGEM INTERNA COM DINHEIRO PERMANECE INALTERADA */}
       <SafeVaultModal
         open={showVaultModal}
         onOpenChange={setShowVaultModal}
         subornoValue={subornoValue}
         playerDirtyMoney={dirtyMoney}
-        onConfirm={handlePaySuborno}
+        onConfirm={() => {
+          void handlePaySuborno();
+        }}
         isProcessing={isProcessing}
       />
 
-      {/* Resultado */}
       <Dialog open={showResult} onOpenChange={setShowResult}>
         <DialogContent className="bg-gray-900 border-emerald-800 max-w-md">
           <DialogHeader>
@@ -535,11 +505,13 @@ export default function SubornoIlustradoPage() {
               Resultado da Operação
             </DialogTitle>
           </DialogHeader>
+
           <div className="text-center py-8">
             <p className="font-paragraph text-xl whitespace-pre-line text-gray-200 leading-relaxed">
               {resultMessage}
             </p>
           </div>
+
           <Button
             onClick={handleCloseResult}
             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-heading text-xl py-7 rounded-3xl"
