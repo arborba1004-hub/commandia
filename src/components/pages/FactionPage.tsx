@@ -437,33 +437,16 @@ export default function FactionPage() {
                                 Total
                               </div>
                               <div className="font-black">
-                                     {formatMoney(nextCost.cleanMoney)} limpo
+                                {formatMoney(member.contribution.totalValue)}
+                              </div>
                             </div>
-                          </div>
-
-                          <div className="rounded-2xl border border-border px-4 py-3">
-                            <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                              Limite
-                            </div>
-                            <div className="mt-1 font-black">20 níveis</div>
                           </div>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void upgradeInvestment(branch);
-                          }}
-                          disabled={isSubmitting || !canManageInvestments || level >= 20}
-                          className="mt-4 rounded-2xl bg-red-600 px-5 py-3 text-sm font-black uppercase tracking-wide text-white disabled:opacity-50"
-                        >
-                          {level >= 20 ? 'Máximo atingido' : 'Investir'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
+                      ))
+                    )}
+                  </div>
+                </aside>
+              </div>
             )}
 
             {activeTab === 'logs' && (

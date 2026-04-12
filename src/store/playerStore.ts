@@ -205,6 +205,8 @@ export type PlayerState = {
   notifications?: AttackNotification[];
 
   attackHistory?: AttackHistoryItem[];
+
+  factionId?: string | null;
 };
 
 type PlayerStore = {
@@ -400,6 +402,8 @@ const initialPlayer: PlayerState = {
   notifications: [],
 
   attackHistory: [],
+
+  factionId: null,
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
@@ -490,6 +494,8 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     purchasedAccessories: incoming?.purchasedAccessories || initialPlayer.purchasedAccessories || [],
     notifications: incoming?.notifications || initialPlayer.notifications || [],
     attackHistory: incoming?.attackHistory || initialPlayer.attackHistory || [],
+
+    factionId: incoming?.factionId ?? initialPlayer.factionId,
   };
 }
 
