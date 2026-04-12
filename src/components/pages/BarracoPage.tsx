@@ -9,6 +9,7 @@ export default function BarracoPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [upgradeError, setUpgradeError] = useState('');
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradedToLevel, setUpgradedToLevel] = useState<number | null>(null);
   const player = usePlayerStore((state) => state.player);
   const upgradeBarracoLocal = usePlayerStore((state) => state.upgradeBarracoLocal);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
@@ -16,7 +17,7 @@ export default function BarracoPage() {
 
   useEffect(() => {
     if (!isLoaded) {
-      loadPlayer();
+      void loadPlayer();
     }
   }, [isLoaded, loadPlayer]);
 
@@ -46,6 +47,7 @@ export default function BarracoPage() {
     setUpgradeError('');
 
     try {
+      const currentLevel = level;
       const result = upgradeBarracoLocal();
 
       if (!result?.ok) {
@@ -53,6 +55,7 @@ export default function BarracoPage() {
         return;
       }
 
+      setUpgradedToLevel(currentLevel + 1);
       setShowSuccessModal(true);
     } catch (error) {
       setUpgradeError(error instanceof Error ? error.message : 'Erro ao evoluir barraco');
@@ -137,7 +140,10 @@ export default function BarracoPage() {
               animate={{ scale: 1, opacity: 1 }}
             >
               <button
-                onClick={() => setShowSuccessModal(false)}
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setUpgradedToLevel(null);
+                }}
                 className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 text-white text-xl font-bold flex items-center justify-center"
                 aria-label="Fechar modal"
               >
@@ -149,13 +155,16 @@ export default function BarracoPage() {
                   🎉 Parabéns!
                 </h2>
                 <p className="text-white mb-2">
-                  Seu barraco evoluiu para o nível {level + 1}!
+                  Seu barraco evoluiu para o nível {upgradedToLevel ?? level}!
                 </p>
                 <p className="text-sm opacity-70 mb-6">
-                  {getBarracoName(level + 1)}
+                  {getBarracoName(upgradedToLevel ?? level)}
                 </p>
                 <button
-                  onClick={() => setShowSuccessModal(false)}
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    setUpgradedToLevel(null);
+                  }}
                   className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg font-bold transition"
                 >
                   Fechar
