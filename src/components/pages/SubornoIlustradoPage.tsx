@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Image } from '@/components/ui/image';
 import SafeVaultModal from '@/components/SafeVaultModal';
-import FeatureLevelLock from '@/components/FeatureLevelLock';
-import { canAccessFeature, getFeatureLevelRequirement } from '@/utils/levelRequirements';
 import {
   getRandomPunishment,
   applyPunishment,
@@ -119,11 +117,13 @@ const AUTHORITIES: Authority[] = [
     name: 'Presidente',
     levelRange: 'Nível 100',
     dialog:
-      'Você chegou ao topo. Impressionante. Agora, vamos fazer grandes coisas juntos... ou você quer tentar me derrotar? Que ingenuidade.',
+      'Você chegou ao topo. Impressionante. Agora, vamos fazer grandes coisas juntos... ou você quer tentar me derrotar?',
     image:
       'https://static.wixstatic.com/media/50f4bf_402259b701d545678f7a5cd11d47c2a4~mv2.png?originWidth=384&originHeight=384',
   },
 ];
+
+const SKILLS = ['attack', 'defense', 'agility', 'intelligence', 'respect', 'vigor'] as const;
 
 function getAuthorityByLevel(level: number): Authority {
   if (level <= 9) return AUTHORITIES[0];
@@ -136,15 +136,6 @@ function getAuthorityByLevel(level: number): Authority {
   if (level <= 79) return AUTHORITIES[7];
   if (level <= 89) return AUTHORITIES[8];
   if (level <= 99) return AUTHORITIES[9];
-
-  if (level >= 100 && level < 109) {
-    return {
-      ...AUTHORITIES[10],
-      dialog:
-        'Você ainda não tem poder suficiente para falar comigo. Volte quando dominar tudo.',
-    };
-  }
-
   return AUTHORITIES[10];
 }
 
@@ -152,18 +143,8 @@ function calculateSubornoValue(level: number): number {
   return Math.floor(220 * Math.pow(1.1, level - 1));
 }
 
-const SKILLS = [
-  'attack',
-  'defense',
-  'agility',
-  'intelligence',
-  'respect',
-  'vigor',
-] as const;
-
 export default function SubornoIlustradoPage() {
   const navigate = useNavigate();
-
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
@@ -180,21 +161,22 @@ export default function SubornoIlustradoPage() {
     }
   }, [isLoaded, loadPlayer]);
 
-  const playerLevel = player?.niveis?.playerLevel || 1;
+  if (!isLoaded || !player?._id) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando suborno...
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
   const barracoLevel = player?.niveis?.barracoLevel || 1;
   const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
-  const requiredLevel = getFeatureLevelRequirement('suborno');
-  const isFeatureUnlocked = canAccessFeature(playerLevel, 'suborno');
-
-  const selectedAuthority = useMemo(
-    () => getAuthorityByLevel(barracoLevel),
-    [barracoLevel]
-  );
-
-  const subornoValue = useMemo(
-    () => calculateSubornoValue(barracoLevel),
-    [barracoLevel]
-  );
+  const selectedAuthority = useMemo(() => getAuthorityByLevel(barracoLevel), [barracoLevel]);
+  const subornoValue = useMemo(() => calculateSubornoValue(barracoLevel), [barracoLevel]);
 
   const handlePaySuborno = async () => {
     if (!player || isProcessing) return;
@@ -202,9 +184,7 @@ export default function SubornoIlustradoPage() {
     setIsProcessing(true);
 
     try {
-      const currentDirtyMoney = Number(player.balances?.dirtyMoney || 0);
-
-      if (currentDirtyMoney < subornoValue) {
+      if (dirtyMoney < subornoValue) {
         setResultMessage('Você não tem dinheiro sujo suficiente.');
         setShowVaultModal(false);
         setShowResult(true);
@@ -212,21 +192,10 @@ export default function SubornoIlustradoPage() {
       }
 
       const nextBarracoLevel = Math.min(100, barracoLevel + 1);
-      const randomSkill =
-        SKILLS[Math.floor(Math.random() * SKILLS.length)];
+      const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
 
       applyPlayerUpdate((currentPlayer) => {
-        const currentSkills = {
-          ...(currentPlayer.skills || {}),
-        } as Record<string, number>;
-
-        const updatedSkills =
-          barracoLevel >= 100
-            ? currentSkills
-            : {
-                ...currentSkills,
-                [randomSkill]: (currentSkills[randomSkill] || 0) + 1,
-              };
+        const currentSkills = { ...(currentPlayer.skills || {}) } as Record<string, number>;
 
         return {
           ...currentPlayer,
@@ -243,24 +212,20 @@ export default function SubornoIlustradoPage() {
           },
           pageLevels: {
             ...currentPlayer.pageLevels,
-            barraco: Math.max(
-              Number(currentPlayer.pageLevels?.barraco || 1),
-              nextBarracoLevel
-            ),
+            barraco: Math.max(Number(currentPlayer.pageLevels?.barraco || 1), nextBarracoLevel),
           },
-          skills: updatedSkills,
+          skills: {
+            ...currentSkills,
+            [randomSkill]: Number((currentSkills[randomSkill] || 0) + 1),
+          },
         };
       });
 
-      if (barracoLevel >= 100) {
-        setResultMessage(
-          'Você já está no nível máximo do barraco. O suborno foi aceito, mas sua posição já está no topo.'
-        );
-      } else {
-        setResultMessage(
-          `Suborno pago. Você avançou para o nível ${nextBarracoLevel} e ganhou +1 em uma habilidade.`
-        );
-      }
+      setResultMessage(
+        barracoLevel >= 100
+          ? 'Você já está no topo. O suborno foi aceito, mas seu barraco não sobe além do nível 100.'
+          : `Suborno pago. Você avançou para o nível ${nextBarracoLevel} e ganhou +1 em uma habilidade.`
+      );
 
       setShowVaultModal(false);
       setShowResult(true);
@@ -275,92 +240,46 @@ export default function SubornoIlustradoPage() {
     setIsProcessing(true);
 
     try {
-      if (barracoLevel === 100) {
+      if (barracoLevel >= 100) {
         const updated = applyDelacaoPremiada(player);
-
         applyPlayerUpdate(() => updated);
-
-        setResultMessage(
-          'DELAÇÃO PREMIADA ACEITA!\n\nSeus bens foram bloqueados temporariamente. Seu inventário perdeu os bônus por um período, seu dinheiro ficou indisponível e você entrou em proteção oficial.\n\nAo final do período, você receberá o bônus previsto pelo sistema.'
-        );
-      } else {
-        const punishmentType = getRandomPunishment();
-        const punishedPlayer = applyPunishment(player, punishmentType);
-
-        const nextBarracoLevel = Math.min(100, barracoLevel + 1);
-        const randomSkill =
-          SKILLS[Math.floor(Math.random() * SKILLS.length)];
-
-        applyPlayerUpdate(() => {
-          const punishedSkills = {
-            ...(punishedPlayer.skills || {}),
-          } as Record<string, number>;
-
-          return {
-            ...punishedPlayer,
-            niveis: {
-              ...punishedPlayer.niveis,
-              barracoLevel: nextBarracoLevel,
-            },
-            pageLevels: {
-              ...punishedPlayer.pageLevels,
-              barraco: Math.max(
-                Number(punishedPlayer.pageLevels?.barraco || 1),
-                nextBarracoLevel
-              ),
-            },
-            skills: {
-              ...punishedSkills,
-              [randomSkill]: (punishedSkills[randomSkill] || 0) + 1,
-            },
-          };
-        });
-
-        setResultMessage(
-          `Você denunciou a autoridade e sofreu uma punição temporária.\n\nMesmo assim, avançou para o nível ${nextBarracoLevel} e ganhou +1 em uma habilidade.`
-        );
+        navigate('/delacao-premiada');
+        return;
       }
 
-      setShowVaultModal(false);
+      const punishmentType = getRandomPunishment();
+      const punishedPlayer = applyPunishment(player, punishmentType);
+      const nextBarracoLevel = Math.min(100, barracoLevel + 1);
+      const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
+
+      applyPlayerUpdate(() => {
+        const punishedSkills = { ...(punishedPlayer.skills || {}) } as Record<string, number>;
+
+        return {
+          ...punishedPlayer,
+          niveis: {
+            ...punishedPlayer.niveis,
+            barracoLevel: nextBarracoLevel,
+          },
+          pageLevels: {
+            ...punishedPlayer.pageLevels,
+            barraco: Math.max(Number(punishedPlayer.pageLevels?.barraco || 1), nextBarracoLevel),
+          },
+          skills: {
+            ...punishedSkills,
+            [randomSkill]: Number((punishedSkills[randomSkill] || 0) + 1),
+          },
+        };
+      });
+setResultMessage(
+        `Você denunciou a autoridade e sofreu uma punição temporária.\n\nMesmo assim, avançou para o nível ${nextBarracoLevel} e ganhou +1 em uma habilidade.`
+      );
       setShowResult(true);
     } finally {
       setIsProcessing(false);
+      setShowVaultModal(false);
     }
   };
-
-  const handleCloseResult = () => {
-    setShowResult(false);
-    navigate('/game');
-  };
-
-  if (!isLoaded || !player?._id) {
-    return (
-      <>
-        <Header />
-        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
-          Carregando suborno...
-        </div>
-        <Footer />
-      </>
-    );
-  }
-
-  if (!isFeatureUnlocked) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
-          <FeatureLevelLock
-            playerLevel={playerLevel}
-            requiredLevel={requiredLevel}
-            featureName="Suborno Ilustrado"
-            onNavigateToBarraco={() => navigate('/barraco')}
-          />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
@@ -430,9 +349,7 @@ export default function SubornoIlustradoPage() {
             </div>
 
             <div className="relative bg-black/80 border border-emerald-400/30 rounded-3xl p-8 shadow-inner">
-              <div className="absolute -left-1 -top-4 text-8xl text-emerald-400/20 leading-none">
-                "
-              </div>
+              <div className="absolute -left-1 -top-4 text-8xl text-emerald-400/20 leading-none">"</div>
               <p className="font-paragraph text-2xl italic text-gray-200 leading-relaxed pl-8">
                 {selectedAuthority.dialog}
               </p>
@@ -465,20 +382,12 @@ export default function SubornoIlustradoPage() {
 
               <Button
                 onClick={() => {
-                  if (barracoLevel === 100) {
-                    navigate('/delacao-premiada');
-                  } else {
-                    void handleDenounce();
-                  }
+                  void handleDenounce();
                 }}
                 className="flex-1 bg-destructive hover:bg-destructive/80 text-white font-heading text-lg py-6"
                 disabled={isProcessing}
               >
-                {isProcessing
-                  ? 'Processando...'
-                  : barracoLevel === 100
-                  ? 'Delação Premiada'
-                  : 'Denunciar'}
+                {isProcessing ? 'Processando...' : barracoLevel >= 100 ? 'Delação Premiada' : 'Denunciar'}
               </Button>
             </div>
           </div>
@@ -513,10 +422,10 @@ export default function SubornoIlustradoPage() {
           </div>
 
           <Button
-            onClick={handleCloseResult}
+            onClick={() => setShowResult(false)}
             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-heading text-xl py-7 rounded-3xl"
           >
-            VOLTAR AO JOGO
+            FECHAR
           </Button>
         </DialogContent>
       </Dialog>
