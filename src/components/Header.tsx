@@ -34,7 +34,7 @@ export default function Header() {
   const hierarchyTitle = playerLevel > 0 ? getPlayerRank(playerLevel).title : 'Sem patente';
 
   const customName = player?.headerCustomization?.customName || '';
-  const gamerName = customName || player?.name || 'CAPO GHOST';
+  const gamerName = customName || player?.name || '—';
 
   const avatarUrl =
     player?.headerCustomization?.customAvatar ||
