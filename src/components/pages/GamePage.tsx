@@ -26,7 +26,6 @@ import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import { getPlayerRank, checkRankPromotion } from '@/utils/hierarchySystem';
 import RankPromotionNotification from '@/components/RankPromotionNotification';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { fetchOtherPlayersMap } from '@/api/playersApi';
 
 const dracoLoader = new DRACOLoader();
@@ -1015,7 +1014,6 @@ const rect = containerRef.current.getBoundingClientRect();
         <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
           Carregando mapa...
         </div>
-        <Footer />
       </>
     );
   }
