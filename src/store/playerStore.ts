@@ -1353,33 +1353,38 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   upgradeBarracoLocal: () => {
     const player = get().player;
-    const currentLevel = player.niveis.barracoLevel || 1;
-    const requirements = getBarracoUpgradeRequirements(currentLevel);
+    const requirements = getBarracoUpgradeRequirements(player);
 
-    if (!requirements) {
-      return { ok: false, reason: 'Max level reached' };
+    if (!requirements.allowed) {
+      return {
+        ok: false,
+        reason: requirements.reason,
+      };
     }
 
-    const { cost } = requirements;
-    const { dirtyMoney } = player.balances;
+    const currentLevel = player.niveis.barracoLevel;
+    const cost = requirements.cost;
 
-    if (dirtyMoney < cost) {
-      return { ok: false, reason: 'Insufficient dirty money', cost };
-    }
-
-    get().applyPlayerUpdate((p) => ({
-      ...p,
+    get().applyPlayerUpdate((current) => ({
+      ...current,
       niveis: {
-        ...p.niveis,
-        barracoLevel: currentLevel + 1,
+        ...current.niveis,
+        barracoLevel: current.niveis.barracoLevel + 1,
+      },
+      pageLevels: {
+        ...current.pageLevels,
+        barraco: current.niveis.barracoLevel + 1,
       },
       balances: {
-        ...p.balances,
-        dirtyMoney: p.balances.dirtyMoney - cost,
+        ...current.balances,
+        cleanMoney: Math.max(0, current.balances.cleanMoney - cost),
       },
     }));
 
-    return { ok: true, cost };
+    return {
+      ok: true,
+      cost,
+    };
   },
 
   purchaseLuxuryItemLocal: (payload) => {
