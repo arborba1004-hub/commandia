@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
-import type { ChatMessage } from '@/store/chatStore';
+import type { ChatMessage, FactionHelpRequest } from '@/store/chatStore';
 import { Image } from '@/components/ui/image';
 
 interface ChatMessageListProps {
@@ -8,7 +8,13 @@ interface ChatMessageListProps {
   currentUserId: string;
   isLoading?: boolean;
   onOpenMail?: (messageId: string) => void;
+  factionHelpRequests?: FactionHelpRequest[];
+  onHelpFactionRequest?: (requestId: string) => void;
+  isHelpingRequest?: boolean;
 }
+
+const HELP_ICON_URL =
+  'https://static.wixstatic.com/media/50f4bf_f469fff24bd3478eae136dd027c0106b~mv2.png';
 
 function formatDate(value: string) {
   try {
@@ -84,9 +90,121 @@ const MessageBody = memo(function MessageBody({ body }: { body: string }) {
         }
 
         return (
-          <Image key={`img-${part.id}-${index}`} src={part.src} alt={part.alt} className="my-2 h-20 w-20 object-contain" draggable={false} loading="lazy" />
+          <Image
+            key={`img-${part.id}-${index}`}
+            src={part.src}
+            alt={part.alt}
+            className="my-2 h-20 w-20 object-contain"
+            draggable={false}
+            loading="lazy"
+          />
         );
       })}
+    </div>
+  );
+});
+
+const FactionHelpCard = memo(function FactionHelpCard({
+  request,
+  currentUserId,
+  onHelp,
+  isHelpingRequest = false,
+}: {
+  request: FactionHelpRequest;
+  currentUserId: string;
+  onHelp?: (requestId: string) => void;
+  isHelpingRequest?: boolean;
+}) {
+  const helpCount = Number(request.helpCount || 0);
+  const maxHelps = Number(request.maxHelps || 10);
+  const remainingHelps = Math.max(0, maxHelps - helpCount);
+  const progressPercent = Math.min(100, (helpCount / maxHelps) * 100);
+
+  const alreadyHelped = (request.helperIds || []).includes(String(currentUserId));
+  const isOwnRequest = String(request.requesterId) === String(currentUserId);
+  const isCompleted = request.status === 'completed' || remainingHelps <= 0;
+
+  const buttonDisabled =
+    isHelpingRequest || alreadyHelped || isOwnRequest || isCompleted;
+
+  let buttonLabel = 'Ajudar';
+  if (isOwnRequest) buttonLabel = 'Seu pedido';
+  else if (alreadyHelped) buttonLabel = 'Você ajudou';
+  else if (isCompleted) buttonLabel = 'Completo';
+  else if (isHelpingRequest) buttonLabel = 'Enviando...';
+
+  return (
+    <div className="rounded-3xl border border-red-500/30 bg-black/70 p-4 shadow-[0_0_25px_rgba(255,0,0,0.18)]">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+        <div className="flex shrink-0 items-center justify-center">
+          <img
+            src={HELP_ICON_URL}
+            alt="Ajuda no corre"
+            className="h-28 w-28 object-contain md:h-32 md:w-32"
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-red-700 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
+              Ajuda no corre
+            </span>
+
+            <span className="rounded-full border border-yellow-400/40 bg-yellow-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-yellow-300">
+              +1 corre por ajuda
+            </span>
+          </div>
+
+          <div className="mt-3 text-lg font-black text-white">
+            {request.requesterName} pediu fortalecimento
+          </div>
+
+          <p className="mt-1 text-sm text-zinc-300">
+            {request.message || 'Família, fortalece no corre aí 🙏'}
+          </p>
+
+          <div className="mt-4 flex items-end gap-4">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
+                Faltam
+              </div>
+              <div className="text-4xl font-black leading-none text-yellow-300">
+                {remainingHelps}
+              </div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                corres
+              </div>
+            </div>
+
+            <div className="flex-1">
+              <div className="mb-2 flex items-center justify-between text-xs font-semibold text-zinc-400">
+                <span>Progresso</span>
+                <span>
+                  {helpCount}/{maxHelps}
+                </span>
+              </div>
+
+              <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
+                <div
+                  className="h-full rounded-full bg-red-600 transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center">
+          <button
+            type="button"
+            onClick={() => onHelp?.(request.id)}
+            disabled={buttonDisabled}
+            className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black uppercase tracking-wide text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {buttonLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 });
@@ -96,11 +214,17 @@ const MessageItem = memo(function MessageItem({
   channel,
   currentUserId,
   onOpenMail,
+  factionHelpRequests = [],
+  onHelpFactionRequest,
+  isHelpingRequest = false,
 }: {
   message: ChatMessage;
   channel: 'complexo' | 'faccao' | 'mail';
   currentUserId: string;
   onOpenMail?: (messageId: string) => void;
+  factionHelpRequests?: FactionHelpRequest[];
+  onHelpFactionRequest?: (requestId: string) => void;
+  isHelpingRequest?: boolean;
 }) {
   const isMine = String(message.senderId || '') === String(currentUserId || '');
   const isMail = channel === 'mail';
@@ -108,6 +232,22 @@ const MessageItem = memo(function MessageItem({
     isMail &&
     String(message.recipientId || '') === String(currentUserId || '') &&
     !message.read;
+
+  if (message.messageType === 'faction_help_request') {
+    const requestId = String(message.metadata?.requestId || '');
+    const request = factionHelpRequests.find((item) => String(item.id) === requestId);
+
+    if (request) {
+      return (
+        <FactionHelpCard
+          request={request}
+          currentUserId={currentUserId}
+          onHelp={onHelpFactionRequest}
+          isHelpingRequest={isHelpingRequest}
+        />
+      );
+    }
+  }
 
   const WrapperTag = isMail ? 'button' : 'div';
 
@@ -165,6 +305,12 @@ const MessageItem = memo(function MessageItem({
           </span>
         )}
 
+        {message.messageType === 'faction_help_update' && (
+          <span className="rounded-full bg-yellow-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-yellow-300">
+            Ajuda registrada
+          </span>
+        )}
+
         {isMail && isUnreadMail && (
           <span className="rounded-full bg-yellow-400/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-yellow-300">
             Não lida
@@ -187,6 +333,9 @@ export default function ChatMessageList({
   currentUserId,
   isLoading = false,
   onOpenMail,
+  factionHelpRequests = [],
+  onHelpFactionRequest,
+  isHelpingRequest = false,
 }: ChatMessageListProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const previousLastMessageIdRef = useRef<string | null>(null);
@@ -238,6 +387,9 @@ export default function ChatMessageList({
             channel={channel}
             currentUserId={currentUserId}
             onOpenMail={onOpenMail}
+            factionHelpRequests={factionHelpRequests}
+            onHelpFactionRequest={onHelpFactionRequest}
+            isHelpingRequest={isHelpingRequest}
           />
         ))}
       </div>
