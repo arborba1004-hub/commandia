@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import { fetchCurrentPlayer, syncPlayerUpdate, laundryStart, laundryComplete, canOperateLaundry } from '@/api/playerApi';
+import {
+  fetchCurrentPlayerWithFaction,
+  syncPlayerUpdateWithFaction,
+  laundryStartWithFaction,
+  laundryCompleteWithFaction,
+  canOperateLaundry,
+} from '@/api/playerApi';
 import {
   clearExpiredPunishments,
   isMoneyLaunderingBlocked,
@@ -499,6 +505,26 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   };
 }
 
+async function syncFactionStoreFromEnvelope(faction: any | null) {
+  try {
+    const { useFactionStore } = await import('@/store/factionStore');
+
+    if (faction) {
+      useFactionStore.getState().setFaction(faction);
+    } else {
+      useFactionStore.getState().setFaction(null);
+    }
+  } catch (error) {
+    console.warn('Não foi possível sincronizar factionStore a partir do playerStore:', error);
+  }
+}
+
+function persistMergedPlayer(playerData: Partial<PlayerState>) {
+  const merged = clearExpiredPunishments(mergePlayer(playerData));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  return merged;
+}
+
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
   player: initialPlayer,
   isLoaded: false,
@@ -538,11 +564,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       // 2) se tiver token, o backend é a fonte de verdade
       if (!token) return;
 
-      const serverPlayer = await fetchCurrentPlayer();
-      if (!serverPlayer) return;
+      const serverEnvelope = await fetchCurrentPlayerWithFaction();
+      if (!serverEnvelope?.player) return;
 
-      const mergedServer = clearExpiredPunishments(mergePlayer(serverPlayer));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedServer));
+      const mergedServer = persistMergedPlayer(serverEnvelope.player);
 
       set({
         player: mergedServer,
@@ -551,6 +576,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         lastSyncAt: Date.now(),
         pollingAttempts: 0,
       });
+
+      await syncFactionStoreFromEnvelope(serverEnvelope.faction);
     } catch (error) {
       console.error('Erro ao carregar playerData:', error);
       set({
@@ -665,18 +692,21 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         syncError: null,
       });
 
-      const data = await syncPlayerUpdate(player);
-      const merged = mergePlayer(data.player);
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      const data = await syncPlayerUpdateWithFaction(player);
+      const merged = persistMergedPlayer(data.player);
 
       set((state) => ({
         player: merged,
         isSyncing: false,
         syncError: null,
         lastSyncAt: Date.now(),
-        localVersion: Math.max(state.localVersion, ((data.player as any)?.version ?? state.localVersion)),
+        localVersion: Math.max(
+          state.localVersion,
+          ((data.player as any)?.version ?? state.localVersion)
+        ),
       }));
+
+      await syncFactionStoreFromEnvelope(data.faction);
     } catch (error) {
       console.error('Erro sync player:', error);
       set({
@@ -733,12 +763,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     if (msSinceLastLocalChange < 1500) return;
 
     try {
-      const serverPlayer = await fetchCurrentPlayer();
-      if (!serverPlayer) return;
+      const serverEnvelope = await fetchCurrentPlayerWithFaction();
+      if (!serverEnvelope?.player) return;
 
-      const merged = mergePlayer(serverPlayer);
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      const merged = persistMergedPlayer(serverEnvelope.player);
 
       set({
         player: merged,
@@ -746,6 +774,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         pollingAttempts: 0,
         lastSyncAt: Date.now(),
       });
+
+      await syncFactionStoreFromEnvelope(serverEnvelope.faction);
     } catch (error: any) {
       console.error('Erro ao fazer polling do player:', error);
 
@@ -995,7 +1025,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     }
 
     try {
-      const response = await laundryStart({
+      const response = await laundryStartWithFaction({
         businessId: operation.businessId,
         businessName: operation.businessName,
         grossAmount: operation.grossAmount,
@@ -1004,26 +1034,17 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         netAmount: operation.netAmount,
       });
 
-      const newOperation: ActiveOperation = {
-        ...operation,
-        id: generateUUID(),
-        operationId: response.operationId,
-        endsAt: response.endsAt,
-        status: 'processing',
-      };
+      // O backend já devolve o player com a operação ativa criada.
+      const updated = persistMergedPlayer(response.player);
 
-      const updated = mergePlayer({
-        ...response.player,
-        laundryProgress: {
-          ...response.player.laundryProgress,
-          activeOperations: [
-            ...response.player.laundryProgress.activeOperations,
-            newOperation,
-          ],
-        },
+      set({
+        player: updated,
+        syncError: null,
+        lastSyncAt: Date.now(),
+        pollingAttempts: 0,
       });
 
-      get().hydratePlayerFromServer(updated);
+      await syncFactionStoreFromEnvelope(response.faction);
 
       return true;
     } catch (error: any) {
@@ -1043,13 +1064,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     }
 
     try {
-      // Chama o backend para completar a operação
-      const response = await laundryComplete(operationId);
+      const response = await laundryCompleteWithFaction(operationId);
 
-      // Atualiza o estado local com os dados retornados pelo backend
-      const updated = mergePlayer(response.player);
+      const updated = persistMergedPlayer(response.player);
 
-      get().hydratePlayerFromServer(updated);
+      set({
+        player: updated,
+        syncError: null,
+        lastSyncAt: Date.now(),
+        pollingAttempts: 0,
+      });
+
+      await syncFactionStoreFromEnvelope(response.faction);
 
       // Limpa operações diárias antigas para manter apenas as do dia atual
       get().clearFinishedLaundryOperations();
