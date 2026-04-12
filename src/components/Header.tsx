@@ -31,7 +31,6 @@ export default function Header() {
 
   const isLoadedReady = Boolean(isLoaded);
   const isPlayerReady = Boolean(player?._id);
-  const showGuestState = isLoadedReady && !isPlayerReady;
   const showPlayerState = isLoadedReady && isPlayerReady;
   const playerLevel = player?.niveis?.barracoLevel ?? 0;
   const hierarchyTitle = playerLevel > 0 ? getPlayerRank(playerLevel).title : 'Sem patente';
