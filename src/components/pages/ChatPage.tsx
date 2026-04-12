@@ -8,7 +8,6 @@ import ChatComposer from '@/components/chat/ChatComposer';
 import { useChatStore } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
 
-// Interface estendida do jogador para incluir factionId
 interface ExtendedPlayer {
   _id?: string;
   googleId?: string;
@@ -32,24 +31,28 @@ export default function ChatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const player = usePlayerStore((state) => state.player) as ExtendedPlayer | null;
-  const isPlayerLoading = usePlayerStore((state) => state.isLoading);
 
   const activeChannel = useChatStore((state) => state.activeChannel);
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
   const complexoMessages = useChatStore((state) => state.complexoMessages);
   const faccaoMessages = useChatStore((state) => state.faccaoMessages);
   const mailMessages = useChatStore((state) => state.mailMessages);
+  const factionHelpRequests = useChatStore((state) => state.factionHelpRequests);
   const isLoading = useChatStore((state) => state.isLoading);
   const isSending = useChatStore((state) => state.isSending);
+  const isHelpingRequest = useChatStore((state) => state.isHelpingRequest);
   const syncError = useChatStore((state) => state.syncError);
   const loadChat = useChatStore((state) => state.loadChat);
   const fetchMessages = useChatStore((state) => state.fetchMessages);
+  const fetchFactionHelpRequests = useChatStore((state) => state.fetchFactionHelpRequests);
   const startChatPolling = useChatStore((state) => state.startChatPolling);
   const stopChatPolling = useChatStore((state) => state.stopChatPolling);
   const sendComplexoMessage = useChatStore((state) => state.sendComplexoMessage);
   const sendFaccaoMessage = useChatStore((state) => state.sendFaccaoMessage);
   const sendMailMessage = useChatStore((state) => state.sendMailMessage);
   const markMailAsRead = useChatStore((state) => state.markMailAsRead);
+  const createFactionHelpRequest = useChatStore((state) => state.createFactionHelpRequest);
+  const helpFactionRequest = useChatStore((state) => state.helpFactionRequest);
 
   const [mailRecipientId, setMailRecipientId] = useState('');
   const [mailRecipientName, setMailRecipientName] = useState('');
@@ -59,16 +62,6 @@ export default function ChatPage() {
   const currentUserId = String(player?._id || player?.googleId || '');
   const hasFaction = Boolean(player?.factionId);
 
-  // Aguarda o carregamento do jogador
-  if (isPlayerLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-white">Carregando chat...</p>
-      </div>
-    );
-  }
-
-  // Restaura o canal ativo da URL ou sessionStorage
   useEffect(() => {
     if (hasBootstrapped) return;
 
@@ -84,7 +77,6 @@ export default function ChatPage() {
     setHasBootstrapped(true);
   }, [hasBootstrapped, searchParams, setActiveChannel]);
 
-  // Inicializa o chat e o polling
   useEffect(() => {
     if (!hasBootstrapped) return;
 
@@ -96,15 +88,25 @@ export default function ChatPage() {
     };
   }, [hasBootstrapped, loadChat, startChatPolling, stopChatPolling]);
 
-  // Persiste o canal ativo e busca mensagens quando ele muda
   useEffect(() => {
     if (!hasBootstrapped) return;
 
     sessionStorage.setItem('chat_active_channel', activeChannel);
     setSearchParams({ channel: activeChannel }, { replace: true });
-    // A busca é feita apenas quando o canal muda, evitando duplicação
+
     void fetchMessages(activeChannel, true);
-  }, [activeChannel, hasBootstrapped, setSearchParams, fetchMessages]);
+
+    if (activeChannel === 'faccao' && hasFaction) {
+      void fetchFactionHelpRequests(true);
+    }
+  }, [
+    activeChannel,
+    hasBootstrapped,
+    setSearchParams,
+    fetchMessages,
+    fetchFactionHelpRequests,
+    hasFaction,
+  ]);
 
   const currentMessages = useMemo(() => {
     if (activeChannel === 'complexo') return complexoMessages;
@@ -121,27 +123,30 @@ export default function ChatPage() {
     ).length;
   }, [mailMessages, currentUserId]);
 
+  const currentUserRequestedToday = useMemo(() => {
+    return factionHelpRequests.some(
+      (request) => String(request.requesterId) === currentUserId
+    );
+  }, [factionHelpRequests, currentUserId]);
+
   const handleSendMessage = async (body: string) => {
     if (activeChannel === 'complexo') {
       return sendComplexoMessage({ body });
     }
 
     if (activeChannel === 'faccao') {
-      // Impede envio se o jogador não tiver facção
       if (!hasFaction) {
-        console.warn('Tentativa de enviar mensagem na facção sem pertencer a uma.');
-        return;
+        return false;
       }
+
       return sendFaccaoMessage({
         body,
         factionId: player?.factionId || null,
       });
     }
 
-    // Canal de correio
     if (!mailRecipientId.trim() || !mailRecipientName.trim()) {
-      console.warn('Destinatário não informado');
-      return;
+      return false;
     }
 
     return sendMailMessage({
@@ -157,9 +162,18 @@ export default function ChatPage() {
   };
 
   const handleChangeChannel = (channel: ChatChannelType) => {
-    // Não permite mudar para facção se não tiver facção
     if (channel === 'faccao' && !hasFaction) return;
     setActiveChannel(channel);
+  };
+
+  const handleCreateHelpRequest = async () => {
+    await createFactionHelpRequest({
+      message: 'Família, fortalece no corre aí 🙏',
+    });
+  };
+
+  const handleHelpRequest = async (requestId: string) => {
+    await helpFactionRequest(requestId);
   };
 
   const mailRecipientsPreview: MailRecipient[] = useMemo(() => {
@@ -291,6 +305,9 @@ export default function ChatPage() {
               currentUserId={currentUserId}
               isLoading={isLoading}
               onOpenMail={handleMailOpen}
+              factionHelpRequests={activeChannel === 'faccao' ? factionHelpRequests : []}
+              onHelpFactionRequest={handleHelpRequest}
+              isHelpingRequest={isHelpingRequest}
             />
           </div>
 
@@ -301,9 +318,16 @@ export default function ChatPage() {
               isSending={isSending}
               mailReady={
                 activeChannel !== 'mail' ||
-                (mailRecipientId.trim() && mailRecipientName.trim())
+                Boolean(mailRecipientId.trim() && mailRecipientName.trim())
               }
               disabled={activeChannel === 'faccao' && !hasFaction}
+              onRequestHelp={
+                activeChannel === 'faccao' && hasFaction ? handleCreateHelpRequest : undefined
+              }
+              requestHelpDisabled={
+                activeChannel === 'faccao' &&
+                (!hasFaction || currentUserRequestedToday || isHelpingRequest)
+              }
             />
           </div>
         </div>
