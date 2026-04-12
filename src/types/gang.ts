@@ -1,4 +1,3 @@
-
 export type MemberClass =
   | 'Assassino'
   | 'Ladrão'
@@ -12,6 +11,8 @@ export type MemberClass =
   | 'Negociador';
 
 export type Rarity = 'Comum' | 'Raro' | 'Épico' | 'Lendário' | 'Mítico';
+export type RecruitMethod = 'mission' | 'market' | 'premium';
+export type GangUpgradeId = 'training' | 'hideout' | 'blackmarket';
 
 export interface MemberSkill {
   id: string;
@@ -19,7 +20,7 @@ export interface MemberSkill {
   description: string;
   level: number;
   maxLevel: number;
-  effect: string; // descrição do efeito numérico
+  effect: string;
 }
 
 export interface GangMember {
@@ -44,6 +45,18 @@ export interface GangMember {
   defeats: number;
 }
 
+export interface GangTreasury {
+  dirtyMoney: number;
+  cleanMoney: number;
+  corre: number;
+}
+
+export interface GangUpgrades {
+  trainingGroundsLevel: number;
+  hideoutLevel: number;
+  blackMarketLevel: number;
+}
+
 export interface Gang {
   id: string;
   name: string;
@@ -52,25 +65,33 @@ export interface Gang {
   exp: number;
   expToNext: number;
   slots: number;
-  treasury: {
-    dirtyMoney: number;
-    cleanMoney: number;
-    corre: number;
-  };
+  treasury: GangTreasury;
   members: GangMember[];
   activeMemberIds: string[];
-  upgrades: {
-    trainingGroundsLevel: number;
-    hideoutLevel: number;
-    blackMarketLevel: number;
-  };
+  upgrades: GangUpgrades;
   createdAt: string;
   totalVictories: number;
 }
 
 export interface RecruitOptions {
-  method: 'mission' | 'market' | 'premium';
+  method: RecruitMethod;
   cost?: number;
-  costType?: 'dirty' | 'clean' | 'premium_currency';
-  waitTimeSeconds?: number;
+  costType?: 'dirty' | 'clean' | 'corre';
+}
+
+export interface GangDoctrineBonus {
+  trainingBonusPercent: number;
+  defenseBonusPercent: number;
+  lootBonusPercent: number;
+  rarityBonusPercent: number;
+}
+
+export interface GangBattleSnapshot {
+  activeMembers: GangMember[];
+  reserveMembers: GangMember[];
+  rawPower: number;
+  totalPower: number;
+  attackPower: number;
+  defensePower: number;
+  lootPower: number;
 }
