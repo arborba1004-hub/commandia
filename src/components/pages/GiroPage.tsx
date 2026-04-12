@@ -38,7 +38,7 @@ const SLOT_ASSETS: Record<SymbolKey, string> = {
 
 const MULTIPLIERS = [1, 2, 5, 10, 25, 50];
 const REEL_STOP_MS = [1400, 1900, 2500];
-
+const DEFAULT_REELS: SymbolKey[] = ['money', 'gun', 'diamond'];
 const ANIMATION_SYMBOLS: SymbolKey[] = ['money', 'gun', 'diamond', 'police'];
 
 function randomAnimationSymbol(): SymbolKey {
@@ -49,11 +49,7 @@ export default function GiroPage() {
   const navigate = useNavigate();
   const { player, isLoaded, loadPlayer, hydratePlayerFromServer } = usePlayerStore();
 
-  const [displayedReels, setDisplayedReels] = useState<SymbolKey[]>([
-    'money',
-    'gun',
-    'diamond',
-  ]);
+  const [displayedReels, setDisplayedReels] = useState<SymbolKey[]>(DEFAULT_REELS);
   const [lockedReels, setLockedReels] = useState<boolean[]>([true, true, true]);
   const [spinning, setSpinning] = useState(false);
   const [multiplier, setMultiplier] = useState(1);
@@ -78,6 +74,18 @@ export default function GiroPage() {
       reelIntervals.current.forEach((timer) => window.clearInterval(timer));
     };
   }, [isLoaded, loadPlayer]);
+
+  if (!isLoaded || !player?._id) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-[#07090d] text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando...
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
   const corre = player.balances.corre;
   const canSpin = useMemo(
@@ -140,6 +148,8 @@ export default function GiroPage() {
   };
 
   const handleSpin = async () => {
+    if (!player?._id) return;
+
     if (!canSpin) {
       if (corre < multiplier) {
         setMessage('Sem corre suficiente pra bancar esse corre.');
@@ -149,8 +159,9 @@ export default function GiroPage() {
 
     setSpinError('');
     clearAnimations();
-    setSpinning(true);
+    setDisplayedReels(DEFAULT_REELS);
     setLockedReels([false, false, false]);
+    setSpinning(true);
     setMessage(`Rodando x${multiplier}... segura o coração.`);
 
     try {
@@ -198,8 +209,9 @@ export default function GiroPage() {
       console.error('Erro ao girar slot:', error);
       setSpinError(error instanceof Error ? error.message : 'Erro ao girar a máquina');
       setMessage('Falha ao girar. Tenta de novo.');
-      setSpinning(false);
+      setDisplayedReels(DEFAULT_REELS);
       setLockedReels([true, true, true]);
+      setSpinning(false);
     }
   };
 
@@ -479,11 +491,4 @@ export default function GiroPage() {
                 </p>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <Footer />
-    </div>
-  );
-}
+     
