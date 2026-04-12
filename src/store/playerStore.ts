@@ -12,6 +12,8 @@ import {
   isDirtyMoneyBlocked,
   isCleanMoneyBlocked,
 } from '@/Services/punishmentService';
+import { GAME_MODE } from '@/config/gameMode';
+import { getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
@@ -348,8 +350,8 @@ const initialPlayer: PlayerState = {
   },
 
   balances: {
-    dirtyMoney: 10000000000000,
-    cleanMoney: 10000000000000,
+    dirtyMoney: GAME_MODE.debugEconomy ? GAME_MODE.debugDirtyMoney : 1000,
+    cleanMoney: GAME_MODE.debugEconomy ? GAME_MODE.debugCleanMoney : 0,
     corre: 1000,
   },
 
