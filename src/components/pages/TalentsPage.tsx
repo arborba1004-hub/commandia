@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,9 +16,13 @@ export default function TalentsPage() {
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
 
-  if (!isLoaded) {
-    void loadPlayer();
+  useEffect(() => {
+    if (!isLoaded) {
+      void loadPlayer();
+    }
+  }, [isLoaded, loadPlayer]);
 
+  if (!isLoaded || !player?._id) {
     return (
       <>
         <Header />
@@ -47,7 +51,7 @@ export default function TalentsPage() {
                 </h1>
                 <p className="text-gray-300 font-paragraph max-w-2xl">
                   Desbloqueie habilidades criminosas, evolua sua especialização e
-                  domine o jogo com vantagens únicas.
+                  fortaleça seu império com vantagens permanentes.
                 </p>
               </div>
 
