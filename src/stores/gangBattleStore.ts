@@ -16,7 +16,7 @@ const FORMATION_BONUSES: Record<FormationType, FormationBonus> = {
     lootPercent: 0,
   },
   defensive: {
-    attackPercent: -10,
+    attackPercent: -8,
     defensePercent: 25,
     lootPercent: 0,
   },
