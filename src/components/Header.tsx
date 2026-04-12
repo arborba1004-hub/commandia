@@ -29,9 +29,9 @@ export default function Header() {
   const { player, clearPlayer } = usePlayerStore();
   const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
 
-  const isAuthenticated = !!player?._id;
-  const playerLevel = player?.niveis?.barracoLevel || 45;
-  const hierarchyTitle = getPlayerRank(playerLevel).title;
+  const isPlayerReady = Boolean(player?._id);
+  const playerLevel = player?.niveis?.barracoLevel ?? 0;
+  const hierarchyTitle = playerLevel > 0 ? getPlayerRank(playerLevel).title : 'Sem patente';
 
   const customName = player?.headerCustomization?.customName || '';
   const gamerName = customName || player?.name || 'CAPO GHOST';
@@ -41,10 +41,10 @@ export default function Header() {
     player?.avatar ||
     '';
 
-  const dirtyMoney = player?.balances?.dirtyMoney ?? 5800000;
-  const cleanMoney = player?.balances?.cleanMoney ?? 2100000;
-  const power = player?.power ?? 1200000;
-  const corre = player?.balances?.corre ?? 12;
+  const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
+  const cleanMoney = player?.balances?.cleanMoney ?? 0;
+  const power = player?.power ?? 0;
+  const corre = player?.balances?.corre ?? 0;
 
   const unreadMailCount = (player?.notifications || []).filter(
     (item) => !item.read
@@ -288,7 +288,7 @@ export default function Header() {
                 </div>
 
                 <div className="col-span-2 flex items-end justify-end sm:col-span-1">
-                  {isAuthenticated ? (
+                  {isPlayerReady ? (
                     <button
                       onClick={handleLogout}
                       className="rounded-lg border border-[#6f3d08] bg-black/35 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white hover:bg-white/10 md:text-[10px]"
