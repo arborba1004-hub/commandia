@@ -109,7 +109,7 @@ type MapPosition = {
 
 type ActiveOperation = {
   id: string;
-  operationId: string; // ID retornado pelo backend
+  operationId: string;
   businessId: number;
   businessName: string;
   startedAt: string;
@@ -196,13 +196,9 @@ export type PlayerState = {
   avatar?: string;
 
   niveis: Niveis;
-
   balances: Balances;
-
   inventory: Inventory;
-
   pageLevels: PageLevels;
-
   skills: Skills;
 
   power: number;
@@ -211,27 +207,16 @@ export type PlayerState = {
   unlockedRanks?: string[];
 
   barracoPosition: BarracoPosition;
-
   mapPosition?: MapPosition;
-
   laundryProgress: LaundryProgress;
-
   punishments: PunishmentsState;
-
   skillBoostMultiplier: number;
-
   headerCustomization?: HeaderCustomization;
-
   ownedVehicles?: string[];
-
   purchasedAccessories?: PurchasedAccessory[];
-
   accessories?: Accessories;
-
   notifications?: AttackNotification[];
-
   attackHistory?: AttackHistoryItem[];
-
   factionId?: string | null;
 };
 
@@ -258,8 +243,7 @@ type PlayerStore = {
   saveLocal: () => void;
   scheduleSync: () => void;
   syncPlayerToBackend: () => Promise<void>;
-  
-  // POLLING
+
   startPolling: () => void;
   stopPolling: () => void;
   pollPlayerFromBackend: () => Promise<void>;
@@ -274,7 +258,6 @@ type PlayerStore = {
     insurance: boolean;
   }) => { ok: boolean; reason?: string };
 
-  // BALANCES
   setBalances: (balances: Partial<Balances>) => void;
   addDirtyMoney: (amount: number) => void;
   removeDirtyMoney: (value: number) => void;
@@ -286,49 +269,44 @@ type PlayerStore = {
   addCorre: (amount: number) => void;
   removeCorre: (amount: number) => void;
 
-  // INVENTORY
   removeInventoryItem: (itemId: string) => void;
   addGift: (gift: any) => void;
   addReward: (reward: any) => void;
 
-  // NIVEIS
   setNiveis: (incoming: Partial<Niveis>) => void;
-
-  // PAGE LEVELS
   setPageLevel: (page: string, level: number) => void;
 
-  // SKILLS
   setSkills: (incoming: Partial<Skills>) => void;
   addSkillPercent: (skill: keyof Skills, percent: number) => void;
 
-  // POWER / BADGE / GRID
   setPower: (value: number) => void;
   setHierarchyBadge: (badge: string) => void;
   setCurrentRank: (rank: string) => void;
   addUnlockedRank: (rank: string) => void;
   setBarracoPosition: (position: Partial<BarracoPosition>) => void;
 
-  // HEADER CUSTOMIZATION
   setHeaderCustomization: (customization: Partial<HeaderCustomization>) => void;
 
-  // LAVAGEM DE DINHEIRO
-  startLaundryOperation: (operation: Omit<ActiveOperation, 'status' | 'id'>) => Promise<boolean>;
+  startLaundryOperation: (
+    operation: Omit<ActiveOperation, 'status' | 'id'>
+  ) => Promise<boolean>;
   completeLaundryOperation: (operationId: string) => Promise<boolean>;
   clearFinishedLaundryOperations: () => void;
   canOperateLaundryToday: (businessId: number) => Promise<boolean>;
 
-  // VEÍCULOS DE FUGA
   addOwnedVehicle: (vehicleId: string) => void;
   removeOwnedVehicle: (vehicleId: string) => void;
   setCleanMoney: (amount: number) => void;
   addSkillBonus: (skillType: string, percent: number) => void;
 
-  // ACESSÓRIOS DE FUGA
   purchaseAccessory: (accessoryId: string, skillType: string) => void;
   getAccessoryBonusPercent: () => number;
-  addAccessory: (type: 'vehicles' | 'weapons', itemId: string, accessoryName: string) => void;
+  addAccessory: (
+    type: 'vehicles' | 'weapons',
+    itemId: string,
+    accessoryName: string
+  ) => void;
 
-  // NOTIFICATIONS & ATTACK HISTORY
   setNotifications: (notifications: AttackNotification[]) => void;
   addNotification: (notification: AttackNotification) => void;
   markNotificationAsRead: (notificationId: string) => void;
@@ -343,7 +321,6 @@ type PlayerStore = {
     pvpProtectionUntil?: string | null;
   }) => void;
 };
-
 const initialPlayer: PlayerState = {
   _id: '',
   googleId: '',
@@ -437,11 +414,8 @@ const initialPlayer: PlayerState = {
   },
 
   skillBoostMultiplier: 1.0,
-
   notifications: [],
-
   attackHistory: [],
-
   factionId: null,
 };
 
@@ -484,53 +458,89 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     },
 
     mapPosition: {
-      tileX: incoming?.mapPosition?.tileX ?? initialPlayer.mapPosition?.tileX ?? GRID_WIDTH / 2,
-      tileY: incoming?.mapPosition?.tileY ?? initialPlayer.mapPosition?.tileY ?? GRID_HEIGHT / 2,
-      worldX: incoming?.mapPosition?.worldX ?? initialPlayer.mapPosition?.worldX ?? 0,
-      worldY: incoming?.mapPosition?.worldY ?? initialPlayer.mapPosition?.worldY ?? 0,
+      tileX:
+        incoming?.mapPosition?.tileX ??
+        initialPlayer.mapPosition?.tileX ??
+        GRID_WIDTH / 2,
+      tileY:
+        incoming?.mapPosition?.tileY ??
+        initialPlayer.mapPosition?.tileY ??
+        GRID_HEIGHT / 2,
+      worldX:
+        incoming?.mapPosition?.worldX ??
+        initialPlayer.mapPosition?.worldX ??
+        0,
+      worldY:
+        incoming?.mapPosition?.worldY ??
+        initialPlayer.mapPosition?.worldY ??
+        0,
     },
 
     headerCustomization: {
-      playerNameFont: incoming?.headerCustomization?.playerNameFont || 'oswald',
-      playerNameFontSize: incoming?.headerCustomization?.playerNameFontSize || '1.875rem',
-      playerNameColor: incoming?.headerCustomization?.playerNameColor || '#1a1205',
+      playerNameFont:
+        incoming?.headerCustomization?.playerNameFont || 'oswald',
+      playerNameFontSize:
+        incoming?.headerCustomization?.playerNameFontSize || '1.875rem',
+      playerNameColor:
+        incoming?.headerCustomization?.playerNameColor || '#1a1205',
+      customName: incoming?.headerCustomization?.customName || '',
+      customAvatar: incoming?.headerCustomization?.customAvatar || '',
     },
 
     laundryProgress: {
-      activeOperations: incoming?.laundryProgress?.activeOperations || initialPlayer.laundryProgress.activeOperations,
-      dailyOperations: incoming?.laundryProgress?.dailyOperations || initialPlayer.laundryProgress.dailyOperations,
+      activeOperations:
+        incoming?.laundryProgress?.activeOperations ||
+        initialPlayer.laundryProgress.activeOperations,
+      dailyOperations:
+        incoming?.laundryProgress?.dailyOperations ||
+        initialPlayer.laundryProgress.dailyOperations,
     },
 
     punishments: {
       active: incoming?.punishments?.active || initialPlayer.punishments.active,
-      delacao: incoming?.punishments?.delacao || initialPlayer.punishments.delacao,
+      delacao:
+        incoming?.punishments?.delacao || initialPlayer.punishments.delacao,
       inventoryBlocked:
-        incoming?.punishments?.inventoryBlocked ?? initialPlayer.punishments.inventoryBlocked,
+        incoming?.punishments?.inventoryBlocked ??
+        initialPlayer.punishments.inventoryBlocked,
       dirtyMoneyBlocked:
-        incoming?.punishments?.dirtyMoneyBlocked ?? initialPlayer.punishments.dirtyMoneyBlocked,
+        incoming?.punishments?.dirtyMoneyBlocked ??
+        initialPlayer.punishments.dirtyMoneyBlocked,
       cleanMoneyBlocked:
-        incoming?.punishments?.cleanMoneyBlocked ?? initialPlayer.punishments.cleanMoneyBlocked,
+        incoming?.punishments?.cleanMoneyBlocked ??
+        initialPlayer.punishments.cleanMoneyBlocked,
       levelProgressionBlocked:
-        incoming?.punishments?.levelProgressionBlocked ?? initialPlayer.punishments.levelProgressionBlocked,
+        incoming?.punishments?.levelProgressionBlocked ??
+        initialPlayer.punishments.levelProgressionBlocked,
       inventoryBonusReductionPercent:
-        incoming?.punishments?.inventoryBonusReductionPercent ?? initialPlayer.punishments.inventoryBonusReductionPercent,
+        incoming?.punishments?.inventoryBonusReductionPercent ??
+        initialPlayer.punishments.inventoryBonusReductionPercent,
       pvpProtectionUntil:
-        incoming?.punishments?.pvpProtectionUntil ?? initialPlayer.punishments.pvpProtectionUntil,
+        incoming?.punishments?.pvpProtectionUntil ??
+        initialPlayer.punishments.pvpProtectionUntil,
       delacaoRewardPending:
-        incoming?.punishments?.delacaoRewardPending ?? initialPlayer.punishments.delacaoRewardPending,
+        incoming?.punishments?.delacaoRewardPending ??
+        initialPlayer.punishments.delacaoRewardPending,
       delacaoRewardUnlockAt:
-        incoming?.punishments?.delacaoRewardUnlockAt ?? initialPlayer.punishments.delacaoRewardUnlockAt,
+        incoming?.punishments?.delacaoRewardUnlockAt ??
+        initialPlayer.punishments.delacaoRewardUnlockAt,
       pendingSkillBoost:
-        incoming?.punishments?.pendingSkillBoost ?? initialPlayer.punishments.pendingSkillBoost,
+        incoming?.punishments?.pendingSkillBoost ??
+        initialPlayer.punishments.pendingSkillBoost,
       lastVehicleLost:
-        incoming?.punishments?.lastVehicleLost ?? initialPlayer.punishments.lastVehicleLost,
+        incoming?.punishments?.lastVehicleLost ??
+        initialPlayer.punishments.lastVehicleLost,
     },
 
-    skillBoostMultiplier: incoming?.skillBoostMultiplier ?? initialPlayer.skillBoostMultiplier,
+    skillBoostMultiplier:
+      incoming?.skillBoostMultiplier ?? initialPlayer.skillBoostMultiplier,
 
     ownedVehicles: incoming?.ownedVehicles || initialPlayer.ownedVehicles || [],
     accessories: incoming?.accessories || initialPlayer.accessories || {},
-    purchasedAccessories: incoming?.purchasedAccessories || initialPlayer.purchasedAccessories || [],
+    purchasedAccessories:
+      incoming?.purchasedAccessories ||
+      initialPlayer.purchasedAccessories ||
+      [],
     notifications: incoming?.notifications || initialPlayer.notifications || [],
     attackHistory: incoming?.attackHistory || initialPlayer.attackHistory || [],
 
@@ -548,7 +558,10 @@ async function syncFactionStoreFromEnvelope(faction: any | null) {
       useFactionStore.getState().setFaction(null);
     }
   } catch (error) {
-    console.warn('Não foi possível sincronizar factionStore a partir do playerStore:', error);
+    console.warn(
+      'Não foi possível sincronizar factionStore a partir do playerStore:',
+      error
+    );
   }
 }
 
@@ -577,7 +590,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       const token = getStoredAuthToken();
       const stored = localStorage.getItem(STORAGE_KEY);
 
-      // 1) sempre tenta aproveitar o cache local primeiro
       if (stored) {
         const parsed = JSON.parse(stored);
         const merged = clearExpiredPunishments(mergePlayer(parsed));
@@ -597,7 +609,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         });
       }
 
-      // 2) se tiver token, o backend é a fonte de verdade
       if (!token) return;
 
       const serverEnvelope = await fetchCurrentPlayerWithFaction();
@@ -647,9 +658,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   hydratePlayerFromServer: (playerData) => {
-    const merged = mergePlayer(playerData);
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    const merged = persistMergedPlayer(playerData);
 
     set({
       player: merged,
@@ -704,6 +713,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       pollingAttempts: 0,
       localVersion: 0,
       lastSyncAt: 0,
+      pendingLocalChanges: false,
+      lastLocalMutationAt: 0,
+      lastServerHydrationAt: 0,
     });
 
     void syncFactionStoreFromEnvelope(null);
@@ -711,17 +723,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   saveLocal: () => {
     const player = get().player;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(player));
+    persistMergedPlayer(player);
   },
 
   scheduleSync: () => {
-    // Não agenda enquanto sincroniza
     if (get().isSyncing) return;
 
     if (syncTimeout) clearTimeout(syncTimeout);
 
     syncTimeout = setTimeout(() => {
-      get().syncPlayerToBackend();
+      void get().syncPlayerToBackend();
     }, 500);
   },
 
@@ -762,26 +773,20 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     }
   },
 
-  // ==========================================
-  // POLLING - HIDRATAÇÃO QUASE EM TEMPO REAL
-  // ==========================================
   startPolling: () => {
     const token = getStoredAuthToken();
     if (!token) return;
 
-    // Evita múltiplas instâncias de polling
     if (pollingInterval) {
       clearInterval(pollingInterval);
     }
 
     set({ isPolling: true });
 
-    // Faz a primeira hidratação imediatamente
-    get().pollPlayerFromBackend();
+    void get().pollPlayerFromBackend();
 
-    // Depois, a cada 3 segundos
     pollingInterval = setInterval(() => {
-      get().pollPlayerFromBackend();
+      void get().pollPlayerFromBackend();
     }, POLLING_INTERVAL);
   },
 
@@ -805,10 +810,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     const now = Date.now();
     const msSinceLastLocalChange = now - get().lastLocalMutationAt;
 
-    // evita sobrescrever alterações locais muito recentes
     if (msSinceLastLocalChange < 1500) return;
 
-    if (get().pendingLocalChanges) return;
+    if (get().pendingLocalChanges && now - get().lastLocalMutationAt < 8000) {
+      return;
+    }
 
     try {
       const serverEnvelope = await fetchCurrentPlayerWithFaction();
@@ -821,6 +827,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         syncError: null,
         pollingAttempts: 0,
         lastSyncAt: Date.now(),
+        pendingLocalChanges: false,
+        lastServerHydrationAt: Date.now(),
       });
 
       await syncFactionStoreFromEnvelope(serverEnvelope.faction);
@@ -838,11 +846,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       }
     }
   },
-
-  // ==========================================
-  // SALDOS
-  // ==========================================
-  setBalances: (balances) => {
+setBalances: (balances) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
       balances: {
@@ -941,15 +945,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     }));
   },
 
-  // ==========================================
-  // INVENTÁRIO
-  // ==========================================
   removeInventoryItem: (itemId) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
       inventory: {
         ...player.inventory,
-        items: player.inventory.items.filter((item: any) => item?.id !== itemId && item?._id !== itemId),
+        items: player.inventory.items.filter(
+          (item: any) => item?.id !== itemId && item?._id !== itemId
+        ),
       },
     }));
   },
@@ -974,9 +977,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     }));
   },
 
-  // ==========================================
-  // NÍVEIS E SKILLS
-  // ==========================================
   setNiveis: (incoming) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
@@ -1056,9 +1056,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     });
   },
 
-  // ==========================================
-  // LAVAGEM DE DINHEIRO
-  // ==========================================
   startLaundryOperation: async (operation) => {
     const current = get().player;
 
@@ -1082,7 +1079,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         netAmount: operation.netAmount,
       });
 
-      // O backend já devolve o player com a operação ativa criada.
       const updated = persistMergedPlayer(response.player);
 
       set({
@@ -1090,6 +1086,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         syncError: null,
         lastSyncAt: Date.now(),
         pollingAttempts: 0,
+        pendingLocalChanges: false,
+        lastServerHydrationAt: Date.now(),
       });
 
       await syncFactionStoreFromEnvelope(response.faction);
@@ -1113,7 +1111,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     try {
       const response = await laundryCompleteWithFaction(operationId);
-
       const updated = persistMergedPlayer(response.player);
 
       set({
@@ -1121,11 +1118,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         syncError: null,
         lastSyncAt: Date.now(),
         pollingAttempts: 0,
+        pendingLocalChanges: false,
+        lastServerHydrationAt: Date.now(),
       });
 
       await syncFactionStoreFromEnvelope(response.faction);
 
-      // Limpa operações diárias antigas para manter apenas as do dia atual
       get().clearFinishedLaundryOperations();
 
       return true;
@@ -1136,21 +1134,25 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   clearFinishedLaundryOperations: () => {
-    get().applyPlayerUpdate((player) => {
-      const today = new Date().toISOString().split('T')[0];
+    const current = get().player;
+    const today = new Date().toISOString().split('T')[0];
 
-      // Remove operações diárias de dias anteriores
-      const recentDailyOps = player.laundryProgress.dailyOperations.filter(
-        (op) => op.date === today
-      );
+    const updated = mergePlayer({
+      ...current,
+      laundryProgress: {
+        ...current.laundryProgress,
+        dailyOperations: current.laundryProgress.dailyOperations.filter(
+          (op) => op.date === today
+        ),
+      },
+    });
 
-      return {
-        ...player,
-        laundryProgress: {
-          ...player.laundryProgress,
-          dailyOperations: recentDailyOps,
-        },
-      };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    set({
+      player: updated,
+      syncError: null,
+      lastSyncAt: Date.now(),
     });
   },
 
@@ -1160,7 +1162,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       return result.allowed;
     } catch (error) {
       console.error('Erro ao verificar limite diário de lavagem:', error);
-      // Fallback seguro: permite operar (evita bloquear o jogador por erro de rede)
       return true;
     }
   },
@@ -1185,9 +1186,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     }));
   },
 
-  // ==========================================
-  // VEÍCULOS DE FUGA
-  // ==========================================
   addOwnedVehicle: (vehicleId) => {
     get().applyPlayerUpdate((player) => {
       const ownedVehicles = player.ownedVehicles || [];
@@ -1238,7 +1236,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     get().applyPlayerUpdate((player) => {
       const purchasedAccessories = player.purchasedAccessories || [];
 
-      // Evita compras duplicadas
       if (purchasedAccessories.some((acc) => acc.accessoryId === accessoryId)) {
         return player;
       }
@@ -1259,33 +1256,31 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   getAccessoryBonusPercent: () => {
     const current = get().player;
     const playerLevel = current.niveis.playerLevel || 1;
-
-    // +1% até nível 50, +2% a partir de nível 51
     return playerLevel <= 50 ? 1 : 2;
   },
 
   addAccessory: (type, itemId, accessoryName) => {
-    const current = get().player;
-    const existing = current.accessories?.[type]?.[itemId] || [];
+    get().applyPlayerUpdate((player) => {
+      const existing = player.accessories?.[type]?.[itemId] || [];
 
-    if (existing.includes(accessoryName)) return;
+      if (existing.includes(accessoryName)) {
+        return player;
+      }
 
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      accessories: {
-        ...player.accessories,
-        [type]: {
-          ...player.accessories?.[type],
-          [itemId]: [...existing, accessoryName],
+      return {
+        ...player,
+        accessories: {
+          ...player.accessories,
+          [type]: {
+            ...player.accessories?.[type],
+            [itemId]: [...existing, accessoryName],
+          },
         },
-      },
-    }));
+      };
+    });
   },
 
-  // ==========================================
-  // NOTIFICATIONS & ATTACK HISTORY
-  // ==========================================
-  setNotifications: (notifications) => {
+setNotifications: (notifications) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
       notifications,
@@ -1324,20 +1319,29 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   applyRemoteAttackResult: (payload) => {
     get().applyPlayerUpdate((player) => {
-      const updated = {
+      const updated: PlayerState = {
         ...player,
         balances: {
           ...player.balances,
-          dirtyMoney: Math.max(0, player.balances.dirtyMoney + payload.dirtyMoneyDelta),
+          dirtyMoney: Math.max(
+            0,
+            player.balances.dirtyMoney + payload.dirtyMoneyDelta
+          ),
         },
       };
 
       if (payload.notification) {
-        updated.notifications = [...(updated.notifications || []), payload.notification];
+        updated.notifications = [
+          ...(updated.notifications || []),
+          payload.notification,
+        ];
       }
 
       if (payload.historyItem) {
-        updated.attackHistory = [...(updated.attackHistory || []), payload.historyItem];
+        updated.attackHistory = [
+          ...(updated.attackHistory || []),
+          payload.historyItem,
+        ];
       }
 
       if (payload.pvpProtectionUntil !== undefined) {
@@ -1362,7 +1366,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       };
     }
 
-    const currentLevel = player.niveis.barracoLevel;
     const cost = requirements.cost;
 
     get().applyPlayerUpdate((current) => ({
