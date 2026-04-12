@@ -744,6 +744,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         isSyncing: false,
         syncError: null,
         lastSyncAt: Date.now(),
+        lastServerHydrationAt: Date.now(),
+        pendingLocalChanges: false,
         localVersion: Math.max(
           state.localVersion,
           ((data.player as any)?.version ?? state.localVersion)
@@ -801,10 +803,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     if (get().isSyncing) return;
 
     const now = Date.now();
-    const msSinceLastLocalChange = now - get().lastSyncAt;
+    const msSinceLastLocalChange = now - get().lastLocalMutationAt;
 
     // evita sobrescrever alterações locais muito recentes
     if (msSinceLastLocalChange < 1500) return;
+
+    if (get().pendingLocalChanges) return;
 
     try {
       const serverEnvelope = await fetchCurrentPlayerWithFaction();
