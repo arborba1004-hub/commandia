@@ -1,141 +1,332 @@
-import { create } from 'zustand';
-import { Faction, FactionMember } from '@/types/faction';
+export type FactionRole =
+  | 'leader'
+  | 'subleader'
+  | 'recruiter'
+  | 'treasurer'
+  | 'diplomat'
+  | 'member';
 
-interface FactionState {
-  faction: Faction | null;
+export type FactionPermissionKey =
+  | 'canInvite'
+  | 'canAcceptRequests'
+  | 'canManageTreasury'
+  | 'canManageInvestments'
+  | 'canManageDiplomacy'
+  | 'canStartEvents';
 
-  createFaction: (player: any, name: string, tag: string) => void;
-  joinFaction: (player: any, faction: Faction) => void;
-  leaveFaction: (playerId: string) => void;
+export type FactionPermissions = {
+  canInvite: boolean;
+  canAcceptRequests: boolean;
+  canManageTreasury: boolean;
+  canManageInvestments: boolean;
+  canManageDiplomacy: boolean;
+  canStartEvents: boolean;
+};
 
-  addMember: (member: FactionMember) => void;
-  removeMember: (playerId: string) => void;
+export type FactionTreasury = {
+  dirtyMoney: number;
+  cleanMoney: number;
+  corre: number;
+};
 
-  addContribution: (playerId: string, value: number) => void;
+export type FactionContribution = {
+  dirtyMoney: number;
+  cleanMoney: number;
+  corre: number;
+  totalValue: number;
+};
 
-  clearFaction: () => void;
-}
+export type FactionMember = {
+  playerId: string;
+  playerName: string;
+  avatar?: string;
+  role: FactionRole;
+  joinedAt: string;
+  lastSeenAt: string;
+  power: number;
+  barracoLevel: number;
+  hierarchyBadge?: string;
+  permissions: FactionPermissions;
+  contribution: FactionContribution;
+};
 
-export const useFactionStore = create<FactionState>((set, get) => ({
-  faction: null,
+export type FactionJoinRequest = {
+  playerId: string;
+  playerName: string;
+  avatar?: string;
+  power: number;
+  barracoLevel: number;
+  createdAt: string;
+};
 
-  createFaction: (player, name, tag) => {
-    const newFaction: Faction = {
-      id: crypto.randomUUID(),
-      name,
-      tag,
-      leaderId: player._id,
-      leaderName: player.name,
+export type FactionInvite = {
+  playerId: string;
+  playerName: string;
+  invitedByPlayerId: string;
+  invitedByPlayerName: string;
+  createdAt: string;
+  expiresAt: string;
+};
 
-      members: [
-        {
-          playerId: player._id,
-          playerName: player.name,
-          role: 'leader',
-          joinedAt: new Date().toISOString(),
-          contribution: 0,
-          power: player.power || 100,
-        },
-      ],
+export type FactionBuff = {
+  id: string;
+  name: string;
+  type: string;
+  value: number;
+  startedAt: string;
+  endsAt: string;
+};
 
-      memberCount: 1,
-      createdAt: new Date().toISOString(),
+export type FactionInvestmentBranch =
+  | 'arsenalColetivo'
+  | 'caixaOperacional'
+  | 'mobilidade'
+  | 'influencia'
+  | 'inteligencia'
+  | 'fortificacao'
+  | 'logistica'
+  | 'doutrina';
 
-      prestige: 0,
-      power: player.power || 100,
+export type FactionInvestments = {
+  arsenalColetivo: number;
+  caixaOperacional: number;
+  mobilidade: number;
+  influencia: number;
+  inteligencia: number;
+  fortificacao: number;
+  logistica: number;
+  doutrina: number;
+};
 
-      treasuryDirtyMoney: 0,
-      treasuryCleanMoney: 0,
+export type FactionInvestmentBuffs = {
+  attackPercent: number;
+  defensePercent: number;
+  hpPercent: number;
+  dirtyMoneyGainPercent: number;
+  cleanMoneyGainPercent: number;
+  agilityPercent: number;
+  intelligencePercent: number;
+  respectPercent: number;
+  baseDefensePercent: number;
+  donationEfficiencyPercent: number;
+  buffDurationPercent: number;
+};
 
-      eventPoints: 0,
+export type FactionInvestmentLog = {
+  id: string;
+  branch: FactionInvestmentBranch;
+  levelBefore: number;
+  levelAfter: number;
+  cost: {
+    dirtyMoney?: number;
+    cleanMoney?: number;
+    corre?: number;
+  };
+  upgradedByPlayerId: string;
+  upgradedByPlayerName: string;
+  createdAt: string;
+};
 
-      isOpen: true,
-    };
+export type FactionActivityLogType =
+  | 'member_joined'
+  | 'member_left'
+  | 'member_kicked'
+  | 'leadership_transferred'
+  | 'donation'
+  | 'request_created'
+  | 'request_accepted'
+  | 'request_rejected'
+  | 'invite_sent'
+  | 'invite_accepted'
+  | 'invite_rejected'
+  | 'investment_upgraded'
+  | 'role_updated'
+  | 'settings_updated'
+  | 'diplomacy_updated'
+  | 'buff_started'
+  | 'buff_ended'
+  | 'war_declared'
+  | 'territory_won'
+  | 'territory_lost';
 
-    set({ faction: newFaction });
+export type FactionActivityLog = {
+  id: string;
+  type: FactionActivityLogType;
+  actorPlayerId?: string;
+  actorPlayerName?: string;
+  targetPlayerId?: string;
+  targetPlayerName?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+};
+
+export type FactionSettings = {
+  description: string;
+  isPrivate: boolean;
+  minimumPower: number;
+  minimumBarracoLevel: number;
+  allowMemberInvites: boolean;
+  allowJoinRequests: boolean;
+  autoAcceptRequests: boolean;
+};
+
+export type Faction = {
+  id: string;
+  name: string;
+  tag: string;
+  leaderId: string;
+
+  level: number;
+  exp: number;
+  expToNext: number;
+
+  description: string;
+  isPrivate: boolean;
+  minimumPower: number;
+  minimumBarracoLevel: number;
+  allowMemberInvites: boolean;
+  allowJoinRequests: boolean;
+  autoAcceptRequests: boolean;
+
+  treasury: FactionTreasury;
+
+  members: FactionMember[];
+  joinRequests: FactionJoinRequest[];
+  invites: FactionInvite[];
+
+  activeBuffs: FactionBuff[];
+
+  enemyFactionIds: string[];
+  allyFactionIds: string[];
+
+  investments: FactionInvestments;
+  investmentBuffs: FactionInvestmentBuffs;
+  investmentLog: FactionInvestmentLog[];
+
+  totalInvestmentLevel: number;
+  investmentTierName: string;
+
+  activityLog: FactionActivityLog[];
+
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FactionListItem = Pick<
+  Faction,
+  | 'id'
+  | 'name'
+  | 'tag'
+  | 'leaderId'
+  | 'level'
+  | 'exp'
+  | 'expToNext'
+  | 'description'
+  | 'isPrivate'
+  | 'minimumPower'
+  | 'minimumBarracoLevel'
+  | 'createdAt'
+  | 'updatedAt'
+> & {
+  memberCount: number;
+  totalInvestmentLevel: number;
+  investmentTierName: string;
+};
+
+export const DEFAULT_FACTION_PERMISSIONS_BY_ROLE: Record<FactionRole, FactionPermissions> = {
+  leader: {
+    canInvite: true,
+    canAcceptRequests: true,
+    canManageTreasury: true,
+    canManageInvestments: true,
+    canManageDiplomacy: true,
+    canStartEvents: true,
   },
-
-  joinFaction: (player, faction) => {
-    const member: FactionMember = {
-      playerId: player._id,
-      playerName: player.name,
-      role: 'member',
-      joinedAt: new Date().toISOString(),
-      contribution: 0,
-      power: player.power || 100,
-    };
-
-    const updated = {
-      ...faction,
-      members: [...faction.members, member],
-      memberCount: faction.members.length + 1,
-    };
-
-    set({ faction: updated });
+  subleader: {
+    canInvite: true,
+    canAcceptRequests: true,
+    canManageTreasury: true,
+    canManageInvestments: true,
+    canManageDiplomacy: true,
+    canStartEvents: true,
   },
-
-  leaveFaction: (playerId) => {
-    const faction = get().faction;
-    if (!faction) return;
-
-    const members = faction.members.filter((m) => m.playerId !== playerId);
-
-    set({
-      faction: {
-        ...faction,
-        members,
-        memberCount: members.length,
-      },
-    });
+  recruiter: {
+    canInvite: true,
+    canAcceptRequests: true,
+    canManageTreasury: false,
+    canManageInvestments: false,
+    canManageDiplomacy: false,
+    canStartEvents: false,
   },
-
-  addMember: (member) => {
-    const faction = get().faction;
-    if (!faction) return;
-
-    set({
-      faction: {
-        ...faction,
-        members: [...faction.members, member],
-        memberCount: faction.members.length + 1,
-      },
-    });
+  treasurer: {
+    canInvite: false,
+    canAcceptRequests: false,
+    canManageTreasury: true,
+    canManageInvestments: true,
+    canManageDiplomacy: false,
+    canStartEvents: false,
   },
-
-  removeMember: (playerId) => {
-    const faction = get().faction;
-    if (!faction) return;
-
-    const members = faction.members.filter((m) => m.playerId !== playerId);
-
-    set({
-      faction: {
-        ...faction,
-        members,
-        memberCount: members.length,
-      },
-    });
+  diplomat: {
+    canInvite: false,
+    canAcceptRequests: false,
+    canManageTreasury: false,
+    canManageInvestments: false,
+    canManageDiplomacy: true,
+    canStartEvents: false,
   },
-
-  addContribution: (playerId, value) => {
-    const faction = get().faction;
-    if (!faction) return;
-
-    const members = faction.members.map((m) => {
-      if (m.playerId === playerId) {
-        return { ...m, contribution: m.contribution + value };
-      }
-      return m;
-    });
-
-    set({
-      faction: {
-        ...faction,
-        members,
-        eventPoints: faction.eventPoints + value,
-      },
-    });
+  member: {
+    canInvite: false,
+    canAcceptRequests: false,
+    canManageTreasury: false,
+    canManageInvestments: false,
+    canManageDiplomacy: false,
+    canStartEvents: false,
   },
+};
 
-  clearFaction: () => set({ faction: null }),
-}));
+export const DEFAULT_FACTION_INVESTMENTS: FactionInvestments = {
+  arsenalColetivo: 0,
+  caixaOperacional: 0,
+  mobilidade: 0,
+  influencia: 0,
+  inteligencia: 0,
+  fortificacao: 0,
+  logistica: 0,
+  doutrina: 0,
+};
+
+export const DEFAULT_FACTION_INVESTMENT_BUFFS: FactionInvestmentBuffs = {
+  attackPercent: 0,
+  defensePercent: 0,
+  hpPercent: 0,
+  dirtyMoneyGainPercent: 0,
+  cleanMoneyGainPercent: 0,
+  agilityPercent: 0,
+  intelligencePercent: 0,
+  respectPercent: 0,
+  baseDefensePercent: 0,
+  donationEfficiencyPercent: 0,
+  buffDurationPercent: 0,
+};
+
+export const FACTION_BRANCH_LABELS: Record<FactionInvestmentBranch, string> = {
+  arsenalColetivo: 'Arsenal Coletivo',
+  caixaOperacional: 'Caixa Operacional',
+  mobilidade: 'Mobilidade',
+  influencia: 'Influência',
+  inteligencia: 'Inteligência',
+  fortificacao: 'Fortificação',
+  logistica: 'Logística',
+  doutrina: 'Doutrina',
+};
+
+export const FACTION_BRANCH_DESCRIPTIONS: Record<FactionInvestmentBranch, string> = {
+  arsenalColetivo: 'Aumenta ataque, defesa, HP e power coletivo.',
+  caixaOperacional: 'Melhora ganhos sujos, limpos e eficiência de lavagem.',
+  mobilidade: 'Melhora agilidade, fuga e tempo de resposta.',
+  influencia: 'Melhora respeito, intimidação e recrutamento.',
+  inteligencia: 'Melhora inteligência, leitura de inimigo e previsibilidade.',
+  fortificacao: 'Aumenta defesa base da facção e resistência a invasões.',
+  logistica: 'Aumenta eficiência de doações e duração de buffs.',
+  doutrina: 'Concede bônus percentuais globais para toda a facção.',
+};
