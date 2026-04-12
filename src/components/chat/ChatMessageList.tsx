@@ -137,11 +137,7 @@ const FactionHelpCard = memo(function FactionHelpCard({
     <div className="rounded-3xl border border-red-500/30 bg-black/70 p-4 shadow-[0_0_25px_rgba(255,0,0,0.18)]">
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
         <div className="flex shrink-0 items-center justify-center">
-          <img
-            src={HELP_ICON_URL}
-            alt="Ajuda no corre"
-            className="h-28 w-28 object-contain md:h-32 md:w-32"
-          />
+          <Image src={HELP_ICON_URL} alt="Ajuda no corre" className="h-28 w-28 object-contain md:h-32 md:w-32" />
         </div>
 
         <div className="min-w-0 flex-1">

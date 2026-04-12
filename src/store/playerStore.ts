@@ -88,6 +88,8 @@ type HeaderCustomization = {
   playerNameFont: string;
   playerNameFontSize?: string;
   playerNameColor?: string;
+  customName?: string;
+  customAvatar?: string;
 };
 
 type BarracoPosition = {
