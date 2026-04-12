@@ -458,7 +458,7 @@ export default function GiroPage() {
                   <li>• cada giro consome corre conforme multiplicador</li>
                   <li>• prêmio e punição são decididos pelo backend</li>
                   <li>• prisão leva 30% do Commands Sujo</li>
-                  <li>• 2 viaturas ativam “olha ozomi”</li>
+                  <li>• 2 viaturas ativam "olha ozomi"</li>
                   <li>• o Header acompanha o mesmo cofre em tempo real</li>
                 </ul>
               </div>
@@ -491,4 +491,11 @@ export default function GiroPage() {
                 </p>
               </div>
             </div>
-     
+          </div>
+        </div>
+      </section>
+
+      <Footer />
+    </div>
+  );
+}

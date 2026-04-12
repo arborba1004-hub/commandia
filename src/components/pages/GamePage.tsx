@@ -26,6 +26,8 @@ import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import { getPlayerRank, checkRankPromotion } from '@/utils/hierarchySystem';
 import RankPromotionNotification from '@/components/RankPromotionNotification';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { fetchOtherPlayersMap } from '@/api/playersApi';
 
 // ... keep existing code (constants and models)
 
@@ -51,9 +53,9 @@ const BARRACO_MODELS = [
 
 const COMPLEXO_BUILDINGS = [
   {
-    key: 'gang',
-    name: 'Quadrilha',
-    path: '/gang',
+    key: 'faccao',
+    name: 'Facção',
+    path: '/faccao',
     url: 'https://static.wixstatic.com/3d/50f4bf_cbaa982319094fbaa77f4bec142a6a30.glb',
     x: -26,
     z: -24,
@@ -61,8 +63,8 @@ const COMPLEXO_BUILDINGS = [
   },
   {
     key: 'luxury',
-    name: 'Loja de Luxo',
-    path: '/luxuryshowroom',
+    name: 'Galeria',
+    path: '/galeria',
     url: 'https://static.wixstatic.com/3d/50f4bf_cf2720eb5bf8455eb61feb001ecb6d44.glb',
     x: -8,
     z: -24,
@@ -71,7 +73,7 @@ const COMPLEXO_BUILDINGS = [
   {
     key: 'fuga',
     name: 'Garagem Fuga',
-    path: '/fuga',
+    path: '/fuga-ilustrada',
     url: 'https://static.wixstatic.com/3d/50f4bf_0a1039e7f16c480b87ad52ed7183428d.glb',
     x: 10,
     z: -24,
@@ -79,17 +81,17 @@ const COMPLEXO_BUILDINGS = [
   },
   {
     key: 'suborno',
-    name: 'Delegacia Suborno',
-    path: '/subornoilustrado',
+    name: 'Suborno',
+    path: '/suborno-ilustrado',
     url: 'https://static.wixstatic.com/3d/50f4bf_45e197f9ee134edb83c942454e77bd16.glb',
     x: 28,
     z: -24,
     footprint: 6,
   },
   {
-    key: 'investimento',
-    name: 'Centro Comunitário',
-    path: '/investimento',
+    key: 'home',
+    name: 'Home',
+    path: '/',
     url: 'https://static.wixstatic.com/3d/50f4bf_803533144e3e411ca8f83da3de514cd4.glb',
     x: -26,
     z: -6,
@@ -98,7 +100,7 @@ const COMPLEXO_BUILDINGS = [
   {
     key: 'lavagem',
     name: 'Lavagem',
-    path: '/lavagemdedinheiro',
+    path: '/lavagem-de-dinheiro',
     url: 'https://static.wixstatic.com/3d/50f4bf_67ec314b5e804d38926bb0bb0b89342f.glb',
     x: -8,
     z: -6,
