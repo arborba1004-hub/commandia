@@ -9,11 +9,6 @@ import { Image } from '@/components/ui/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AcessriosdeFuga, EscapeVehicles } from '@/entities';
 import { getAccessoryBonus } from '@/utils/accessoryBonus';
-import FeatureLevelLock from '@/components/FeatureLevelLock';
-import {
-  canAccessFeature,
-  getFeatureLevelRequirement,
-} from '@/utils/levelRequirements';
 
 const VEHICLE_ACCESSORIES = [
   { name: 'Turbo Reforçado', bonus: 'agility' },
@@ -127,13 +122,22 @@ export default function FugaIlustradaPage() {
     };
   }, [purchaseMessage]);
 
-  const playerLevel = player?.niveis?.playerLevel || 1;
+  if (!isLoaded || !player?._id || isLoadingData) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <div className="min-h-screen flex items-center justify-center pt-[140px] md:pt-[160px]">
+          <LoadingSpinner />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   const cleanMoney = Number(player?.balances?.cleanMoney || 0);
   const ownedVehicles = player?.ownedVehicles || [];
   const purchasedAccessories = player?.purchasedAccessories || [];
   const playerVehicleAccessories = player?.accessories?.vehicles || {};
-  const requiredLevel = getFeatureLevelRequirement('fuga');
-  const isFeatureUnlocked = canAccessFeature(playerLevel, 'fuga');
 
   const selectedVehicleAccessoryList = useMemo(() => {
     if (!selectedVehicleForAccessories) return [];
@@ -240,7 +244,8 @@ export default function FugaIlustradaPage() {
           : current.skills,
       };
     });
-setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
+
+    setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
   };
 
   const handleBuyVehicleAccessoryPix = async (
@@ -255,7 +260,7 @@ setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
       }
 
       const response = await fetch(
-        'https://comando-backend.onrender.com/create-payment',
+       'https://comando-backend.onrender.com/create-payment',
         {
           method: 'POST',
           headers: {
@@ -304,35 +309,6 @@ setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
       setPurchaseMessage('Erro ao gerar pagamento PIX.');
     }
   };
-
-  if (!isLoaded || !player?._id || isLoadingData) {
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Header />
-        <div className="min-h-screen flex items-center justify-center pt-[140px] md:pt-[160px]">
-          <LoadingSpinner />
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!isFeatureUnlocked) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
-          <FeatureLevelLock
-            playerLevel={playerLevel}
-            requiredLevel={requiredLevel}
-            featureName="Fuga Ilustrada"
-            onNavigateToBarraco={() => navigate('/barraco')}
-          />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -399,8 +375,7 @@ setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 className={`p-4 rounded-lg text-center font-paragraph text-lg mb-8 ${
-                  purchaseMessage.includes('sucesso') ||
-                  purchaseMessage.includes('gerado')
+                  purchaseMessage.includes('sucesso') || purchaseMessage.includes('gerado')
                     ? 'bg-green-900 text-green-100'
                     : 'bg-destructive text-destructiveforeground'
                 }`}
@@ -478,7 +453,7 @@ setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
                         {isOwned && (
                           <div className="absolute top-2 right-2 bg-primary px-3 py-1 rounded text-black font-bold text-sm">
                             POSSUÍDO
-</div>
+                          </div>
                         )}
                       </div>
 
@@ -498,14 +473,10 @@ setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
 
                         <div className="mb-3">
                           <p className="text-secondary text-xs mb-1">
-                            Bônus:{' '}
-                            <span className="text-primary">
-                              {vehicle.abilityBonusType}
-                            </span>
+                            Bônus: <span className="text-primary">{vehicle.abilityBonusType}</span>
                           </p>
                           <p className="text-secondary text-xs">
-                            +{getAccessoryBonus(player.niveis.playerLevel)}% em{' '}
-                            {vehicle.abilityBonusType}
+                            +{getAccessoryBonus(player.niveis.playerLevel)}% em {vehicle.abilityBonusType}
                           </p>
                         </div>
 
@@ -529,7 +500,7 @@ setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
                               : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
                           }`}
                         >
-                          {isOwned ? 'Possuído' : canAfford ? 'Comprar' : 'Sem Fundos'}
+{isOwned ? 'Possuído' : canAfford ? 'Comprar' : 'Sem Fundos'}
                         </button>
 
                         <button
@@ -681,8 +652,7 @@ setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
                       <div>
                         <p className="text-secondary text-sm">Bônus de Habilidade</p>
                         <p className="font-heading text-lg font-bold text-primary">
-                          +{getAccessoryBonus(player.niveis.playerLevel)}% em{' '}
-                          {selectedVehicle.abilityBonusType}
+                          +{getAccessoryBonus(player.niveis.playerLevel)}% em {selectedVehicle.abilityBonusType}
                         </p>
                       </div>
 
