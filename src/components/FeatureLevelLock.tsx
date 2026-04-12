@@ -38,7 +38,9 @@ export default function FeatureLevelLock({
         {title}
       </h2>
 
-      <p className="mb-6 text-gray-400 font-paragraph">{reason}</p>
+      <p className="mb-6 text-gray-400 font-paragraph">
+        {reason}
+      </p>
 
       <div className="mb-6 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -48,9 +50,7 @@ export default function FeatureLevelLock({
 
         <div className="mb-3 flex items-center justify-between">
           <span className="font-paragraph text-gray-300">Valor Necessário</span>
-          <span className="text-lg font-bold text-red-500">
-            {requiredValue}
-          </span>
+          <span className="text-lg font-bold text-red-500">{requiredValue}</span>
         </div>
 
         <div className="h-2 w-full overflow-hidden rounded-full bg-gray-800">
