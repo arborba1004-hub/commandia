@@ -70,7 +70,7 @@ export default function BarracoPage() {
           </h1>
 
           <p className="text-center text-sm opacity-70 mb-4">
-            {getBarracoName(level)}
+            {getBarracoName(level + 1)}
           </p>
 
           <div className="text-center mb-6">
@@ -88,12 +88,6 @@ export default function BarracoPage() {
             </p>
           </div>
 
-          {upgradeError && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
-              {upgradeError}
-            </div>
-          )}
-
           <button
             onClick={handleUpgrade}
             disabled={!canUpgrade || isUpgrading}
@@ -105,6 +99,12 @@ export default function BarracoPage() {
           >
             {isUpgrading ? 'Evoluindo...' : 'Evoluir Barraco'}
           </button>
+
+          {upgradeError && (
+            <p className="mt-3 text-center text-sm text-red-400">
+              {upgradeError}
+            </p>
+          )}
         </motion.div>
 
         {/* Modal de Sucesso */}
