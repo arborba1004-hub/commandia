@@ -245,6 +245,9 @@ type PlayerStore = {
   maxPollingAttempts: number;
   localVersion: number;
   lastSyncAt: number;
+  pendingLocalChanges: boolean;
+  lastLocalMutationAt: number;
+  lastServerHydrationAt: number;
 
   loadPlayer: () => Promise<void>;
   setPlayer: (incoming: Partial<PlayerState>) => void;
@@ -260,6 +263,16 @@ type PlayerStore = {
   startPolling: () => void;
   stopPolling: () => void;
   pollPlayerFromBackend: () => Promise<void>;
+
+  upgradeBarracoLocal: () => { ok: boolean; reason?: string; cost?: number };
+  purchaseLuxuryItemLocal: (payload: {
+    itemId: number;
+    name: string;
+    price: number;
+    skillType: string;
+    skillBonusPercent: number;
+    insurance: boolean;
+  }) => { ok: boolean; reason?: string };
 
   // BALANCES
   setBalances: (balances: Partial<Balances>) => void;
@@ -555,6 +568,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   maxPollingAttempts: 5,
   localVersion: 0,
   lastSyncAt: 0,
+  pendingLocalChanges: false,
+  lastLocalMutationAt: 0,
+  lastServerHydrationAt: 0,
 
   loadPlayer: async () => {
     try {
@@ -623,6 +639,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       syncError: null,
       localVersion: newVersion,
       lastSyncAt: Date.now(),
+      lastLocalMutationAt: Date.now(),
+      pendingLocalChanges: true,
     });
 
     get().scheduleSync();
@@ -1325,5 +1343,66 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
       return updated;
     });
+  },
+
+  upgradeBarracoLocal: () => {
+    const player = get().player;
+    const currentLevel = player.niveis.barracoLevel || 1;
+    const requirements = getBarracoUpgradeRequirements(currentLevel);
+
+    if (!requirements) {
+      return { ok: false, reason: 'Max level reached' };
+    }
+
+    const { cost } = requirements;
+    const { dirtyMoney } = player.balances;
+
+    if (dirtyMoney < cost) {
+      return { ok: false, reason: 'Insufficient dirty money', cost };
+    }
+
+    get().applyPlayerUpdate((p) => ({
+      ...p,
+      niveis: {
+        ...p.niveis,
+        barracoLevel: currentLevel + 1,
+      },
+      balances: {
+        ...p.balances,
+        dirtyMoney: p.balances.dirtyMoney - cost,
+      },
+    }));
+
+    return { ok: true, cost };
+  },
+
+  purchaseLuxuryItemLocal: (payload) => {
+    const player = get().player;
+    const { dirtyMoney } = player.balances;
+
+    if (dirtyMoney < payload.price) {
+      return { ok: false, reason: 'Insufficient dirty money' };
+    }
+
+    get().applyPlayerUpdate((p) => {
+      const newPlayer = {
+        ...p,
+        balances: {
+          ...p.balances,
+          dirtyMoney: p.balances.dirtyMoney - payload.price,
+        },
+      };
+
+      if (payload.skillBonusPercent > 0) {
+        newPlayer.skills = {
+          ...p.skills,
+          [payload.skillType]: (p.skills[payload.skillType] || 0) + payload.skillBonusPercent,
+        };
+      }
+
+      return newPlayer;
+    });
+
+    return { ok: true };
   },
 }));
