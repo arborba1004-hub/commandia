@@ -1,189 +1,140 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Star, Shield, Zap, Heart, Sword, Users, Trophy, Target } from 'lucide-react';
-
+import { Shield, Swords, Trash2, Zap } from 'lucide-react';
 import type { GangMember } from '@/types/gang';
 
-interface Props {
+interface MemberCardProps {
   member: GangMember;
-  onTrain: () => void;
-  onEquip: () => void;
-  onToggleActive: () => void;
-  onDismiss: () => void;
-  isReserve?: boolean;
+  onToggleActive?: (memberId: string) => void;
+  onDismiss?: (memberId: string) => void;
+  onTrain?: (memberId: string, premium?: boolean) => void;
+  isBusy?: boolean;
 }
 
-const rarityConfig = {
-  Comum: { color: 'text-gray-400', bg: 'bg-gray-500/10', iconColor: 'text-gray-400' },
-  Raro: { color: 'text-blue-400', bg: 'bg-blue-500/10', iconColor: 'text-blue-400' },
-  Épico: { color: 'text-purple-400', bg: 'bg-purple-500/10', iconColor: 'text-purple-400' },
-  Lendário: { color: 'text-orange-400', bg: 'bg-orange-500/10', iconColor: 'text-orange-400' },
-  Mítico: { color: 'text-red-400', bg: 'bg-red-500/10', iconColor: 'text-red-400' },
-};
+function getRarityClasses(rarity: string) {
+  switch (rarity) {
+    case 'Mítico':
+      return 'border-red-500/30 bg-red-500/10 text-red-300';
+    case 'Lendário':
+      return 'border-orange-500/30 bg-orange-500/10 text-orange-300';
+    case 'Épico':
+      return 'border-purple-500/30 bg-purple-500/10 text-purple-300';
+    case 'Raro':
+      return 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300';
+    default:
+      return 'border-white/10 bg-white/[0.03] text-zinc-200';
+  }
+}
 
 export default function MemberCard({
   member,
-  onTrain,
-  onEquip,
   onToggleActive,
   onDismiss,
-  isReserve = false,
-}: Props) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  const rarity = rarityConfig[member.rarity] || rarityConfig.Comum;
-  const loyaltyColor =
-    member.loyalty < 30
-      ? 'text-red-400'
-      : member.loyalty < 70
-      ? 'text-yellow-400'
-      : 'text-emerald-400';
-
-  const battlePower = (member.level || 1) * 10 + (member.victories || 0) * 2;
-
+  onTrain,
+  isBusy = false,
+}: MemberCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -8, scale: 1.02 }}
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      className="group relative bg-zinc-900/90 border border-white/10 rounded-3xl overflow-hidden hover:border-primary/50 transition-all duration-300 shadow-xl"
-    >
-      {/* Glow de raridade */}
-      <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-${rarity.color.replace('text-', '')} to-transparent opacity-60`} />
+    <div className={`rounded-3xl border p-5 ${getRarityClasses(member.rarity)}`}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-xl font-black">{member.name}</h3>
+            <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold">
+              {member.class}
+            </span>
+            <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold">
+              {member.rarity}
+            </span>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-bold ${
+                member.active
+                  ? 'bg-emerald-500/20 text-emerald-300'
+                  : 'bg-zinc-800 text-zinc-300'
+              }`}
+            >
+              {member.active ? 'Ativo' : 'Reserva'}
+            </span>
+          </div>
 
-      <div className="p-6">
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h3 className="text-2xl font-black tracking-tight text-white">{member.name}</h3>
-              <div className={`px-3 py-0.5 text-xs font-bold rounded-full ${rarity.bg} ${rarity.color}`}>
-                {member.rarity}
-              </div>
+          <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div className="rounded-xl bg-black/30 px-3 py-2">
+              <div className="text-zinc-400">Nível</div>
+              <div className="font-bold">{member.level}</div>
             </div>
-            <p className="text-primary font-medium mt-1">{member.class}</p>
+            <div className="rounded-xl bg-black/30 px-3 py-2">
+              <div className="text-zinc-400">Lealdade</div>
+              <div className="font-bold">{member.loyalty}</div>
+            </div>
+            <div className="rounded-xl bg-black/30 px-3 py-2">
+              <div className="text-zinc-400">Vitórias</div>
+              <div className="font-bold">{member.victories}</div>
+            </div>
+            <div className="rounded-xl bg-black/30 px-3 py-2">
+              <div className="text-zinc-400">Derrotas</div>
+              <div className="font-bold">{member.defeats}</div>
+            </div>
           </div>
 
-          <div className="text-right">
-            <div className="text-4xl font-black text-white/90">Lv.{member.level}</div>
-            <p className="text-xs text-gray-500 mt-1">
-              EXP {member.exp}/{member.expToNext}
-            </p>
-          </div>
-        </div>
-
-        {/* Stats Principais */}
-        <div className="mt-6 grid grid-cols-3 gap-4 text-center">
-          <div>
-            <Heart className={`mx-auto mb-1 ${loyaltyColor}`} size={22} />
-            <p className="text-xs text-gray-400">Lealdade</p>
-            <p className={`font-bold text-lg ${loyaltyColor}`}>{member.loyalty}%</p>
-          </div>
-
-          <div>
-            <Trophy className="mx-auto mb-1 text-amber-400" size={22} />
-            <p className="text-xs text-gray-400">Vitórias</p>
-            <p className="font-bold text-lg text-white">{member.victories}</p>
-          </div>
-
-          <div>
-            <Target className="mx-auto mb-1 text-cyan-400" size={22} />
-            <p className="text-xs text-gray-400">Poder</p>
-            <p className="font-bold text-lg text-white">{battlePower}</p>
-          </div>
-        </div>
-
-        {/* Skills */}
-        <div className="mt-6">
-          <p className="text-xs uppercase tracking-widest text-gray-500 mb-2 flex items-center gap-2">
-            <Zap size={14} /> Habilidades Principais
-          </p>
-          <div className="space-y-2">
-            {member.skills.slice(0, 3).map((skill, index) => (
-              <motion.div
-                key={skill.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="flex items-center justify-between bg-black/40 rounded-xl px-4 py-2 text-sm"
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            {member.skills.map((skill) => (
+              <span
+                key={`${member.id}-${skill.id}`}
+                className="rounded-full bg-black/30 px-3 py-2 text-zinc-200"
               >
-                <span className="text-gray-300">{skill.name}</span>
-                <span className="text-primary font-mono">Lv.{skill.level}</span>
-              </motion.div>
+                {skill.name} Lv.{skill.level}
+              </span>
             ))}
-            {member.skills.length === 0 && (
-              <p className="text-xs text-gray-500 italic">Sem habilidades treinadas ainda...</p>
-            )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="mt-8 flex flex-wrap gap-2">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={onTrain}
-            className="flex-1 bg-blue-600/80 hover:bg-blue-600 text-white font-medium py-3 rounded-2xl text-sm transition-all flex items-center justify-center gap-2"
-          >
-            <Zap size={18} />
-            Treinar
-          </motion.button>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          {onTrain && (
+            <>
+              <button
+                onClick={() => onTrain(member.id, false)}
+                disabled={isBusy}
+                className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-black disabled:opacity-50"
+              >
+                <Zap className="h-4 w-4" />
+                Treinar
+              </button>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={onEquip}
-            className="flex-1 bg-emerald-600/80 hover:bg-emerald-600 text-white font-medium py-3 rounded-2xl text-sm transition-all flex items-center justify-center gap-2"
-          >
-            <Shield size={18} />
-            Equipar
-          </motion.button>
+              <button
+                onClick={() => onTrain(member.id, true)}
+                disabled={isBusy}
+                className="inline-flex items-center gap-2 rounded-2xl bg-purple-500 px-4 py-3 text-sm font-black text-white disabled:opacity-50"
+              >
+                <Swords className="h-4 w-4" />
+                Premium
+              </button>
+            </>
+          )}
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={onToggleActive}
-            className={`flex-1 font-medium py-3 rounded-2xl text-sm transition-all flex items-center justify-center gap-2 ${
-              isReserve
-                ? 'bg-cyan-600/80 hover:bg-cyan-600'
-                : 'bg-amber-600/80 hover:bg-amber-600'
-            }`}
-          >
-            {isReserve ? (
-              <>
-                <Users size={18} /> Ativar
-              </>
-            ) : (
-              <>
-                <Shield size={18} /> Reservar
-              </>
-            )}
-          </motion.button>
+          {onToggleActive && (
+            <button
+              onClick={() => onToggleActive(member.id)}
+              disabled={isBusy}
+              className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black disabled:opacity-50 ${
+                member.active
+                  ? 'bg-cyan-500 text-black'
+                  : 'bg-emerald-500 text-black'
+              }`}
+            >
+              <Shield className="h-4 w-4" />
+              {member.active ? 'Reserva' : 'Ativar'}
+            </button>
+          )}
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={onDismiss}
-            className="flex-1 bg-red-700/70 hover:bg-red-700 text-white font-medium py-3 rounded-2xl text-sm transition-all flex items-center justify-center gap-2"
-          >
-            Demitir
-          </motion.button>
+          {onDismiss && (
+            <button
+              onClick={() => onDismiss(member.id)}
+              disabled={isBusy}
+              className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Dispensar
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Efeito de hover sutil */}
-      <AnimatePresence>
-        {isHovered && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.15 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent pointer-events-none"
-          />
-        )}
-      </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
