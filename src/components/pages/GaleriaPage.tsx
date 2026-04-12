@@ -8,6 +8,8 @@ import PurchaseInsuranceModal from '@/components/PurchaseInsuranceModal';
 import CardTransactionModal from '@/components/CardTransactionModal';
 import PurchaseResultModal from '@/components/PurchaseResultModal';
 import { getReducedInventoryBonus } from '@/utils/inventoryBonus';
+import TintedVideoCard from '@/components/gallery/TintedVideoCard';
+import { getGalleryVideoPalette } from '@/data/galleryVideoPalettes';
 
 interface SelectedItem {
   id: number;
@@ -25,9 +27,10 @@ interface SkillBonus {
 
 export default function GaleriaPage() {
   const player = usePlayerStore((state) => state.player);
-  const setPlayer = usePlayerStore((state) => state.setPlayer);
+  const purchaseLuxuryItemLocal = usePlayerStore((state) => state.purchaseLuxuryItemLocal);
   const playerLevel = player?.niveis?.playerLevel || 1;
   const collectionName = getCollectionNameByLevel(playerLevel);
+  const videoPalette = getGalleryVideoPalette(playerLevel);
 
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
   const [showInsuranceModal, setShowInsuranceModal] = useState(false);
@@ -73,58 +76,26 @@ export default function GaleriaPage() {
   const processTransaction = (bonus: SkillBonus, insuranceType: 'with' | 'without') => {
     if (!player || !selectedItem) return;
 
-    const cleanMoneyBalance = player?.balances?.cleanMoney || 0;
     const finalPrice = getLuxuryPriceWithInsurance(playerLevel, insuranceType === 'with');
 
-    if (cleanMoneyBalance < finalPrice) {
-      setIsProcessing(false);
-      setShowCardModal(false);
-      setPurchaseError('insufficient');
-      setShowResultModal(true);
-      return;
-    }
-
-    const alreadyOwned = (player?.inventory?.items || []).some(
-      (item) => item.itemId === selectedItem.id && item.level === playerLevel
-    );
-    
-    if (alreadyOwned) {
-      setIsProcessing(false);
-      setShowCardModal(false);
-      setPurchaseError('duplicate');
-      setShowResultModal(true);
-      return;
-    }
-
-    const newItem = {
-      id: `${selectedItem.id}-${playerLevel}-${Date.now()}`,
+    const result = purchaseLuxuryItemLocal({
       itemId: selectedItem.id,
       name: selectedItem.name,
       price: finalPrice,
-      purchasedAt: new Date().toISOString(),
+      skillType: bonus.skillType,
+      skillBonusPercent: getReducedInventoryBonus(bonus.skillBonusPercent, player),
       insurance: insuranceType === 'with',
-      level: playerLevel,
-    };
+    });
 
-    const updatedPlayer = {
-      ...player,
-      balances: {
-        ...player.balances,
-        cleanMoney: cleanMoneyBalance - finalPrice,
-      },
-      inventory: {
-        ...player.inventory,
-        items: [...(player.inventory?.items || []), newItem],
-      },
-      skills: {
-        ...player.skills,
-        [bonus.skillType]: Number(((player.skills?.[bonus.skillType] || 0) + getReducedInventoryBonus(bonus.skillBonusPercent, player)).toFixed(2)),
-      },
-    };
-
-    setPlayer(updatedPlayer);
     setIsProcessing(false);
     setShowCardModal(false);
+
+    if (!result.ok) {
+      setPurchaseError(result.reason === 'Saldo insuficiente' ? 'insufficient' : 'duplicate');
+      setShowResultModal(true);
+      return;
+    }
+
     setPurchaseError(null);
     setShowResultModal(true);
   };
