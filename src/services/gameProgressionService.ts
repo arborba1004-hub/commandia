@@ -52,7 +52,7 @@ export function getBranchRequirement(
       return {
         unlocked: barracoLevel >= 1,
         title: 'Giro',
-        reason: 'Giro está disponível a partir do barraco nível 1.',
+        reason: 'Giro disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
         requiredValue: 1,
       };
@@ -60,8 +60,8 @@ export function getBranchRequirement(
     case 'lavagem':
       return {
         unlocked: barracoLevel >= 1,
-        title: 'Lavagem',
-        reason: 'Lavagem está disponível a partir do barraco nível 1.',
+        title: 'Lavagem de Dinheiro',
+        reason: 'Lavagem disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
         requiredValue: 1,
       };
@@ -70,7 +70,7 @@ export function getBranchRequirement(
       return {
         unlocked: barracoLevel >= 1,
         title: 'Galeria',
-        reason: 'Galeria está disponível a partir do barraco nível 1.',
+        reason: 'Galeria disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
         requiredValue: 1,
       };
@@ -79,7 +79,7 @@ export function getBranchRequirement(
       return {
         unlocked: barracoLevel >= 1,
         title: 'Arsenal',
-        reason: 'Arsenal está disponível a partir do barraco nível 1.',
+        reason: 'Arsenal disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
         requiredValue: 1,
       };
@@ -88,7 +88,7 @@ export function getBranchRequirement(
       return {
         unlocked: barracoLevel >= 1,
         title: 'Suborno',
-        reason: 'Suborno está disponível a partir do barraco nível 1.',
+        reason: 'Suborno disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
         requiredValue: 1,
       };
@@ -97,7 +97,7 @@ export function getBranchRequirement(
       return {
         unlocked: barracoLevel >= 1,
         title: 'Hierarquia',
-        reason: 'Hierarquia está disponível a partir do barraco nível 1.',
+        reason: 'Hierarquia disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
         requiredValue: 1,
       };
@@ -106,7 +106,7 @@ export function getBranchRequirement(
       return {
         unlocked: barracoLevel >= 1,
         title: 'Facção',
-        reason: 'Facção está disponível a partir do barraco nível 1.',
+        reason: 'Facção disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
         requiredValue: 1,
       };
@@ -115,7 +115,7 @@ export function getBranchRequirement(
       return {
         unlocked: barracoLevel >= 1,
         title: 'Talentos',
-        reason: 'Talentos estão disponíveis a partir do barraco nível 1.',
+        reason: 'Talentos disponíveis a partir do barraco nível 1.',
         currentValue: barracoLevel,
         requiredValue: 1,
       };
@@ -123,8 +123,8 @@ export function getBranchRequirement(
     case 'fuga':
       return {
         unlocked: barracoLevel >= 1,
-        title: 'Fuga',
-        reason: 'Fuga está disponível a partir do barraco nível 1.',
+        title: 'Fuga Ilustrada',
+        reason: 'Fuga disponível a partir do barraco nível 1.',
         currentValue: barracoLevel,
         requiredValue: 1,
       };
