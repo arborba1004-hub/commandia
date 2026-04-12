@@ -4,17 +4,50 @@ import { usePlayerStore } from '@/store/playerStore';
 import { useGangBattleStore } from '@/stores/gangBattleStore';
 import type {
   Gang,
-  GangBattleSnapshot,
-  GangDoctrineBonus,
+  GangBattleStats,
+  GangDoctrineLevels,
+  GangEquipmentType,
   GangMember,
-  GangUpgradeId,
+  GangSkillKey,
   MemberClass,
   MemberSkill,
-  RecruitMethod,
   Rarity,
 } from '@/types/gang';
 
-const STORAGE_KEY = 'gangData';
+type RecruitMethod = 'mission' | 'market' | 'premium';
+
+interface GangStore {
+  myGang: Gang | null;
+  isLoading: boolean;
+  error: string | null;
+
+  initializeGang: () => void;
+  fetchMyGang: () => Promise<void>;
+
+  recruitMember: (method: RecruitMethod) => Promise<GangMember | null>;
+  trainMember: (memberId: string, usePremium?: boolean) => Promise<void>;
+  equipMember: (
+    memberId: string,
+    equipmentType: GangEquipmentType,
+    itemId: string
+  ) => Promise<void>;
+  toggleActive: (memberId: string) => Promise<void>;
+  dismissMember: (memberId: string) => Promise<void>;
+
+  donateToTreasury: (
+    type: 'dirtyMoney' | 'cleanMoney' | 'corre',
+    amount: number
+  ) => Promise<void>;
+
+  upgradeGangSkill: (skillId: GangSkillKey) => Promise<void>;
+
+  getBattleStats: () => GangBattleStats;
+  getActiveMembers: () => GangMember[];
+  getReserveMembers: () => GangMember[];
+  clearGang: () => void;
+}
+
+const DEFAULT_GANG_ID = 'default-gang';
 
 const MEMBER_CLASSES: MemberClass[] = [
   'Assassino',
@@ -29,357 +62,147 @@ const MEMBER_CLASSES: MemberClass[] = [
   'Negociador',
 ];
 
-const RARITY_ORDER: Rarity[] = ['Comum', 'Raro', 'Épico', 'Lendário', 'Mítico'];
+const RARITY_WEIGHTS: Array<{ rarity: Rarity; weight: number }> = [
+  { rarity: 'Comum', weight: 55 },
+  { rarity: 'Raro', weight: 25 },
+  { rarity: 'Épico', weight: 12 },
+  { rarity: 'Lendário', weight: 6 },
+  { rarity: 'Mítico', weight: 2 },
+];
 
-const RARITY_BASE_POWER: Record<Rarity, number> = {
-  Comum: 0,
-  Raro: 20,
-  Épico: 45,
-  Lendário: 80,
-  Mítico: 130,
+const RARITY_POWER_MULTIPLIER: Record<Rarity, number> = {
+  Comum: 1,
+  Raro: 1.15,
+  Épico: 1.35,
+  Lendário: 1.65,
+  Mítico: 2,
 };
 
-const RECRUIT_CONFIG: Record<
-  RecruitMethod,
-  {
-    cost: number;
-    currency: 'dirtyMoney' | 'cleanMoney' | 'corre';
-    rarityWeights: Record<Rarity, number>;
-  }
-> = {
-  mission: {
-    cost: 5000,
-    currency: 'dirtyMoney',
-    rarityWeights: {
-      Comum: 60,
-      Raro: 25,
-      Épico: 10,
-      Lendário: 4,
-      Mítico: 1,
-    },
-  },
-  market: {
-    cost: 50000,
-    currency: 'cleanMoney',
-    rarityWeights: {
-      Comum: 40,
-      Raro: 35,
-      Épico: 15,
-      Lendário: 8,
-      Mítico: 2,
-    },
-  },
-  premium: {
-    cost: 250,
-    currency: 'corre',
-    rarityWeights: {
-      Comum: 0,
-      Raro: 20,
-      Épico: 45,
-      Lendário: 25,
-      Mítico: 10,
-    },
-  },
+const CLASS_SKILL_POOL: Record<MemberClass, Array<{ name: string; description: string }>> = {
+  Assassino: [
+    { name: 'Execução Limpa', description: 'Dano maior em alvo prioritário.' },
+    { name: 'Passo Fantasma', description: 'Mais eficiência em emboscadas.' },
+  ],
+  Ladrão: [
+    { name: 'Mão Leve', description: 'Melhora saque e roubo rápido.' },
+    { name: 'Sombra Urbana', description: 'Aumenta infiltração.' },
+  ],
+  Lavador: [
+    { name: 'Rede Fria', description: 'Protege recursos e cobertura.' },
+    { name: 'Fluxo Limpo', description: 'Aumenta eficiência operacional.' },
+  ],
+  Motorista: [
+    { name: 'Linha de Fuga', description: 'Melhora retirada da tropa.' },
+    { name: 'Traçado Perfeito', description: 'Aumenta mobilidade tática.' },
+  ],
+  Armeiro: [
+    { name: 'Mira Ajustada', description: 'Melhora ataque da equipe.' },
+    { name: 'Manutenção Pesada', description: 'Aumenta consistência ofensiva.' },
+  ],
+  Informante: [
+    { name: 'Olho Vivo', description: 'Aumenta leitura do alvo.' },
+    { name: 'Rede de Rua', description: 'Melhora chance de vantagem inicial.' },
+  ],
+  Capanga: [
+    { name: 'Corpo Fechado', description: 'Melhora resistência física.' },
+    { name: 'Linha de Frente', description: 'Absorve pressão inimiga.' },
+  ],
+  Médico: [
+    { name: 'Remendo Rápido', description: 'Sustenta a tropa por mais tempo.' },
+    { name: 'Pulso Frio', description: 'Reduz colapso em combate.' },
+  ],
+  Executor: [
+    { name: 'Golpe Final', description: 'Potencializa fechamento de luta.' },
+    { name: 'Ameaça Direta', description: 'Pressão ofensiva elevada.' },
+  ],
+  Negociador: [
+    { name: 'Leitura de Cena', description: 'Aumenta controle e saque.' },
+    { name: 'Presença de Rua', description: 'Melhora disciplina da equipe.' },
+  ],
 };
 
-interface GangStore {
-  myGang: Gang | null;
-  isLoading: boolean;
-  error: string | null;
-
-  fetchMyGang: () => Promise<void>;
-  recruitMember: (method: RecruitMethod) => Promise<GangMember | null>;
-  trainMember: (memberId: string, usePremium?: boolean) => Promise<void>;
-  equipMember: (
-    memberId: string,
-    equipmentType: 'weapon' | 'armor' | 'vehicle',
-    itemId: string
-  ) => Promise<void>;
-  toggleActive: (memberId: string) => Promise<void>;
-  dismissMember: (memberId: string) => Promise<void>;
-  donateToTreasury: (
-    type: 'dirtyMoney' | 'cleanMoney' | 'corre',
-    amount: number
-  ) => Promise<void>;
-  upgradeGangSkill: (skillId: GangUpgradeId) => Promise<void>;
-
-  getDoctrineBonus: () => GangDoctrineBonus;
-  getMemberBattlePower: (member: GangMember) => number;
-  getBattleSnapshot: () => GangBattleSnapshot;
+function generateId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function randomFromArray<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
+function weightedRarity(): Rarity {
+  const total = RARITY_WEIGHTS.reduce((sum, item) => sum + item.weight, 0);
+  let roll = Math.random() * total;
 
-function weightedRarityPick(weights: Record<Rarity, number>): Rarity {
-  const entries = Object.entries(weights) as [Rarity, number][];
-  const total = entries.reduce((acc, [, value]) => acc + value, 0);
-  let random = Math.random() * total;
-
-  for (const [rarity, weight] of entries) {
-    random -= weight;
-    if (random <= 0) return rarity;
+  for (const item of RARITY_WEIGHTS) {
+    roll -= item.weight;
+    if (roll <= 0) return item.rarity;
   }
 
   return 'Comum';
 }
 
-function createSkillTemplate(memberClass: MemberClass): MemberSkill[] {
-  const baseByClass: Record<MemberClass, MemberSkill[]> = {
-    Assassino: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Golpe Preciso',
-        description: 'Aumenta dano crítico em emboscadas.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+5% crítico por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Passos Silenciosos',
-        description: 'Reduz chance de detecção.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% furtividade por nível',
-      },
-    ],
-    Ladrão: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Mãos Leves',
-        description: 'Aumenta eficiência em saque.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+6% saque por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Olho de Oportunidade',
-        description: 'Melhora leitura de alvo.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% loot por nível',
-      },
-    ],
-    Lavador: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Rota Limpa',
-        description: 'Melhora conversão operacional.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+5% eficiência por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Disfarce Fiscal',
-        description: 'Reduz risco operacional.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% cobertura por nível',
-      },
-    ],
-    Motorista: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Curva Cega',
-        description: 'Aumenta escape em perseguição.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+5% fuga por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Pisada Quente',
-        description: 'Melhora mobilidade tática.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% agilidade por nível',
-      },
-    ],
-    Armeiro: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Calibre Fino',
-        description: 'Melhora dano do esquadrão.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+5% ataque por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Manutenção de Guerra',
-        description: 'Reduz desgaste de equipamento.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% eficiência por nível',
-      },
-    ],
-    Informante: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Escuta da Rua',
-        description: 'Amplia leitura do alvo.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+5% inteligência por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Rede de Sussurros',
-        description: 'Aumenta visão tática.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% informação por nível',
-      },
-    ],
-    Capanga: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Impacto Bruto',
-        description: 'Aumenta pressão física no confronto.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+5% ataque por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Casca Grossa',
-        description: 'Eleva resistência em linha de frente.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% defesa por nível',
-      },
-    ],
-    Médico: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Socorro Quente',
-        description: 'Reduz perdas em confronto.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+5% sobrevivência por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Remendo de Guerra',
-        description: 'Acelera recuperação da equipe.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% sustain por nível',
-      },
-    ],
-    Executor: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Execução Fria',
-        description: 'Eleva finalização em combate.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+6% dano final por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Presença Mortal',
-        description: 'Enfraquece resistência inimiga.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% pressão por nível',
-      },
-    ],
-    Negociador: [
-      {
-        id: crypto.randomUUID(),
-        name: 'Leitura de Mesa',
-        description: 'Melhora ganho estratégico.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+5% loot por nível',
-      },
-      {
-        id: crypto.randomUUID(),
-        name: 'Acordo Torto',
-        description: 'Cria vantagem situacional.',
-        level: 1,
-        maxLevel: 10,
-        effect: '+4% tática por nível',
-      },
-    ],
-  };
-
-  return baseByClass[memberClass];
-}
-
-function generateMemberName(memberClass: MemberClass, rarity: Rarity) {
-  const names = [
-    'Nego Jota',
-    'Cobra',
-    'Vulgo Touro',
-    'Mão Branca',
-    'Sete Linhas',
-    'Furacão',
-    'Cicatriz',
-    'Nina',
-    'Rasteira',
-    'Nocaute',
-  ];
-
-  const suffix =
-    rarity === 'Mítico'
-      ? 'do Caos'
-      : rarity === 'Lendário'
-      ? 'da Firma'
-      : rarity === 'Épico'
-      ? 'da Noite'
-      : memberClass;
-
-  return `${randomFromArray(names)} ${suffix}`;
-}
-
-function getMemberLevelByRarity(rarity: Rarity) {
-  switch (rarity) {
-    case 'Mítico':
-      return 12;
-    case 'Lendário':
-      return 9;
-    case 'Épico':
-      return 6;
-    case 'Raro':
-      return 3;
-    default:
-      return 1;
-  }
+function randomClass(): MemberClass {
+  return MEMBER_CLASSES[Math.floor(Math.random() * MEMBER_CLASSES.length)];
 }
 
 function getExpToNext(level: number) {
-  return Math.round(100 * Math.pow(1.18, Math.max(0, level - 1)));
+  return Math.floor(100 + (level - 1) * 65);
 }
 
-function maybeLevelUp(member: GangMember) {
-  let next = { ...member };
-
-  while (next.exp >= next.expToNext) {
-    next = {
-      ...next,
-      level: next.level + 1,
-      exp: next.exp - next.expToNext,
-      expToNext: getExpToNext(next.level + 1),
-      loyalty: Math.min(100, next.loyalty + 2),
-    };
-  }
-
-  return next;
+function createBaseSkills(memberClass: MemberClass): MemberSkill[] {
+  const pool = CLASS_SKILL_POOL[memberClass] || [];
+  return pool.map((skill, index) => ({
+    id: `${memberClass}-${index + 1}`,
+    name: skill.name,
+    description: skill.description,
+    level: 1,
+    maxLevel: 10,
+    effect: '+5%',
+  }));
 }
 
-function createDefaultGang(): Gang {
-  const createdAt = new Date().toISOString();
+function createGangMember(rarity: Rarity, memberClass: MemberClass): GangMember {
+  const baseLevel =
+    rarity === 'Comum'
+      ? 1
+      : rarity === 'Raro'
+      ? 2
+      : rarity === 'Épico'
+      ? 4
+      : rarity === 'Lendário'
+      ? 6
+      : 8;
 
   return {
-    id: 'default-gang',
-    name: 'Comando Tático',
-    tag: 'CTK',
+    id: generateId('gang-member'),
+    name: `${memberClass} ${Math.floor(Math.random() * 900 + 100)}`,
+    class: memberClass,
+    rarity,
+    level: baseLevel,
+    exp: 0,
+    expToNext: getExpToNext(baseLevel),
+    loyalty: Math.floor(65 + Math.random() * 31),
+    skills: createBaseSkills(memberClass),
+    equipment: {},
+    active: false,
+    recruitedAt: new Date().toISOString(),
+    victories: 0,
+    defeats: 0,
+  };
+}
+
+function initialDoctrine(): GangDoctrineLevels {
+  return {
+    assalto: 1,
+    emboscada: 1,
+    resistencia: 1,
+    fuga: 1,
+    saque: 1,
+    disciplina: 1,
+  };
+}
+
+function createInitialGang(): Gang {
+  return {
+    id: DEFAULT_GANG_ID,
+    name: 'Minha Gangue',
+    tag: 'MG',
     level: 1,
     exp: 0,
     expToNext: 1000,
@@ -391,14 +214,72 @@ function createDefaultGang(): Gang {
     },
     members: [],
     activeMemberIds: [],
-    upgrades: {
-      trainingGroundsLevel: 0,
-      hideoutLevel: 0,
-      blackMarketLevel: 0,
-    },
-    createdAt,
+    doctrine: initialDoctrine(),
+    createdAt: new Date().toISOString(),
     totalVictories: 0,
+    totalDefeats: 0,
   };
+}
+
+function getRecruitCost(method: RecruitMethod) {
+  switch (method) {
+    case 'mission':
+      return { type: 'dirtyMoney' as const, amount: 5000 };
+    case 'market':
+      return { type: 'cleanMoney' as const, amount: 50000 };
+    case 'premium':
+      return { type: 'cleanMoney' as const, amount: 150000 };
+    default:
+      return { type: 'dirtyMoney' as const, amount: 5000 };
+  }
+}
+
+function getRecruitRarity(method: RecruitMethod): Rarity {
+  if (method === 'premium') {
+    const roll = Math.random();
+    if (roll < 0.55) return 'Épico';
+    if (roll < 0.9) return 'Lendário';
+    return 'Mítico';
+  }
+
+  if (method === 'market') {
+    const roll = Math.random();
+    if (roll < 0.35) return 'Comum';
+    if (roll < 0.7) return 'Raro';
+    if (roll < 0.88) return 'Épico';
+    if (roll < 0.97) return 'Lendário';
+    return 'Mítico';
+  }
+
+  return weightedRarity();
+}
+
+function memberPower(member: GangMember) {
+  const rarityMultiplier = RARITY_POWER_MULTIPLIER[member.rarity] || 1;
+  const skillPower = member.skills.reduce((sum, skill) => sum + skill.level * 4, 0);
+  const loyaltyBonus = member.loyalty * 0.35;
+  const equipmentBonus =
+    (member.equipment.weaponId ? 18 : 0) +
+    (member.equipment.armorId ? 12 : 0) +
+    (member.equipment.vehicleId ? 15 : 0);
+
+  return Math.floor(member.level * 20 * rarityMultiplier + skillPower + loyaltyBonus + equipmentBonus);
+}
+
+function doctrineAttackBonus(levels: GangDoctrineLevels) {
+  return levels.assalto * 4 + levels.emboscada * 3;
+}
+
+function doctrineDefenseBonus(levels: GangDoctrineLevels) {
+  return levels.resistencia * 5 + levels.disciplina * 2;
+}
+
+function doctrineLootBonus(levels: GangDoctrineLevels) {
+  return levels.saque * 4 + levels.fuga * 2;
+}
+
+function getGangUpgradeCost(level: number) {
+  return Math.floor(2500 * Math.pow(1.18, Math.max(0, level - 1)));
 }
 
 export const useGangStore = create<GangStore>()(
@@ -408,14 +289,40 @@ export const useGangStore = create<GangStore>()(
       isLoading: false,
       error: null,
 
+      initializeGang: () => {
+        const current = get().myGang;
+        if (current) return;
+
+        set({
+          myGang: createInitialGang(),
+          error: null,
+        });
+      },
+
       fetchMyGang: async () => {
         set({ isLoading: true, error: null });
 
         try {
-          const current = get().myGang || createDefaultGang();
-          set({ myGang: current, isLoading: false, error: null });
-        } catch (err: any) {
-          set({ error: err?.message || 'Erro ao carregar gangue', isLoading: false });
+          const current = get().myGang;
+          if (!current) {
+            set({
+              myGang: createInitialGang(),
+              isLoading: false,
+              error: null,
+            });
+            return;
+          }
+
+          set({
+            myGang: current,
+            isLoading: false,
+            error: null,
+          });
+        } catch (error) {
+          set({
+            isLoading: false,
+            error: error instanceof Error ? error.message : 'Erro ao carregar gangue',
+          });
         }
       },
 
@@ -423,105 +330,56 @@ export const useGangStore = create<GangStore>()(
         set({ isLoading: true, error: null });
 
         try {
-          const currentGang = get().myGang || createDefaultGang();
-          const config = RECRUIT_CONFIG[method];
+          const gang = get().myGang || createInitialGang();
           const playerStore = usePlayerStore.getState();
-          const currentPlayer = playerStore.player;
+          const player = playerStore.player;
+          const cost = getRecruitCost(method);
+          const currentBalance = Number(player?.balances?.[cost.type] || 0);
 
-          const currentBalance = Number(currentPlayer.balances?.[config.currency] || 0);
-
-          if (currentBalance < config.cost) {
+          if (currentBalance < cost.amount) {
             throw new Error('Saldo insuficiente para recrutamento.');
           }
 
-          playerStore.applyPlayerUpdate((player) => ({
-            ...player,
+          playerStore.applyPlayerUpdate((currentPlayer) => ({
+            ...currentPlayer,
             balances: {
-              ...player.balances,
-              [config.currency]: Math.max(
+              ...currentPlayer.balances,
+              [cost.type]: Math.max(
                 0,
-                Number(player.balances?.[config.currency] || 0) - config.cost
+                Number(currentPlayer.balances?.[cost.type] || 0) - cost.amount
               ),
             },
           }));
 
-          const blackMarketBoost =
-            currentGang.upgrades.blackMarketLevel * 2;
+          const rarity = getRecruitRarity(method);
+          const memberClass = randomClass();
+          const newMember = createGangMember(rarity, memberClass);
 
-          const adjustedWeights = {
-            ...config.rarityWeights,
-            Épico: config.rarityWeights.Épico + blackMarketBoost,
-            Lendário: config.rarityWeights.Lendário + Math.floor(blackMarketBoost / 2),
-            Mítico: config.rarityWeights.Mítico + Math.floor(blackMarketBoost / 3),
+          const updatedGang: Gang = {
+            ...gang,
+            members: [...gang.members, newMember],
+            exp: gang.exp + 50,
           };
 
-          const rarity = weightedRarityPick(adjustedWeights);
-          const memberClass = randomFromArray(MEMBER_CLASSES);
-          const level = getMemberLevelByRarity(rarity);
-
-          const newMember: GangMember = {
-            id: crypto.randomUUID(),
-            name: generateMemberName(memberClass, rarity),
-            class: memberClass,
-            rarity,
-            level,
-            exp: 0,
-            expToNext: getExpToNext(level),
-            loyalty:
-              rarity === 'Mítico'
-                ? 90
-                : rarity === 'Lendário'
-                ? 82
-                : rarity === 'Épico'
-                ? 72
-                : 60,
-            skills: createSkillTemplate(memberClass),
-            equipment: {},
-            active: currentGang.activeMemberIds.length < currentGang.slots,
-            recruitedAt: new Date().toISOString(),
-            victories: 0,
-            defeats: 0,
-          };
-
-          const activeMemberIds =
-            currentGang.activeMemberIds.length < currentGang.slots
-              ? [...currentGang.activeMemberIds, newMember.id]
-              : currentGang.activeMemberIds;
-
-          const expGain =
-            rarity === 'Mítico'
-              ? 120
-              : rarity === 'Lendário'
-              ? 80
-              : rarity === 'Épico'
-              ? 50
-              : rarity === 'Raro'
-              ? 30
-              : 15;
-
-          const nextGang = {
-            ...currentGang,
-            members: [...currentGang.members, newMember],
-            activeMemberIds,
-            treasury: {
-              ...currentGang.treasury,
-              [config.currency]:
-                Number(currentGang.treasury?.[config.currency] || 0) + config.cost,
-            },
-            exp: currentGang.exp + expGain,
-          };
+          if (
+            updatedGang.activeMemberIds.length < updatedGang.slots &&
+            !updatedGang.activeMemberIds.includes(newMember.id)
+          ) {
+            newMember.active = true;
+            updatedGang.activeMemberIds = [...updatedGang.activeMemberIds, newMember.id];
+          }
 
           set({
-            myGang: nextGang,
+            myGang: updatedGang,
             isLoading: false,
             error: null,
           });
 
           return newMember;
-        } catch (err: any) {
+        } catch (error) {
           set({
-            error: err?.message || 'Erro ao recrutar membro',
             isLoading: false,
+            error: error instanceof Error ? error.message : 'Erro ao recrutar membro',
           });
           return null;
         }
@@ -531,58 +389,69 @@ export const useGangStore = create<GangStore>()(
         set({ isLoading: true, error: null });
 
         try {
-          const currentGang = get().myGang;
-          if (!currentGang) throw new Error('Gangue não carregada.');
+          const gang = get().myGang;
+          if (!gang) throw new Error('Gangue não encontrada.');
 
           const playerStore = usePlayerStore.getState();
-          const currency = usePremium ? 'corre' : 'dirtyMoney';
-          const cost = usePremium ? 250 : 2000;
+          const costType = usePremium ? 'cleanMoney' : 'dirtyMoney';
+          const costAmount = usePremium ? 5000 : 2000;
           const expGain = usePremium ? 500 : 100;
 
-          const currentBalance = Number(playerStore.player.balances?.[currency] || 0);
-          if (currentBalance < cost) {
+          if (Number(playerStore.player?.balances?.[costType] || 0) < costAmount) {
             throw new Error('Saldo insuficiente para treino.');
           }
 
-          playerStore.applyPlayerUpdate((player) => ({
-            ...player,
+          playerStore.applyPlayerUpdate((currentPlayer) => ({
+            ...currentPlayer,
             balances: {
-              ...player.balances,
-              [currency]: Math.max(
+              ...currentPlayer.balances,
+              [costType]: Math.max(
                 0,
-                Number(player.balances?.[currency] || 0) - cost
+                Number(currentPlayer.balances?.[costType] || 0) - costAmount
               ),
             },
           }));
 
-          const trainingBonusMultiplier =
-            1 + currentGang.upgrades.trainingGroundsLevel * 0.1;
-
-          const updatedMembers = currentGang.members.map((member) => {
+          const updatedMembers = gang.members.map((member) => {
             if (member.id !== memberId) return member;
 
-            const updated = maybeLevelUp({
-              ...member,
-              exp: member.exp + Math.round(expGain * trainingBonusMultiplier),
-              loyalty: Math.min(100, member.loyalty + (usePremium ? 4 : 2)),
-            });
+            let newExp = member.exp + expGain;
+            let newLevel = member.level;
+            let newExpToNext = member.expToNext;
+            let newSkills = member.skills;
 
-            return updated;
+            while (newExp >= newExpToNext) {
+              newExp -= newExpToNext;
+              newLevel += 1;
+              newExpToNext = getExpToNext(newLevel);
+              newSkills = newSkills.map((skill) => ({
+                ...skill,
+                level: Math.min(skill.maxLevel, skill.level + (Math.random() < 0.4 ? 1 : 0)),
+              }));
+            }
+
+            return {
+              ...member,
+              exp: newExp,
+              level: newLevel,
+              expToNext: newExpToNext,
+              loyalty: Math.min(100, member.loyalty + (usePremium ? 3 : 1)),
+              skills: newSkills,
+            };
           });
 
           set({
             myGang: {
-              ...currentGang,
+              ...gang,
               members: updatedMembers,
-              exp: currentGang.exp + (usePremium ? 30 : 12),
             },
             isLoading: false,
             error: null,
           });
-        } catch (err: any) {
+        } catch (error) {
           set({
-            error: err?.message || 'Erro ao treinar membro',
             isLoading: false,
+            error: error instanceof Error ? error.message : 'Erro ao treinar membro',
           });
         }
       },
@@ -591,10 +460,10 @@ export const useGangStore = create<GangStore>()(
         set({ isLoading: true, error: null });
 
         try {
-          const currentGang = get().myGang;
-          if (!currentGang) throw new Error('Gangue não carregada.');
+          const gang = get().myGang;
+          if (!gang) throw new Error('Gangue não encontrada.');
 
-          const updatedMembers = currentGang.members.map((member) =>
+          const updatedMembers = gang.members.map((member) =>
             member.id === memberId
               ? {
                   ...member,
@@ -612,58 +481,54 @@ export const useGangStore = create<GangStore>()(
 
           set({
             myGang: {
-              ...currentGang,
+              ...gang,
               members: updatedMembers,
             },
             isLoading: false,
             error: null,
           });
-        } catch (err: any) {
+        } catch (error) {
           set({
-            error: err?.message || 'Erro ao equipar membro',
             isLoading: false,
+            error: error instanceof Error ? error.message : 'Erro ao equipar membro',
           });
         }
       },
 
       toggleActive: async (memberId) => {
-        const currentGang = get().myGang;
-        if (!currentGang) return;
-
         set({ isLoading: true, error: null });
 
         try {
-          const isCurrentlyActive = currentGang.activeMemberIds.includes(memberId);
+          const gang = get().myGang;
+          if (!gang) throw new Error('Gangue não encontrada.');
 
-          let nextActiveIds = [...currentGang.activeMemberIds];
+          const isCurrentlyActive = gang.activeMemberIds.includes(memberId);
 
-          if (isCurrentlyActive) {
-            nextActiveIds = nextActiveIds.filter((id) => id !== memberId);
-          } else {
-            if (nextActiveIds.length >= currentGang.slots) {
-              throw new Error('Todos os slots ativos da gangue já estão ocupados.');
-            }
-            nextActiveIds.push(memberId);
+          if (!isCurrentlyActive && gang.activeMemberIds.length >= gang.slots) {
+            throw new Error('Todos os slots ativos já estão ocupados.');
           }
 
-          const updatedMembers = currentGang.members.map((member) => ({
-            ...member,
-            active: nextActiveIds.includes(member.id),
-          }));
+          const newActiveIds = isCurrentlyActive
+            ? gang.activeMemberIds.filter((id) => id !== memberId)
+            : [...gang.activeMemberIds, memberId];
+
+          const updatedMembers = gang.members.map((member) =>
+            member.id === memberId ? { ...member, active: !isCurrentlyActive } : member
+          );
 
           set({
             myGang: {
-              ...currentGang,
-              activeMemberIds: nextActiveIds,
+              ...gang,
+              activeMemberIds: newActiveIds,
               members: updatedMembers,
             },
             isLoading: false,
             error: null,
           });
-        } catch (err: any) {
+        } catch (error) {
           set({
-            error: err?.message || 'Erro ao alterar escalação',
             isLoading: false,
+            error: error instanceof Error ? error.message : 'Erro ao alternar membro',
           });
         }
       },
@@ -672,25 +537,25 @@ export const useGangStore = create<GangStore>()(
         set({ isLoading: true, error: null });
 
         try {
-          const currentGang = get().myGang;
-          if (!currentGang) throw new Error('Gangue não carregada.');
+          const gang = get().myGang;
+          if (!gang) throw new Error('Gangue não encontrada.');
 
-          const newMembers = currentGang.members.filter((m) => m.id !== memberId);
-          const newActiveIds = currentGang.activeMemberIds.filter((id) => id !== memberId);
+          const updatedMembers = gang.members.filter((member) => member.id !== memberId);
+          const updatedActiveIds = gang.activeMemberIds.filter((id) => id !== memberId);
 
           set({
             myGang: {
-              ...currentGang,
-              members: newMembers,
-              activeMemberIds: newActiveIds,
+              ...gang,
+              members: updatedMembers,
+              activeMemberIds: updatedActiveIds,
             },
             isLoading: false,
             error: null,
           });
-        } catch (err: any) {
+        } catch (error) {
           set({
-            error: err?.message || 'Erro ao demitir membro',
             isLoading: false,
+            error: error instanceof Error ? error.message : 'Erro ao dispensar membro',
           });
         }
       },
@@ -699,61 +564,43 @@ export const useGangStore = create<GangStore>()(
         set({ isLoading: true, error: null });
 
         try {
-          const currentGang = get().myGang;
-          if (!currentGang) throw new Error('Gangue não carregada.');
-
-          const numericAmount = Number(amount || 0);
-          if (numericAmount <= 0) throw new Error('Valor inválido.');
+          const gang = get().myGang;
+          if (!gang) throw new Error('Gangue não encontrada.');
 
           const playerStore = usePlayerStore.getState();
-          const currentBalance = Number(playerStore.player.balances?.[type] || 0);
+          const currentBalance = Number(playerStore.player?.balances?.[type] || 0);
 
-          if (currentBalance < numericAmount) {
-            throw new Error('Saldo insuficiente para doar.');
+          if (currentBalance < amount) {
+            throw new Error('Saldo insuficiente para doação.');
           }
 
-          playerStore.applyPlayerUpdate((player) => ({
-            ...player,
+          playerStore.applyPlayerUpdate((currentPlayer) => ({
+            ...currentPlayer,
             balances: {
-              ...player.balances,
-              [type]: Math.max(0, Number(player.balances?.[type] || 0) - numericAmount),
+              ...currentPlayer.balances,
+              [type]: Math.max(
+                0,
+                Number(currentPlayer.balances?.[type] || 0) - amount
+              ),
             },
           }));
 
-          const expGain =
-            type === 'cleanMoney'
-              ? Math.round(numericAmount / 250)
-              : type === 'dirtyMoney'
-              ? Math.round(numericAmount / 500)
-              : Math.round(numericAmount / 10);
-
-          const nextExp = currentGang.exp + expGain;
-          const leveledUp = nextExp >= currentGang.expToNext;
-
           set({
             myGang: {
-              ...currentGang,
+              ...gang,
               treasury: {
-                ...currentGang.treasury,
-                [type]:
-                  Number(currentGang.treasury?.[type] || 0) + numericAmount,
+                ...gang.treasury,
+                [type]: Number(gang.treasury?.[type] || 0) + amount,
               },
-              exp: leveledUp ? nextExp - currentGang.expToNext : nextExp,
-              level: leveledUp ? currentGang.level + 1 : currentGang.level,
-              expToNext: leveledUp
-                ? Math.round(currentGang.expToNext * 1.25)
-                    : currentGang.expToNext,
-              slots: leveledUp && currentGang.level + 1 >= 5
-                ? Math.min(6, currentGang.slots + 1)
-                : currentGang.slots,
+              exp: gang.exp + Math.floor(amount / 500),
             },
             isLoading: false,
             error: null,
           });
-        } catch (err: any) {
+        } catch (error) {
           set({
-            error: err?.message || 'Erro ao doar para o caixa tático',
             isLoading: false,
+            error: error instanceof Error ? error.message : 'Erro ao doar para a gangue',
           });
         }
       },
@@ -762,133 +609,120 @@ export const useGangStore = create<GangStore>()(
         set({ isLoading: true, error: null });
 
         try {
-          const currentGang = get().myGang;
-          if (!currentGang) throw new Error('Gangue não carregada.');
+          const gang = get().myGang;
+          if (!gang) throw new Error('Gangue não encontrada.');
 
-          const expCosts: Record<GangUpgradeId, number> = {
-            training: 500,
-            hideout: 800,
-            blackmarket: 1000,
-          };
+          const currentLevel = gang.doctrine[skillId] || 1;
+          const cost = getGangUpgradeCost(currentLevel);
+          const treasuryDirty = Number(gang.treasury.dirtyMoney || 0);
 
-          const validSkillId = skillId as GangUpgradeId;
-          const cost = expCosts[validSkillId];
-          if (!cost) throw new Error('Skill inválida.');
-
-          if (currentGang.exp < cost) {
-            throw new Error('EXP da gangue insuficiente para upgrade.');
+          if (treasuryDirty < cost) {
+            throw new Error('Tesouro sujo insuficiente para upgrade.');
           }
 
-          const nextGang = {
-            ...currentGang,
-            exp: currentGang.exp - cost,
-            upgrades: {
-              ...currentGang.upgrades,
-              trainingGroundsLevel:
-                validSkillId === 'training'
-                  ? currentGang.upgrades.trainingGroundsLevel + 1
-                  : currentGang.upgrades.trainingGroundsLevel,
-              hideoutLevel:
-                validSkillId === 'hideout'
-                  ? currentGang.upgrades.hideoutLevel + 1
-                  : currentGang.upgrades.hideoutLevel,
-              blackMarketLevel:
-                validSkillId === 'blackmarket'
-                  ? currentGang.upgrades.blackMarketLevel + 1
-                  : currentGang.upgrades.blackMarketLevel,
-            },
-          };
-
           set({
-            myGang: nextGang,
+            myGang: {
+              ...gang,
+              treasury: {
+                ...gang.treasury,
+                dirtyMoney: Math.max(0, treasuryDirty - cost),
+              },
+              doctrine: {
+                ...gang.doctrine,
+                [skillId]: currentLevel + 1,
+              },
+            },
             isLoading: false,
             error: null,
           });
-        } catch (err: any) {
+        } catch (error) {
           set({
-            error: err?.message || 'Erro ao melhorar doutrina da gangue',
             isLoading: false,
+            error: error instanceof Error ? error.message : 'Erro ao evoluir doutrina',
           });
         }
       },
 
-      getDoctrineBonus: () => {
-        const currentGang = get().myGang || createDefaultGang();
-
-        return {
-          trainingBonusPercent: currentGang.upgrades.trainingGroundsLevel * 10,
-          defenseBonusPercent: currentGang.upgrades.hideoutLevel * 8,
-          lootBonusPercent: currentGang.upgrades.blackMarketLevel * 6,
-          rarityBonusPercent: currentGang.upgrades.blackMarketLevel * 2,
-        };
+      getActiveMembers: () => {
+        const gang = get().myGang;
+        if (!gang) return [];
+        return gang.members.filter((member) => gang.activeMemberIds.includes(member.id));
       },
 
-      getMemberBattlePower: (member) => {
-        const doctrine = get().getDoctrineBonus();
-
-        const levelPower = member.level * 10;
-        const rarityPower = RARITY_BASE_POWER[member.rarity] || 0;
-        const loyaltyPower = Math.round(member.loyalty * 0.6);
-        const victoriesPower = member.victories * 2;
-        const skillPower = member.skills.reduce(
-          (acc, skill) => acc + skill.level * 6,
-          0
-        );
-        const gearPower =
-          (member.equipment.weaponId ? 20 : 0) +
-          (member.equipment.armorId ? 15 : 0) +
-          (member.equipment.vehicleId ? 10 : 0);
-
-        const subtotal =
-          levelPower + rarityPower + loyaltyPower + victoriesPower + skillPower + gearPower;
-
-        return Math.round(subtotal * (1 + doctrine.trainingBonusPercent / 100));
+      getReserveMembers: () => {
+        const gang = get().myGang;
+        if (!gang) return [];
+        return gang.members.filter((member) => !gang.activeMemberIds.includes(member.id));
       },
 
-      getBattleSnapshot: () => {
-        const currentGang = get().myGang || createDefaultGang();
-        const activeMembers = currentGang.members.filter((m) =>
-          currentGang.activeMemberIds.includes(m.id)
+      getBattleStats: () => {
+        const gang = get().myGang;
+        if (!gang) {
+          return {
+            totalPower: 0,
+            avgLevel: 0,
+            activeCount: 0,
+            reserveCount: 0,
+            lootBonusPercent: 0,
+            attackBonusPercent: 0,
+            defenseBonusPercent: 0,
+          };
+        }
+
+        const activeMembers = gang.members.filter((member) =>
+          gang.activeMemberIds.includes(member.id)
         );
-        const reserveMembers = currentGang.members.filter(
-          (m) => !currentGang.activeMemberIds.includes(m.id)
+        const reserveMembers = gang.members.filter(
+          (member) => !gang.activeMemberIds.includes(member.id)
         );
 
-        const rawPower = activeMembers.reduce(
-          (acc, member) => acc + get().getMemberBattlePower(member),
-          0
-        );
-
-        const doctrine = get().getDoctrineBonus();
         const formationBonus = useGangBattleStore.getState().getFormationBonus();
+        const activePower = activeMembers.reduce((sum, member) => sum + memberPower(member), 0);
+        const avgLevel =
+          activeMembers.length > 0
+            ? Math.floor(
+                activeMembers.reduce((sum, member) => sum + member.level, 0) /
+                  activeMembers.length
+              )
+            : 0;
 
-        const attackPower = Math.round(
-          rawPower * (1 + formationBonus.attackPercent / 100)
-        );
-        const defensePower = Math.round(
-          rawPower *
-            (1 + (formationBonus.defensePercent + doctrine.defenseBonusPercent) / 100)
-        );
-        const lootPower = Math.round(
-          rawPower *
-            (1 + (formationBonus.lootPercent + doctrine.lootBonusPercent) / 100)
-        );
+        const attackBonusPercent =
+          doctrineAttackBonus(gang.doctrine) + formationBonus.attackPercent;
 
-        const totalPower = Math.round((attackPower + defensePower + lootPower) / 3);
+        const defenseBonusPercent =
+          doctrineDefenseBonus(gang.doctrine) + formationBonus.defensePercent;
+
+        const lootBonusPercent =
+          doctrineLootBonus(gang.doctrine) + formationBonus.lootPercent;
 
         return {
-          activeMembers,
-          reserveMembers,
-          rawPower,
-          totalPower,
-          attackPower,
-          defensePower,
-          lootPower,
+          totalPower: Math.max(
+            0,
+            Math.floor(
+              activePower *
+                (1 + attackBonusPercent / 100) *
+                (1 + Math.max(0, defenseBonusPercent) / 250)
+            )
+          ),
+          avgLevel,
+          activeCount: activeMembers.length,
+          reserveCount: reserveMembers.length,
+          lootBonusPercent,
+          attackBonusPercent,
+          defenseBonusPercent,
         };
+      },
+
+      clearGang: () => {
+        set({
+          myGang: createInitialGang(),
+          isLoading: false,
+          error: null,
+        });
       },
     }),
     {
-      name: STORAGE_KEY,
+      name: 'gang-store',
     }
   )
 );
