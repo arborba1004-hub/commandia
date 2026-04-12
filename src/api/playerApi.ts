@@ -1,15 +1,3 @@
-/**
- * Central Player API Layer (BLINDADO)
- *
- * Objetivos desta versão:
- * - Tornar as requisições resilientes
- * - Padronizar leitura de resposta do backend
- * - Preservar status HTTP nos erros
- * - Evitar quebra quando backend retorna HTML, vazio ou shape inesperado
- * - Garantir autenticação consistente
- * - Manter compatibilidade com o playerStore atual
- */
-
 import type { PlayerState } from '@/store/playerStore';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
@@ -26,12 +14,48 @@ type ApiEnvelope<T> =
       error?: string;
       data?: T;
       player?: T extends PlayerState ? PlayerState : never;
+      faction?: FactionApiPayload | null;
     };
 
 type ApiError = Error & {
   status?: number;
   data?: unknown;
   endpoint?: string;
+};
+
+export type FactionApiPayload = {
+  id: string;
+  name: string;
+  tag: string;
+  level?: number;
+  exp?: number;
+  expToNext?: number;
+  totalInvestmentLevel?: number;
+  investmentTierName?: string;
+  treasury?: {
+    dirtyMoney: number;
+    cleanMoney: number;
+    corre: number;
+  };
+  investmentBuffs?: {
+    attackPercent: number;
+    defensePercent: number;
+    hpPercent: number;
+    dirtyMoneyGainPercent: number;
+    cleanMoneyGainPercent: number;
+    agilityPercent: number;
+    intelligencePercent: number;
+    respectPercent: number;
+    baseDefensePercent: number;
+    donationEfficiencyPercent: number;
+    buffDurationPercent: number;
+  };
+  activeBuffs?: Array<Record<string, any>>;
+} | null;
+
+export type PlayerApiEnvelope = {
+  player: PlayerState;
+  faction: FactionApiPayload;
 };
 
 // ==========================================
@@ -138,6 +162,32 @@ function extractPlayerPayload(payload: unknown): PlayerState {
   }
 
   return obj as PlayerState;
+}
+
+function extractFactionPayload(payload: unknown): FactionApiPayload {
+  const obj = ensureObject(payload);
+
+  if (!obj) return null;
+
+  if (obj.faction && typeof obj.faction === 'object') {
+    return obj.faction as FactionApiPayload;
+  }
+
+  if (obj.data && typeof obj.data === 'object') {
+    const dataObj = obj.data as Record<string, any>;
+    if (dataObj.faction && typeof dataObj.faction === 'object') {
+      return dataObj.faction as FactionApiPayload;
+    }
+  }
+
+  return null;
+}
+
+function extractEnvelope(payload: unknown): PlayerApiEnvelope {
+  return {
+    player: extractPlayerPayload(payload),
+    faction: extractFactionPayload(payload),
+  };
 }
 
 function extractArrayPayload<T>(payload: unknown): T[] {
@@ -257,6 +307,18 @@ export async function fetchCurrentPlayer(): Promise<PlayerState> {
 }
 
 /**
+ * Busca player + faction do backend
+ * Endpoint: GET /player/me
+ */
+export async function fetchCurrentPlayerWithFaction(): Promise<PlayerApiEnvelope> {
+  const data = await makeRequest<ApiEnvelope<PlayerState>>('/player/me', {
+    method: 'GET',
+  });
+
+  return extractEnvelope(data);
+}
+
+/**
  * Sincroniza os dados do player com o backend
  * Endpoint: PATCH /player/update
  *
@@ -280,10 +342,34 @@ export async function syncPlayerUpdate(
 }
 
 /**
+ * Sincroniza player + faction quando o backend devolver ambos
+ * Endpoint: PATCH /player/update
+ */
+export async function syncPlayerUpdateWithFaction(
+  player: Partial<PlayerState>
+): Promise<PlayerApiEnvelope> {
+  const cleanPayload = deepStripUndefined(player);
+
+  const data = await makeRequest<ApiEnvelope<PlayerState>>('/player/update', {
+    method: 'PATCH',
+    body: JSON.stringify(cleanPayload),
+  });
+
+  return extractEnvelope(data);
+}
+
+/**
  * Hidrata os dados do player do backend (compatibilidade)
  */
 export async function hydratePlayerFromBackend(): Promise<PlayerState> {
   return fetchCurrentPlayer();
+}
+
+/**
+ * Hidrata player + faction do backend
+ */
+export async function hydratePlayerFromBackendWithFaction(): Promise<PlayerApiEnvelope> {
+  return fetchCurrentPlayerWithFaction();
 }
 
 /**
@@ -366,6 +452,52 @@ export async function laundryStart(payload: {
   };
 }
 
+export async function laundryStartWithFaction(payload: {
+  businessId: number;
+  businessName: string;
+  grossAmount: number;
+  feePercentage: number;
+  feeAmount: number;
+  netAmount: number;
+}): Promise<{
+  operationId: string;
+  endsAt: string;
+  durationSeconds?: number;
+  laundrySummary?: Record<string, any>;
+  player: PlayerState;
+  faction: FactionApiPayload;
+}> {
+  const data = await makeRequest<any>('/laundry/start', {
+    method: 'POST',
+    body: JSON.stringify(deepStripUndefined(payload)),
+  });
+
+  const obj = ensureObject(data);
+
+  if (!obj) {
+    throw buildApiError('Resposta inválida ao iniciar lavagem');
+  }
+
+  const envelope = extractEnvelope(data);
+
+  return {
+    operationId: String(obj.operationId || obj.data?.operationId || ''),
+    endsAt: String(obj.endsAt || obj.data?.endsAt || ''),
+    durationSeconds:
+      typeof obj.durationSeconds === 'number'
+        ? obj.durationSeconds
+        : typeof obj.data?.durationSeconds === 'number'
+          ? obj.data.durationSeconds
+          : undefined,
+    laundrySummary:
+      ensureObject(obj.laundrySummary) ||
+      ensureObject(obj.data?.laundrySummary) ||
+      undefined,
+    player: envelope.player,
+    faction: envelope.faction,
+  };
+}
+
 export async function laundryComplete(
   operationId: string
 ): Promise<{ player: PlayerState }> {
@@ -376,6 +508,31 @@ export async function laundryComplete(
 
   return {
     player: extractPlayerPayload(data),
+  };
+}
+
+export async function laundryCompleteWithFaction(
+  operationId: string
+): Promise<{
+  completedOperation?: Record<string, any>;
+  player: PlayerState;
+  faction: FactionApiPayload;
+}> {
+  const data = await makeRequest<any>('/laundry/complete', {
+    method: 'POST',
+    body: JSON.stringify({ operationId }),
+  });
+
+  const obj = ensureObject(data);
+  const envelope = extractEnvelope(data);
+
+  return {
+    completedOperation:
+      ensureObject(obj?.completedOperation) ||
+      ensureObject(obj?.data?.completedOperation) ||
+      undefined,
+    player: envelope.player,
+    faction: envelope.faction,
   };
 }
 
@@ -436,13 +593,50 @@ export async function giroStart(payload: {
 export async function gameAction(payload: {
   action: string;
   data?: any;
-}): Promise<{ player: PlayerState }> {
+}): Promise<{ player: PlayerState; result?: Record<string, any> }> {
   const data = await makeRequest<any>('/game/action', {
     method: 'POST',
     body: JSON.stringify(deepStripUndefined(payload)),
   });
 
+  const obj = ensureObject(data);
+
   return {
     player: extractPlayerPayload(data),
+    result:
+      ensureObject(obj?.result) ||
+      ensureObject(obj?.data?.result) ||
+      undefined,
+  };
+}
+
+export async function gameActionWithFaction(payload: {
+  action: string;
+  data?: any;
+}): Promise<{
+  player: PlayerState;
+  faction: FactionApiPayload;
+  result?: Record<string, any>;
+  factionBuffs?: Record<string, any> | null;
+}> {
+  const data = await makeRequest<any>('/game/action', {
+    method: 'POST',
+    body: JSON.stringify(deepStripUndefined(payload)),
+  });
+
+  const obj = ensureObject(data);
+  const envelope = extractEnvelope(data);
+
+  return {
+    player: envelope.player,
+    faction: envelope.faction,
+    result:
+      ensureObject(obj?.result) ||
+      ensureObject(obj?.data?.result) ||
+      undefined,
+    factionBuffs:
+      ensureObject(obj?.factionBuffs) ||
+      ensureObject(obj?.data?.factionBuffs) ||
+      null,
   };
 }
