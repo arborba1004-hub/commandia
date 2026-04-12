@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -10,7 +10,10 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { useCart } from '@/integrations';
 import FeatureLevelLock from '@/components/FeatureLevelLock';
-import { canAccessFeature, getFeatureLevelRequirement } from '@/utils/levelRequirements';
+import {
+  canAccessFeature,
+  getFeatureLevelRequirement,
+} from '@/utils/levelRequirements';
 
 interface Weapon {
   _id: string;
@@ -31,16 +34,53 @@ interface WeaponCase {
   abilityBonusType?: string;
 }
 
+const SKILL_MAP: Record<string, string> = {
+  attack: 'attack',
+  ataque: 'attack',
+  defense: 'defense',
+  defesa: 'defense',
+  agility: 'agility',
+  agilidade: 'agility',
+  intelligence: 'intelligence',
+  inteligencia: 'intelligence',
+  respect: 'respect',
+  respeito: 'respect',
+  vigor: 'vigor',
+};
+
+function normalizeSkillKey(value?: string): string | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  return SKILL_MAP[normalized] || null;
+}
+
+function weaponAlreadyOwned(player: any, weapon: Weapon | null) {
+  if (!weapon?._id) return false;
+
+  const items = player?.inventory?.items || [];
+  return items.some(
+    (item: any) =>
+      item?.type === 'weapon' &&
+      (item?.weaponId === weapon._id ||
+        item?._id === weapon._id ||
+        item?.name === weapon.weaponName)
+  );
+}
+
 export default function ArsenalPage() {
   const navigate = useNavigate();
+
   const player = usePlayerStore((state) => state.player);
-  const setPlayer = usePlayerStore((state) => state.setPlayer);
-  const addSkillBonus = usePlayerStore((state) => state.addSkillBonus);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
+  const applyPlayerUpdate = usePlayerStore((state) => state.applyPlayerUpdate);
+
   const { addToCart } = useCart();
 
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [cases, setCases] = useState<WeaponCase[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
   const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
   const [selectedWeaponCases, setSelectedWeaponCases] = useState<WeaponCase[]>([]);
   const [showWeaponModal, setShowWeaponModal] = useState(false);
@@ -52,18 +92,194 @@ export default function ArsenalPage() {
   const [activeTab, setActiveTab] = useState<'weapons' | 'cases'>('weapons');
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  // ÚNICA FONTE: playerStore
-  const playerLevel = player.niveis.playerLevel || 1;
-  const dirtyMoney = player.balances.dirtyMoney;
+
+  useEffect(() => {
+    if (!isLoaded) {
+      void loadPlayer();
+    }
+  }, [isLoaded, loadPlayer]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoadingData(true);
+
+        const weaponsResult = await BaseCrudService.getAll<Weapon>(
+          'armasarsenal',
+          {},
+          { limit: 100 }
+        );
+
+        const casesResult = await BaseCrudService.getAll<WeaponCase>(
+          'casesdearmas',
+          {},
+          { limit: 600 }
+        );
+
+        setWeapons(weaponsResult.items || []);
+        setCases(casesResult.items || []);
+      } catch (error) {
+        console.error('Erro ao carregar dados do arsenal:', error);
+        setResultMessage('Erro ao carregar armas e cases do arsenal.');
+        setShowResult(true);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    void fetchData();
+  }, []);
+
+  const playerLevel = player?.niveis?.playerLevel || 1;
+  const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
   const requiredLevel = getFeatureLevelRequirement('arsenal');
   const isFeatureUnlocked = canAccessFeature(playerLevel, 'arsenal');
 
-  // Se a funcionalidade não está desbloqueada, mostrar lock screen
+  const selectedWeaponOwned = useMemo(
+    () => weaponAlreadyOwned(player, selectedWeapon),
+    [player, selectedWeapon]
+  );
+
+  const handleSelectWeapon = (weapon: Weapon) => {
+    setSelectedWeapon(weapon);
+    setShowWeaponModal(true);
+  };
+
+  const handleBuyWeapon = async () => {
+    if (!player || !selectedWeapon || isProcessing) return;
+
+    setIsProcessing(true);
+
+    try {
+      const price = Number(selectedWeapon.dirtyMoneyPrice || 0);
+
+      if (dirtyMoney < price) {
+        setResultMessage('Saldo insuficiente de Dirtymoney.');
+        setShowResult(true);
+        setShowVaultModal(false);
+        return;
+      }
+
+      if (weaponAlreadyOwned(player, selectedWeapon)) {
+        setResultMessage('Você já comprou essa arma.');
+        setShowResult(true);
+        setShowVaultModal(false);
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const skillKey = normalizeSkillKey(selectedWeapon.abilityBonus);
+
+      applyPlayerUpdate((currentPlayer) => {
+        const currentSkills = { ...(currentPlayer.skills || {}) } as Record<string, number>;
+
+        return {
+          ...currentPlayer,
+          balances: {
+            ...currentPlayer.balances,
+            dirtyMoney: Math.max(
+              0,
+              Number(currentPlayer.balances?.dirtyMoney || 0) - price
+            ),
+          },
+          inventory: {
+            ...currentPlayer.inventory,
+            items: [
+              ...(currentPlayer.inventory?.items || []),
+              {
+                id: crypto.randomUUID(),
+                weaponId: selectedWeapon._id,
+                name: selectedWeapon.weaponName,
+                level: selectedWeapon.level,
+                type: 'weapon',
+                abilityBonus: selectedWeapon.abilityBonus,
+                weaponImage: selectedWeapon.weaponImage,
+              },
+            ],
+          },
+          skills: skillKey
+            ? {
+                ...currentSkills,
+                [skillKey]: Number((currentSkills[skillKey] || 0) + 1),
+              }
+            : currentPlayer.skills,
+        };
+      });
+
+      setResultMessage(`✅ ${selectedWeapon.weaponName} comprada com sucesso.`);
+      setShowResult(true);
+      setShowWeaponModal(false);
+      setShowVaultModal(false);
+    } catch (error) {
+      console.error('Erro na compra da arma:', error);
+      setResultMessage('Erro na compra. Tente novamente.');
+      setShowResult(true);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBuyCase = async (caseItem: WeaponCase) => {
+    if (isProcessing) return;
+
+    try {
+      setIsProcessing(true);
+
+      await addToCart({
+        collectionId: 'casesdearmas',
+        itemId: caseItem._id,
+        quantity: 1,
+      });
+
+      setResultMessage(`✅ ${caseItem.itemName} adicionado ao carrinho.`);
+      setShowResult(true);
+    } catch (error) {
+      console.error('Erro ao adicionar case ao carrinho:', error);
+      setResultMessage('Erro ao adicionar ao carrinho.');
+      setShowResult(true);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleShowCases = (weapon: Weapon) => {
+    setSelectedWeapon(weapon);
+
+    const weaponName = String(weapon.weaponName || '').trim().toLowerCase();
+
+    const weaponCases = cases.filter((caseItem) =>
+      String(caseItem.itemName || '')
+        .trim()
+        .toLowerCase()
+        .includes(weaponName)
+    );
+
+    setSelectedWeaponCases(weaponCases);
+    setShowCasesModal(true);
+  };
+
+  const handleCloseResult = () => {
+    setShowResult(false);
+  };
+
+  if (!isLoaded || !player?._id || isLoadingData) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          <LoadingSpinner />
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
   if (!isFeatureUnlocked) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center px-4">
+        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
           <FeatureLevelLock
             playerLevel={playerLevel}
             requiredLevel={requiredLevel}
@@ -76,269 +292,199 @@ export default function ArsenalPage() {
     );
   }
 
-  // Fetch weapons and cases
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const weaponsResult = await BaseCrudService.getAll<Weapon>('armasarsenal', {}, { limit: 100 });
-        const casesResult = await BaseCrudService.getAll<WeaponCase>('casesdearmas', {}, { limit: 600 });
-        
-        setWeapons(weaponsResult.items || []);
-        setCases(casesResult.items || []);
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  const handleSelectWeapon = (weapon: Weapon) => {
-    setSelectedWeapon(weapon);
-    setShowWeaponModal(true);
-  };
-
-  const handleBuyWeapon = async () => {
-    if (!selectedWeapon) return;
-    
-    setIsProcessing(true);
-    try {
-      const price = selectedWeapon.dirtyMoneyPrice || 0;
-      
-      if (dirtyMoney < price) {
-        setResultMessage('Saldo insuficiente de Dirtymoney!');
-        setShowResult(true);
-        setShowVaultModal(false);
-        return;
-      }
-
-      // Simula processamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Remove dirty money
-      const newDirtyMoney = dirtyMoney - price;
-      
-      // Update player store with new dirty money
-      const updated = {
-        ...player,
-        balances: {
-          ...player.balances,
-          dirtyMoney: newDirtyMoney,
-        },
-        inventory: {
-          ...player.inventory,
-          items: [...(player.inventory?.items || []), {
-            id: crypto.randomUUID(),
-            name: selectedWeapon.weaponName,
-            level: selectedWeapon.level,
-            type: 'weapon',
-            abilityBonus: selectedWeapon.abilityBonus,
-          }],
-        },
-      };
-
-      setPlayer(updated);
-      
-      // Add skill bonus if weapon has ability bonus
-      if (selectedWeapon.abilityBonus) {
-        addSkillBonus(selectedWeapon.abilityBonus, 1);
-      }
-      
-      setResultMessage(`✅ ${selectedWeapon.weaponName} comprada com sucesso!`);
-      setShowResult(true);
-      setShowWeaponModal(false);
-      setShowVaultModal(false);
-    } catch (error) {
-      setResultMessage('Erro na compra. Tente novamente.');
-      setShowResult(true);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleBuyCase = async (caseItem: WeaponCase) => {
-    try {
-      await addToCart({
-        collectionId: 'casesdearmas',
-        itemId: caseItem._id,
-        quantity: 1,
-      });
-      setResultMessage(`✅ ${caseItem.itemName} adicionado ao carrinho!`);
-      setShowResult(true);
-    } catch (error) {
-      setResultMessage('Erro ao adicionar ao carrinho.');
-      setShowResult(true);
-    }
-  };
-
-  const handleShowCases = (weapon: Weapon) => {
-    setSelectedWeapon(weapon);
-    // Filter cases for this weapon (assuming cases are named with weapon level)
-    const weaponCases = cases.filter(c => 
-      c.itemName?.toLowerCase().includes(weapon.weaponName?.toLowerCase() || '')
-    );
-    setSelectedWeaponCases(weaponCases.length > 0 ? weaponCases : cases.slice(0, 6));
-    setShowCasesModal(true);
-  };
-
-  const handleCloseResult = () => {
-    setShowResult(false);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="w-full min-h-screen bg-black flex flex-col items-center justify-center pt-[140px] md:pt-[160px]">
-        <Header />
-        <LoadingSpinner />
-        <Footer />
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full min-h-screen bg-black flex flex-col">
+    <div className="w-full min-h-screen bg-black flex flex-col text-white">
       <Header />
 
-      {/* Vídeo Hero */}
-      <div className="relative w-full h-96">
-        <video
-          ref={videoRef}
-          src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
-          autoPlay
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/30" />
-        <div className="relative z-10 flex items-center justify-center h-full">
-          <h1 className="text-5xl font-heading text-primary text-center drop-shadow-lg">ARSENAL</h1>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="bg-zinc-900 border-b border-zinc-700 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 flex gap-8">
-          <button
-            onClick={() => setActiveTab('weapons')}
-            className={`py-4 px-6 font-heading text-lg transition-colors ${
-              activeTab === 'weapons'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            ARMAS ({weapons.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('cases')}
-            className={`py-4 px-6 font-heading text-lg transition-colors ${
-              activeTab === 'cases'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            CASES ({cases.length})
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-12">
-        {activeTab === 'weapons' && (
-          <div>
-            <h2 className="text-3xl font-heading text-white mb-8">Catálogo de Armas</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {weapons.map((weapon) => (
-                <div
-                  key={weapon._id}
-                  className="bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden hover:border-primary transition-colors"
-                >
-                  {weapon.weaponImage && (
-                    <div className="h-48 bg-black overflow-hidden">
-                      <Image
-                        src={weapon.weaponImage}
-                        alt={weapon.weaponName || 'Weapon'}
-                        className="w-full h-full object-cover"
-                        width={300}
-                      />
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-xl font-heading text-primary">{weapon.weaponName}</h3>
-                      <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-bold">
-                        Nv. {weapon.level}
-                      </span>
-                    </div>
-                    <p className="text-gray-400 text-sm mb-3">{weapon.description}</p>
-                    <p className="text-yellow-400 text-sm mb-4">
-                      <span className="font-bold">Bônus:</span> {weapon.abilityBonus}
-                    </p>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleSelectWeapon(weapon)}
-                        className="flex-1 py-2 bg-primary text-white font-bold rounded-lg hover:bg-pink-600 transition-colors"
-                      >
-                        Comprar
-                      </button>
-                      <button
-                        onClick={() => handleShowCases(weapon)}
-                        className="flex-1 py-2 bg-zinc-700 text-white font-bold rounded-lg hover:bg-zinc-600 transition-colors"
-                      >
-                        Cases
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+      <main className="flex-1 pt-[140px] md:pt-[160px]">
+        <div className="relative w-full h-96">
+          <video
+            ref={videoRef}
+            src="https://video.wixstatic.com/video/50f4bf_770eb01b5d5c4fab9227df7948ffb4da/720p/mp4/file.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/35" />
+          <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 text-center">
+            <h1 className="text-5xl md:text-6xl font-heading text-primary drop-shadow-lg">
+              ARSENAL
+            </h1>
+            <p className="mt-3 text-lg text-zinc-200">
+              Dirtymoney disponível:{' '}
+              <span className="font-black text-yellow-400">
+                {dirtyMoney.toLocaleString('pt-BR')} DM
+              </span>
+            </p>
           </div>
-        )}
+        </div>
 
-        {activeTab === 'cases' && (
-          <div>
-            <h2 className="text-3xl font-heading text-white mb-8">Cases de Estampa</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {cases.map((caseItem) => (
-                <div
-                  key={caseItem._id}
-                  className="bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden hover:border-primary transition-colors"
-                >
-                  {caseItem.itemImage && (
-                    <div className="h-48 bg-black overflow-hidden">
-                      <Image
-                        src={caseItem.itemImage}
-                        alt={caseItem.itemName || 'Case'}
-                        className="w-full h-full object-cover"
-                        width={300}
-                      />
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <h3 className="text-xl font-heading text-primary mb-2">{caseItem.itemName}</h3>
-                    <p className="text-gray-400 text-sm mb-3">{caseItem.itemDescription}</p>
-                    <p className="text-green-400 text-sm mb-2">
-                      <span className="font-bold">Bônus:</span> +1% {caseItem.abilityBonusType}
-                    </p>
-                    <p className="text-yellow-400 font-bold text-lg mb-4">
-                      R$ {(caseItem.itemPrice || 0).toFixed(2)}
-                    </p>
-                    <button
-                      onClick={() => handleBuyCase(caseItem)}
-                      className="w-full py-2 bg-primary text-white font-bold rounded-lg hover:bg-pink-600 transition-colors"
+        <div className="bg-zinc-900 border-b border-zinc-700 sticky top-[88px] md:top-[96px] z-40">
+          <div className="max-w-7xl mx-auto px-4 flex gap-8">
+            <button
+              onClick={() => setActiveTab('weapons')}
+              className={`py-4 px-6 font-heading text-lg transition-colors ${
+                activeTab === 'weapons'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              ARMAS ({weapons.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('cases')}
+              className={`py-4 px-6 font-heading text-lg transition-colors ${
+                activeTab === 'cases'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              CASES ({cases.length})
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-12">
+          {activeTab === 'weapons' && (
+            <div>
+              <h2 className="text-3xl font-heading text-white mb-8">
+                Catálogo de Armas
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {weapons.map((weapon) => {
+                  const owned = weaponAlreadyOwned(player, weapon);
+
+                  return (
+                    <div
+                      key={weapon._id}
+                      className="bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden hover:border-primary transition-colors"
                     >
-                      Comprar Case
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+                      {weapon.weaponImage && (
+                        <div className="h-48 bg-black overflow-hidden">
+                          <Image
+                            src={weapon.weaponImage}
+                            alt={weapon.weaponName || 'Weapon'}
+                            className="w-full h-full object-cover"
+                            width={300}
+                          />
+                        </div>
+                      )}
 
-      {/* MODAL DA ARMA */}
+                      <div className="p-4">
+                        <div className="flex justify-between items-start mb-2 gap-3">
+                          <h3 className="text-xl font-heading text-primary">
+                            {weapon.weaponName}
+                          </h3>
+                          <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-bold whitespace-nowrap">
+                            Nv. {weapon.level}
+                          </span>
+                        </div>
+
+                        <p className="text-gray-400 text-sm mb-3">
+                          {weapon.description}
+                        </p>
+
+                        <p className="text-yellow-400 text-sm mb-2">
+                          <span className="font-bold">Bônus:</span>{' '}
+                          {weapon.abilityBonus || 'Sem bônus'}
+                        </p>
+
+                        <p className="text-white font-bold mb-4">
+                          {Number(weapon.dirtyMoneyPrice || 0).toLocaleString('pt-BR')} DM
+                        </p>
+
+                        {owned && (
+                          <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+                            Arma já comprada.
+                          </div>
+                        )}
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleSelectWeapon(weapon)}
+                            disabled={owned}
+                            className="flex-1 py-2 bg-primary text-white font-bold rounded-lg hover:bg-pink-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {owned ? 'Comprada' : 'Comprar'}
+                          </button>
+
+                          <button
+                            onClick={() => handleShowCases(weapon)}
+                            className="flex-1 py-2 bg-zinc-700 text-white font-bold rounded-lg hover:bg-zinc-600 transition-colors"
+                          >
+                            Cases
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'cases' && (
+            <div>
+              <h2 className="text-3xl font-heading text-white mb-8">
+                Cases de Estampa
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {cases.map((caseItem) => (
+                  <div
+                    key={caseItem._id}
+                    className="bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden hover:border-primary transition-colors"
+                  >
+                    {caseItem.itemImage && (
+                      <div className="h-48 bg-black overflow-hidden">
+                        <Image
+                          src={caseItem.itemImage}
+                          alt={caseItem.itemName || 'Case'}
+                          className="w-full h-full object-cover"
+                          width={300}
+                        />
+                      </div>
+                    )}
+
+                    <div className="p-4">
+                      <h3 className="text-xl font-heading text-primary mb-2">
+                        {caseItem.itemName}
+                      </h3>
+
+                      <p className="text-gray-400 text-sm mb-3">
+                        {caseItem.itemDescription}
+                      </p>
+
+                      <p className="text-green-400 text-sm mb-2">
+                        <span className="font-bold">Bônus:</span> +1%{' '}
+                        {caseItem.abilityBonusType || 'skill'}
+                      </p>
+
+                      <p className="text-yellow-400 font-bold text-lg mb-4">
+                        R$ {Number(caseItem.itemPrice || 0).toFixed(2)}
+                      </p>
+
+                      <button
+                        onClick={() => {
+                          void handleBuyCase(caseItem);
+                        }}
+                        className="w-full py-2 bg-primary text-white font-bold rounded-lg hover:bg-pink-600 transition-colors"
+                      >
+                        Comprar Case
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
       <Dialog open={showWeaponModal} onOpenChange={setShowWeaponModal}>
         <DialogContent className="bg-zinc-900 border-2 border-primary max-w-2xl">
           <DialogHeader>
@@ -346,6 +492,7 @@ export default function ArsenalPage() {
               {selectedWeapon?.weaponName}
             </DialogTitle>
           </DialogHeader>
+
           <div className="space-y-4">
             {selectedWeapon?.weaponImage && (
               <div className="h-64 bg-black rounded-lg overflow-hidden">
@@ -357,26 +504,41 @@ export default function ArsenalPage() {
                 />
               </div>
             )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-black/50 rounded-lg p-3 text-center">
                 <p className="text-gray-400 text-sm">Nível</p>
-                <p className="text-2xl font-bold text-primary">{selectedWeapon?.level}</p>
+                <p className="text-2xl font-bold text-primary">
+                  {selectedWeapon?.level}
+                </p>
               </div>
+
               <div className="bg-black/50 rounded-lg p-3 text-center">
                 <p className="text-gray-400 text-sm">Preço</p>
                 <p className="text-2xl font-bold text-yellow-400">
-                  {selectedWeapon?.dirtyMoneyPrice?.toLocaleString('pt-BR')} DM
+                  {Number(selectedWeapon?.dirtyMoneyPrice || 0).toLocaleString('pt-BR')} DM
                 </p>
               </div>
             </div>
+
             <div className="bg-black/50 rounded-lg p-3">
               <p className="text-gray-400 text-sm mb-2">Descrição</p>
               <p className="text-white">{selectedWeapon?.description}</p>
             </div>
+
             <div className="bg-black/50 rounded-lg p-3">
               <p className="text-gray-400 text-sm mb-2">Bônus</p>
-              <p className="text-green-400 font-bold">{selectedWeapon?.abilityBonus}</p>
+              <p className="text-green-400 font-bold">
+                {selectedWeapon?.abilityBonus || 'Sem bônus'}
+              </p>
             </div>
+
+            {selectedWeaponOwned && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-300 text-sm">
+                Você já possui essa arma.
+              </div>
+            )}
+
             <div className="flex gap-4">
               <Button
                 onClick={() => setShowWeaponModal(false)}
@@ -384,9 +546,13 @@ export default function ArsenalPage() {
               >
                 CANCELAR
               </Button>
+
               <Button
                 onClick={() => setShowVaultModal(true)}
-                disabled={dirtyMoney < (selectedWeapon?.dirtyMoneyPrice || 0)}
+                disabled={
+                  selectedWeaponOwned ||
+                  dirtyMoney < Number(selectedWeapon?.dirtyMoneyPrice || 0)
+                }
                 className="flex-1 bg-primary hover:bg-pink-600 text-white font-heading py-6 rounded-lg disabled:opacity-50"
               >
                 COMPRAR
@@ -396,7 +562,6 @@ export default function ArsenalPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL DE CASES */}
       <Dialog open={showCasesModal} onOpenChange={setShowCasesModal}>
         <DialogContent className="bg-zinc-900 border-2 border-primary max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -404,36 +569,60 @@ export default function ArsenalPage() {
               Cases de {selectedWeapon?.weaponName}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {selectedWeaponCases.map((caseItem) => (
-              <div key={caseItem._id} className="bg-black/50 rounded-lg p-4 border border-zinc-700">
-                {caseItem.itemImage && (
-                  <div className="h-32 bg-black rounded-lg overflow-hidden mb-3">
-                    <Image
-                      src={caseItem.itemImage}
-                      alt={caseItem.itemName || 'Case'}
-                      className="w-full h-full object-cover"
-                      width={200}
-                    />
-                  </div>
-                )}
-                <h4 className="text-lg font-heading text-primary mb-2">{caseItem.itemName}</h4>
-                <p className="text-gray-400 text-sm mb-2">{caseItem.itemDescription}</p>
-                <p className="text-green-400 text-sm mb-3">+1% {caseItem.abilityBonusType}</p>
-                <p className="text-yellow-400 font-bold mb-3">R$ {(caseItem.itemPrice || 0).toFixed(2)}</p>
-                <button
-                  onClick={() => handleBuyCase(caseItem)}
-                  className="w-full py-2 bg-primary text-white font-bold rounded-lg hover:bg-pink-600 transition-colors"
+
+          {selectedWeaponCases.length === 0 ? (
+            <div className="rounded-lg border border-zinc-700 bg-black/40 p-6 text-center text-zinc-400">
+              Nenhum case específico encontrado para essa arma.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {selectedWeaponCases.map((caseItem) => (
+                <div
+                  key={caseItem._id}
+                  className="bg-black/50 rounded-lg p-4 border border-zinc-700"
                 >
-                  Comprar
-                </button>
-              </div>
-            ))}
-          </div>
+                  {caseItem.itemImage && (
+                    <div className="h-32 bg-black rounded-lg overflow-hidden mb-3">
+                      <Image
+                        src={caseItem.itemImage}
+                        alt={caseItem.itemName || 'Case'}
+                        className="w-full h-full object-cover"
+                        width={200}
+                      />
+                    </div>
+                  )}
+
+                  <h4 className="text-lg font-heading text-primary mb-2">
+                    {caseItem.itemName}
+                  </h4>
+
+                  <p className="text-gray-400 text-sm mb-2">
+                    {caseItem.itemDescription}
+                  </p>
+
+                  <p className="text-green-400 text-sm mb-3">
+                    +1% {caseItem.abilityBonusType || 'skill'}
+                  </p>
+
+                  <p className="text-yellow-400 font-bold mb-3">
+                    R$ {Number(caseItem.itemPrice || 0).toFixed(2)}
+                  </p>
+
+                  <button
+                    onClick={() => {
+                      void handleBuyCase(caseItem);
+                    }}
+                    className="w-full py-2 bg-primary text-white font-bold rounded-lg hover:bg-pink-600 transition-colors"
+                  >
+                    Comprar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
-      {/* MODAL DE CONFIRMAÇÃO */}
       <Dialog open={showVaultModal} onOpenChange={setShowVaultModal}>
         <DialogContent className="bg-zinc-900 border-2 border-primary max-w-md">
           <DialogHeader>
@@ -441,16 +630,20 @@ export default function ArsenalPage() {
               Confirmar Compra
             </DialogTitle>
           </DialogHeader>
+
           <div className="text-center py-8 space-y-4">
             <p className="text-gray-300">Você está prestes a comprar:</p>
-            <p className="text-2xl font-heading text-primary">{selectedWeapon?.weaponName}</p>
+            <p className="text-2xl font-heading text-primary">
+              {selectedWeapon?.weaponName}
+            </p>
             <p className="text-yellow-400 text-xl font-bold">
-              {selectedWeapon?.dirtyMoneyPrice?.toLocaleString('pt-BR')} Dirtymoney
+              {Number(selectedWeapon?.dirtyMoneyPrice || 0).toLocaleString('pt-BR')} Dirtymoney
             </p>
             <p className="text-gray-400 text-sm">
               Saldo atual: {dirtyMoney.toLocaleString('pt-BR')} DM
             </p>
           </div>
+
           <div className="flex gap-4">
             <Button
               onClick={() => setShowVaultModal(false)}
@@ -458,8 +651,11 @@ export default function ArsenalPage() {
             >
               CANCELAR
             </Button>
+
             <Button
-              onClick={handleBuyWeapon}
+              onClick={() => {
+                void handleBuyWeapon();
+              }}
               disabled={isProcessing}
               className="flex-1 bg-primary hover:bg-pink-600 text-white font-heading py-6 rounded-lg disabled:opacity-50"
             >
@@ -469,7 +665,6 @@ export default function ArsenalPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL DE RESULTADO */}
       <Dialog open={showResult} onOpenChange={setShowResult}>
         <DialogContent className="bg-zinc-900 border-2 border-primary max-w-md">
           <DialogHeader>
@@ -477,9 +672,11 @@ export default function ArsenalPage() {
               Resultado
             </DialogTitle>
           </DialogHeader>
+
           <div className="text-center py-8">
-            <p className="text-xl text-gray-200">{resultMessage}</p>
+            <p className="text-xl text-gray-200 whitespace-pre-line">{resultMessage}</p>
           </div>
+
           <Button
             onClick={handleCloseResult}
             className="w-full bg-primary hover:bg-pink-600 text-white font-heading text-lg py-6 rounded-lg"
