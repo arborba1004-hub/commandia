@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BaseCrudService } from '@/integrations';
 import { usePlayerStore } from '@/store/playerStore';
 import { useNavigate } from 'react-router-dom';
@@ -6,11 +6,14 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AcessriosdeFuga, EscapeVehicles } from '@/entities';
 import { getAccessoryBonus } from '@/utils/accessoryBonus';
 import FeatureLevelLock from '@/components/FeatureLevelLock';
-import { canAccessFeature, getFeatureLevelRequirement } from '@/utils/levelRequirements';
+import {
+  canAccessFeature,
+  getFeatureLevelRequirement,
+} from '@/utils/levelRequirements';
 
 const VEHICLE_ACCESSORIES = [
   { name: 'Turbo Reforçado', bonus: 'agility' },
@@ -19,7 +22,7 @@ const VEHICLE_ACCESSORIES = [
   { name: 'Blindagem Leve', bonus: 'defense' },
   { name: 'Sistema Anti-Rastreamento', bonus: 'intelligence' },
   { name: 'Nitrox', bonus: 'agility' },
-];
+] as const;
 
 interface PurchasedAccessory {
   accessoryId: string;
@@ -27,73 +30,115 @@ interface PurchasedAccessory {
   purchasedAt: string;
 }
 
-interface VehicleAccessory {
-  vehicleId: string;
-  accessories: string[];
+function normalizeSkill(value?: string): string | null {
+  if (!value) return null;
+
+  const normalized = value.trim().toLowerCase();
+
+  const map: Record<string, string> = {
+    attack: 'attack',
+    ataque: 'attack',
+    defense: 'defense',
+    defesa: 'defense',
+    agility: 'agility',
+    agilidade: 'agility',
+    intelligence: 'intelligence',
+    inteligencia: 'intelligence',
+    respect: 'respect',
+    respeito: 'respect',
+    vigor: 'vigor',
+  };
+
+  return map[normalized] || null;
+}
+
+function formatMoney(value: number) {
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export default function FugaIlustradaPage() {
   const navigate = useNavigate();
+
+  const player = usePlayerStore((s) => s.player);
+  const isLoaded = usePlayerStore((s) => s.isLoaded);
+  const loadPlayer = usePlayerStore((s) => s.loadPlayer);
+  const applyPlayerUpdate = usePlayerStore((s) => s.applyPlayerUpdate);
+  const addAccessory = usePlayerStore((s) => s.addAccessory);
+
   const [vehicles, setVehicles] = useState<EscapeVehicles[]>([]);
   const [accessories, setAccessories] = useState<AcessriosdeFuga[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [selectedVehicle, setSelectedVehicle] = useState<EscapeVehicles | null>(null);
   const [purchaseMessage, setPurchaseMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'vehicles' | 'accessories'>('vehicles');
-  const [vehicleAccessories, setVehicleAccessories] = useState<Record<string, string[]>>({});
-  const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] = useState<EscapeVehicles | null>(null);
+  const [selectedVehicleForAccessories, setSelectedVehicleForAccessories] =
+    useState<EscapeVehicles | null>(null);
 
-  // ÚNICA FONTE: playerStore
-  const player = usePlayerStore((s) => s.player);
-  const removeCleanMoney = usePlayerStore((s) => s.removeCleanMoney);
-  const addOwnedVehicle = usePlayerStore((s) => s.addOwnedVehicle);
-  const addSkillBonus = usePlayerStore((s) => s.addSkillBonus);
-  const setPlayer = usePlayerStore((s) => s.setPlayer);
-  
-  const playerLevel = player.niveis.playerLevel || 1;
-  const cleanMoney = player.balances.cleanMoney;
-  const ownedVehicles = player.ownedVehicles || [];
-  const purchasedAccessories = player.purchasedAccessories || [];
-  const requiredLevel = getFeatureLevelRequirement('fuga');
-  const isFeatureUnlocked = canAccessFeature(playerLevel, 'fuga');
-
-  // Se a funcionalidade não está desbloqueada, mostrar lock screen
-  if (!isFeatureUnlocked) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center px-4">
-          <FeatureLevelLock
-            playerLevel={playerLevel}
-            requiredLevel={requiredLevel}
-            featureName="Fuga Ilustrada"
-            onNavigateToBarraco={() => navigate('/barraco')}
-          />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!isLoaded) {
+      void loadPlayer();
+    }
+  }, [isLoaded, loadPlayer]);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const vehiclesResult = await BaseCrudService.getAll<EscapeVehicles>('fugavehicles', [], { limit: 100 });
-        const sortedVehicles = vehiclesResult.items.sort((a, b) => (a.level || 0) - (b.level || 0));
+        setIsLoadingData(true);
+
+        const vehiclesResult = await BaseCrudService.getAll<EscapeVehicles>(
+          'fugavehicles',
+          [],
+          { limit: 100 }
+        );
+        const sortedVehicles = [...(vehiclesResult.items || [])].sort(
+          (a, b) => Number(a.level || 0) - Number(b.level || 0)
+        );
         setVehicles(sortedVehicles);
-        
-        // Load accessories from CMS
-        const accessoriesResult = await BaseCrudService.getAll<AcessriosdeFuga>('accessories', [], { limit: 100 });
-        setAccessories(accessoriesResult.items);
+
+        const accessoriesResult = await BaseCrudService.getAll<AcessriosdeFuga>(
+          'accessories',
+          [],
+          { limit: 100 }
+        );
+        setAccessories(accessoriesResult.items || []);
       } catch (error) {
-        console.error('Erro ao carregar dados:', error);
+        console.error('Erro ao carregar dados da fuga:', error);
+        setPurchaseMessage('Erro ao carregar veículos e acessórios.');
       } finally {
-        setIsLoading(false);
+        setIsLoadingData(false);
       }
     };
 
-    loadData();
+    void loadData();
   }, []);
+
+  useEffect(() => {
+    if (!purchaseMessage) return;
+
+    const timer = window.setTimeout(() => {
+      setPurchaseMessage('');
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [purchaseMessage]);
+
+  const playerLevel = player?.niveis?.playerLevel || 1;
+  const cleanMoney = Number(player?.balances?.cleanMoney || 0);
+  const ownedVehicles = player?.ownedVehicles || [];
+  const purchasedAccessories = player?.purchasedAccessories || [];
+  const playerVehicleAccessories = player?.accessories?.vehicles || {};
+  const requiredLevel = getFeatureLevelRequirement('fuga');
+  const isFeatureUnlocked = canAccessFeature(playerLevel, 'fuga');
+
+  const selectedVehicleAccessoryList = useMemo(() => {
+    if (!selectedVehicleForAccessories) return [];
+    return playerVehicleAccessories[selectedVehicleForAccessories._id] || [];
+  }, [playerVehicleAccessories, selectedVehicleForAccessories]);
 
   const calculateVehiclePrice = (level: number): number => {
     const minPrice = 103;
@@ -111,110 +156,104 @@ export default function FugaIlustradaPage() {
     const price = calculateVehiclePrice(vehicle.level || 1);
 
     if (cleanMoney < price) {
-      setPurchaseMessage('Você não tem dinheiro limpo suficiente!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
+      setPurchaseMessage('Você não tem dinheiro limpo suficiente.');
       return;
     }
 
     if (ownedVehicles.includes(vehicle._id)) {
-      setPurchaseMessage('Você já possui este veículo!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
+      setPurchaseMessage('Você já possui este veículo.');
       return;
     }
 
-    // Remove clean money
-    removeCleanMoney(price);
-    
-    // Add owned vehicle
-    addOwnedVehicle(vehicle._id);
+    applyPlayerUpdate((current) => {
+      const currentOwned = current.ownedVehicles || [];
+      const currentSkills = { ...(current.skills || {}) } as Record<string, number>;
 
-    // Apply bonus based on player level
-    if (vehicle.abilityBonusType) {
-      const bonus = getAccessoryBonus(player.niveis.playerLevel);
-      addSkillBonus(vehicle.abilityBonusType, bonus);
-    }
+      if (currentOwned.includes(vehicle._id)) {
+        return current;
+      }
 
-    setPurchaseMessage(`${vehicle.name} adquirido com sucesso!`);
-    setTimeout(() => setPurchaseMessage(''), 3000);
+      const skillKey = normalizeSkill(vehicle.abilityBonusType);
+      const bonus = skillKey ? getAccessoryBonus(current.niveis.playerLevel || 1) : 0;
+
+      return {
+        ...current,
+        balances: {
+          ...current.balances,
+          cleanMoney: Math.max(0, Number(current.balances.cleanMoney || 0) - price),
+        },
+        ownedVehicles: [...currentOwned, vehicle._id],
+        skills: skillKey
+          ? {
+              ...currentSkills,
+              [skillKey]: Number((currentSkills[skillKey] || 0) + bonus),
+            }
+          : current.skills,
+      };
+    });
+
+    setPurchaseMessage(`${vehicle.name} adquirido com sucesso.`);
   };
 
   const handlePurchaseAccessory = (accessory: AcessriosdeFuga) => {
-    // Check if already purchased
     if (purchasedAccessories.some((acc) => acc.accessoryId === accessory._id)) {
-      setPurchaseMessage('Você já comprou este acessório!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
+      setPurchaseMessage('Você já comprou este acessório.');
       return;
     }
 
-    const price = accessory.itemPrice || 0;
+    const price = Number(accessory.itemPrice || 0);
 
-    // Check if has clean money
     if (cleanMoney < price) {
-      setPurchaseMessage('Você não tem dinheiro suficiente!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
+      setPurchaseMessage('Você não tem dinheiro suficiente.');
       return;
     }
 
-    // Remove clean money
-    removeCleanMoney(price);
+    applyPlayerUpdate((current) => {
+      const currentPurchased = current.purchasedAccessories || [];
+      const currentSkills = { ...(current.skills || {}) } as Record<string, number>;
 
-    // Apply bonus based on player level
-    if (accessory.skillType) {
-      const bonus = getAccessoryBonus(player.niveis.playerLevel);
-      addSkillBonus(accessory.skillType, bonus);
-    }
+      if (currentPurchased.some((acc) => acc.accessoryId === accessory._id)) {
+        return current;
+      }
 
-    // Record purchase
-    const newAccessory: PurchasedAccessory = {
-      accessoryId: accessory._id,
-      skillType: accessory.skillType || 'unknown',
-      purchasedAt: new Date().toISOString(),
-    };
+      const skillKey = normalizeSkill(accessory.skillType);
+      const bonus = skillKey ? getAccessoryBonus(current.niveis.playerLevel || 1) : 0;
 
-    setPlayer({
-      purchasedAccessories: [...purchasedAccessories, newAccessory],
+      const newAccessory: PurchasedAccessory = {
+        accessoryId: accessory._id,
+        skillType: accessory.skillType || 'unknown',
+        purchasedAt: new Date().toISOString(),
+      };
+
+      return {
+        ...current,
+        balances: {
+          ...current.balances,
+          cleanMoney: Math.max(0, Number(current.balances.cleanMoney || 0) - price),
+        },
+        purchasedAccessories: [...currentPurchased, newAccessory],
+        skills: skillKey
+          ? {
+              ...currentSkills,
+              [skillKey]: Number((currentSkills[skillKey] || 0) + bonus),
+            }
+          : current.skills,
+      };
     });
-
-    setPurchaseMessage(`${accessory.itemName} comprado com sucesso!`);
-    setTimeout(() => setPurchaseMessage(''), 3000);
+setPurchaseMessage(`${accessory.itemName} comprado com sucesso.`);
   };
 
-  const handleBuyVehicleAccessory = (vehicle: EscapeVehicles, accessory: typeof VEHICLE_ACCESSORIES[0]) => {
-    const accessoryPrice = 1.99;
-
-    if (cleanMoney < accessoryPrice) {
-      setPurchaseMessage('Você não tem dinheiro suficiente!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
-      return;
-    }
-
-    // Check if already owned
-    const currentAccessories = vehicleAccessories[vehicle._id] || [];
-    if (currentAccessories.includes(accessory.name)) {
-      setPurchaseMessage('Você já possui este acessório!');
-      setTimeout(() => setPurchaseMessage(''), 3000);
-      return;
-    }
-
-    // Remove clean money
-    removeCleanMoney(accessoryPrice);
-
-    // Add accessory to vehicle
-    setVehicleAccessories({
-      ...vehicleAccessories,
-      [vehicle._id]: [...currentAccessories, accessory.name],
-    });
-
-    // Apply bonus
-    const bonus = getAccessoryBonus(player.niveis.playerLevel);
-    addSkillBonus(accessory.bonus, bonus);
-
-    setPurchaseMessage(`${accessory.name} adicionado com sucesso!`);
-    setTimeout(() => setPurchaseMessage(''), 3000);
-  };
-
-  async function handleBuyVehicleAccessoryPix(vehicle: any, acc: any) {
+  const handleBuyVehicleAccessoryPix = async (
+    vehicle: EscapeVehicles,
+    acc: (typeof VEHICLE_ACCESSORIES)[number]
+  ) => {
     try {
+      const currentAccessories = playerVehicleAccessories[vehicle._id] || [];
+      if (currentAccessories.includes(acc.name)) {
+        setPurchaseMessage('Você já possui este acessório.');
+        return;
+      }
+
       const response = await fetch(
         'https://comando-backend.onrender.com/create-payment',
         {
@@ -235,25 +274,61 @@ export default function FugaIlustradaPage() {
         throw new Error(data?.error || 'Erro ao gerar pagamento');
       }
 
+      addAccessory('vehicles', vehicle._id, acc.name);
+
+      const skillKey = normalizeSkill(acc.bonus);
+      if (skillKey) {
+        applyPlayerUpdate((current) => {
+          const currentSkills = { ...(current.skills || {}) } as Record<string, number>;
+          const bonus = getAccessoryBonus(current.niveis.playerLevel || 1);
+
+          return {
+            ...current,
+            skills: {
+              ...currentSkills,
+              [skillKey]: Number((currentSkills[skillKey] || 0) + bonus),
+            },
+          };
+        });
+      }
+
       if (data.ticket_url) {
         window.open(data.ticket_url, '_blank');
+        setPurchaseMessage(`Pagamento PIX gerado para ${acc.name}.`);
         return;
       }
 
-      alert('Pagamento gerado, mas não veio link.');
+      setPurchaseMessage(`Pagamento gerado para ${acc.name}.`);
     } catch (error) {
       console.error('Erro ao gerar PIX do acessório:', error);
-      alert('Erro ao gerar pagamento PIX');
+      setPurchaseMessage('Erro ao gerar pagamento PIX.');
     }
-  }
+  };
 
-  if (isLoading) {
+  if (!isLoaded || !player?._id || isLoadingData) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background text-foreground">
         <Header />
-        <div className="flex items-center justify-center h-screen">
+        <div className="min-h-screen flex items-center justify-center pt-[140px] md:pt-[160px]">
           <LoadingSpinner />
         </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!isFeatureUnlocked) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
+          <FeatureLevelLock
+            playerLevel={playerLevel}
+            requiredLevel={requiredLevel}
+            featureName="Fuga Ilustrada"
+            onNavigateToBarraco={() => navigate('/barraco')}
+          />
+        </main>
         <Footer />
       </div>
     );
@@ -263,7 +338,7 @@ export default function FugaIlustradaPage() {
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <main className="max-w-[120rem] mx-auto px-4 py-12">
+      <main className="max-w-[120rem] mx-auto px-4 py-12 pt-[140px] md:pt-[160px]">
         <section className="mb-16">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -288,7 +363,7 @@ export default function FugaIlustradaPage() {
             >
               <p className="text-secondary text-sm mb-2">Dinheiro Limpo</p>
               <p className="font-heading text-4xl font-bold text-primary">
-                R$ {cleanMoney.toFixed(2)}
+                R$ {formatMoney(cleanMoney)}
               </p>
             </motion.div>
 
@@ -317,20 +392,23 @@ export default function FugaIlustradaPage() {
             </motion.div>
           </div>
 
-          {purchaseMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className={`p-4 rounded-lg text-center font-paragraph text-lg mb-8 ${
-                purchaseMessage.includes('sucesso')
-                  ? 'bg-green-900 text-green-100'
-                  : 'bg-destructive text-destructiveforeground'
-              }`}
-            >
-              {purchaseMessage}
-            </motion.div>
-          )}
+          <AnimatePresence>
+            {purchaseMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className={`p-4 rounded-lg text-center font-paragraph text-lg mb-8 ${
+                  purchaseMessage.includes('sucesso') ||
+                  purchaseMessage.includes('gerado')
+                    ? 'bg-green-900 text-green-100'
+                    : 'bg-destructive text-destructiveforeground'
+                }`}
+              >
+                {purchaseMessage}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
 
         <section className="mb-12">
@@ -379,8 +457,8 @@ export default function FugaIlustradaPage() {
                         isOwned
                           ? 'border-primary bg-custom4 opacity-75'
                           : canAfford
-                            ? 'border-secondary hover:border-primary bg-custom4'
-                            : 'border-destructive bg-custom4 opacity-60'
+                          ? 'border-secondary hover:border-primary bg-custom4'
+                          : 'border-destructive bg-custom4 opacity-60'
                       }`}
                       onClick={() => setSelectedVehicle(vehicle)}
                     >
@@ -400,7 +478,7 @@ export default function FugaIlustradaPage() {
                         {isOwned && (
                           <div className="absolute top-2 right-2 bg-primary px-3 py-1 rounded text-black font-bold text-sm">
                             POSSUÍDO
-                          </div>
+</div>
                         )}
                       </div>
 
@@ -420,14 +498,20 @@ export default function FugaIlustradaPage() {
 
                         <div className="mb-3">
                           <p className="text-secondary text-xs mb-1">
-                            Bônus: <span className="text-primary">{vehicle.abilityBonusType}</span>
+                            Bônus:{' '}
+                            <span className="text-primary">
+                              {vehicle.abilityBonusType}
+                            </span>
                           </p>
-                          <p className="text-secondary text-xs">+1% em {vehicle.abilityBonusType}</p>
+                          <p className="text-secondary text-xs">
+                            +{getAccessoryBonus(player.niveis.playerLevel)}% em{' '}
+                            {vehicle.abilityBonusType}
+                          </p>
                         </div>
 
                         <div className="border-t border-secondary pt-3 mb-3">
                           <p className="text-primary font-heading text-xl font-bold">
-                            R$ {price.toFixed(2)}
+                            R$ {formatMoney(price)}
                           </p>
                         </div>
 
@@ -441,8 +525,8 @@ export default function FugaIlustradaPage() {
                             isOwned
                               ? 'bg-custom4 text-secondary cursor-not-allowed'
                               : canAfford
-                                ? 'bg-primary text-black hover:bg-secondary'
-                                : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                              ? 'bg-primary text-black hover:bg-secondary'
+                              : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
                           }`}
                         >
                           {isOwned ? 'Possuído' : canAfford ? 'Comprar' : 'Sem Fundos'}
@@ -481,7 +565,7 @@ export default function FugaIlustradaPage() {
                   const isPurchased = purchasedAccessories.some(
                     (acc) => acc.accessoryId === accessory._id
                   );
-                  const price = accessory.itemPrice || 0;
+                  const price = Number(accessory.itemPrice || 0);
                   const canAfford = cleanMoney >= price;
 
                   return (
@@ -494,8 +578,8 @@ export default function FugaIlustradaPage() {
                         isPurchased
                           ? 'border-primary bg-custom4 opacity-75'
                           : canAfford
-                            ? 'border-secondary hover:border-primary bg-custom4'
-                            : 'border-destructive bg-custom4 opacity-60'
+                          ? 'border-secondary hover:border-primary bg-custom4'
+                          : 'border-destructive bg-custom4 opacity-60'
                       }`}
                     >
                       <h4 className="font-heading text-lg font-bold text-primary mb-2">
@@ -510,12 +594,14 @@ export default function FugaIlustradaPage() {
                         <p className="text-secondary text-xs mb-1">
                           Tipo: <span className="text-primary">{accessory.skillType}</span>
                         </p>
-                        <p className="text-secondary text-xs">+1% em {accessory.skillType}</p>
+                        <p className="text-secondary text-xs">
+                          +{getAccessoryBonus(player.niveis.playerLevel)}% em {accessory.skillType}
+                        </p>
                       </div>
 
                       <div className="border-t border-secondary pt-3 mb-3">
                         <p className="text-primary font-heading text-lg font-bold">
-                          R$ {price.toFixed(2)}
+                          R$ {formatMoney(price)}
                         </p>
                       </div>
 
@@ -526,8 +612,8 @@ export default function FugaIlustradaPage() {
                           isPurchased
                             ? 'bg-custom4 text-secondary cursor-not-allowed'
                             : canAfford
-                              ? 'bg-primary text-black hover:bg-secondary'
-                              : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
+                            ? 'bg-primary text-black hover:bg-secondary'
+                            : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
                         }`}
                       >
                         {isPurchased ? 'Comprado' : canAfford ? 'Comprar' : 'Sem Fundos'}
@@ -540,160 +626,163 @@ export default function FugaIlustradaPage() {
           )}
         </section>
 
-        {selectedVehicle && activeTab === 'vehicles' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSelectedVehicle(null)}
-            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
-          >
+        <AnimatePresence>
+          {selectedVehicle && activeTab === 'vehicles' && (
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8 max-h-[90vh] overflow-y-auto"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedVehicle(null)}
+              className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="flex flex-col items-center">
-                  {selectedVehicle.image ? (
-                    <Image
-                      src={selectedVehicle.image}
-                      alt={selectedVehicle.name || 'Veículo'}
-                      className="w-full h-64 object-cover rounded-lg mb-4"
-                      width={400}
-                    />
-                  ) : (
-                    <div className="w-full h-64 bg-gradient-to-br from-primary to-custom4 rounded-lg flex items-center justify-center mb-4">
-                      <span className="text-secondary">Sem imagem</span>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h2 className="font-heading text-4xl font-bold text-primary mb-4">
-                    {selectedVehicle.name}
-                  </h2>
-
-                  <div className="space-y-4 mb-6">
-                    <div>
-                      <p className="text-secondary text-sm">Nível</p>
-                      <p className="font-heading text-2xl font-bold text-primary">
-                        {selectedVehicle.level}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-secondary text-sm">Preço</p>
-                      <p className="font-heading text-2xl font-bold text-primary">
-                        R$ {calculateVehiclePrice(selectedVehicle.level || 1).toFixed(2)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-secondary text-sm">Bônus de Habilidade</p>
-                      <p className="font-heading text-lg font-bold text-primary">
-                        +{getAccessoryBonus(player.niveis.playerLevel)}% em {selectedVehicle.abilityBonusType}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-secondary text-sm">Descrição</p>
-                      <p className="font-paragraph text-base text-secondary">
-                        {selectedVehicle.description}
-                      </p>
-                    </div>
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8 max-h-[90vh] overflow-y-auto"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="flex flex-col items-center">
+                    {selectedVehicle.image ? (
+                      <Image
+                        src={selectedVehicle.image}
+                        alt={selectedVehicle.name || 'Veículo'}
+                        className="w-full h-64 object-cover rounded-lg mb-4"
+                        width={400}
+                      />
+                    ) : (
+                      <div className="w-full h-64 bg-gradient-to-br from-primary to-custom4 rounded-lg flex items-center justify-center mb-4">
+                        <span className="text-secondary">Sem imagem</span>
+                      </div>
+                    )}
                   </div>
 
-                  <button
-                    onClick={() => {
-                      handlePurchaseVehicle(selectedVehicle);
-                      setSelectedVehicle(null);
-                    }}
-                    disabled={
-                      ownedVehicles.includes(selectedVehicle._id) ||
-                      cleanMoney < calculateVehiclePrice(selectedVehicle.level || 1)
-                    }
-                    className={`w-full py-3 rounded font-heading font-bold text-lg transition-all ${
-                      ownedVehicles.includes(selectedVehicle._id)
-                        ? 'bg-custom4 text-secondary cursor-not-allowed'
-                        : cleanMoney >= calculateVehiclePrice(selectedVehicle.level || 1)
+                  <div>
+                    <h2 className="font-heading text-4xl font-bold text-primary mb-4">
+                      {selectedVehicle.name}
+                    </h2>
+
+                    <div className="space-y-4 mb-6">
+                      <div>
+                        <p className="text-secondary text-sm">Nível</p>
+                        <p className="font-heading text-2xl font-bold text-primary">
+                          {selectedVehicle.level}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-secondary text-sm">Preço</p>
+                        <p className="font-heading text-2xl font-bold text-primary">
+                          R$ {formatMoney(calculateVehiclePrice(selectedVehicle.level || 1))}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-secondary text-sm">Bônus de Habilidade</p>
+                        <p className="font-heading text-lg font-bold text-primary">
+                          +{getAccessoryBonus(player.niveis.playerLevel)}% em{' '}
+                          {selectedVehicle.abilityBonusType}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-secondary text-sm">Descrição</p>
+                        <p className="font-paragraph text-base text-secondary">
+                          {selectedVehicle.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        handlePurchaseVehicle(selectedVehicle);
+                        setSelectedVehicle(null);
+                      }}
+                      disabled={
+                        ownedVehicles.includes(selectedVehicle._id) ||
+                        cleanMoney < calculateVehiclePrice(selectedVehicle.level || 1)
+                      }
+                      className={`w-full py-3 rounded font-heading font-bold text-lg transition-all ${
+                        ownedVehicles.includes(selectedVehicle._id)
+                          ? 'bg-custom4 text-secondary cursor-not-allowed'
+                          : cleanMoney >= calculateVehiclePrice(selectedVehicle.level || 1)
                           ? 'bg-primary text-black hover:bg-secondary'
                           : 'bg-destructive text-destructiveforeground cursor-not-allowed opacity-50'
-                    }`}
-                  >
-                    {ownedVehicles.includes(selectedVehicle._id)
-                      ? 'Já Possuído'
-                      : cleanMoney >= calculateVehiclePrice(selectedVehicle.level || 1)
-                        ? 'Comprar Agora'
-                        : 'Sem Fundos Suficientes'}
-                  </button>
-
-                  <button
-                    onClick={() => setSelectedVehicle(null)}
-                    className="w-full mt-3 py-3 rounded font-heading font-bold text-lg border-2 border-secondary text-secondary hover:bg-secondary hover:text-black transition-all"
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {selectedVehicleForAccessories && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSelectedVehicleForAccessories(null)}
-            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8 max-h-[90vh] overflow-y-auto"
-            >
-              <h2 className="font-heading text-3xl font-bold text-primary mb-6">
-                Acessórios para {selectedVehicleForAccessories.name}
-              </h2>
-
-              <div className="space-y-3 mb-6">
-                {VEHICLE_ACCESSORIES.map((acc) => {
-                  const owned = (vehicleAccessories[selectedVehicleForAccessories._id] || []).includes(acc.name);
-
-                  return (
-                    <button
-                      key={acc.name}
-                      disabled={owned}
-                      onClick={() => handleBuyVehicleAccessoryPix(selectedVehicleForAccessories, acc)}
-                      className={`w-full px-4 py-3 rounded font-heading font-bold transition-all text-left flex justify-between items-center ${
-                        owned
-                          ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
-                          : 'bg-primary text-black hover:bg-secondary'
                       }`}
                     >
-                      <span>{acc.name}</span>
-                      <span className="text-sm">
-                        {owned ? 'Comprado' : `R$ 1,99`}
-                      </span>
+                      {ownedVehicles.includes(selectedVehicle._id)
+                        ? 'Já Possuído'
+                        : cleanMoney >= calculateVehiclePrice(selectedVehicle.level || 1)
+                        ? 'Comprar Agora'
+                        : 'Sem Fundos Suficientes'}
                     </button>
-                  );
-                })}
-              </div>
 
-              <button
-                onClick={() => setSelectedVehicleForAccessories(null)}
-                className="w-full py-3 rounded font-heading font-bold text-lg border-2 border-secondary text-secondary hover:bg-secondary hover:text-black transition-all"
-              >
-                Fechar
-              </button>
+                    <button
+                      onClick={() => setSelectedVehicle(null)}
+                      className="w-full mt-3 py-3 rounded font-heading font-bold text-lg border-2 border-secondary text-secondary hover:bg-secondary hover:text-black transition-all"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          )}
+
+          {selectedVehicleForAccessories && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedVehicleForAccessories(null)}
+              className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8 max-h-[90vh] overflow-y-auto"
+              >
+                <h2 className="font-heading text-3xl font-bold text-primary mb-6">
+                  Acessórios para {selectedVehicleForAccessories.name}
+                </h2>
+
+                <div className="space-y-3 mb-6">
+                  {VEHICLE_ACCESSORIES.map((acc) => {
+                    const owned = selectedVehicleAccessoryList.includes(acc.name);
+
+                    return (
+                      <button
+                        key={acc.name}
+                        disabled={owned}
+                        onClick={() =>
+                          void handleBuyVehicleAccessoryPix(selectedVehicleForAccessories, acc)
+                        }
+                        className={`w-full px-4 py-3 rounded font-heading font-bold transition-all text-left flex justify-between items-center ${
+                          owned
+                            ? 'bg-custom4 text-secondary cursor-not-allowed opacity-50'
+                            : 'bg-primary text-black hover:bg-secondary'
+                        }`}
+                      >
+                        <span>{acc.name}</span>
+                        <span className="text-sm">{owned ? 'Comprado' : 'R$ 1,99'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setSelectedVehicleForAccessories(null)}
+                  className="w-full py-3 rounded font-heading font-bold text-lg border-2 border-secondary text-secondary hover:bg-secondary hover:text-black transition-all"
+                >
+                  Fechar
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       <Footer />
