@@ -65,10 +65,11 @@ type FactionStore = {
 
 function syncPlayerFactionId(factionId: string | null) {
   const playerStore = usePlayerStore.getState();
-  const currentPlayer = playerStore.player || {};
+  const currentFactionId = playerStore.player?.factionId ?? null;
+
+  if (currentFactionId === factionId) return;
 
   playerStore.setPlayer({
-    ...currentPlayer,
     factionId,
   } as any);
 }

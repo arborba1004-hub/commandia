@@ -19,6 +19,7 @@ import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 import ChatPage from '@/components/pages/ChatPage';
 import TalentsPage from '@/components/pages/TalentsPage';
 import FactionPage from '@/components/pages/FactionPage';
+import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
 
 // FASE 6: Páginas legadas/experimentais removidas do fluxo principal
 // - HomePageNew (arquivo preservado em src/components/pages/HomePageNew.tsx)
@@ -41,23 +42,58 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'galeria', element: <GaleriaPage /> },
+      {
+        path: 'galeria',
+        element: (
+          <FeatureGateRoute branch="luxury">
+            <GaleriaPage />
+          </FeatureGateRoute>
+        ),
+      },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'game', element: <GamePage /> },
       { path: 'chat', element: <ChatPage /> },
       { path: 'giro', element: <GiroPage /> },
       { path: 'luxuryshowroom', element: <LuxuryshowroomPage /> },
-      { path: 'lavagem-de-dinheiro', element: <LavagemDeDinheiroPage /> },
+      {
+        path: 'lavagem-de-dinheiro',
+        element: (
+          <FeatureGateRoute branch="lavagem">
+            <LavagemDeDinheiroPage />
+          </FeatureGateRoute>
+        ),
+      },
       { path: 'suborno-ilustrado', element: <SubornoIlustradoPage /> },
       { path: 'delacao-premiada', element: <DelacaoPremiadaPage /> },
-      { path: 'arsenal', element: <ArsenalPage /> },
+      {
+        path: 'arsenal',
+        element: (
+          <FeatureGateRoute branch="arsenal">
+            <ArsenalPage />
+          </FeatureGateRoute>
+        ),
+      },
       { path: 'armas', element: <ArmasPage /> },
       { path: 'gang', element: <GangPage /> },
       { path: 'luxo-item', element: <LuxoItemPage /> },
       { path: 'barraco', element: <BarracoPage /> },
       { path: 'fuga-ilustrada', element: <FugaIlustradaPage /> },
-      { path: 'talentos', element: <TalentsPage /> },
-      { path: 'faccao', element: <FactionPage /> },
+      {
+        path: 'talentos',
+        element: (
+          <FeatureGateRoute branch="talents">
+            <TalentsPage />
+          </FeatureGateRoute>
+        ),
+      },
+      {
+        path: 'faccao',
+        element: (
+          <FeatureGateRoute branch="faction">
+            <FactionPage />
+          </FeatureGateRoute>
+        ),
+      },
       // FASE 6: Rotas legadas removidas
       // { path: 'home-new', element: <HomePageNew /> },
       // { path: 'match', element: <MatchPage /> },
