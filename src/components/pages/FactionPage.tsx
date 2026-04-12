@@ -3,32 +3,129 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useFactionStore } from '@/store/factionStore';
 import { usePlayerStore } from '@/store/playerStore';
+import type { FactionInvestmentBranch, FactionRole } from '@/types/faction';
+import {
+  FACTION_BRANCH_DESCRIPTIONS,
+  FACTION_BRANCH_LABELS,
+} from '@/types/faction';
+import { getFactionInvestmentUpgradeCost } from '@/services/factionService';
+
+type FactionTab = 'overview' | 'members' | 'treasury' | 'investments' | 'logs' | 'diplomacy';
+
+const INVESTMENT_BRANCHES: FactionInvestmentBranch[] = [
+  'arsenalColetivo',
+  'caixaOperacional',
+  'mobilidade',
+  'influencia',
+  'inteligencia',
+  'fortificacao',
+  'logistica',
+  'doutrina',
+];
+
+const ROLE_OPTIONS: FactionRole[] = [
+  'member',
+  'recruiter',
+  'treasurer',
+  'diplomat',
+  'subleader',
+];
+
+function formatMoney(value: number) {
+  return Number(value || 0).toLocaleString('pt-BR');
+}
+
+function formatDate(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('pt-BR');
+}
+
+function getCurrentPlayerId(player: any) {
+  return String(player?._id || player?.googleId || '');
+}
+
+function getCurrentPlayerFactionRole(myFaction: any, currentPlayerId: string): FactionRole | null {
+  const member = myFaction?.members?.find((item: any) => String(item.playerId) === currentPlayerId);
+  return member?.role || null;
+}
 
 export default function FactionPage() {
   const player = usePlayerStore((state) => state.player);
 
   const myFaction = useFactionStore((state) => state.myFaction);
+  const factionList = useFactionStore((state) => state.factionList);
   const isLoading = useFactionStore((state) => state.isLoading);
   const isSubmitting = useFactionStore((state) => state.isSubmitting);
   const error = useFactionStore((state) => state.error);
+
   const loadMyFaction = useFactionStore((state) => state.loadMyFaction);
+  const loadFactionList = useFactionStore((state) => state.loadFactionList);
+
   const createFaction = useFactionStore((state) => state.createFaction);
   const joinFaction = useFactionStore((state) => state.joinFaction);
+  const leaveFaction = useFactionStore((state) => state.leaveFaction);
+  const donate = useFactionStore((state) => state.donate);
+  const upgradeInvestment = useFactionStore((state) => state.upgradeInvestment);
+  const updateMemberRole = useFactionStore((state) => state.updateMemberRole);
+  const kickMember = useFactionStore((state) => state.kickMember);
+  const transferLeadership = useFactionStore((state) => state.transferLeadership);
+  const updateSettings = useFactionStore((state) => state.updateSettings);
+
+  const [activeTab, setActiveTab] = useState<FactionTab>('overview');
 
   const [createName, setCreateName] = useState('');
   const [createTag, setCreateTag] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createIsPrivate, setCreateIsPrivate] = useState(false);
+  const [createMinimumPower, setCreateMinimumPower] = useState(0);
+  const [createMinimumBarracoLevel, setCreateMinimumBarracoLevel] = useState(1);
+
   const [joinFactionId, setJoinFactionId] = useState('');
+
+  const [donationCurrency, setDonationCurrency] = useState<'dirtyMoney' | 'cleanMoney' | 'corre'>('cleanMoney');
+  const [donationAmount, setDonationAmount] = useState('');
+
+  const [settingsDescription, setSettingsDescription] = useState('');
+  const [settingsIsPrivate, setSettingsIsPrivate] = useState(false);
+  const [settingsMinimumPower, setSettingsMinimumPower] = useState(0);
+  const [settingsMinimumBarracoLevel, setSettingsMinimumBarracoLevel] = useState(1);
+  const [settingsAllowJoinRequests, setSettingsAllowJoinRequests] = useState(true);
+  const [settingsAllowMemberInvites, setSettingsAllowMemberInvites] = useState(false);
+  const [settingsAutoAcceptRequests, setSettingsAutoAcceptRequests] = useState(false);
 
   useEffect(() => {
     void loadMyFaction();
-  }, [loadMyFaction]);
+    void loadFactionList();
+  }, [loadMyFaction, loadFactionList]);
 
-  const currentPlayerId = String(player?._id || player?.googleId || '');
-  const isLeader = useMemo(() => {
-    return Boolean(myFaction && String(myFaction.leaderId) === currentPlayerId);
+  useEffect(() => {
+    if (!myFaction) return;
+
+    setSettingsDescription(myFaction.description || '');
+    setSettingsIsPrivate(Boolean(myFaction.isPrivate));
+    setSettingsMinimumPower(Number(myFaction.minimumPower || 0));
+    setSettingsMinimumBarracoLevel(Math.max(1, Number(myFaction.minimumBarracoLevel || 1)));
+    setSettingsAllowJoinRequests(Boolean(myFaction.allowJoinRequests));
+    setSettingsAllowMemberInvites(Boolean(myFaction.allowMemberInvites));
+    setSettingsAutoAcceptRequests(Boolean(myFaction.autoAcceptRequests));
+  }, [myFaction]);
+
+  const currentPlayerId = getCurrentPlayerId(player);
+
+  const currentMember = useMemo(() => {
+    return myFaction?.members.find((member) => String(member.playerId) === currentPlayerId) || null;
   }, [myFaction, currentPlayerId]);
 
-  const memberCount = myFaction?.memberIds?.length || 0;
+  const currentRole = getCurrentPlayerFactionRole(myFaction, currentPlayerId);
+
+  const canManageTreasury = Boolean(currentMember?.permissions?.canManageTreasury);
+  const canManageInvestments = Boolean(currentMember?.permissions?.canManageInvestments);
+  const canAcceptRequests = Boolean(currentMember?.permissions?.canAcceptRequests);
+  const isLeader = currentRole === 'leader';
+
+  const memberCount = myFaction?.members.length || 0;
 
   const expPercent = useMemo(() => {
     if (!myFaction) return 0;
@@ -37,37 +134,80 @@ export default function FactionPage() {
     return Math.min(100, (current / total) * 100);
   }, [myFaction]);
 
-  const formatMoney = (value: number) => {
-    if (!Number.isFinite(value)) return '0';
-    return value.toLocaleString('pt-BR');
-  };
+  const topDonors = useMemo(() => {
+    if (!myFaction) return [];
+    return [...myFaction.members]
+      .sort((a, b) => Number(b.contribution.totalValue || 0) - Number(a.contribution.totalValue || 0))
+      .slice(0, 5);
+  }, [myFaction]);
 
   const handleCreateFaction = async () => {
-    const ok = await createFaction(createName, createTag);
+    const ok = await createFaction({
+      name: createName,
+      tag: createTag,
+      description: createDescription,
+      isPrivate: createIsPrivate,
+      minimumPower: createMinimumPower,
+      minimumBarracoLevel: createMinimumBarracoLevel,
+      allowJoinRequests: true,
+      allowMemberInvites: false,
+      autoAcceptRequests: !createIsPrivate,
+    });
+
     if (ok) {
       setCreateName('');
       setCreateTag('');
+      setCreateDescription('');
+      setCreateIsPrivate(false);
+      setCreateMinimumPower(0);
+      setCreateMinimumBarracoLevel(1);
+      setActiveTab('overview');
     }
   };
 
-  const handleJoinFaction = async () => {
-    const ok = await joinFaction(joinFactionId);
+  const handleJoinFaction = async (factionId?: string) => {
+    const targetId = String(factionId || joinFactionId || '').trim();
+    if (!targetId) return;
+
+    const ok = await joinFaction(targetId);
     if (ok) {
       setJoinFactionId('');
     }
+  };
+
+  const handleDonate = async () => {
+    const amount = Number(donationAmount || 0);
+    if (!amount || amount <= 0) return;
+
+    const ok = await donate(donationCurrency, amount);
+    if (ok) {
+      setDonationAmount('');
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    await updateSettings({
+      description: settingsDescription,
+      isPrivate: settingsIsPrivate,
+      minimumPower: settingsMinimumPower,
+      minimumBarracoLevel: settingsMinimumBarracoLevel,
+      allowJoinRequests: settingsAllowJoinRequests,
+      allowMemberInvites: settingsAllowMemberInvites,
+      autoAcceptRequests: settingsAutoAcceptRequests,
+    });
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <main className="mx-auto flex w-full max-w-6xl flex-col px-4 pb-28 pt-[140px] md:pt-[160px]">
+      <main className="mx-auto flex w-full max-w-7xl flex-col px-4 pb-28 pt-[140px] md:pt-[160px]">
         <div className="mb-6">
           <h1 className="font-heading text-3xl font-black uppercase tracking-wide">
             Facção
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Crie sua facção, entre em uma já existente e acompanhe o progresso coletivo.
+            Núcleo coletivo da sua organização: membros, tesouro, investimentos, diplomacia e progresso.
           </p>
         </div>
 
@@ -82,8 +222,8 @@ export default function FactionPage() {
             <p className="text-muted-foreground">Carregando facção...</p>
           </div>
         ) : myFaction ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
-            <section className="rounded-3xl border border-border bg-card p-5">
+          <>
+            <section className="mb-4 rounded-3xl border border-border bg-card p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="text-xs font-black uppercase tracking-[0.2em] text-red-400">
@@ -95,47 +235,39 @@ export default function FactionPage() {
                   <div className="mt-2 inline-flex rounded-full bg-red-600 px-3 py-1 text-xs font-black uppercase tracking-[0.15em] text-white">
                     [{myFaction.tag}]
                   </div>
+                  <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+                    {myFaction.description || 'Sem descrição definida.'}
+                  </p>
                 </div>
 
-                <div className="rounded-2xl border border-border bg-background px-4 py-3 text-right">
-                  <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                    Seu status
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <div className="rounded-2xl bg-background px-4 py-3">
+                    <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                      Nível
+                    </div>
+                    <div className="mt-1 text-2xl font-black">{myFaction.level}</div>
                   </div>
-                  <div className="mt-1 text-lg font-black text-foreground">
-                    {isLeader ? 'Líder' : 'Membro'}
-                  </div>
-                </div>
-              </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <div className="rounded-2xl bg-background px-4 py-3">
-                  <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                    Nível
+                  <div className="rounded-2xl bg-background px-4 py-3">
+                    <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                      Membros
+                    </div>
+                    <div className="mt-1 text-2xl font-black">{memberCount}</div>
                   </div>
-                  <div className="mt-1 text-2xl font-black">{myFaction.level}</div>
-                </div>
 
-                <div className="rounded-2xl bg-background px-4 py-3">
-                  <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                    Membros
+                  <div className="rounded-2xl bg-background px-4 py-3">
+                    <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                      Prestígio
+                    </div>
+                    <div className="mt-1 text-base font-black">{myFaction.investmentTierName}</div>
                   </div>
-                  <div className="mt-1 text-2xl font-black">{memberCount}</div>
-                </div>
 
-                <div className="rounded-2xl bg-background px-4 py-3">
-                  <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                    Líder
+                  <div className="rounded-2xl bg-background px-4 py-3">
+                    <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                      Seu cargo
+                    </div>
+                    <div className="mt-1 text-base font-black">{currentRole || 'Membro'}</div>
                   </div>
-                  <div className="mt-1 truncate text-base font-black">
-                    {String(myFaction.leaderId) === currentPlayerId ? 'Você' : myFaction.leaderId}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-background px-4 py-3">
-                  <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                    ID Facção
-                  </div>
-                  <div className="mt-1 truncate text-base font-black">{myFaction.id}</div>
                 </div>
               </div>
 
@@ -145,7 +277,7 @@ export default function FactionPage() {
                     Progresso de EXP
                   </span>
                   <span className="text-sm font-bold">
-                    {myFaction.exp}/{myFaction.expToNext}
+                    {formatMoney(myFaction.exp)}/{formatMoney(myFaction.expToNext)}
                   </span>
                 </div>
 
@@ -157,157 +289,169 @@ export default function FactionPage() {
                 </div>
               </div>
 
-              <div className="mt-5 rounded-2xl bg-background p-4">
-                <div className="mb-3 text-sm font-black uppercase tracking-wide text-muted-foreground">
-                  Tesouro da facção
-                </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {(['overview', 'members', 'treasury', 'investments', 'logs', 'diplomacy'] as FactionTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={`rounded-2xl px-4 py-2 text-sm font-black uppercase tracking-wide transition ${
+                      activeTab === tab
+                        ? 'bg-red-600 text-white'
+                        : 'border border-border bg-background text-foreground'
+                    }`}
+                  >
+                    {tab === 'overview' && 'Visão geral'}
+                    {tab === 'members' && 'Membros'}
+                    {tab === 'treasury' && 'Tesouro'}
+                    {tab === 'investments' && 'Investimentos'}
+                    {tab === 'logs' && 'Logs'}
+                    {tab === 'diplomacy' && 'Diplomacia'}
+                  </button>
+                ))}
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <div className="rounded-2xl border border-border px-4 py-3">
-                    <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                      Dinheiro sujo
-                    </div>
-                    <div className="mt-1 text-lg font-black">
-                      {formatMoney(myFaction.treasury.dirtyMoney)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-border px-4 py-3">
-                    <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                      Dinheiro limpo
-                    </div>
-                    <div className="mt-1 text-lg font-black">
-                      {formatMoney(myFaction.treasury.cleanMoney)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-border px-4 py-3">
-                    <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
-                      Corre
-                    </div>
-                    <div className="mt-1 text-lg font-black">
-                      {formatMoney(myFaction.treasury.corre)}
-                    </div>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void leaveFaction();
+                  }}
+                  disabled={isSubmitting}
+                  className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-black uppercase tracking-wide text-red-300 disabled:opacity-50"
+                >
+                  Sair da facção
+                </button>
               </div>
             </section>
 
-            <aside className="rounded-3xl border border-border bg-card p-5">
-              <div className="text-sm font-black uppercase tracking-wide text-muted-foreground">
-                Membros da facção
-              </div>
+            {activeTab === 'overview' && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
+                <section className="rounded-3xl border border-border bg-card p-5">
+                  <h3 className="font-heading text-2xl font-black uppercase">Resumo operacional</h3>
 
-              <div className="mt-4 flex flex-col gap-3">
-                {myFaction.memberIds.length === 0 ? (
-                  <div className="rounded-2xl bg-background px-4 py-4 text-sm text-muted-foreground">
-                    Nenhum membro encontrado.
-                  </div>
-                ) : (
-                  myFaction.memberIds.map((memberId, index) => (
-                    <div
-                      key={`${memberId}-${index}`}
-                      className="rounded-2xl border border-border bg-background px-4 py-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-xs font-black uppercase tracking-wide text-muted-foreground">
-                            Membro
-                          </div>
-                          <div className="truncate font-bold">
-                            {memberId === currentPlayerId ? 'Você' : memberId}
-                          </div>
-                        </div>
-
-                        {memberId === myFaction.leaderId && (
-                          <span className="rounded-full bg-red-600 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white">
-                            Líder
-                          </span>
-                        )}
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="rounded-2xl bg-background px-4 py-3">
+                      <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                        Sujo no tesouro
+                      </div>
+                      <div className="mt-1 text-xl font-black">
+                        {formatMoney(myFaction.treasury.dirtyMoney)}
                       </div>
                     </div>
-                  ))
-                )}
+
+                    <div className="rounded-2xl bg-background px-4 py-3">
+                      <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                        Limpo no tesouro
+                      </div>
+                      <div className="mt-1 text-xl font-black">
+                        {formatMoney(myFaction.treasury.cleanMoney)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-background px-4 py-3">
+                      <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                        Corre no tesouro
+                      </div>
+                      <div className="mt-1 text-xl font-black">
+                        {formatMoney(myFaction.treasury.corre)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-2xl bg-background p-4">
+                    <div className="text-sm font-black uppercase tracking-wide text-muted-foreground">
+                      Bônus coletivos atuais
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border border-border px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Ataque</div>
+                        <div className="mt-1 text-lg font-black">
+                          +{myFaction.investmentBuffs.attackPercent.toFixed(1)}%
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-border px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Defesa</div>
+                        <div className="mt-1 text-lg font-black">
+                          +{myFaction.investmentBuffs.defensePercent.toFixed(1)}%
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-border px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Ganho sujo</div>
+                        <div className="mt-1 text-lg font-black">
+                          +{myFaction.investmentBuffs.dirtyMoneyGainPercent.toFixed(1)}%
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-border px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Ganho limpo</div>
+                        <div className="mt-1 text-lg font-black">
+                          +{myFaction.investmentBuffs.cleanMoneyGainPercent.toFixed(1)}%
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-border px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Agilidade</div>
+                        <div className="mt-1 text-lg font-black">
+                          +{myFaction.investmentBuffs.agilityPercent.toFixed(1)}%
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-border px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Inteligência</div>
+                        <div className="mt-1 text-lg font-black">
+                          +{myFaction.investmentBuffs.intelligencePercent.toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <aside className="rounded-3xl border border-border bg-card p-5">
+                  <div className="text-sm font-black uppercase tracking-wide text-muted-foreground">
+                    Top doadores
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-3">
+                    {topDonors.length === 0 ? (
+                      <div className="rounded-2xl bg-background px-4 py-4 text-sm text-muted-foreground">
+                        Ainda não há doações registradas.
+                      </div>
+                    ) : (
+                      topDonors.map((member, index) => (
+                        <div
+                          key={member.playerId}
+                          className="rounded-2xl border border-border bg-background px-4 py-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                #{index + 1}
+                              </div>
+                              <div className="truncate font-bold">{member.playerName}</div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                                Total
+                              </div>
+                              <div className="font-black">
+                                {formatMoney(member.contribution.totalValue)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </aside>
               </div>
-            </aside>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <section className="rounded-3xl border border-border bg-card p-5">
-              <h2 className="font-heading text-2xl font-black uppercase">
-                Criar facção
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Monte sua própria organização e convide jogadores para crescer com você.
-              </p>
+            )}
 
-              <div className="mt-4 flex flex-col gap-3">
-                <input
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  placeholder="Nome da facção"
-                  className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
-                />
+            {activeTab === 'members' && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
+                <section className="rounded-3xl border border-border bg-card p-5">
+                  <h3 className="font-heading text-2xl font-black uppercase">Membros</h3>
 
-                <input
-                  value={createTag}
-                  onChange={(e) => setCreateTag(e.target.value.toUpperCase())}
-                  placeholder="Tag da facção"
-                  className="rounded-2xl border border-border bg-background px-4 py-3 uppercase outline-none"
-                  maxLength={8}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleCreateFaction();
-                  }}
-                  disabled={isSubmitting}
-                  className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black uppercase tracking-wide text-white disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Criando...' : 'Criar facção'}
-                </button>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-border bg-card p-5">
-              <h2 className="font-heading text-2xl font-black uppercase">
-                Entrar em facção
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Entre usando o ID de uma facção já existente.
-              </p>
-
-              <div className="mt-4 flex flex-col gap-3">
-                <input
-                  value={joinFactionId}
-                  onChange={(e) => setJoinFactionId(e.target.value)}
-                  placeholder="ID da facção"
-                  className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleJoinFaction();
-                  }}
-                  disabled={isSubmitting}
-                  className="rounded-2xl border border-border bg-background px-5 py-3 text-sm font-black uppercase tracking-wide text-foreground disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Entrando...' : 'Entrar na facção'}
-                </button>
-              </div>
-
-              <div className="mt-5 rounded-2xl bg-background p-4 text-sm text-muted-foreground">
-                Com o backend atual, a entrada é feita por <strong>ID da facção</strong>.
-                Depois a gente amplia para lista pública, convite e pedidos.
-              </div>
-            </section>
-          </div>
-        )}
-      </main>
-
-      <Footer />
-    </div>
-  );
-}
+                  <div className="mt-4 flex flex
