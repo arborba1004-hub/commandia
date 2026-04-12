@@ -29,8 +29,6 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { fetchOtherPlayersMap } from '@/api/playersApi';
 
-// ... keep existing code (constants and models)
-
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
@@ -221,7 +219,7 @@ export default function GamePage() {
   const activeAnimationRef = useRef<any>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const previousLevelRef = useRef<number>(1);
+  const previousLevelRef = useRef<number>(playerState?.niveis?.barracoLevel || 1);
 
   const navigate = useNavigate();
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
@@ -246,23 +244,19 @@ export default function GamePage() {
   const displayName =
     (playerState as any)?.headerCustomization?.customName ||
     playerState?.name ||
-    'CAPO GHOST';
+    '—';
 
   const pages = [
     { name: 'Home', path: '/' },
     { name: 'Galeria', path: '/galeria' },
-    { name: 'Perfil', path: '/profile' },
     { name: 'Giro', path: '/giro' },
-    { name: 'Luxo Showroom', path: '/luxuryshowroom' },
-    { name: 'Lavagem de Dinheiro', path: '/lavagemdedinheiro' },
-    { name: 'Suborno Ilustrado', path: '/subornoilustrado' },
-    { name: 'Delação Premiada', path: '/delacaopremiada' },
+    { name: 'Lavagem de Dinheiro', path: '/lavagem-de-dinheiro' },
+    { name: 'Suborno Ilustrado', path: '/suborno-ilustrado' },
+    { name: 'Delação Premiada', path: '/delacao-premiada' },
     { name: 'Arsenal', path: '/arsenal' },
-    { name: 'Armas', path: '/armas' },
-    { name: 'Gang', path: '/gang' },
     { name: 'Facção', path: '/faccao' },
     { name: 'Barraco', path: '/barraco' },
-    { name: 'Fuga', path: '/fuga' },
+    { name: 'Fuga Ilustrada', path: '/fuga-ilustrada' },
   ];
 
   const handleNavigate = (path: string) => {
@@ -486,27 +480,17 @@ export default function GamePage() {
 
   const fetchOtherPlayers = async () => {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) return;
+      const data = await fetchOtherPlayersMap();
 
-      const response = await fetch('https://comando-backend.onrender.com/players', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        console.error('Erro ao buscar players:', response.status);
-        return;
-      }
-
-      const data = await response.json();
       const currentPlayerId =
-        (playerState as any)?._id || (playerState as any)?.id || playerState?.googleId || null;
+        (playerState as any)?._id ||
+        (playerState as any)?.id ||
+        playerState?.googleId ||
+        null;
 
-      const filtered = Array.isArray(data)
-        ? data.filter((p) => String(p.id || p._id) !== String(currentPlayerId))
-        : [];
+      const filtered = data.filter(
+        (p) => String(p.id || p._id) !== String(currentPlayerId)
+      );
 
       setOtherPlayers(filtered);
     } catch (error) {
@@ -1000,11 +984,15 @@ platformGeometry.dispose();
     };
   }, [otherPlayers]);
 
-  if (!isLoaded) {
+  if (!isLoaded || !playerState?._id) {
     return (
-      <div className="w-full h-full bg-black flex items-center justify-center text-white">
-        Carregando mapa...
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando mapa...
+        </div>
+        <Footer />
+      </>
     );
   }
 
