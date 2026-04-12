@@ -437,21 +437,280 @@ export default function FactionPage() {
                                 Total
                               </div>
                               <div className="font-black">
-                                {formatMoney(member.contribution.totalValue)}
-                              </div>
+                                     {formatMoney(nextCost.cleanMoney)} limpo
                             </div>
                           </div>
+
+                          <div className="rounded-2xl border border-border px-4 py-3">
+                            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                              Limite
+                            </div>
+                            <div className="mt-1 font-black">20 níveis</div>
+                          </div>
                         </div>
-                      ))
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void upgradeInvestment(branch);
+                          }}
+                          disabled={isSubmitting || !canManageInvestments || level >= 20}
+                          className="mt-4 rounded-2xl bg-red-600 px-5 py-3 text-sm font-black uppercase tracking-wide text-white disabled:opacity-50"
+                        >
+                          {level >= 20 ? 'Máximo atingido' : 'Investir'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'logs' && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <section className="rounded-3xl border border-border bg-card p-5">
+                  <h3 className="font-heading text-2xl font-black uppercase">Log de investimentos</h3>
+
+                  <div className="mt-4 flex flex-col gap-3">
+                    {myFaction.investmentLog.length === 0 ? (
+                      <div className="rounded-2xl bg-background px-4 py-4 text-sm text-muted-foreground">
+                        Ainda não houve upgrades de investimento.
+                      </div>
+                    ) : (
+                      myFaction.investmentLog
+                        .slice()
+                        .reverse()
+                        .map((log) => (
+                          <div
+                            key={log.id}
+                            className="rounded-2xl border border-border bg-background px-4 py-3"
+                          >
+                            <div className="font-bold">
+                              {FACTION_BRANCH_LABELS[log.branch]} • {log.levelBefore} → {log.levelAfter}
+                            </div>
+                            <div className="mt-1 text-sm text-muted-foreground">
+                              Por {log.upgradedByPlayerName} • custo {formatMoney(log.cost.cleanMoney || 0)} limpo
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {formatDate(log.createdAt)}
+                            </div>
+                          </div>
+                        ))
                     )}
                   </div>
-                </aside>
+                </section>
+
+                <section className="rounded-3xl border border-border bg-card p-5">
+                  <h3 className="font-heading text-2xl font-black uppercase">Log de atividades</h3>
+
+                  <div className="mt-4 flex flex-col gap-3">
+                    {myFaction.activityLog.length === 0 ? (
+                      <div className="rounded-2xl bg-background px-4 py-4 text-sm text-muted-foreground">
+                        Ainda não há atividades registradas.
+                      </div>
+                    ) : (
+                      myFaction.activityLog
+                        .slice()
+                        .reverse()
+                        .map((log) => (
+                          <div
+                            key={log.id}
+                            className="rounded-2xl border border-border bg-background px-4 py-3"
+                          >
+                            <div className="font-bold">
+                              {log.type}
+                            </div>
+                            <div className="mt-1 text-sm text-muted-foreground">
+                              {log.actorPlayerName || 'Sistema'}
+                              {log.targetPlayerName ? ` → ${log.targetPlayerName}` : ''}
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {formatDate(log.createdAt)}
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </section>
               </div>
             )}
 
-            {activeTab === 'members' && (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
+            {activeTab === 'diplomacy' && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <section className="rounded-3xl border border-border bg-card p-5">
-                  <h3 className="font-heading text-2xl font-black uppercase">Membros</h3>
+                  <h3 className="font-heading text-2xl font-black uppercase">Alianças</h3>
+                  <div className="mt-4 rounded-2xl bg-background px-4 py-4 text-sm text-muted-foreground">
+                    {myFaction.allyFactionIds.length === 0
+                      ? 'Nenhuma aliança ativa.'
+                      : myFaction.allyFactionIds.join(', ')}
+                  </div>
+                </section>
 
-                  <div className="mt-4 flex flex
+                <section className="rounded-3xl border border-border bg-card p-5">
+                  <h3 className="font-heading text-2xl font-black uppercase">Rivalidades</h3>
+                  <div className="mt-4 rounded-2xl bg-background px-4 py-4 text-sm text-muted-foreground">
+                    {myFaction.enemyFactionIds.length === 0
+                      ? 'Nenhum inimigo declarado.'
+                      : myFaction.enemyFactionIds.join(', ')}
+                  </div>
+                </section>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1fr]">
+            <section className="rounded-3xl border border-border bg-card p-5">
+              <h2 className="font-heading text-2xl font-black uppercase">
+                Criar facção
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Monte sua organização, defina regras de entrada e comece a construir prestígio coletivo.
+              </p>
+
+              <div className="mt-4 flex flex-col gap-3">
+                <input
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  placeholder="Nome da facção"
+                  className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
+                />
+
+                <input
+                  value={createTag}
+                  onChange={(e) => setCreateTag(e.target.value.toUpperCase())}
+                  placeholder="Tag da facção"
+                  className="rounded-2xl border border-border bg-background px-4 py-3 uppercase outline-none"
+                  maxLength={8}
+                />
+
+                <textarea
+                  value={createDescription}
+                  onChange={(e) => setCreateDescription(e.target.value)}
+                  placeholder="Descrição"
+                  className="min-h-[100px] rounded-2xl border border-border bg-background px-4 py-3 outline-none"
+                />
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={createMinimumPower}
+                    onChange={(e) => setCreateMinimumPower(Number(e.target.value || 0))}
+                    placeholder="Power mínimo"
+                    className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
+                  />
+
+                  <input
+                    type="number"
+                    min={1}
+                    value={createMinimumBarracoLevel}
+                    onChange={(e) => setCreateMinimumBarracoLevel(Number(e.target.value || 1))}
+                    placeholder="Barraco mínimo"
+                    className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <label className="flex items-center gap-3 rounded-2xl bg-background px-4 py-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={createIsPrivate}
+                    onChange={(e) => setCreateIsPrivate(e.target.checked)}
+                  />
+                  Facção privada
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleCreateFaction();
+                  }}
+                  disabled={isSubmitting}
+                  className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black uppercase tracking-wide text-white disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Criando...' : 'Criar facção'}
+                </button>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-border bg-card p-5">
+              <h2 className="font-heading text-2xl font-black uppercase">
+                Entrar em facção
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Entre por ID ou escolha uma facção pública disponível.
+              </p>
+
+              <div className="mt-4 flex flex-col gap-3">
+                <input
+                  value={joinFactionId}
+                  onChange={(e) => setJoinFactionId(e.target.value)}
+                  placeholder="ID da facção"
+                  className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleJoinFaction();
+                  }}
+                  disabled={isSubmitting}
+                  className="rounded-2xl border border-border bg-background px-5 py-3 text-sm font-black uppercase tracking-wide text-foreground disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Entrando...' : 'Entrar pelo ID'}
+                </button>
+              </div>
+
+              <div className="mt-5">
+                <div className="mb-3 text-sm font-black uppercase tracking-wide text-muted-foreground">
+                  Facções públicas
+                </div>
+
+                <div className="flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1">
+                  {factionList.length === 0 ? (
+                    <div className="rounded-2xl bg-background px-4 py-4 text-sm text-muted-foreground">
+                      Nenhuma facção disponível.
+                    </div>
+                  ) : (
+                    factionList.map((faction) => (
+                      <div
+                        key={faction.id}
+                        className="rounded-2xl border border-border bg-background px-4 py-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-lg font-black">
+                              {faction.name} <span className="text-red-400">[{faction.tag}]</span>
+                            </div>
+                            <div className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">
+                              Nível {faction.level} • {faction.memberCount} membros • {faction.investmentTierName}
+                            </div>
+                            <div className="mt-2 text-sm text-muted-foreground">
+                              {faction.description || 'Sem descrição.'}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleJoinFaction(faction.id);
+                            }}
+                            disabled={isSubmitting || faction.isPrivate}
+                            className="rounded-2xl bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white disabled:opacity-50"
+                          >
+                            {faction.isPrivate ? 'Privada' : 'Entrar'}
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
