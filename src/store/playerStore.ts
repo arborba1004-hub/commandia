@@ -12,7 +12,6 @@ import {
   isDirtyMoneyBlocked,
   isCleanMoneyBlocked,
 } from '@/Services/punishmentService';
-import { generateUUID } from '@/lib/uuid';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
@@ -21,6 +20,23 @@ const GRID_HEIGHT = 120;
 
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
+
+function getStoredAuthToken(): string | null {
+  const candidates = [
+    localStorage.getItem('authToken'),
+    localStorage.getItem('token'),
+    localStorage.getItem('jwt'),
+    localStorage.getItem('wix_auth_token'),
+  ];
+
+  for (const token of candidates) {
+    if (token && token.trim()) {
+      return token.trim();
+    }
+  }
+
+  return null;
+}
 
 type Balances = {
   dirtyMoney: number;
@@ -538,7 +554,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   loadPlayer: async () => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getStoredAuthToken();
       const stored = localStorage.getItem(STORAGE_KEY);
 
       // 1) sempre tenta aproveitar o cache local primeiro
@@ -620,6 +636,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       pollingAttempts: 0,
     });
 
+    void syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null);
+
     // Não dispara scheduleSync para evitar loop de sincronização
   },
 
@@ -663,6 +681,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       localVersion: 0,
       lastSyncAt: 0,
     });
+
+    void syncFactionStoreFromEnvelope(null);
   },
 
   saveLocal: () => {
@@ -720,7 +740,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   // POLLING - HIDRATAÇÃO QUASE EM TEMPO REAL
   // ==========================================
   startPolling: () => {
-    const token = localStorage.getItem('authToken');
+    const token = getStoredAuthToken();
     if (!token) return;
 
     // Evita múltiplas instâncias de polling
@@ -748,7 +768,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   pollPlayerFromBackend: async () => {
-    const token = localStorage.getItem('authToken');
+    const token = getStoredAuthToken();
     if (!token) {
       get().stopPolling();
       return;
@@ -1280,7 +1300,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         ...player,
         balances: {
           ...player.balances,
-          dirtyMoney: player.balances.dirtyMoney + payload.dirtyMoneyDelta,
+          dirtyMoney: Math.max(0, player.balances.dirtyMoney + payload.dirtyMoneyDelta),
         },
       };
 
