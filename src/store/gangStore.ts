@@ -742,4 +742,153 @@ export const useGangStore = create<GangStore>()(
               level: leveledUp ? currentGang.level + 1 : currentGang.level,
               expToNext: leveledUp
                 ? Math.round(currentGang.expToNext * 1.25)
-                : currentGang.ex
+                    : currentGang.expToNext,
+              slots: leveledUp && currentGang.level + 1 >= 5
+                ? Math.min(6, currentGang.slots + 1)
+                : currentGang.slots,
+            },
+            isLoading: false,
+            error: null,
+          });
+        } catch (err: any) {
+          set({
+            error: err?.message || 'Erro ao doar para o caixa tático',
+            isLoading: false,
+          });
+        }
+      },
+
+      upgradeGangSkill: async (skillId) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const currentGang = get().myGang;
+          if (!currentGang) throw new Error('Gangue não carregada.');
+
+          const expCosts: Record<GangUpgradeId, number> = {
+            training: 500,
+            hideout: 800,
+            blackmarket: 1000,
+          };
+
+          const validSkillId = skillId as GangUpgradeId;
+          const cost = expCosts[validSkillId];
+          if (!cost) throw new Error('Skill inválida.');
+
+          if (currentGang.exp < cost) {
+            throw new Error('EXP da gangue insuficiente para upgrade.');
+          }
+
+          const nextGang = {
+            ...currentGang,
+            exp: currentGang.exp - cost,
+            upgrades: {
+              ...currentGang.upgrades,
+              trainingGroundsLevel:
+                validSkillId === 'training'
+                  ? currentGang.upgrades.trainingGroundsLevel + 1
+                  : currentGang.upgrades.trainingGroundsLevel,
+              hideoutLevel:
+                validSkillId === 'hideout'
+                  ? currentGang.upgrades.hideoutLevel + 1
+                  : currentGang.upgrades.hideoutLevel,
+              blackMarketLevel:
+                validSkillId === 'blackmarket'
+                  ? currentGang.upgrades.blackMarketLevel + 1
+                  : currentGang.upgrades.blackMarketLevel,
+            },
+          };
+
+          set({
+            myGang: nextGang,
+            isLoading: false,
+            error: null,
+          });
+        } catch (err: any) {
+          set({
+            error: err?.message || 'Erro ao melhorar doutrina da gangue',
+            isLoading: false,
+          });
+        }
+      },
+
+      getDoctrineBonus: () => {
+        const currentGang = get().myGang || createDefaultGang();
+
+        return {
+          trainingBonusPercent: currentGang.upgrades.trainingGroundsLevel * 10,
+          defenseBonusPercent: currentGang.upgrades.hideoutLevel * 8,
+          lootBonusPercent: currentGang.upgrades.blackMarketLevel * 6,
+          rarityBonusPercent: currentGang.upgrades.blackMarketLevel * 2,
+        };
+      },
+
+      getMemberBattlePower: (member) => {
+        const doctrine = get().getDoctrineBonus();
+
+        const levelPower = member.level * 10;
+        const rarityPower = RARITY_BASE_POWER[member.rarity] || 0;
+        const loyaltyPower = Math.round(member.loyalty * 0.6);
+        const victoriesPower = member.victories * 2;
+        const skillPower = member.skills.reduce(
+          (acc, skill) => acc + skill.level * 6,
+          0
+        );
+        const gearPower =
+          (member.equipment.weaponId ? 20 : 0) +
+          (member.equipment.armorId ? 15 : 0) +
+          (member.equipment.vehicleId ? 10 : 0);
+
+        const subtotal =
+          levelPower + rarityPower + loyaltyPower + victoriesPower + skillPower + gearPower;
+
+        return Math.round(subtotal * (1 + doctrine.trainingBonusPercent / 100));
+      },
+
+      getBattleSnapshot: () => {
+        const currentGang = get().myGang || createDefaultGang();
+        const activeMembers = currentGang.members.filter((m) =>
+          currentGang.activeMemberIds.includes(m.id)
+        );
+        const reserveMembers = currentGang.members.filter(
+          (m) => !currentGang.activeMemberIds.includes(m.id)
+        );
+
+        const rawPower = activeMembers.reduce(
+          (acc, member) => acc + get().getMemberBattlePower(member),
+          0
+        );
+
+        const doctrine = get().getDoctrineBonus();
+        const formationBonus = useGangBattleStore.getState().getFormationBonus();
+
+        const attackPower = Math.round(
+          rawPower * (1 + formationBonus.attackPercent / 100)
+        );
+        const defensePower = Math.round(
+          rawPower *
+            (1 + (formationBonus.defensePercent + doctrine.defenseBonusPercent) / 100)
+        );
+        const lootPower = Math.round(
+          rawPower *
+            (1 + (formationBonus.lootPercent + doctrine.lootBonusPercent) / 100)
+        );
+
+        const totalPower = Math.round((attackPower + defensePower + lootPower) / 3);
+
+        return {
+          activeMembers,
+          reserveMembers,
+          rawPower,
+          totalPower,
+          attackPower,
+          defensePower,
+          lootPower,
+        };
+      },
+    }),
+    {
+      name: STORAGE_KEY,
+    }
+  )
+);
