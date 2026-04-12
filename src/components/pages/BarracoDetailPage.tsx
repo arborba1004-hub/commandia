@@ -2,19 +2,24 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
-import { syncPlayerUpdate } from '@/api/playerApi';
 import { ArrowLeft } from 'lucide-react';
-import { Image } from '@/components/ui/image';
+import { getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
 
 export default function BarracoDetailPage() {
   const navigate = useNavigate();
+
   const player = usePlayerStore((state) => state.player);
-  const setPlayer = usePlayerStore((state) => state.setPlayer);
+  const upgradeBarracoLocal = usePlayerStore((state) => state.upgradeBarracoLocal);
+  const syncPlayerToBackend = usePlayerStore((state) => state.syncPlayerToBackend);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
 
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!player) {
+  if (!isLoaded) {
+    void loadPlayer();
+
     return (
       <div className="min-h-screen w-full bg-black text-white flex items-center justify-center">
         Carregando...
@@ -22,18 +27,11 @@ export default function BarracoDetailPage() {
     );
   }
 
-  const level = player.niveis?.barracoLevel || 1;
-  const cleanMoney = player.balances?.cleanMoney || 0;
-
-  const BASE_COST = 500;
-  const MULTIPLIER = 1.1;
-
-  const getUpgradeCost = () => {
-    return Math.floor(BASE_COST * Math.pow(MULTIPLIER, level - 1));
-  };
-
-  const upgradeCost = getUpgradeCost();
-  const canUpgrade = cleanMoney >= upgradeCost && !isUpgrading;
+  const level = player?.niveis?.barracoLevel || 1;
+  const cleanMoney = Number(player?.balances?.cleanMoney || 0);
+  const requirements = getBarracoUpgradeRequirements(player);
+  const upgradeCost = requirements.cost;
+  const canUpgrade = requirements.allowed && !isUpgrading;
 
   const handleUpgrade = async () => {
     if (!canUpgrade) return;
@@ -41,35 +39,16 @@ export default function BarracoDetailPage() {
     setError(null);
     setIsUpgrading(true);
 
-    const optimisticPlayer = {
-      ...player,
-      niveis: {
-        ...player.niveis,
-        barracoLevel: level + 1,
-      },
-      balances: {
-        ...player.balances,
-        cleanMoney: cleanMoney - upgradeCost,
-      },
-    };
-
-    setPlayer(optimisticPlayer);
-
     try {
-      const response = await syncPlayerUpdate({
-        niveis: {
-          ...player.niveis,
-          barracoLevel: level + 1,
-        },
-        balances: {
-          ...player.balances,
-          cleanMoney: cleanMoney - upgradeCost,
-        },
-      });
+      const result = upgradeBarracoLocal();
 
-      setPlayer(response.player);
+      if (!result.ok) {
+        setError(result.reason || 'Erro ao evoluir barraco');
+        return;
+      }
+
+      await syncPlayerToBackend();
     } catch (err: any) {
-      setPlayer(player);
       setError(err?.message || 'Erro ao evoluir barraco');
     } finally {
       setIsUpgrading(false);
@@ -119,6 +98,7 @@ export default function BarracoDetailPage() {
         return descriptions[i];
       }
     }
+
     return descriptions[1];
   };
 
@@ -149,7 +129,6 @@ export default function BarracoDetailPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        {/* Botão voltar */}
         <button
           onClick={() => navigate('/barraco')}
           className="flex items-center gap-2 mb-6 text-foreground hover:text-primary transition-colors font-heading uppercase tracking-wider"
@@ -158,7 +137,6 @@ export default function BarracoDetailPage() {
           Voltar
         </button>
 
-        {/* Card principal */}
         <div className="bg-black/80 rounded-2xl p-8 shadow-xl border border-white/10 backdrop-blur-sm">
           <h1 className="text-4xl font-bold mb-2 text-center font-heading uppercase tracking-wider">
             🏠 {getBarracoName()}
@@ -168,14 +146,12 @@ export default function BarracoDetailPage() {
             Nível {level}
           </p>
 
-          {/* Descrição */}
           <div className="mb-8 p-6 rounded-xl bg-white/5 border border-white/10">
             <p className="text-center text-base leading-relaxed font-paragraph">
               {getBarracoDescription()}
             </p>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-2 gap-4 mb-8">
             <div className="p-4 rounded-xl bg-emerald-900/30 border border-emerald-500/20">
               <p className="text-xs opacity-70 font-heading uppercase tracking-wider mb-2">
@@ -196,24 +172,25 @@ export default function BarracoDetailPage() {
             </div>
           </div>
 
-          {/* Próximo nível */}
           <div className="mb-8 p-6 rounded-xl bg-purple-900/30 border border-purple-500/20">
             <p className="text-xs opacity-70 font-heading uppercase tracking-wider mb-2">
               Próximo Nível
             </p>
-            <p className="text-xl font-bold text-purple-300">
-              {getNextLevelName()}
-            </p>
+            <p className="text-xl font-bold text-purple-300">{getNextLevelName()}</p>
           </div>
 
-          {/* Erro */}
           {error && (
             <div className="mb-4 rounded-xl bg-red-500/20 border border-red-500/30 px-4 py-3 text-sm text-red-200">
               {error}
             </div>
           )}
 
-          {/* Botão upgrade */}
+          {!requirements.allowed && requirements.reason && !error && (
+            <div className="mb-4 rounded-xl bg-yellow-500/20 border border-yellow-500/30 px-4 py-3 text-sm text-yellow-200">
+              {requirements.reason}
+            </div>
+          )}
+
           <button
             onClick={handleUpgrade}
             disabled={!canUpgrade}
@@ -226,7 +203,7 @@ export default function BarracoDetailPage() {
             {isUpgrading ? 'Evoluindo...' : 'Evoluir Barraco'}
           </button>
 
-          {!canUpgrade && cleanMoney < upgradeCost && (
+          {!requirements.allowed && cleanMoney < upgradeCost && (
             <p className="text-center text-sm text-red-300 mt-4 font-paragraph">
               Você precisa de {(upgradeCost - cleanMoney).toLocaleString('pt-BR')} 💰 a mais
             </p>
