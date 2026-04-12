@@ -1387,32 +1387,62 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     };
   },
 
-  purchaseLuxuryItemLocal: (payload) => {
+  purchaseLuxuryItemLocal: ({
+    itemId,
+    name,
+    price,
+    skillType,
+    skillBonusPercent,
+    insurance,
+  }) => {
     const player = get().player;
-    const { dirtyMoney } = player.balances;
+    const cleanMoney = player?.balances?.cleanMoney ?? 0;
 
-    if (dirtyMoney < payload.price) {
-      return { ok: false, reason: 'Insufficient dirty money' };
+    if (cleanMoney < price) {
+      return { ok: false, reason: 'Saldo insuficiente' };
     }
 
-    get().applyPlayerUpdate((p) => {
-      const newPlayer = {
-        ...p,
-        balances: {
-          ...p.balances,
-          dirtyMoney: p.balances.dirtyMoney - payload.price,
-        },
-      };
+    const playerLevel = player?.niveis?.playerLevel ?? 1;
 
-      if (payload.skillBonusPercent > 0) {
-        newPlayer.skills = {
-          ...p.skills,
-          [payload.skillType]: (p.skills[payload.skillType] || 0) + payload.skillBonusPercent,
-        };
-      }
+    const alreadyOwned = (player?.inventory?.items || []).some(
+      (item: any) => item.itemId === itemId && item.level === playerLevel
+    );
 
-      return newPlayer;
-    });
+    if (alreadyOwned) {
+      return { ok: false, reason: 'Item já comprado neste nível' };
+    }
+
+    const newItem = {
+      id: `${itemId}-${playerLevel}-${Date.now()}`,
+      itemId,
+      name,
+      price,
+      purchasedAt: new Date().toISOString(),
+      insurance,
+      level: playerLevel,
+    };
+
+    get().applyPlayerUpdate((current) => ({
+      ...current,
+      balances: {
+        ...current.balances,
+        cleanMoney: current.balances.cleanMoney - price,
+      },
+      inventory: {
+        ...current.inventory,
+        items: [...(current.inventory?.items || []), newItem],
+      },
+      skills: {
+        ...current.skills,
+        [skillType]: Number(
+          ((current.skills?.[skillType] || 0) + skillBonusPercent).toFixed(2)
+        ),
+      },
+      pageLevels: {
+        ...current.pageLevels,
+        luxury: Math.max(current.pageLevels?.luxury || 1, playerLevel),
+      },
+    }));
 
     return { ok: true };
   },
