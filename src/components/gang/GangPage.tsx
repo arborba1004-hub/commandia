@@ -1,370 +1,358 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Coins, Trophy, TrendingUp, Shield, PlusCircle, Crown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-
-import { useGangStore } from '@/store/gangStore';
-import { usePlayerStore } from '@/store/playerStore';
-
+import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import FeatureLevelLock from '@/components/FeatureLevelLock';
-import { canAccessFeature, getFeatureLevelRequirement } from '@/utils/levelRequirements';
+import GangBattleStats from '@/components/gang/GangBattleStats';
+import GangFormationSelector from '@/components/gang/GangFormationSelector';
+import { useGangStore } from '@/store/gangStore';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Shield, Swords, Trash2, Zap } from 'lucide-react';
 
-import MemberCard from './MemberCard';
-import RecruitModal from './RecruitModal';
-import TrainModal from './TrainModal';
-import EquipModal from './EquipModal';
-import GangSkillsPanel from './GangSkillsPanel';
-
-import type { GangMember } from '@/types/gang';
+function getRarityClasses(rarity: string) {
+  switch (rarity) {
+    case 'Mítico':
+      return 'border-red-500/30 bg-red-500/10 text-red-300';
+    case 'Lendário':
+      return 'border-orange-500/30 bg-orange-500/10 text-orange-300';
+    case 'Épico':
+      return 'border-purple-500/30 bg-purple-500/10 text-purple-300';
+    case 'Raro':
+      return 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300';
+    default:
+      return 'border-white/10 bg-white/[0.03] text-zinc-200';
+  }
+}
 
 export default function GangPage() {
   const navigate = useNavigate();
-  const { myGang, fetchMyGang, isLoading, donateToTreasury } = useGangStore();
-  const player = usePlayerStore((state) => state.player);
 
-  // Estados locais
-  const [selectedMember, setSelectedMember] = useState<GangMember | null>(null);
-  const [showRecruitModal, setShowRecruitModal] = useState(false);
-  const [showTrainModal, setShowTrainModal] = useState(false);
-  const [showEquipModal, setShowEquipModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'members' | 'treasury' | 'skills'>('members');
+  const myGang = useGangStore((state) => state.myGang);
+  const isLoading = useGangStore((state) => state.isLoading);
+  const error = useGangStore((state) => state.error);
+  const initializeGang = useGangStore((state) => state.initializeGang);
+  const fetchMyGang = useGangStore((state) => state.fetchMyGang);
+  const recruitMember = useGangStore((state) => state.recruitMember);
+  const trainMember = useGangStore((state) => state.trainMember);
+  const toggleActive = useGangStore((state) => state.toggleActive);
+  const dismissMember = useGangStore((state) => state.dismissMember);
+  const getActiveMembers = useGangStore((state) => state.getActiveMembers);
+  const getReserveMembers = useGangStore((state) => state.getReserveMembers);
 
-  const playerLevel = player.niveis.playerLevel || 1;
-  const requiredLevel = getFeatureLevelRequirement('gang');
-  const isFeatureUnlocked = canAccessFeature(playerLevel, 'gang');
+  const [recruiting, setRecruiting] = useState<null | 'mission' | 'market' | 'premium'>(null);
+  const [trainingId, setTrainingId] = useState<string | null>(null);
 
-  // Se a funcionalidade não está desbloqueada, mostrar lock screen
-  if (!isFeatureUnlocked) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center px-4">
-          <FeatureLevelLock
-            playerLevel={playerLevel}
-            requiredLevel={requiredLevel}
-            featureName="Gang"
-            onNavigateToBarraco={() => navigate('/barraco')}
-          />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  // Carrega a quadrilha ao montar o componente
   useEffect(() => {
-    fetchMyGang();
-  }, [fetchMyGang]);
+    initializeGang();
+    void fetchMyGang();
+  }, [initializeGang, fetchMyGang]);
 
-  // Memoized calculations
-  const activeMembers = useMemo(() => {
-    if (!myGang) return [];
-    return myGang.members.filter((m) => myGang.activeMemberIds.includes(m.id));
-  }, [myGang]);
+  const activeMembers = useMemo(() => getActiveMembers(), [getActiveMembers, myGang]);
+  const reserveMembers = useMemo(() => getReserveMembers(), [getReserveMembers, myGang]);
 
-  const reserveMembers = useMemo(() => {
-    if (!myGang) return [];
-    return myGang.members.filter((m) => !myGang.activeMemberIds.includes(m.id));
-  }, [myGang]);
+  const handleRecruit = async (method: 'mission' | 'market' | 'premium') => {
+    setRecruiting(method);
+    try {
+      await recruitMember(method);
+    } finally {
+      setRecruiting(null);
+    }
+  };
 
-  const freeSlots = useMemo(() => {
-    if (!myGang) return 0;
-    return Math.max(0, myGang.slots - activeMembers.length);
-  }, [myGang, activeMembers.length]);
+  const handleTrain = async (memberId: string, premium = false) => {
+    setTrainingId(memberId);
+    try {
+      await trainMember(memberId, premium);
+    } finally {
+      setTrainingId(null);
+    }
+  };
 
-  const totalBattlePower = useMemo(() => {
-    return activeMembers.reduce((acc, member) => acc + (member.level || 1) * 10, 0);
-  }, [activeMembers]);
-
-  // Handlers otimizados com useCallback
-  const handleTrainMember = useCallback((member: GangMember) => {
-    setSelectedMember(member);
-    setShowTrainModal(true);
-  }, []);
-
-  const handleEquipMember = useCallback((member: GangMember) => {
-    setSelectedMember(member);
-    setShowEquipModal(true);
-  }, []);
-
-  const closeTrainModal = useCallback(() => {
-    setShowTrainModal(false);
-    setTimeout(() => setSelectedMember(null), 300); // delay para animação
-  }, []);
-
-  const closeEquipModal = useCallback(() => {
-    setShowEquipModal(false);
-    setTimeout(() => setSelectedMember(null), 300);
-  }, []);
-
-  // Early returns
-  if (isLoading && !myGang) {
+  if (!myGang && isLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-white text-xl">Carregando sua quadrilha...</p>
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando gangue...
         </div>
-      </div>
+        <Footer />
+      </>
     );
   }
 
-  if (!myGang) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <Crown className="w-20 h-20 mx-auto mb-6 text-yellow-500" />
-          <h2 className="text-4xl font-black mb-4">Você ainda não tem uma quadrilha</h2>
-          <p className="text-gray-400 mb-8">Crie ou entre em uma para dominar as ruas.</p>
-          {/* Botão para criar gang seria aqui */}
-        </div>
-      </div>
-    );
-  }
+  const gang = myGang;
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-black text-white flex flex-col">
       <Header />
 
-      <main className="pt-28 px-4 pb-24 max-w-7xl mx-auto">
-        {/* Header da Gang */}
-        <motion.div
-          initial={{ opacity: 0, y: -30 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-10"
-        >
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-4">
-                <h1 className="text-5xl font-black tracking-tighter">{myGang.name}</h1>
-                <span className="text-primary text-2xl font-bold">[{myGang.tag}]</span>
-              </div>
-              <p className="text-gray-400 mt-2 text-lg">
-                Nível {myGang.level} • EXP {myGang.exp.toLocaleString()}/{myGang.expToNext.toLocaleString()}
-              </p>
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setShowRecruitModal(true)}
-              className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary hover:to-purple-700 
-                         text-black font-bold px-8 py-4 rounded-2xl flex items-center gap-3 shadow-lg shadow-primary/30"
-            >
-              <PlusCircle size={24} />
-              Recrutar Novo Membro
-            </motion.button>
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-            <motion.div
-              whileHover={{ y: -4 }}
-              className="bg-zinc-900/80 border border-yellow-500/20 rounded-2xl p-5"
-            >
-              <Coins className="text-yellow-400 mb-3" size={28} />
-              <p className="text-sm text-gray-400">Tesouro Sujo</p>
-              <p className="text-2xl font-bold mt-1">R$ {myGang.treasury.dirtyMoney.toLocaleString()}</p>
-            </motion.div>
-
-            <motion.div
-              whileHover={{ y: -4 }}
-              className="bg-zinc-900/80 border border-emerald-500/20 rounded-2xl p-5"
-            >
-              <Coins className="text-emerald-400 mb-3" size={28} />
-              <p className="text-sm text-gray-400">Tesouro Limpo</p>
-              <p className="text-2xl font-bold mt-1">R$ {myGang.treasury.cleanMoney.toLocaleString()}</p>
-            </motion.div>
-
-            <motion.div
-              whileHover={{ y: -4 }}
-              className="bg-zinc-900/80 border border-cyan-500/20 rounded-2xl p-5"
-            >
-              <Trophy className="text-cyan-400 mb-3" size={28} />
-              <p className="text-sm text-gray-400">Vitórias</p>
-              <p className="text-2xl font-bold mt-1">{myGang.totalVictories}</p>
-            </motion.div>
-
-            <motion.div
-              whileHover={{ y: -4 }}
-              className="bg-zinc-900/80 border border-purple-500/20 rounded-2xl p-5"
-            >
-              <Shield className="text-purple-400 mb-3" size={28} />
-              <p className="text-sm text-gray-400">Poder de Batalha</p>
-              <p className="text-2xl font-bold mt-1">{totalBattlePower.toLocaleString()}</p>
-            </motion.div>
-          </div>
-        </motion.div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-white/10 mb-8">
-          {(['members', 'treasury', 'skills'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-8 py-4 font-bold text-lg transition-all relative ${
-                activeTab === tab
-                  ? 'text-white'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              {tab === 'members' && 'Membros'}
-              {tab === 'treasury' && 'Tesouro'}
-              {tab === 'skills' && 'Habilidades'}
-              {activeTab === tab && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                />
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Conteúdo das Tabs */}
-        <AnimatePresence mode="wait">
-          {activeTab === 'members' && (
-            <motion.div
-              key="members"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <p className="text-gray-400">
-                  Membros ativos: <span className="text-white font-bold">{activeMembers.length}</span> / {myGang.slots}
-                  {freeSlots > 0 && <span className="text-emerald-400"> (+{freeSlots} livres)</span>}
+      <main className="flex-1 px-4 pt-[140px] md:pt-[160px] pb-20">
+        <div className="max-w-7xl mx-auto">
+          <section className="mb-8 rounded-3xl border border-red-500/20 bg-gradient-to-r from-red-950/30 to-black p-6 md:p-8">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-red-400">
+                  Centro tático da gangue
+                </p>
+                <h1 className="mt-3 text-4xl md:text-6xl font-black tracking-tight text-white">
+                  {gang?.name || 'Minha Gangue'}
+                </h1>
+                <p className="mt-3 max-w-2xl text-zinc-400">
+                  Monte sua composição ativa, treine integrantes, ajuste formação e
+                  prepare sua tropa para invasões, defesa e saque.
                 </p>
               </div>
 
-              {/* Membros Ativos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {activeMembers.map((member) => (
-                  <MemberCard
-                    key={member.id}
-                    member={member}
-                    onTrain={() => handleTrainMember(member)}
-                    onEquip={() => handleEquipMember(member)}
-                    onToggleActive={() => {}}
-                    onDismiss={() => {}}
-                  />
-                ))}
-              </div>
-
-              {/* Membros na Reserva */}
-              {reserveMembers.length > 0 && (
-                <div className="mt-16">
-                  <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                    <Users className="text-gray-400" /> Reserva
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-75">
-                    {reserveMembers.map((member) => (
-                      <MemberCard
-                        key={member.id}
-                        member={member}
-                        onTrain={() => handleTrainMember(member)}
-                        onEquip={() => handleEquipMember(member)}
-                        onToggleActive={() => {}}
-                        onDismiss={() => {}}
-                        isReserve
-                      />
-                    ))}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                    Slots
                   </div>
+                  <div className="mt-1 text-2xl font-black">{gang?.slots || 0}</div>
                 </div>
-              )}
-            </motion.div>
-          )}
-
-          {activeTab === 'treasury' && (
-            <motion.div
-              key="treasury"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="bg-zinc-900/70 border border-white/10 rounded-3xl p-8 max-w-2xl mx-auto"
-            >
-              <h2 className="text-3xl font-bold mb-3">Doar para o Tesouro</h2>
-              <p className="text-gray-400 mb-10">
-                Fortaleça sua quadrilha. Cada doação gera EXP e aumenta seu status dentro da gang.
-              </p>
-
-              <div className="grid gap-4">
-                <button
-                  onClick={() => donateToTreasury('dirtyMoney', 10000)}
-                  className="group bg-red-950/60 hover:bg-red-900/80 border border-red-500/30 p-6 rounded-2xl transition-all text-left"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-bold text-xl">R$ 10.000 Sujo</p>
-                      <p className="text-emerald-400">+10 EXP da Quadrilha</p>
-                    </div>
-                    <div className="text-3xl">💰</div>
+                <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                    Nível
                   </div>
-                </button>
-
-                <button
-                  onClick={() => donateToTreasury('cleanMoney', 5000)}
-                  className="group bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/30 p-6 rounded-2xl transition-all text-left"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-bold text-xl">R$ 5.000 Limpo</p>
-                      <p className="text-emerald-400">+20 EXP da Quadrilha</p>
-                    </div>
-                    <div className="text-3xl">💵</div>
+                  <div className="mt-1 text-2xl font-black">{gang?.level || 1}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                    Vitórias
                   </div>
-                </button>
-
-                <button
-                  onClick={() => donateToTreasury('corre', 100)}
-                  className="group bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 p-6 rounded-2xl transition-all text-left"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-bold text-xl">100 Corre</p>
-                      <p className="text-emerald-400">+15 EXP da Quadrilha</p>
-                    </div>
-                    <div className="text-3xl">🏃‍♂️</div>
+                  <div className="mt-1 text-2xl font-black">{gang?.totalVictories || 0}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                    Derrotas
                   </div>
-                </button>
+                  <div className="mt-1 text-2xl font-black">{gang?.totalDefeats || 0}</div>
+                </div>
               </div>
-            </motion.div>
-          )}
+            </div>
 
-          {activeTab === 'skills' && (
-            <motion.div
-              key="skills"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <GangSkillsPanel />
-            </motion.div>
-          )}
-        </AnimatePresence>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                onClick={() => handleRecruit('mission')}
+                disabled={recruiting !== null}
+                className="rounded-2xl bg-amber-500 px-5 py-3 font-black text-black disabled:opacity-50"
+              >
+                {recruiting === 'mission' ? 'Recrutando...' : 'Recrutar Rua'}
+              </button>
+              <button
+                onClick={() => handleRecruit('market')}
+                disabled={recruiting !== null}
+                className="rounded-2xl bg-cyan-500 px-5 py-3 font-black text-black disabled:opacity-50"
+              >
+                {recruiting === 'market' ? 'Recrutando...' : 'Mercado Negro'}
+              </button>
+              <button
+                onClick={() => handleRecruit('premium')}
+                disabled={recruiting !== null}
+                className="rounded-2xl bg-purple-500 px-5 py-3 font-black text-white disabled:opacity-50"
+              >
+                {recruiting === 'premium' ? 'Recrutando...' : 'Premium'}
+              </button>
+              <button
+                onClick={() => navigate('/game')}
+                className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white"
+              >
+                Voltar ao mapa
+              </button>
+            </div>
+
+            {error && (
+              <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {error}
+              </div>
+            )}
+          </section>
+
+          <section className="mb-8">
+            <GangBattleStats />
+          </section>
+
+          <section className="mb-8">
+            <GangFormationSelector />
+          </section>
+
+          <section className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <div className="rounded-3xl border border-white/10 bg-[#090909] p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-[0.08em] text-white">
+                    Tropa Ativa
+                  </h2>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Esses membros entram na composição de ataque e defesa.
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-red-500/10 px-3 py-2 text-sm font-bold text-red-300">
+                  {activeMembers.length}/{gang?.slots || 0}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {activeMembers.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-zinc-500">
+                    Nenhum integrante ativo ainda.
+                  </div>
+                ) : (
+                  activeMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className={`rounded-3xl border p-5 ${getRarityClasses(member.rarity)}`}
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-xl font-black">{member.name}</h3>
+                            <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold">
+                              {member.class}
+                            </span>
+                            <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold">
+                              {member.rarity}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div className="rounded-xl bg-black/30 px-3 py-2">
+                              <div className="text-zinc-400">Nível</div>
+                              <div className="font-bold">{member.level}</div>
+                            </div>
+                            <div className="rounded-xl bg-black/30 px-3 py-2">
+                              <div className="text-zinc-400">Lealdade</div>
+                              <div className="font-bold">{member.loyalty}</div>
+                            </div>
+                            <div className="rounded-xl bg-black/30 px-3 py-2">
+                              <div className="text-zinc-400">Vitórias</div>
+                              <div className="font-bold">{member.victories}</div>
+                            </div>
+                            <div className="rounded-xl bg-black/30 px-3 py-2">
+                              <div className="text-zinc-400">Derrotas</div>
+                              <div className="font-bold">{member.defeats}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                          <button
+                            onClick={() => handleTrain(member.id, false)}
+                            disabled={trainingId === member.id}
+                            className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-black disabled:opacity-50"
+                          >
+                            <Zap className="h-4 w-4" />
+                            {trainingId === member.id ? 'Treinando...' : 'Treinar'}
+                          </button>
+
+                          <button
+                            onClick={() => handleTrain(member.id, true)}
+                            disabled={trainingId === member.id}
+                            className="inline-flex items-center gap-2 rounded-2xl bg-purple-500 px-4 py-3 text-sm font-black text-white disabled:opacity-50"
+                          >
+                            <Swords className="h-4 w-4" />
+                            Premium
+                          </button>
+
+                          <button
+                            onClick={() => void toggleActive(member.id)}
+                            className="inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-black text-black"
+                          >
+                            <Shield className="h-4 w-4" />
+                            Reserva
+                          </button>
+
+                          <button
+                            onClick={() => void dismissMember(member.id)}
+                            className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Dispensar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-[#090909] p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-[0.08em] text-white">
+                    Reserva da Gangue
+                  </h2>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Membros fora da composição ativa, prontos para rotação.
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white/5 px-3 py-2 text-sm font-bold text-zinc-300">
+                  {reserveMembers.length} reservas
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {reserveMembers.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-zinc-500">
+                    Nenhum integrante na reserva.
+                  </div>
+                ) : (
+                  reserveMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className={`rounded-3xl border p-5 ${getRarityClasses(member.rarity)}`}
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-xl font-black">{member.name}</h3>
+                            <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold">
+                              {member.class}
+                            </span>
+                            <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold">
+                              {member.rarity}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2 text-sm text-zinc-300">
+                            <span className="rounded-xl bg-black/30 px-3 py-2">
+                              Lv. {member.level}
+                            </span>
+                            <span className="rounded-xl bg-black/30 px-3 py-2">
+                              Lealdade {member.loyalty}
+                            </span>
+                            <span className="rounded-xl bg-black/30 px-3 py-2">
+                              Skills {member.skills.length}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                          <button
+                            onClick={() => void toggleActive(member.id)}
+                            className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-black"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Ativar
+                          </button>
+
+                          <button
+                            onClick={() => handleTrain(member.id, false)}
+                            disabled={trainingId === member.id}
+                            className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-black disabled:opacity-50"
+                          >
+                            <Zap className="h-4 w-4" />
+                            {trainingId === member.id ? 'Treinando...' : 'Treinar'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
       </main>
-
-      {/* Modais */}
-      <RecruitModal isOpen={showRecruitModal} onClose={() => setShowRecruitModal(false)} />
-
-      <AnimatePresence>
-        {selectedMember && (
-          <>
-            <TrainModal
-              isOpen={showTrainModal}
-              member={selectedMember}
-              onClose={closeTrainModal}
-            />
-            <EquipModal
-              isOpen={showEquipModal}
-              member={selectedMember}
-              onClose={closeEquipModal}
-            />
-          </>
-        )}
-      </AnimatePresence>
 
       <Footer />
     </div>
