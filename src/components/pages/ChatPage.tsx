@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ChatTabs from '@/components/chat/chatTabs';
@@ -7,6 +7,8 @@ import ChatMessageList from '@/components/chat/ChatMessageList';
 import ChatComposer from '@/components/chat/ChatComposer';
 import { useChatStore } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface ExtendedPlayer {
   _id?: string;
@@ -29,8 +31,17 @@ function isValidChannel(value: string | null): value is ChatChannelType {
 
 export default function ChatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading: authLoading } = useGoogleAuth();
 
   const player = usePlayerStore((state) => state.player) as ExtendedPlayer | null;
+
+  // Redireciona se não autenticado
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   const activeChannel = useChatStore((state) => state.activeChannel);
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
@@ -58,6 +69,25 @@ export default function ChatPage() {
   const [mailRecipientName, setMailRecipientName] = useState('');
   const [mailSubject, setMailSubject] = useState('');
   const [hasBootstrapped, setHasBootstrapped] = useState(false);
+
+  // Garante que o player está autenticado
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !player) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-300">Você precisa estar autenticado para acessar o chat.</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentUserId = String(player?._id || player?.googleId || '');
   const hasFaction = Boolean(player?.factionId);

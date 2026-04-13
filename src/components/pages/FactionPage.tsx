@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useFactionStore } from '@/store/factionStore';
 import { usePlayerStore } from '@/store/playerStore';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { FactionInvestmentBranch, FactionRole } from '@/types/faction';
 import {
   FACTION_BRANCH_DESCRIPTIONS,
@@ -72,7 +75,41 @@ function getFactionDisplayById(factionList: any[], factionId: string) {
 }
 
 export default function FactionPage() {
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading: authLoading } = useGoogleAuth();
+
   const player = usePlayerStore((state) => state.player);
+
+  // Redireciona se não autenticado
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+  // Garante que o player está autenticado
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !player) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-300">Você precisa estar autenticado para acessar a facção.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <FactionPageContent player={player} />;
+}
+
+function FactionPageContent({ player }: { player: any }) {
 
   const myFaction = useFactionStore((state) => state.myFaction);
   const factionList = useFactionStore((state) => state.factionList);
