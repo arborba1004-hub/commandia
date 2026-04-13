@@ -145,13 +145,6 @@ function buildLocalEstimate(
       respect?: number;
       vigor?: number;
     };
-    gangMembers?: {
-      frente?: { level?: number };
-      muralha?: { level?: number };
-      nitro?: { level?: number };
-      certeiro?: { level?: number };
-      wifi?: { level?: number };
-    };
   } | null,
   target: AttackTarget
 ): BattleEstimate {
@@ -162,12 +155,7 @@ function buildLocalEstimate(
   const respect = safeNumber(attacker?.skills?.respect);
   const vigor = safeNumber(attacker?.skills?.vigor);
 
-  const frente = safeNumber(attacker?.gangMembers?.frente?.level);
-  const muralha = safeNumber(attacker?.gangMembers?.muralha?.level);
-  const nitro = safeNumber(attacker?.gangMembers?.nitro?.level);
-  const certeiro = safeNumber(attacker?.gangMembers?.certeiro?.level);
-  const wifi = safeNumber(attacker?.gangMembers?.wifi?.level);
-
+  // Usa apenas dados reais do player (sem gangMembers que não existe)
   const attackerBasePower = safeNumber(attacker?.power, 100);
   const attackerComputedPower =
     attackerBasePower +
@@ -176,12 +164,7 @@ function buildLocalEstimate(
     intelligence * 5 +
     agility * 6 +
     respect * 3 +
-    vigor * 5 +
-    frente * 30 +
-    muralha * 30 +
-    nitro * 26 +
-    certeiro * 30 +
-    wifi * 24;
+    vigor * 5;
 
   const defenderComputedPower =
     safeNumber(target?.power, 100) +
@@ -194,8 +177,8 @@ function buildLocalEstimate(
   );
 
   const targetDirtyMoney = safeNumber(target?.dirtyMoney);
-  const lootBonus = attack * 0.003 + frente * 0.01;
-  const defenseReduction = defense * 0.001 + muralha * 0.004;
+  const lootBonus = attack * 0.003;
+  const defenseReduction = defense * 0.001;
 
   const estimatedLoot = Math.max(
     0,
