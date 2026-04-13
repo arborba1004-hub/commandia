@@ -161,7 +161,7 @@ function FactionPageContent({ player }: { player: any }) {
   useEffect(() => {
     void loadMyFaction();
     void loadFactionList();
-  }, [loadMyFaction, loadFactionList]);
+  }, []); // Only run once on mount
 
   useEffect(() => {
     if (!myFaction) return;

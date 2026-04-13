@@ -102,10 +102,12 @@ export default function ChatPage() {
       setActiveChannel(queryChannel);
     } else if (isValidChannel(sessionChannel)) {
       setActiveChannel(sessionChannel);
+    } else {
+      setActiveChannel('complexo');
     }
 
     setHasBootstrapped(true);
-  }, [hasBootstrapped, searchParams, setActiveChannel]);
+  }, []); // Only run once on mount
 
   useEffect(() => {
     if (!hasBootstrapped) return;
@@ -116,7 +118,7 @@ export default function ChatPage() {
     return () => {
       stopChatPolling();
     };
-  }, [hasBootstrapped, loadChat, startChatPolling, stopChatPolling]);
+  }, [hasBootstrapped]); // Only run when bootstrapped
 
   useEffect(() => {
     if (!hasBootstrapped) return;
@@ -129,14 +131,7 @@ export default function ChatPage() {
     if (activeChannel === 'faccao' && hasFaction) {
       void fetchFactionHelpRequests(true);
     }
-  }, [
-    activeChannel,
-    hasBootstrapped,
-    setSearchParams,
-    fetchMessages,
-    fetchFactionHelpRequests,
-    hasFaction,
-  ]);
+  }, [activeChannel, hasBootstrapped]); // Removed unnecessary dependencies
 
   const currentMessages = useMemo(() => {
     if (activeChannel === 'complexo') return complexoMessages;
