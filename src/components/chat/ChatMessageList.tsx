@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 import type { ChatMessage, FactionHelpRequest } from '@/store/chatStore';
 import { Image } from '@/components/ui/image';
+import { CUSTOM_EMOJIS } from '@/data/customEmojis';
 
 interface ChatMessageListProps {
   messages: ChatMessage[];
@@ -31,33 +32,89 @@ function formatDate(value: string) {
 
 type BodyPart =
   | { type: 'text'; value: string }
-  | { type: 'image'; id: string; src: string; alt: string };
+  | { type: 'image'; id: string; src: string; alt: string }
+  | { type: 'custom-emoji'; id: string; shortcode: string; imageUrl: string; label: string };
 
 function parseMessageBody(body: string): BodyPart[] {
-  const tokenRegex = /\[imgemoji:([^|\]]+)\|([^|\]]+)\|([^\]]+)\]/g;
+  const imageTokenRegex = /\[imgemoji:([^|\]]+)\|([^|\]]+)\|([^\]]+)\]/g;
+  const customEmojiRegex = /:([a-z_]+):/g;
+  
   const parts: BodyPart[] = [];
-
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = tokenRegex.exec(body)) !== null) {
-    if (match.index > lastIndex) {
+  // First pass: find all image tokens and custom emojis
+  const tokens: Array<{ type: 'image' | 'custom-emoji'; index: number; length: number; data: any }> = [];
+
+  // Find image tokens
+  while ((match = imageTokenRegex.exec(body)) !== null) {
+    tokens.push({
+      type: 'image',
+      index: match.index,
+      length: match[0].length,
+      data: {
+        id: match[1],
+        src: match[2],
+        alt: match[3],
+      },
+    });
+  }
+
+  // Find custom emojis
+  while ((match = customEmojiRegex.exec(body)) !== null) {
+    const shortcode = match[0]; // e.g., ":comando_hostil:"
+    const emoji = CUSTOM_EMOJIS.find((e) => e.shortcode === shortcode);
+    if (emoji) {
+      tokens.push({
+        type: 'custom-emoji',
+        index: match.index,
+        length: match[0].length,
+        data: {
+          id: emoji.id,
+          shortcode: emoji.shortcode,
+          imageUrl: emoji.imageUrl,
+          label: emoji.label,
+        },
+      });
+    }
+  }
+
+  // Sort tokens by index
+  tokens.sort((a, b) => a.index - b.index);
+
+  // Build parts array
+  lastIndex = 0;
+  for (const token of tokens) {
+    // Add text before token
+    if (token.index > lastIndex) {
       parts.push({
         type: 'text',
-        value: body.slice(lastIndex, match.index),
+        value: body.slice(lastIndex, token.index),
       });
     }
 
-    parts.push({
-      type: 'image',
-      id: match[1],
-      src: match[2],
-      alt: match[3],
-    });
+    // Add token
+    if (token.type === 'image') {
+      parts.push({
+        type: 'image',
+        id: token.data.id,
+        src: token.data.src,
+        alt: token.data.alt,
+      });
+    } else if (token.type === 'custom-emoji') {
+      parts.push({
+        type: 'custom-emoji',
+        id: token.data.id,
+        shortcode: token.data.shortcode,
+        imageUrl: token.data.imageUrl,
+        label: token.data.label,
+      });
+    }
 
-    lastIndex = tokenRegex.lastIndex;
+    lastIndex = token.index + token.length;
   }
 
+  // Add remaining text
   if (lastIndex < body.length) {
     parts.push({
       type: 'text',
@@ -65,6 +122,7 @@ function parseMessageBody(body: string): BodyPart[] {
     });
   }
 
+  // If no parts were added, return the whole body as text
   if (!parts.length) {
     parts.push({
       type: 'text',
@@ -86,6 +144,19 @@ const MessageBody = memo(function MessageBody({ body }: { body: string }) {
             <span key={`text-${index}`} className="whitespace-pre-wrap break-words">
               {part.value}
             </span>
+          );
+        }
+
+        if (part.type === 'custom-emoji') {
+          return (
+            <Image
+              key={`emoji-${part.id}-${index}`}
+              src={part.imageUrl}
+              alt={part.label}
+              className="inline-block h-8 w-8 align-middle"
+              draggable={false}
+              loading="lazy"
+            />
           );
         }
 
