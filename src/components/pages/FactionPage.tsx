@@ -1120,14 +1120,14 @@ function FactionPageContent({ player }: { player: any }) {
                     </div>
 
                     <div className="mt-3 flex flex-col gap-2">
-                      {Array.isArray(myFaction?.diplomacy?.allies) &&
-                      myFaction.diplomacy.allies.length > 0 ? (
-                        myFaction.diplomacy.allies.map((item: any, index: number) => (
+                      {Array.isArray(myFaction?.allyFactionIds) &&
+                      myFaction.allyFactionIds.length > 0 ? (
+                        myFaction.allyFactionIds.map((item: any, index: number) => (
                           <div
-                            key={String(item.id || item._id || item.factionId || index)}
+                            key={String(item || index)}
                             className="rounded-2xl border border-border px-4 py-3 text-sm"
                           >
-                            {item.name || item.tag || item.factionId || 'Facção aliada'}
+                            {String(item)}
                           </div>
                         ))
                       ) : (
@@ -1144,14 +1144,14 @@ function FactionPageContent({ player }: { player: any }) {
                     </div>
 
                     <div className="mt-3 flex flex-col gap-2">
-                      {Array.isArray(myFaction?.diplomacy?.rivals) &&
-                      myFaction.diplomacy.rivals.length > 0 ? (
-                        myFaction.diplomacy.rivals.map((item: any, index: number) => (
+                      {Array.isArray(myFaction?.enemyFactionIds) &&
+                      myFaction.enemyFactionIds.length > 0 ? (
+                        myFaction.enemyFactionIds.map((item: any, index: number) => (
                           <div
-                            key={String(item.id || item._id || item.factionId || index)}
+                            key={String(item || index)}
                             className="rounded-2xl border border-border px-4 py-3 text-sm"
                           >
-                            {item.name || item.tag || item.factionId || 'Facção rival'}
+                            {String(item)}
                           </div>
                         ))
                       ) : (
