@@ -36,13 +36,6 @@ export default function ChatPage() {
 
   const player = usePlayerStore((state) => state.player) as ExtendedPlayer | null;
 
-  // Redireciona se não autenticado
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate('/');
-    }
-  }, [isAuthenticated, authLoading, navigate]);
-
   const activeChannel = useChatStore((state) => state.activeChannel);
   const setActiveChannel = useChatStore((state) => state.setActiveChannel);
   const complexoMessages = useChatStore((state) => state.complexoMessages);
@@ -70,27 +63,12 @@ export default function ChatPage() {
   const [mailSubject, setMailSubject] = useState('');
   const [hasBootstrapped, setHasBootstrapped] = useState(false);
 
-  // Garante que o player está autenticado
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !player) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-300">Você precisa estar autenticado para acessar o chat.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const currentUserId = String(player?._id || player?.googleId || '');
-  const hasFaction = Boolean(player?.factionId);
+  // Redireciona se não autenticado
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   useEffect(() => {
     if (hasBootstrapped) return;
@@ -128,10 +106,13 @@ export default function ChatPage() {
 
     void fetchMessages(activeChannel, true);
 
-    if (activeChannel === 'faccao' && hasFaction) {
+    if (activeChannel === 'faccao' && player?.factionId) {
       void fetchFactionHelpRequests(true);
     }
-  }, [activeChannel, hasBootstrapped]); // Removed unnecessary dependencies
+  }, [activeChannel, hasBootstrapped, player?.factionId, setSearchParams, fetchMessages, fetchFactionHelpRequests]);
+
+  const currentUserId = String(player?._id || player?.googleId || '');
+  const hasFaction = Boolean(player?.factionId);
 
   const currentMessages = useMemo(() => {
     if (activeChannel === 'complexo') return complexoMessages;
@@ -153,6 +134,50 @@ export default function ChatPage() {
       (request) => String(request.requesterId) === currentUserId
     );
   }, [factionHelpRequests, currentUserId]);
+
+  const mailRecipientsPreview: MailRecipient[] = useMemo(() => {
+    const map = new Map<string, MailRecipient>();
+
+    for (const message of mailMessages) {
+      const senderId = String(message.senderId || '');
+      const recipientId = String(message.recipientId || '');
+
+      if (senderId && senderId !== currentUserId) {
+        map.set(senderId, {
+          id: senderId,
+          name: message.senderName || 'Jogador',
+        });
+      }
+
+      if (recipientId && recipientId !== currentUserId) {
+        map.set(recipientId, {
+          id: recipientId,
+          name: message.recipientName || 'Jogador',
+        });
+      }
+    }
+
+    return Array.from(map.values()).slice(0, 8);
+  }, [mailMessages, currentUserId]);
+
+  // Garante que o player está autenticado
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !player) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-300">Você precisa estar autenticado para acessar o chat.</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSendMessage = async (body: string) => {
     if (activeChannel === 'complexo') {
@@ -200,31 +225,6 @@ export default function ChatPage() {
   const handleHelpRequest = async (requestId: string) => {
     await helpFactionRequest(requestId);
   };
-
-  const mailRecipientsPreview: MailRecipient[] = useMemo(() => {
-    const map = new Map<string, MailRecipient>();
-
-    for (const message of mailMessages) {
-      const senderId = String(message.senderId || '');
-      const recipientId = String(message.recipientId || '');
-
-      if (senderId && senderId !== currentUserId) {
-        map.set(senderId, {
-          id: senderId,
-          name: message.senderName || 'Jogador',
-        });
-      }
-
-      if (recipientId && recipientId !== currentUserId) {
-        map.set(recipientId, {
-          id: recipientId,
-          name: message.recipientName || 'Jogador',
-        });
-      }
-    }
-
-    return Array.from(map.values()).slice(0, 8);
-  }, [mailMessages, currentUserId]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
