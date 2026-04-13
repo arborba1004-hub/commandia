@@ -49,84 +49,93 @@ export function getBranchRequirement(
       };
 
     case 'giro':
+      const giroReq = 2;
       return {
-        unlocked: barracoLevel >= 1,
+        unlocked: barracoLevel >= giroReq,
         title: 'Giro',
-        reason: 'Giro disponível a partir do barraco nível 1.',
+        reason: `Giro disponível a partir do barraco nível ${giroReq}.`,
         currentValue: barracoLevel,
-        requiredValue: 1,
+        requiredValue: giroReq,
       };
 
     case 'lavagem':
+      const lavagemReq = 4;
       return {
-        unlocked: barracoLevel >= 1,
+        unlocked: barracoLevel >= lavagemReq,
         title: 'Lavagem de Dinheiro',
-        reason: 'Lavagem disponível a partir do barraco nível 1.',
+        reason: `Lavagem disponível a partir do barraco nível ${lavagemReq}.`,
         currentValue: barracoLevel,
-        requiredValue: 1,
+        requiredValue: lavagemReq,
       };
 
     case 'luxury':
+      const luxuryReq = 5;
       return {
-        unlocked: barracoLevel >= 1,
+        unlocked: barracoLevel >= luxuryReq,
         title: 'Galeria',
-        reason: 'Galeria disponível a partir do barraco nível 1.',
+        reason: `Galeria disponível a partir do barraco nível ${luxuryReq}.`,
         currentValue: barracoLevel,
-        requiredValue: 1,
+        requiredValue: luxuryReq,
       };
 
     case 'arsenal':
+      const arsenalReq = 3;
       return {
-        unlocked: barracoLevel >= 1,
+        unlocked: barracoLevel >= arsenalReq,
         title: 'Arsenal',
-        reason: 'Arsenal disponível a partir do barraco nível 1.',
+        reason: `Arsenal disponível a partir do barraco nível ${arsenalReq}.`,
         currentValue: barracoLevel,
-        requiredValue: 1,
+        requiredValue: arsenalReq,
       };
 
     case 'bribery':
+      const briberyReq = 6;
       return {
-        unlocked: barracoLevel >= 1,
+        unlocked: barracoLevel >= briberyReq,
         title: 'Suborno',
-        reason: 'Suborno disponível a partir do barraco nível 1.',
+        reason: `Suborno disponível a partir do barraco nível ${briberyReq}.`,
         currentValue: barracoLevel,
-        requiredValue: 1,
+        requiredValue: briberyReq,
       };
 
     case 'hierarchy':
+      const hierarchyReq = 2;
       return {
-        unlocked: barracoLevel >= 1,
+        unlocked: barracoLevel >= hierarchyReq,
         title: 'Hierarquia',
-        reason: 'Hierarquia disponível a partir do barraco nível 1.',
+        reason: `Hierarquia disponível a partir do barraco nível ${hierarchyReq}.`,
         currentValue: barracoLevel,
-        requiredValue: 1,
+        requiredValue: hierarchyReq,
       };
 
     case 'faction':
+      const factionReq = 7;
       return {
-        unlocked: barracoLevel >= 1,
+        unlocked: barracoLevel >= factionReq,
         title: 'Facção',
-        reason: 'Facção disponível a partir do barraco nível 1.',
+        reason: `Facção disponível a partir do barraco nível ${factionReq}.`,
         currentValue: barracoLevel,
-        requiredValue: 1,
+        requiredValue: factionReq,
       };
 
     case 'talents':
+      const talentsReq = 8;
       return {
-        unlocked: barracoLevel >= 1,
+        unlocked: barracoLevel >= talentsReq,
         title: 'Talentos',
-        reason: 'Talentos disponíveis a partir do barraco nível 1.',
+        reason: `Talentos disponíveis a partir do barraco nível ${talentsReq}.`,
         currentValue: barracoLevel,
-        requiredValue: 1,
+        requiredValue: talentsReq,
       };
 
     case 'fuga':
+      const fugaReq = 9;
       return {
-        unlocked: barracoLevel >= 1,
+        unlocked: barracoLevel >= fugaReq,
         title: 'Fuga Ilustrada',
-        reason: 'Fuga disponível a partir do barraco nível 1.',
+        reason: `Fuga disponível a partir do barraco nível ${fugaReq}.`,
         currentValue: barracoLevel,
-        requiredValue: 1,
+        requiredValue: fugaReq,
       };
 
     default:
