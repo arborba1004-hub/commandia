@@ -27,6 +27,7 @@ import { getPlayerRank, checkRankPromotion } from '@/utils/hierarchySystem';
 import RankPromotionNotification from '@/components/RankPromotionNotification';
 import Header from '@/components/Header';
 import { fetchOtherPlayersMap } from '@/api/playersApi';
+import MapTargetActionModal from '@/components/game/MapTargetActionModal';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -959,6 +960,7 @@ const rect = containerRef.current.getBoundingClientRect();
           barracoLevel: pLevel,
           power: p.power || 100,
           dirtyMoney: p.dirtyMoney || 100000,
+          factionId: p.factionId ?? null,
         });
 
         const label = existing.userData?.nameLabel;
@@ -983,6 +985,7 @@ const rect = containerRef.current.getBoundingClientRect();
           barracoLevel: pLevel,
           power: p.power || 100,
           dirtyMoney: p.dirtyMoney || 100000,
+          factionId: p.factionId ?? null,
         });
 
         const label = createTextLabel(p.name || 'VIZINHO', getPlayerRank(pLevel).title);
@@ -1158,30 +1161,10 @@ const rect = containerRef.current.getBoundingClientRect();
           onClose={() => setShowPromotion(false)}
         />
 
-        {previewOpen && (
-          <div className="absolute inset-0 z-50 bg-black/60 flex items-end justify-center">
-            <div className="w-full max-w-md rounded-t-3xl bg-[#090909] border border-red-500/30 p-5">
-              <h2 className="text-2xl font-black text-white mb-4">Invadir barraco</h2>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => useMapAttackStore.getState().closePreview()}
-                  className="flex-1 rounded-2xl bg-zinc-700 px-4 py-4 font-bold text-white"
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  onClick={executeMapAttack}
-                  disabled={isStartingBattle}
-                  className="flex-1 rounded-2xl bg-red-600 px-4 py-4 font-black text-white disabled:opacity-50"
-                >
-                  {isStartingBattle ? 'INVADINDO...' : 'INVADIR'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <MapTargetActionModal
+          isStartingBattle={isStartingBattle}
+          onAttack={executeMapAttack}
+        />
 
         <div
           ref={containerRef}
