@@ -339,7 +339,7 @@ function FactionPageContent({ player }: { player: any }) {
       return;
     }
 
-const ok = await updateSettings({
+    const ok = await updateSettings({
       description: settingsDescription,
       isPrivate: settingsIsPrivate,
       minimumPower: settingsMinimumPower,
@@ -651,23 +651,6 @@ const ok = await updateSettings({
                           +{myFaction.investmentBuffs.agilityPercent.toFixed(1)}%
                         </div>
                       </div>
-     <div className="rounded-2xl border border-border px-4 py-3">
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Ganho limpo
-                        </div>
-                        <div className="mt-1 text-lg font-black">
-                          +{myFaction.investmentBuffs.cleanMoneyGainPercent.toFixed(1)}%
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-border px-4 py-3">
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Agilidade
-                        </div>
-                        <div className="mt-1 text-lg font-black">
-                          +{myFaction.investmentBuffs.agilityPercent.toFixed(1)}%
-                        </div>
-                      </div>
 
                       <div className="rounded-2xl border border-border px-4 py-3">
                         <div className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -960,7 +943,7 @@ const ok = await updateSettings({
                       Facção privada
                     </label>
 
-         <label className="flex items-center gap-3 rounded-2xl bg-background px-4 py-3 text-sm">
+                    <label className="flex items-center gap-3 rounded-2xl bg-background px-4 py-3 text-sm">
                       <input
                         type="checkbox"
                         checked={settingsAllowJoinRequests}
