@@ -120,6 +120,8 @@ function FactionPageContent({ player }: { player: any }) {
   const transferLeadership = useFactionStore((state) => state.transferLeadership);
   const updateSettings = useFactionStore((state) => state.updateSettings);
 
+  const isInitialLoading = isLoadingMyFaction || isLoadingFactionList;
+
   const [activeTab, setActiveTab] = useState<FactionTab>('overview');
   const [localError, setLocalError] = useState('');
   const [localSuccess, setLocalSuccess] = useState('');
@@ -446,7 +448,7 @@ function FactionPageContent({ player }: { player: any }) {
           </div>
         )}
 
-        {isLoadingMyFaction ? (
+        {isInitialLoading ? (
           <div className="flex min-h-[320px] items-center justify-center rounded-3xl border border-border bg-card">
             <p className="text-muted-foreground">Carregando facção...</p>
           </div>
@@ -1054,7 +1056,7 @@ function FactionPageContent({ player }: { player: any }) {
 
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                           <div className="text-sm text-muted-foreground">
-                            Próximo upgrade: {formatMoney(upgradeCost)}
+                            Próximo upgrade: {formatMoney(upgradeCost.cleanMoney)}
                           </div>
 
                           <button
@@ -1082,14 +1084,14 @@ function FactionPageContent({ player }: { player: any }) {
                 </h3>
 
                 <div className="mt-4 flex flex-col gap-3">
-                  {Array.isArray(myFaction?.logs) && myFaction.logs.length > 0 ? (
-                    myFaction.logs.map((log: any, index: number) => (
+                  {Array.isArray(myFaction?.activityLog) && myFaction.activityLog.length > 0 ? (
+                    myFaction.activityLog.map((log: any, index: number) => (
                       <div
                         key={String(log.id || log._id || index)}
                         className="rounded-2xl border border-border bg-background px-4 py-3"
                       >
                         <div className="text-sm font-bold">
-                          {log.message || log.title || 'Registro'}
+                          {log.type || 'Registro'}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
                           {formatDate(log.createdAt)}
