@@ -9,6 +9,7 @@ export type EnemyBarracoData = {
   barracoLevel?: number;
   power?: number;
   dirtyMoney?: number;
+  factionId?: string | null;
 };
 
 function isEnemyBarracoData(data: unknown): data is EnemyBarracoData {
