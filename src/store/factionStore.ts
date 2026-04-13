@@ -38,7 +38,8 @@ type FactionStore = {
   myFaction: Faction | null;
   factionList: FactionListItem[];
 
-  isLoading: boolean;
+  isLoadingMyFaction: boolean;
+  isLoadingFactionList: boolean;
   isSubmitting: boolean;
   error: string | null;
   lastLoadedAt: number | null;
@@ -63,16 +64,20 @@ type FactionStore = {
   setFaction: (faction: Faction | null) => void;
 };
 
-let loadingCounter = 0;
-
-function beginLoading(set: (partial: Partial<FactionStore>) => void) {
-  loadingCounter += 1;
-  set({ isLoading: true, error: null });
+function beginLoadingMyFaction(set: (partial: Partial<FactionStore>) => void) {
+  set({ isLoadingMyFaction: true, error: null });
 }
 
-function endLoading(set: (partial: Partial<FactionStore>) => void) {
-  loadingCounter = Math.max(0, loadingCounter - 1);
-  set({ isLoading: loadingCounter > 0 });
+function endLoadingMyFaction(set: (partial: Partial<FactionStore>) => void) {
+  set({ isLoadingMyFaction: false });
+}
+
+function beginLoadingFactionList(set: (partial: Partial<FactionStore>) => void) {
+  set({ isLoadingFactionList: true, error: null });
+}
+
+function endLoadingFactionList(set: (partial: Partial<FactionStore>) => void) {
+  set({ isLoadingFactionList: false });
 }
 
 function syncPlayerFactionId(factionId: string | null) {
@@ -129,14 +134,15 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
   myFaction: null,
   factionList: [],
 
-  isLoading: false,
+  isLoadingMyFaction: false,
+  isLoadingFactionList: false,
   isSubmitting: false,
   error: null,
   lastLoadedAt: null,
 
   loadMyFaction: async () => {
     try {
-      beginLoading(set);
+      beginLoadingMyFaction(set);
 
       const faction = await fetchMyFaction();
 
@@ -154,13 +160,13 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
       });
       return false;
     } finally {
-      endLoading(set);
+      endLoadingMyFaction(set);
     }
   },
 
   loadFactionList: async () => {
     try {
-      beginLoading(set);
+      beginLoadingFactionList(set);
 
       const factions = await fetchFactionList();
 
@@ -177,7 +183,7 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
       });
       return false;
     } finally {
-      endLoading(set);
+      endLoadingFactionList(set);
     }
   },
 
@@ -441,7 +447,8 @@ clearFaction: () => {
     set({
       myFaction: null,
       error: null,
-      isLoading: false,
+      isLoadingMyFaction: false,
+      isLoadingFactionList: false,
       isSubmitting: false,
       lastLoadedAt: null,
     });
@@ -453,7 +460,8 @@ clearFaction: () => {
     set({
       myFaction: faction,
       error: null,
-      isLoading: false,
+      isLoadingMyFaction: false,
+      isLoadingFactionList: false,
       isSubmitting: false,
       lastLoadedAt: Date.now(),
     });

@@ -102,7 +102,8 @@ export default function FactionPage() {
 function FactionPageContent({ player }: { player: any }) {
   const myFaction = useFactionStore((state) => state.myFaction);
   const factionList = useFactionStore((state) => state.factionList);
-  const isLoading = useFactionStore((state) => state.isLoading);
+  const isLoadingMyFaction = useFactionStore((state) => state.isLoadingMyFaction);
+  const isLoadingFactionList = useFactionStore((state) => state.isLoadingFactionList);
   const isSubmitting = useFactionStore((state) => state.isSubmitting);
   const error = useFactionStore((state) => state.error);
 
@@ -427,7 +428,7 @@ function FactionPageContent({ player }: { player: any }) {
           </div>
         )}
 
-        {isLoading ? (
+        {isLoadingMyFaction ? (
           <div className="flex min-h-[320px] items-center justify-center rounded-3xl border border-border bg-card">
             <p className="text-muted-foreground">Carregando facção...</p>
           </div>
