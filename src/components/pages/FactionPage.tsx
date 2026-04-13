@@ -84,7 +84,7 @@ export default function FactionPage() {
     );
   }
 
-  if (!isAuthenticated || !player) {
+  if (!isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
         <div className="text-center">
