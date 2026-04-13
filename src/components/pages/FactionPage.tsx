@@ -150,9 +150,27 @@ function FactionPageContent({ player }: { player: any }) {
     useState(false);
 
   useEffect(() => {
-    void loadMyFaction();
-    void loadFactionList();
-  }, [loadMyFaction, loadFactionList]);
+    let cancelled = false;
+
+    async function boot() {
+      try {
+        await Promise.all([
+          loadMyFaction(),
+          loadFactionList(),
+        ]);
+      } catch (error) {
+        if (!cancelled) {
+          console.error(error);
+        }
+      }
+    }
+
+    void boot();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!myFaction) return;
