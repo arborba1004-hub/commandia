@@ -111,14 +111,7 @@ const router = createBrowserRouter(
           ),
         },
 
-        {
-          path: 'faccao',
-          element: (
-            <FeatureGateRoute branch="faction">
-              <FactionPage />
-            </FeatureGateRoute>
-          ),
-        },
+        { path: 'faccao', element: <FactionPage /> },
 
         { path: 'ranking', element: <RankingPage /> },
 
