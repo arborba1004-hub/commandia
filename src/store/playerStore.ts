@@ -321,6 +321,8 @@ type PlayerStore = {
     historyItem?: AttackHistoryItem;
     pvpProtectionUntil?: string | null;
   }) => void;
+
+  setFactionId: (factionId: string | null) => void;
 };
 const initialPlayer: PlayerState = {
   _id: '',
@@ -1449,5 +1451,14 @@ setNotifications: (notifications) => {
     }));
 
     return { ok: true };
+  },
+
+  setFactionId: (factionId) => {
+    set((state) => ({
+      player: {
+        ...state.player,
+        factionId,
+      },
+    }));
   },
 }));

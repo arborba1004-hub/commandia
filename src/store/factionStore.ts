@@ -81,10 +81,7 @@ function syncPlayerFactionId(factionId: string | null) {
 
   if (currentFactionId === factionId) return;
 
-  playerStore.hydratePlayerFromServer({
-    ...playerStore.player,
-    factionId,
-  } as any);
+  playerStore.setFactionId(factionId);
 }
 
 function syncPlayerBalancesFromFactionDonationBeforeAfter(
