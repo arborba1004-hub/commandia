@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useFactionStore } from '@/store/factionStore';
+import { useFactionInviteStore } from '@/store/factionInviteStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -110,6 +111,21 @@ function FactionPageContent({ player }: { player: any }) {
   const loadMyFaction = useFactionStore((state) => state.loadMyFaction);
   const loadFactionList = useFactionStore((state) => state.loadFactionList);
 
+  const loadPlayersWithoutFaction = useFactionInviteStore(
+    (state) => state.loadPlayersWithoutFaction
+  );
+  const playersWithoutFaction = useFactionInviteStore(
+    (state) => state.playersWithoutFaction
+  );
+  const isLoadingPlayersWithoutFaction = useFactionInviteStore(
+    (state) => state.isLoadingPlayersWithoutFaction
+  );
+  const isSubmittingInvite = useFactionInviteStore(
+    (state) => state.isSubmittingInvite
+  );
+  const factionInviteError = useFactionInviteStore((state) => state.error);
+  const sendFactionInvite = useFactionInviteStore((state) => state.sendFactionInvite);
+
   const createFaction = useFactionStore((state) => state.createFaction);
   const joinFaction = useFactionStore((state) => state.joinFaction);
   const leaveFaction = useFactionStore((state) => state.leaveFaction);
@@ -159,6 +175,7 @@ function FactionPageContent({ player }: { player: any }) {
         await Promise.all([
           loadMyFaction(),
           loadFactionList(),
+          loadPlayersWithoutFaction(),
         ]);
       } catch (error) {
         if (!cancelled) {
@@ -205,6 +222,7 @@ function FactionPageContent({ player }: { player: any }) {
   const canManageInvestments = Boolean(
     currentMember?.permissions?.canManageInvestments
   );
+  const canInvite = Boolean(currentMember?.permissions?.canInvite) || isLeader;
 
   const safeMembers = Array.isArray(myFaction?.members) ? myFaction.members : [];
   const memberCount = safeMembers.length;
@@ -415,6 +433,27 @@ function FactionPageContent({ player }: { player: any }) {
     }
   };
 
+  const handleInvitePlayer = async (targetPlayerId: string) => {
+    clearLocalMessages();
+
+    if (!currentMember) {
+      setLocalError('Você precisa estar em uma facção.');
+      return;
+    }
+
+    if (!canInvite) {
+      setLocalError('Você não tem permissão para convidar jogadores.');
+      return;
+    }
+
+    const ok = await sendFactionInvite(targetPlayerId);
+
+    if (ok) {
+      setLocalSuccess('Convite enviado com sucesso.');
+      void loadPlayersWithoutFaction();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
@@ -433,6 +472,12 @@ function FactionPageContent({ player }: { player: any }) {
         {error && (
           <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             {error}
+          </div>
+        )}
+
+        {factionInviteError && (
+          <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {factionInviteError}
           </div>
         )}
 
@@ -730,6 +775,54 @@ function FactionPageContent({ player }: { player: any }) {
                     {memberCount} integrante(s)
                   </div>
                 </div>
+
+                {canInvite && (
+                  <div className="mt-4 rounded-2xl bg-background p-4">
+                    <div className="mb-3 text-sm font-black uppercase tracking-wide text-muted-foreground">
+                      Jogadores sem facção
+                    </div>
+
+                    {isLoadingPlayersWithoutFaction ? (
+                      <div className="rounded-2xl border border-border px-4 py-4 text-sm text-muted-foreground">
+                        Carregando jogadores sem facção...
+                      </div>
+                    ) : playersWithoutFaction.length === 0 ? (
+                      <div className="rounded-2xl border border-border px-4 py-4 text-sm text-muted-foreground">
+                        Nenhum jogador sem facção disponível no momento.
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        {playersWithoutFaction.map((target) => (
+                          <div
+                            key={target.id}
+                            className="rounded-2xl border border-border bg-card px-4 py-4"
+                          >
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                              <div>
+                                <div className="text-lg font-black">{target.name}</div>
+                                <div className="mt-1 text-sm text-muted-foreground">
+                                  Poder: {formatMoney(target.power || 0)} • Barraco:{' '}
+                                  {target.barracoLevel || 1}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void handleInvitePlayer(target.id);
+                                }}
+                                disabled={isSubmittingInvite}
+                                className="rounded-2xl bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white disabled:opacity-50"
+                              >
+                                {isSubmittingInvite ? 'Convidando...' : 'Convidar'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-4 flex flex-col gap-3">
                   {safeMembers.length === 0 ? (
