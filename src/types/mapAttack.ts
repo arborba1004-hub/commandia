@@ -26,6 +26,7 @@ export type AttackTarget = {
   barracoLevel?: number;
   power?: number;
   dirtyMoney?: number;
+  factionId?: string | null;
 };
 
 export type AttackOrigin = {
