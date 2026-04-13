@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
+import { useAchievementStore } from '@/store/achievementStore';
 import { Image } from '@/components/ui/image';
 
 declare global {
@@ -52,6 +53,7 @@ export default function HomePage() {
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const clearPlayer = usePlayerStore((state) => state.clearPlayer);
+  const { checkAndUnlockAchievements, loadAchievements } = useAchievementStore();
 
   const [googleReady, setGoogleReady] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -64,6 +66,21 @@ export default function HomePage() {
       void loadPlayer();
     }
   }, [isLoaded, loadPlayer]);
+
+  // Load achievements from localStorage and check for new unlocks
+  useEffect(() => {
+    const stored = localStorage.getItem('unlockedAchievements');
+    if (stored) {
+      loadAchievements(JSON.parse(stored));
+    }
+  }, [loadAchievements]);
+
+  // Check for achievement unlocks when player data changes
+  useEffect(() => {
+    if (player?._id) {
+      checkAndUnlockAchievements(player);
+    }
+  }, [player, checkAndUnlockAchievements]);
 
   useEffect(() => {
     const scriptId = 'google-gsi-script';

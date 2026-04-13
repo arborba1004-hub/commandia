@@ -17,6 +17,7 @@ import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 import ChatPage from '@/components/pages/ChatPage';
 import TalentsPage from '@/components/pages/TalentsPage';
 import FactionPage from '@/components/pages/FactionPage';
+import RankingPage from '@/components/pages/RankingPage';
 import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
 
 function Layout() {
@@ -118,6 +119,8 @@ const router = createBrowserRouter(
             </FeatureGateRoute>
           ),
         },
+
+        { path: 'ranking', element: <RankingPage /> },
 
         { path: 'gang', element: <Navigate to="/faccao" replace /> },
         { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
