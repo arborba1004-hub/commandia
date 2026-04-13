@@ -17,6 +17,14 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
 
   const cost = getBarracoUpgradeCost(barracoLevel);
 
+  // Requisitos de poder reduzidos para funcionalidade (baseado em skills)
+  const powerRequirement = Math.max(50, Math.floor(barracoLevel * 25));
+  
+  // Requisitos de níveis secundários mais flexíveis
+  const lavagemRequirement = Math.max(1, Math.floor(barracoLevel / 10));
+  const luxuryRequirement = Math.max(1, Math.floor(barracoLevel / 12));
+  const hierarchyRequirement = Math.max(1, Math.floor(barracoLevel / 15));
+
   const rules = [
     {
       key: 'cleanMoney',
@@ -25,23 +33,23 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
     },
     {
       key: 'power',
-      ok: power >= barracoLevel * 100,
-      reason: `Você precisa de poder mínimo ${barracoLevel * 100}.`,
+      ok: power >= powerRequirement,
+      reason: `Você precisa de poder mínimo ${powerRequirement}. Atual: ${power}.`,
     },
     {
       key: 'lavagem',
-      ok: lavagemLevel >= Math.max(1, Math.floor(barracoLevel / 6)),
-      reason: `Sua lavagem está abaixo do necessário para o barraco.`,
+      ok: lavagemLevel >= lavagemRequirement,
+      reason: `Sua lavagem está abaixo do necessário (${lavagemRequirement}). Atual: ${lavagemLevel}.`,
     },
     {
       key: 'luxury',
-      ok: luxuryLevel >= Math.max(1, Math.floor(barracoLevel / 8)),
-      reason: `Seu nível de luxo está abaixo do necessário.`,
+      ok: luxuryLevel >= luxuryRequirement,
+      reason: `Seu nível de luxo está abaixo do necessário (${luxuryRequirement}). Atual: ${luxuryLevel}.`,
     },
     {
       key: 'hierarchy',
-      ok: hierarchyLevel >= Math.max(1, Math.floor(barracoLevel / 10)),
-      reason: `Sua hierarquia está abaixo do necessário.`,
+      ok: hierarchyLevel >= hierarchyRequirement,
+      reason: `Sua hierarquia está abaixo do necessário (${hierarchyRequirement}). Atual: ${hierarchyLevel}.`,
     },
   ];
 

@@ -14,6 +14,7 @@ import {
 } from '@/Services/punishmentService';
 import { GAME_MODE } from '@/config/gameMode';
 import { getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
+import { syncPlayerPower } from '@/Services/playerPowerSyncService';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos

@@ -20,47 +20,48 @@ import {
 // CONFIGURAÇÕES BASE
 // ============================================================================
 
-const SKILL_POWER_MULTIPLIER = 1.5; // Cada ponto de skill = 1.5 de poder
-const INVESTMENT_POWER_MULTIPLIER = 2.0; // Cada ponto de investimento = 2.0 de poder
-const GANG_MEMBER_POWER_MULTIPLIER = 0.8; // Multiplicador por membro
-const FACTION_BONUS_BASE = 0.05; // 5% por nível de facção
+const SKILL_POWER_MULTIPLIER = 5.0; // Cada ponto de skill = 5.0 de poder (aumentado para funcionalidade)
+const INVESTMENT_POWER_MULTIPLIER = 3.0; // Cada ponto de investimento = 3.0 de poder
+const GANG_MEMBER_POWER_MULTIPLIER = 1.0; // Multiplicador por membro
+const FACTION_BONUS_BASE = 0.03; // 3% por nível de facção
+const BASE_POWER_BONUS = 50; // Bônus base inicial para garantir jogabilidade
 
 // Bônus base por tipo de habilidade
 const SKILL_BONUSES: Record<keyof PlayerSkills, SkillBonus> = {
   attack: {
     skillName: 'attack',
-    baseBonus: 10,
-    percentBonus: 0.15,
+    baseBonus: 15,
+    percentBonus: 0.25,
     description: 'Aumenta dano base',
   },
   defense: {
     skillName: 'defense',
-    baseBonus: 8,
-    percentBonus: 0.12,
+    baseBonus: 15,
+    percentBonus: 0.25,
     description: 'Aumenta redução de dano',
   },
   intelligence: {
     skillName: 'intelligence',
-    baseBonus: 7,
-    percentBonus: 0.1,
+    baseBonus: 12,
+    percentBonus: 0.20,
     description: 'Aumenta efetividade de operações',
   },
   agility: {
     skillName: 'agility',
-    baseBonus: 6,
-    percentBonus: 0.08,
+    baseBonus: 12,
+    percentBonus: 0.20,
     description: 'Aumenta velocidade e esquiva',
   },
   respect: {
     skillName: 'respect',
-    baseBonus: 5,
-    percentBonus: 0.07,
+    baseBonus: 10,
+    percentBonus: 0.18,
     description: 'Aumenta influência social',
   },
   vigor: {
     skillName: 'vigor',
-    baseBonus: 9,
-    percentBonus: 0.14,
+    baseBonus: 15,
+    percentBonus: 0.25,
     description: 'Aumenta saúde e resistência',
   },
 };
@@ -69,43 +70,43 @@ const SKILL_BONUSES: Record<keyof PlayerSkills, SkillBonus> = {
 const INVESTMENT_BONUSES: Record<string, InvestmentBonus> = {
   war: {
     investmentType: 'war',
-    baseBonus: 15,
-    percentBonus: 0.2,
+    baseBonus: 25,
+    percentBonus: 0.30,
     affectedStats: ['attack', 'defense'],
     description: 'Bônus de guerra',
   },
   laundering: {
     investmentType: 'laundering',
-    baseBonus: 10,
-    percentBonus: 0.15,
+    baseBonus: 20,
+    percentBonus: 0.25,
     affectedStats: ['intelligence'],
     description: 'Bônus de lavagem',
   },
   fuga: {
     investmentType: 'fuga',
-    baseBonus: 12,
-    percentBonus: 0.18,
+    baseBonus: 22,
+    percentBonus: 0.28,
     affectedStats: ['agility'],
     description: 'Bônus de fuga',
   },
   faction: {
     investmentType: 'faction',
-    baseBonus: 8,
-    percentBonus: 0.1,
+    baseBonus: 18,
+    percentBonus: 0.22,
     affectedStats: ['respect'],
     description: 'Bônus de facção',
   },
   luxury: {
     investmentType: 'luxury',
-    baseBonus: 7,
-    percentBonus: 0.12,
+    baseBonus: 16,
+    percentBonus: 0.20,
     affectedStats: ['respect', 'agility'],
     description: 'Bônus de luxo',
   },
   comando: {
     investmentType: 'comando',
-    baseBonus: 14,
-    percentBonus: 0.16,
+    baseBonus: 28,
+    percentBonus: 0.32,
     affectedStats: ['attack', 'defense', 'respect'],
     description: 'Bônus de comando',
   },
@@ -116,31 +117,31 @@ const GANG_MEMBER_BONUSES: Record<string, GangMemberBonus> = {
   frente: {
     role: 'frente',
     affectedStats: ['defense', 'vigor'],
-    bonusPerLevel: 0.5,
+    bonusPerLevel: 2.0,
     description: 'Frente de batalha - Defesa',
   },
   muralha: {
     role: 'muralha',
     affectedStats: ['defense', 'vigor'],
-    bonusPerLevel: 0.6,
+    bonusPerLevel: 2.5,
     description: 'Muralha - Proteção máxima',
   },
   nitro: {
     role: 'nitro',
     affectedStats: ['attack', 'agility'],
-    bonusPerLevel: 0.7,
+    bonusPerLevel: 2.8,
     description: 'Nitro - Velocidade e ataque',
   },
   certeiro: {
     role: 'certeiro',
     affectedStats: ['intelligence', 'attack'],
-    bonusPerLevel: 0.5,
+    bonusPerLevel: 2.0,
     description: 'Certeiro - Precisão',
   },
   wifi: {
     role: 'wifi',
     affectedStats: ['intelligence', 'respect'],
-    bonusPerLevel: 0.4,
+    bonusPerLevel: 1.5,
     description: 'WiFi - Informações',
   },
 };
@@ -174,12 +175,13 @@ export function calculateTotalPower(
   // 5. Bônus da facção
   const factionBonusValue = calculateFactionBonus(factionBonus, baseSkillsPower);
 
-  // 6. Aplicar multiplicador de nível
-  const levelMultiplier = 1 + (playerLevel - 1) * 0.1;
+  // 6. Aplicar multiplicador de nível (mais agressivo)
+  const levelMultiplier = 1 + (playerLevel - 1) * 0.15;
 
-  // Total
+  // Total com bônus base garantido
   const totalPower =
-    (baseSkillsPower +
+    (BASE_POWER_BONUS +
+      baseSkillsPower +
       skillBonuses +
       investmentBonuses +
       gangMemberBonuses +
