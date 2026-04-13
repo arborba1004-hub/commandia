@@ -32,6 +32,10 @@ function getPower(player: PlayerState): number {
   return Number(player?.power || 0);
 }
 
+function getPageLevel(player: PlayerState, pageName: string): number {
+  return Number(player?.pageLevels?.[pageName] || 1);
+}
+
 export function getBranchRequirement(
   branch: BranchKey,
   player: PlayerState
@@ -49,93 +53,90 @@ export function getBranchRequirement(
       };
 
     case 'giro':
-      const giroReq = 2;
+      // Desbloqueado a partir do barraco nível 1
       return {
-        unlocked: barracoLevel >= giroReq,
+        unlocked: barracoLevel >= 1,
         title: 'Giro',
-        reason: `Giro disponível a partir do barraco nível ${giroReq}.`,
+        reason: `Giro disponível a partir do barraco nível 1.`,
         currentValue: barracoLevel,
-        requiredValue: giroReq,
+        requiredValue: 1,
       };
 
     case 'lavagem':
-      const lavagemReq = 4;
+      // Desbloqueado a partir do barraco nível 1
       return {
-        unlocked: barracoLevel >= lavagemReq,
+        unlocked: barracoLevel >= 1,
         title: 'Lavagem de Dinheiro',
-        reason: `Lavagem disponível a partir do barraco nível ${lavagemReq}.`,
+        reason: `Lavagem disponível a partir do barraco nível 1.`,
         currentValue: barracoLevel,
-        requiredValue: lavagemReq,
+        requiredValue: 1,
       };
 
     case 'luxury':
-      const luxuryReq = 5;
+      // Galeria desbloqueada a partir do barraco nível 1
       return {
-        unlocked: barracoLevel >= luxuryReq,
+        unlocked: barracoLevel >= 1,
         title: 'Galeria',
-        reason: `Galeria disponível a partir do barraco nível ${luxuryReq}.`,
+        reason: `Galeria disponível a partir do barraco nível 1.`,
         currentValue: barracoLevel,
-        requiredValue: luxuryReq,
+        requiredValue: 1,
       };
 
     case 'arsenal':
-      const arsenalReq = 3;
+      // Arsenal desbloqueado a partir do barraco nível 1
       return {
-        unlocked: barracoLevel >= arsenalReq,
+        unlocked: barracoLevel >= 1,
         title: 'Arsenal',
-        reason: `Arsenal disponível a partir do barraco nível ${arsenalReq}.`,
+        reason: `Arsenal disponível a partir do barraco nível 1.`,
         currentValue: barracoLevel,
-        requiredValue: arsenalReq,
+        requiredValue: 1,
       };
 
     case 'bribery':
-      const briberyReq = 6;
+      // Suborno desbloqueado a partir do barraco nível 1
       return {
-        unlocked: barracoLevel >= briberyReq,
+        unlocked: barracoLevel >= 1,
         title: 'Suborno',
-        reason: `Suborno disponível a partir do barraco nível ${briberyReq}.`,
+        reason: `Suborno disponível a partir do barraco nível 1.`,
         currentValue: barracoLevel,
-        requiredValue: briberyReq,
+        requiredValue: 1,
       };
 
     case 'hierarchy':
-      const hierarchyReq = 2;
       return {
-        unlocked: barracoLevel >= hierarchyReq,
+        unlocked: barracoLevel >= 1,
         title: 'Hierarquia',
-        reason: `Hierarquia disponível a partir do barraco nível ${hierarchyReq}.`,
+        reason: `Hierarquia disponível a partir do barraco nível 1.`,
         currentValue: barracoLevel,
-        requiredValue: hierarchyReq,
+        requiredValue: 1,
       };
 
     case 'faction':
-      const factionReq = 7;
       return {
-        unlocked: barracoLevel >= factionReq,
+        unlocked: barracoLevel >= 1,
         title: 'Facção',
-        reason: `Facção disponível a partir do barraco nível ${factionReq}.`,
+        reason: `Facção disponível a partir do barraco nível 1.`,
         currentValue: barracoLevel,
-        requiredValue: factionReq,
+        requiredValue: 1,
       };
 
     case 'talents':
-      const talentsReq = 8;
       return {
-        unlocked: barracoLevel >= talentsReq,
+        unlocked: barracoLevel >= 1,
         title: 'Talentos',
-        reason: `Talentos disponíveis a partir do barraco nível ${talentsReq}.`,
+        reason: `Talentos disponíveis a partir do barraco nível 1.`,
         currentValue: barracoLevel,
-        requiredValue: talentsReq,
+        requiredValue: 1,
       };
 
     case 'fuga':
-      const fugaReq = 9;
+      // Fuga desbloqueada a partir do barraco nível 1
       return {
-        unlocked: barracoLevel >= fugaReq,
+        unlocked: barracoLevel >= 1,
         title: 'Fuga Ilustrada',
-        reason: `Fuga disponível a partir do barraco nível ${fugaReq}.`,
+        reason: `Fuga disponível a partir do barraco nível 1.`,
         currentValue: barracoLevel,
-        requiredValue: fugaReq,
+        requiredValue: 1,
       };
 
     default:
@@ -145,6 +146,57 @@ export function getBranchRequirement(
         reason: '',
       };
   }
+}
+
+/**
+ * Verifica os requisitos para evoluir um branch para o próximo nível
+ * Regra: Para evoluir para nível 3, todos os outros branches devem estar no nível 2
+ */
+export function getEvolutionRequirement(
+  branch: BranchKey,
+  player: PlayerState,
+  targetLevel: number
+): BranchRequirementResult {
+  const barracoLevel = getBarracoLevel(player);
+  const subornoLevel = getPageLevel(player, 'bribery');
+  const arsenalLevel = getPageLevel(player, 'arsenal');
+  const fugaLevel = getPageLevel(player, 'fuga');
+  const galeriaLevel = getPageLevel(player, 'luxury');
+
+  // Para evoluir para nível 3, todos os outros branches devem estar no nível 2
+  if (targetLevel === 3) {
+    const allOthersAtLevel2 =
+      (branch === 'barraco' ? true : barracoLevel >= 2) &&
+      (branch === 'bribery' ? true : subornoLevel >= 2) &&
+      (branch === 'arsenal' ? true : arsenalLevel >= 2) &&
+      (branch === 'fuga' ? true : fugaLevel >= 2) &&
+      (branch === 'luxury' ? true : galeriaLevel >= 2);
+
+    if (!allOthersAtLevel2) {
+      const missing = [];
+      if (branch !== 'barraco' && barracoLevel < 2) missing.push('Barraco');
+      if (branch !== 'bribery' && subornoLevel < 2) missing.push('Suborno');
+      if (branch !== 'arsenal' && arsenalLevel < 2) missing.push('Arsenal');
+      if (branch !== 'fuga' && fugaLevel < 2) missing.push('Fuga');
+      if (branch !== 'luxury' && galeriaLevel < 2) missing.push('Galeria');
+
+      return {
+        unlocked: false,
+        title: `Evolução para Nível 3 - ${branch}`,
+        reason: `Para evoluir para nível 3, todos os branches devem estar no nível 2. Faltam: ${missing.join(', ')}`,
+        currentValue: targetLevel,
+        requiredValue: 3,
+      };
+    }
+  }
+
+  return {
+    unlocked: true,
+    title: `Evolução para Nível ${targetLevel} - ${branch}`,
+    reason: `Requisitos atendidos para evolução.`,
+    currentValue: targetLevel,
+    requiredValue: targetLevel,
+  };
 }
 
 export function getBranchRequirementSummary(player: PlayerState) {
