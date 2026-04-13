@@ -1005,9 +1005,7 @@ function FactionPageContent({ player }: { player: any }) {
                 <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {INVESTMENT_BRANCHES.map((branch) => {
                     const currentLevel = Number(
-                      myFaction?.investments?.[branch]?.level ||
-                        myFaction?.investmentLevels?.[branch] ||
-                        0
+                      myFaction?.investments?.[branch] || 0
                     );
 
                     const upgradeCost = getFactionInvestmentUpgradeCost(
