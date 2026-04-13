@@ -1,5 +1,4 @@
-import { ReactNode } from 'react';
-import { useMember } from '@/integrations';
+import { ReactNode, useEffect, useState } from 'react';
 import { SignIn } from '@/components/ui/sign-in';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
@@ -43,7 +42,25 @@ export function MemberProtectedRoute({
   signInProps = {},
   loadingSpinnerProps = {}
 }: MemberProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useMember();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check authentication status from localStorage (Google Auth)
+  useEffect(() => {
+    const checkAuth = () => {
+      const authToken = localStorage.getItem('authToken');
+      const playerData = localStorage.getItem('playerData');
+      
+      setIsAuthenticated(!!(authToken && playerData));
+      setIsLoading(false);
+    };
+
+    checkAuth();
+
+    // Listen for storage changes (logout from other tabs)
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
+  }, []);
 
   if (isLoading) {
     return (

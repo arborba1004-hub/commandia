@@ -1,11 +1,18 @@
 /**
- * LEGACY/EXPERIMENTAL: Wix Members Authentication Hook
+ * ⚠️ LEGACY/INACTIVE - Wix Members Authentication Hook
  * 
- * ⚠️ DEPRECATED - This hook is no longer used in the main application flow.
- * It was replaced by the Wix Members SDK integration (@/integrations/members).
+ * PHASE 8: This hook is NO LONGER USED in the application.
  * 
- * Kept for reference and potential future use.
- * See: @/integrations/members for current authentication implementation.
+ * Status: DEPRECATED - DO NOT USE
+ * Reason: Application now uses Google Auth only via useGoogleAuth()
+ * 
+ * This file is preserved for reference only.
+ * All authentication is now handled by:
+ * - /src/hooks/useGoogleAuth.ts (primary auth hook)
+ * - /src/store/playerStore.ts (player state management)
+ * - /src/components/ui/sign-in.tsx (sign-in UI)
+ * 
+ * DO NOT IMPORT this hook in new code.
  */
 
 import { useEffect, useState } from 'react';
@@ -21,10 +28,7 @@ export interface WixAuthState {
 }
 
 /**
- * LEGACY: Hook to manage Wix Members authentication and player data
- * Uses local player store for authentication state
- * 
- * @deprecated Use useMember() from @/integrations instead
+ * @deprecated Use useGoogleAuth() from @/hooks/useGoogleAuth instead
  */
 export function useWixAuth() {
   const { player, isLoaded } = usePlayerStore();
@@ -39,7 +43,7 @@ export function useWixAuth() {
 
   // Determine authentication status from player store
   const isAuthenticated = !!player?._id && isLoaded;
-  const authToken = isAuthenticated ? 'wix-auth-token' : null;
+  const authToken = isAuthenticated ? 'google-auth-token' : null;
 
   return {
     member: player,

@@ -185,7 +185,7 @@ export default function DelacaoPremiadaPage() {
                 initial={{ opacity: 0, y: 60, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -40, scale: 0.95 }}
-                transition={{ duration: 0.7, ease: 'easeOut' }}
+                transition={{ duration: 0.7, ease: 'easeOut' } as const}
                 className="relative rounded-2xl bg-black/80 backdrop-blur-2xl border border-white/10 overflow-hidden"
               >
                 <div
@@ -215,4 +215,108 @@ export default function DelacaoPremiadaPage() {
                     PREMIADA
                   </h1>
 
-                  <p className="mt-10 text-2xl md:text
+                  <p className="mt-10 text-2xl md:text-3xl text-white/90 leading-relaxed max-w-2xl mx-auto">
+                    Você está prestes a fazer uma escolha que mudará seu destino para sempre.
+                  </p>
+
+                  <div className="mt-12 flex flex-col sm:flex-row justify-center gap-4">
+                    <button
+                      onClick={() => setStep('confirm')}
+                      className="px-8 py-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black transition-all"
+                    >
+                      Prosseguir com Delação
+                    </button>
+
+                    <button
+                      onClick={() => navigate('/suborno-ilustrado')}
+                      className="px-8 py-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 text-white font-medium transition-all"
+                    >
+                      ← Voltar
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 'confirm' && (
+              <motion.div
+                key="confirm"
+                initial={{ opacity: 0, y: 60, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -40, scale: 0.95 }}
+                transition={{ duration: 0.7, ease: 'easeOut' } as const}
+                className="relative rounded-2xl bg-black/80 backdrop-blur-2xl border border-red-500/30 overflow-hidden"
+              >
+                <div className="p-10 md:p-16 text-center">
+                  <p className="text-xs tracking-[0.5em] text-red-400 font-medium mb-4">
+                    CONFIRMAÇÃO FINAL
+                  </p>
+
+                  <h2 className="text-4xl md:text-6xl font-black text-white leading-none tracking-[-0.04em] mb-8">
+                    Tem certeza?
+                  </h2>
+
+                  <p className="text-lg text-white/80 mb-8 max-w-xl mx-auto">
+                    Ao confirmar, você receberá recompensas especiais, mas seu inventário será bloqueado por 72 horas.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row justify-center gap-4">
+                    <button
+                      onClick={handleConfirm}
+                      disabled={processing}
+                      className="px-8 py-4 rounded-2xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-black transition-all"
+                    >
+                      {processing ? 'Processando...' : 'Confirmar Delação'}
+                    </button>
+
+                    <button
+                      onClick={() => setStep('intro')}
+                      disabled={processing}
+                      className="px-8 py-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 disabled:opacity-50 text-white font-medium transition-all"
+                    >
+                      ← Voltar
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 'done' && (
+              <motion.div
+                key="done"
+                initial={{ opacity: 0, y: 60, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -40, scale: 0.95 }}
+                transition={{ duration: 0.7, ease: 'easeOut' } as const}
+                className="relative rounded-2xl bg-black/80 backdrop-blur-2xl border border-green-500/30 overflow-hidden"
+              >
+                <div className="p-10 md:p-16 text-center">
+                  <p className="text-xs tracking-[0.5em] text-green-400 font-medium mb-4">
+                    DELAÇÃO ACEITA
+                  </p>
+
+                  <h2 className="text-4xl md:text-6xl font-black text-white leading-none tracking-[-0.04em] mb-8">
+                    Bem-vindo ao Programa
+                  </h2>
+
+                  <p className="text-lg text-white/80 mb-8 max-w-xl mx-auto">
+                    Sua delação foi registrada. Você receberá suas recompensas em breve.
+                  </p>
+
+                  <button
+                    onClick={() => navigate('/suborno-ilustrado')}
+                    className="px-8 py-4 rounded-2xl bg-green-600 hover:bg-green-500 text-white font-black transition-all"
+                  >
+                    Voltar ao Menu
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

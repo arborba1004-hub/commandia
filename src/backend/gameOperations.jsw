@@ -1,4 +1,21 @@
-// gameOperations.jsw - Operações de Jogo (Roubo, Heist, Bounty, etc)
+/**
+ * ⚠️ LEGACY/INACTIVE - Wix Members Game Operations Backend
+ * 
+ * PHASE 8: This file is NO LONGER USED in the application.
+ * 
+ * Status: DEPRECATED - DO NOT USE
+ * Reason: Application now uses external backend for game operations
+ * 
+ * External Backend: https://comando-backend.onrender.com
+ * Game Operations: Handled by external backend API
+ * 
+ * This file is preserved for reference only.
+ * All game operations are now handled by the external backend.
+ * 
+ * DO NOT CALL these functions from the frontend.
+ */
+
+// LEGACY CODE - DO NOT USE
 import wixData from 'wix-data';
 import wixMembers from 'wix-members-backend';
 
