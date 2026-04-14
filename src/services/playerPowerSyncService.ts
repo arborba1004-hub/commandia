@@ -5,7 +5,7 @@
 
 import { usePlayerStore, type PlayerState } from '@/store/playerStore';
 import type { GangMembers, PlayerInvestments, PlayerSkills } from '@/types/powerSystem';
-import { calculateTotalPower } from '../Services/powerCalculationService';
+import { calculateTotalPower } from './powerCalculationService';
 
 /**
  * Calcula e atualiza o poder do jogador no store

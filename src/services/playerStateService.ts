@@ -1,5 +1,5 @@
 import { createInitialGangMembers } from '@/services/gangService';
-import { calculateTotalPower, createBattleSnapshot } from '@/Services/powerCalculationService';
+import { calculateTotalPower, createBattleSnapshot } from '@/services/powerCalculationService';
 import {
   calculateLevelFromExperience,
   getAvailableInvestmentPoints,

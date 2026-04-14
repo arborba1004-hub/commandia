@@ -3,12 +3,12 @@
  * Gerencia estado central do jogador: skills, investments, gang, faction, battle stats
  */
 
+import { initializeGangMembers } from '@/services/gangService';
 import {
   calculateBattleStats,
   calculateTotalPower,
   createBattleSnapshot,
-} from '@/Services/powerCalculationService';
-import { initializeGangMembers } from '@/services/gangService';
+} from '@/services/powerCalculationService';
 import {
   BattleSnapshot,
   BattleStats,
