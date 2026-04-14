@@ -135,6 +135,8 @@ function FactionPageContent({ player }: { player: any }) {
   const kickMember = useFactionStore((state) => state.kickMember);
   const transferLeadership = useFactionStore((state) => state.transferLeadership);
   const updateSettings = useFactionStore((state) => state.updateSettings);
+  const acceptJoinRequest = useFactionStore((state) => state.acceptJoinRequest);
+  const rejectJoinRequest = useFactionStore((state) => state.rejectJoinRequest);
 
   const isInitialLoading = isLoadingMyFaction || isLoadingFactionList;
 
@@ -451,6 +453,24 @@ function FactionPageContent({ player }: { player: any }) {
     if (ok) {
       setLocalSuccess('Convite enviado com sucesso.');
       void loadPlayersWithoutFaction();
+    }
+  };
+
+  const handleAcceptJoinRequest = async (targetPlayerId: string) => {
+    clearLocalMessages();
+
+    const ok = await acceptJoinRequest(targetPlayerId);
+    if (ok) {
+      setLocalSuccess('Solicitação aceita com sucesso.');
+    }
+  };
+
+  const handleRejectJoinRequest = async (targetPlayerId: string) => {
+    clearLocalMessages();
+
+    const ok = await rejectJoinRequest(targetPlayerId);
+    if (ok) {
+      setLocalSuccess('Solicitação recusada.');
     }
   };
 
@@ -775,6 +795,62 @@ function FactionPageContent({ player }: { player: any }) {
                     {memberCount} integrante(s)
                   </div>
                 </div>
+
+                {(isLeader || Boolean(currentMember?.permissions?.canAcceptRequests)) && (
+                  <div className="mt-4 rounded-2xl bg-background p-4">
+                    <div className="mb-3 text-sm font-black uppercase tracking-wide text-muted-foreground">
+                      Solicitações de entrada
+                    </div>
+
+                    {!Array.isArray(myFaction?.joinRequests) || myFaction.joinRequests.length === 0 ? (
+                      <div className="rounded-2xl border border-border px-4 py-4 text-sm text-muted-foreground">
+                        Nenhuma solicitação pendente.
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        {myFaction.joinRequests.map((request: any) => (
+                          <div
+                            key={String(request.playerId)}
+                            className="rounded-2xl border border-border bg-card px-4 py-4"
+                          >
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                              <div>
+                                <div className="text-lg font-black">{request.playerName}</div>
+                                <div className="mt-1 text-sm text-muted-foreground">
+                                  Poder: {formatMoney(request.power || 0)} • Barraco: {request.barracoLevel || 1}
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void handleAcceptJoinRequest(String(request.playerId));
+                                  }}
+                                  disabled={isSubmitting}
+                                  className="rounded-2xl bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white disabled:opacity-50"
+                                >
+                                  Aceitar
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void handleRejectJoinRequest(String(request.playerId));
+                                  }}
+                                  disabled={isSubmitting}
+                                  className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-black uppercase tracking-wide text-red-300 disabled:opacity-50"
+                                >
+                                  Recusar
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {canInvite && (
                   <div className="mt-4 rounded-2xl bg-background p-4">
