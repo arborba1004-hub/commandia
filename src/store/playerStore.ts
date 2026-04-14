@@ -1,20 +1,19 @@
-import { create } from 'zustand';
 import {
-  fetchCurrentPlayerWithFaction,
-  syncPlayerUpdateWithFaction,
-  laundryStartWithFaction,
-  laundryCompleteWithFaction,
   canOperateLaundry,
+  fetchCurrentPlayerWithFaction,
+  laundryCompleteWithFaction,
+  laundryStartWithFaction,
+  syncPlayerUpdateWithFaction,
 } from '@/api/playerApi';
-import {
-  clearExpiredPunishments,
-  isMoneyLaunderingBlocked,
-  isDirtyMoneyBlocked,
-  isCleanMoneyBlocked,
-} from '@/Services/punishmentService';
 import { GAME_MODE } from '@/config/gameMode';
 import { getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
-import { syncPlayerPower } from '@/Services/playerPowerSyncService';
+import {
+  clearExpiredPunishments,
+  isCleanMoneyBlocked,
+  isDirtyMoneyBlocked,
+  isMoneyLaunderingBlocked,
+} from '@/Services/punishmentService';
+import { create } from 'zustand';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
