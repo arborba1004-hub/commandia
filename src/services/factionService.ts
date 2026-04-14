@@ -466,3 +466,21 @@ export async function transferFactionLeadership(targetPlayerId: string): Promise
 
   return normalizeFaction(response.faction);
 }
+
+export async function acceptFactionJoinRequest(targetPlayerId: string): Promise<Faction> {
+  const response = await factionRequest<{ faction: any }>('/faction/accept-join-request', {
+    method: 'POST',
+    body: JSON.stringify({ targetPlayerId }),
+  });
+
+  return normalizeFaction(response.faction);
+}
+
+export async function rejectFactionJoinRequest(targetPlayerId: string): Promise<Faction> {
+  const response = await factionRequest<{ faction: any }>('/faction/reject-join-request', {
+    method: 'POST',
+    body: JSON.stringify({ targetPlayerId }),
+  });
+
+  return normalizeFaction(response.faction);
+}
