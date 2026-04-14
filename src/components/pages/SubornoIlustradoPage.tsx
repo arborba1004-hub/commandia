@@ -1,17 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { usePlayerStore } from '@/store/playerStore';
-import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import Header from '@/components/Header';
+import SafeVaultModal from '@/components/SafeVaultModal';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Image } from '@/components/ui/image';
-import SafeVaultModal from '@/components/SafeVaultModal';
 import {
-  getRandomPunishment,
-  applyPunishment,
   applyDelacaoPremiada,
-} from '@/Services/punishmentService';
+  applyPunishment,
+  getRandomPunishment,
+} from '@/services/punishmentService';
+import { usePlayerStore } from '@/store/playerStore';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface Authority {
   id: number;

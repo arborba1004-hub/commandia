@@ -1,12 +1,12 @@
-import { getInventoryBonusReductionPercent } from '@/Services/punishmentService';
+import { getInventoryBonusReductionPercent } from '@/services/punishmentService';
 
 /**
  * Calculates the final inventory bonus value after applying punishment reduction
- * 
+ *
  * @param baseValue - The base bonus value before reduction
  * @param player - The player object containing punishment data
  * @returns The reduced bonus value (0-100% reduction applied)
- * 
+ *
  * @example
  * const finalBonus = getReducedInventoryBonus(5, player);
  * // If reduction is 100%, returns 0

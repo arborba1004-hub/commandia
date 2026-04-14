@@ -12,7 +12,7 @@ import {
   isCleanMoneyBlocked,
   isDirtyMoneyBlocked,
   isMoneyLaunderingBlocked,
-} from '@/Services/punishmentService';
+} from '@/services/punishmentService';
 import { create } from 'zustand';
 
 const STORAGE_KEY = 'playerData';
