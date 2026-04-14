@@ -1,3 +1,9 @@
+import type {
+  GangBattleCasualtyResult,
+  GangBattleCompositionStats,
+  GangUnit,
+} from '@/types/gangWar';
+
 export type PlayerSkillKey =
   | 'attack'
   | 'defense'
@@ -28,50 +34,6 @@ export interface PlayerInvestments {
   fuga: number;
   luxury: number;
   comando: number;
-}
-
-export type GangMemberRole =
-  | 'frente'
-  | 'muralha'
-  | 'nitro'
-  | 'certeiro'
-  | 'wifi';
-
-export interface GangMember {
-  role: GangMemberRole;
-  nickname: string;
-  level: number;
-}
-
-export interface GangMembers {
-  frente: GangMember;
-  muralha: GangMember;
-  nitro: GangMember;
-  certeiro: GangMember;
-  wifi: GangMember;
-}
-
-export interface GangComputedBonuses {
-  attackPercent: number;
-  invasionPercent: number;
-  lootPercent: number;
-
-  defensePercent: number;
-  lifePercent: number;
-  lossReductionPercent: number;
-
-  escapePercent: number;
-  mobilityPercent: number;
-  cooldownReductionPercent: number;
-
-  critPercent: number;
-  damagePercent: number;
-  accuracyPercent: number;
-
-  launderingFeeReductionPercent: number;
-  bribePercent: number;
-  operationRiskReductionPercent: number;
-  tacticalPercent: number;
 }
 
 export interface PowerSourcesBreakdown {
@@ -124,7 +86,6 @@ export interface PlayerBattleContext {
 
   skills: PlayerSkills;
   investments: PlayerInvestments;
-  gangMembers: GangMembers;
 }
 
 export interface BattleSnapshot {
@@ -133,9 +94,12 @@ export interface BattleSnapshot {
   createdAt: number;
 
   context: PlayerBattleContext;
-  gangBonuses: GangComputedBonuses;
   powerBreakdown: PowerCalculationBreakdown;
   battleStats: BattleStats;
+
+  gangMembers?: GangUnit[];
+  gangStats?: GangBattleCompositionStats;
+  ctLevel?: number;
 }
 
 export interface BattleResolutionInput {
@@ -170,7 +134,10 @@ export interface BattleResolutionResult {
     defender: BattleStats;
     attackerPower: number;
     defenderPower: number;
-    attackerGangBonuses: GangComputedBonuses;
-    defenderGangBonuses: GangComputedBonuses;
+    attackerGangStats?: GangBattleCompositionStats;
+    defenderGangStats?: GangBattleCompositionStats;
   };
+
+  attackerGangLosses?: GangBattleCasualtyResult;
+  defenderGangLosses?: GangBattleCasualtyResult;
 }
