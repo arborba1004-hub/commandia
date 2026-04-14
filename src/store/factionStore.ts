@@ -20,6 +20,8 @@ import {
   updateFactionMemberRole,
   updateFactionSettings,
   upgradeFactionInvestment,
+  acceptFactionJoinRequest,
+  rejectFactionJoinRequest,
 } from '@/services/factionService';
 
 type CreateFactionPayload = {
@@ -59,6 +61,9 @@ type FactionStore = {
   updateMemberRole: (targetPlayerId: string, role: FactionRole) => Promise<boolean>;
   kickMember: (targetPlayerId: string) => Promise<boolean>;
   transferLeadership: (targetPlayerId: string) => Promise<boolean>;
+
+  acceptJoinRequest: (targetPlayerId: string) => Promise<boolean>;
+  rejectJoinRequest: (targetPlayerId: string) => Promise<boolean>;
 
   clearFaction: () => void;
   setFaction: (faction: Faction | null) => void;
@@ -438,6 +443,56 @@ donate: async (currency, amount) => {
         isSubmitting: false,
         error:
           error instanceof Error ? error.message : 'Erro ao transferir liderança',
+      });
+      return false;
+    }
+  },
+
+  acceptJoinRequest: async (targetPlayerId) => {
+    try {
+      set({ isSubmitting: true, error: null });
+
+      const faction = await acceptFactionJoinRequest(targetPlayerId);
+
+      set({
+        myFaction: faction,
+        isSubmitting: false,
+        error: null,
+        lastLoadedAt: Date.now(),
+      });
+
+      await get().loadFactionList();
+      return true;
+    } catch (error) {
+      set({
+        isSubmitting: false,
+        error:
+          error instanceof Error ? error.message : 'Erro ao aceitar solicitação',
+      });
+      return false;
+    }
+  },
+
+  rejectJoinRequest: async (targetPlayerId) => {
+    try {
+      set({ isSubmitting: true, error: null });
+
+      const faction = await rejectFactionJoinRequest(targetPlayerId);
+
+      set({
+        myFaction: faction,
+        isSubmitting: false,
+        error: null,
+        lastLoadedAt: Date.now(),
+      });
+
+      await get().loadFactionList();
+      return true;
+    } catch (error) {
+      set({
+        isSubmitting: false,
+        error:
+          error instanceof Error ? error.message : 'Erro ao recusar solicitação',
       });
       return false;
     }
