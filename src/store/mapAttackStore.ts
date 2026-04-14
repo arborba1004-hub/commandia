@@ -48,6 +48,19 @@ export type SpoilsResult = {
   luxuryConvertedDirtyMoney: number;
 };
 
+export type GangLosses = {
+  membersKilled: number;
+  membersInjured: number;
+  totalLosses: number;
+};
+
+export type GangStats = {
+  totalMembers: number;
+  averageLevel: number;
+  totalPower: number;
+  morale: number;
+};
+
 export type AttackResolution = {
   success: boolean;
   loot: number;
@@ -57,6 +70,10 @@ export type AttackResolution = {
   message: string;
   critical?: boolean;
   spoils: SpoilsResult;
+  attackerGangLosses: GangLosses;
+  defenderGangLosses: GangLosses;
+  attackerGangStats: GangStats;
+  defenderGangStats: GangStats;
 };
 
 type PreviewPayload = {

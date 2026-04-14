@@ -4,6 +4,8 @@ import type {
   AttackResolution,
   AttackTarget,
   SpoilsResult,
+  GangLosses,
+  GangStats,
 } from '@/store/mapAttackStore';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
@@ -120,6 +122,40 @@ function normalizeSpoils(raw?: Partial<SpoilsResult> | null): SpoilsResult {
   };
 }
 
+function normalizeGangLosses(raw?: Partial<GangLosses> | null): GangLosses {
+  return {
+    membersKilled: safeNumber(raw?.membersKilled),
+    membersInjured: safeNumber(raw?.membersInjured),
+    totalLosses: safeNumber(raw?.totalLosses),
+  };
+}
+
+function normalizeGangStats(raw?: Partial<GangStats> | null): GangStats {
+  return {
+    totalMembers: safeNumber(raw?.totalMembers),
+    averageLevel: safeNumber(raw?.averageLevel),
+    totalPower: safeNumber(raw?.totalPower),
+    morale: safeNumber(raw?.morale),
+  };
+}
+
+function buildEmptyGangLosses(): GangLosses {
+  return {
+    membersKilled: 0,
+    membersInjured: 0,
+    totalLosses: 0,
+  };
+}
+
+function buildEmptyGangStats(): GangStats {
+  return {
+    totalMembers: 0,
+    averageLevel: 0,
+    totalPower: 0,
+    morale: 0,
+  };
+}
+
 function normalizeResolution(raw: any): AttackResolution {
   return {
     success: !!raw?.success,
@@ -130,6 +166,10 @@ function normalizeResolution(raw: any): AttackResolution {
     message: raw?.message || 'Batalha concluída.',
     critical: !!raw?.critical,
     spoils: normalizeSpoils(raw?.spoils),
+    attackerGangLosses: normalizeGangLosses(raw?.attackerGangLosses),
+    defenderGangLosses: normalizeGangLosses(raw?.defenderGangLosses),
+    attackerGangStats: normalizeGangStats(raw?.attackerGangStats),
+    defenderGangStats: normalizeGangStats(raw?.defenderGangStats),
   };
 }
 
@@ -145,6 +185,7 @@ function buildLocalEstimate(
       respect?: number;
       vigor?: number;
     };
+    gangPower?: number;
   } | null,
   target: AttackTarget
 ): BattleEstimate {
@@ -155,10 +196,12 @@ function buildLocalEstimate(
   const respect = safeNumber(attacker?.skills?.respect);
   const vigor = safeNumber(attacker?.skills?.vigor);
 
-  // Usa apenas dados reais do player (sem gangMembers que não existe)
+  // Usa dados reais do player + poder da gangue
   const attackerBasePower = safeNumber(attacker?.power, 100);
+  const gangPower = safeNumber(attacker?.gangPower, 0);
   const attackerComputedPower =
     attackerBasePower +
+    gangPower +
     attack * 8 +
     defense * 4 +
     intelligence * 5 +
@@ -200,7 +243,12 @@ export async function getAttackEstimate(target: AttackTarget): Promise<BattleEst
 }
 
 export async function startBattle(
-  payload: BattleStartPayload
+  payload: BattleStartPayload,
+  gangData?: {
+    attackerGangMembers?: number;
+    attackerGangStats?: GangStats;
+    attackerCTLevel?: number;
+  }
 ): Promise<BattleStartResponse> {
   const body = {
     targetId: payload.target.playerId,
@@ -209,6 +257,11 @@ export async function startBattle(
     targetTileY: payload.target.tileY,
     originTileX: payload.origin.tileX,
     originTileY: payload.origin.tileY,
+    ...(gangData && {
+      attackerGangMembers: gangData.attackerGangMembers,
+      attackerGangStats: gangData.attackerGangStats,
+      attackerCTLevel: gangData.attackerCTLevel,
+    }),
   };
 
   return request<BattleStartResponse>('/battle/start', {
