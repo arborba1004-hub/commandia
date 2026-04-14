@@ -4,7 +4,7 @@ import {
   calculateLevelFromExperience,
   getAvailableInvestmentPoints,
   getAvailableSkillPoints,
-} from '@/Services/progressionService';
+} from '@/services/progressionService';
 import {
   BattleSnapshot,
   GangMembers,
