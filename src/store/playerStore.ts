@@ -1454,11 +1454,9 @@ setNotifications: (notifications) => {
   },
 
   setFactionId: (factionId) => {
-    set((state) => ({
-      player: {
-        ...state.player,
-        factionId,
-      },
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      factionId,
     }));
   },
 }));
