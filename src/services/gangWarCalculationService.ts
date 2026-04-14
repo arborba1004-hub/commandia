@@ -58,14 +58,13 @@ export function getMemberTrainingCost(type: GangMemberType, currentLevel: number
 export function getMemberTrainingHours(type: GangMemberType, currentLevel: number, ctLevel: number) {
   const def = getGangMemberDefinition(type);
   const ct = getCTStateFromLevel(ctLevel);
-  const rawHours =
-    def.trainingBaseHours * (1 + (Math.max(1, currentLevel) - 1) * 0.15);
+  const rawHours = def.trainingBaseHours * (1 + (Math.max(1, currentLevel) - 1) * 0.15);
   const reduced = rawHours * (1 - ct.trainingSpeedBonusPercent / 100);
   return Math.max(1, Math.ceil(reduced));
 }
 
 export function getGangDailyUpkeep(members: GangUnit[]): GangDailyUpkeep {
-  const byType = {
+  const byType: Record<GangMemberType, number> = {
     capanga: 0,
     frente: 0,
     executor: 0,
@@ -87,25 +86,19 @@ export function getGangDailyUpkeep(members: GangUnit[]): GangDailyUpkeep {
 
   for (const member of members) {
     if (member.status === 'morto') continue;
-
     const def = getGangMemberDefinition(member.type);
-    const cost = Math.round(
-      def.maintenanceBaseCostDirtyMoney * levelMultiplier(member.level)
-    );
-
+    const cost = Math.round(def.maintenanceBaseCostDirtyMoney * levelMultiplier(member.level));
     byType[member.type] += cost;
     totalDirtyMoneyCost += cost;
   }
 
-  return {
-    totalDirtyMoneyCost,
-    byType,
-  };
+  return { totalDirtyMoneyCost, byType };
 }
 
 export function buildGangSnapshot(params: {
   members: GangUnit[];
   ctLevel: number;
+  trainingJobs: GangTrainingJob[];
   barracoLevel?: number;
   factionBonusCapacity?: number;
 }): GangStateSnapshot {
@@ -114,11 +107,8 @@ export function buildGangSnapshot(params: {
   return {
     members: params.members,
     ct,
-    maxMembers: getGangMaxMembers(
-      params.ctLevel,
-      params.barracoLevel,
-      params.factionBonusCapacity
-    ),
+    trainingJobs: params.trainingJobs,
+    maxMembers: getGangMaxMembers(params.ctLevel, params.barracoLevel, params.factionBonusCapacity),
     dailyUpkeep: getGangDailyUpkeep(params.members),
   };
 }
@@ -229,10 +219,8 @@ export function resolveGangCasualties(params: {
   }
 
   const ct = getCTStateFromLevel(params.ctLevel);
-  const enemyPressure =
-    params.enemyStats.rajada * 1.05 + params.enemyStats.quebra * 1.1;
-  const ownProtection =
-    params.ownStats.blindagem * 0.9 + params.ownStats.folego * 0.85;
+  const enemyPressure = params.enemyStats.rajada * 1.05 + params.enemyStats.quebra * 1.1;
+  const ownProtection = params.ownStats.blindagem * 0.9 + params.ownStats.folego * 0.85;
 
   const rawLossRate = clamp(
     (enemyPressure - ownProtection * 0.55) / Math.max(params.ownStats.totalPower, 1),
@@ -253,9 +241,7 @@ export function resolveGangCasualties(params: {
   });
 
   const medicalSaveChance = clamp(
-    0.18 +
-      params.ownStats.medicalPower * 0.0025 +
-      ct.recoveryBonusPercent * 0.003,
+    0.18 + params.ownStats.medicalPower * 0.0025 + ct.recoveryBonusPercent * 0.003,
     0.18,
     0.9
   );
