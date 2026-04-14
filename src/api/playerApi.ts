@@ -62,20 +62,7 @@ export type PlayerApiEnvelope = {
 // HELPERS DE AUTH
 // ==========================================
 function getAuthToken(): string | null {
-  const candidates = [
-    localStorage.getItem('authToken'),
-    localStorage.getItem('token'),
-    localStorage.getItem('jwt'),
-    localStorage.getItem('wix_auth_token'),
-  ];
-
-  for (const token of candidates) {
-    if (token && token.trim()) {
-      return token.trim();
-    }
-  }
-
-  return null;
+  return localStorage.getItem('authToken');
 }
 
 // ==========================================

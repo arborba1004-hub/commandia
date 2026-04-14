@@ -47,20 +47,7 @@ const POLLING_INTERVAL = 3000;
 let chatPollingInterval: ReturnType<typeof setInterval> | null = null;
 
 function getAuthToken(): string | null {
-  const candidates = [
-    localStorage.getItem('authToken'),
-    localStorage.getItem('token'),
-    localStorage.getItem('jwt'),
-    localStorage.getItem('wix_auth_token'),
-  ];
-
-  for (const token of candidates) {
-    if (token && token.trim()) {
-      return token.trim();
-    }
-  }
-
-  return null;
+  return localStorage.getItem('authToken');
 }
 
 async function chatRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

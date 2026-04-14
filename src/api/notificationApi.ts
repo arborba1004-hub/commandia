@@ -11,20 +11,7 @@ const BACKEND_URL = 'https://comando-backend.onrender.com';
 const REQUEST_TIMEOUT_MS = 10000;
 
 function getAuthToken(): string | null {
-  const candidates = [
-    localStorage.getItem('authToken'),
-    localStorage.getItem('token'),
-    localStorage.getItem('jwt'),
-    localStorage.getItem('wix_auth_token'),
-  ];
-
-  for (const token of candidates) {
-    if (token && token.trim()) {
-      return token.trim();
-    }
-  }
-
-  return null;
+  return localStorage.getItem('authToken');
 }
 
 function buildUrl(endpoint: string): string {

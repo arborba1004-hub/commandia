@@ -14,12 +14,7 @@ export type OtherPlayerMapItem = {
 };
 
 function getAuthToken(): string | null {
-  return (
-    localStorage.getItem('authToken') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('jwt') ||
-    localStorage.getItem('wix_auth_token')
-  );
+  return localStorage.getItem('authToken');
 }
 
 export async function fetchOtherPlayersMap(): Promise<OtherPlayerMapItem[]> {
