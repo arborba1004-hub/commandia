@@ -87,11 +87,15 @@ function endLoadingFactionList(set: (partial: Partial<FactionStore>) => void) {
 
 function syncPlayerFactionId(factionId: string | null) {
   const playerStore = usePlayerStore.getState();
-  const currentFactionId = playerStore.player?.factionId ?? null;
+  const currentPlayer = playerStore.player;
+  const currentFactionId = currentPlayer?.factionId ?? null;
 
   if (currentFactionId === factionId) return;
 
-  playerStore.setFactionId(factionId);
+  playerStore.hydratePlayerFromServer({
+    ...currentPlayer,
+    factionId,
+  } as any);
 }
 
 function syncPlayerBalancesFromFactionDonationBeforeAfter(
@@ -225,7 +229,7 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
       });
 
       syncPlayerFactionId(faction.id);
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -250,7 +254,7 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
       });
 
       syncPlayerFactionId(faction.id);
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -280,7 +284,7 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
         syncPlayerFactionId(null);
       }
 
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -311,7 +315,7 @@ donate: async (currency, amount) => {
         lastLoadedAt: Date.now(),
       });
 
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -335,7 +339,7 @@ donate: async (currency, amount) => {
         lastLoadedAt: Date.now(),
       });
 
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -360,7 +364,7 @@ donate: async (currency, amount) => {
         lastLoadedAt: Date.now(),
       });
 
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -387,7 +391,7 @@ donate: async (currency, amount) => {
         lastLoadedAt: Date.now(),
       });
 
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -412,7 +416,7 @@ donate: async (currency, amount) => {
         lastLoadedAt: Date.now(),
       });
 
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -436,7 +440,7 @@ donate: async (currency, amount) => {
         lastLoadedAt: Date.now(),
       });
 
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -461,7 +465,7 @@ donate: async (currency, amount) => {
         lastLoadedAt: Date.now(),
       });
 
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
@@ -486,7 +490,7 @@ donate: async (currency, amount) => {
         lastLoadedAt: Date.now(),
       });
 
-      await get().loadFactionList();
+      await Promise.all([get().loadMyFaction(), get().loadFactionList()]);
       return true;
     } catch (error) {
       set({
