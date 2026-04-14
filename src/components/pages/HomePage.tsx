@@ -43,7 +43,7 @@ const cards = [
     description: 'Só permanece quem impõe respeito.',
     icon: Flame,
   },
-];
+]; 
 
 export default function HomePage() {
   const navigate = useNavigate();
