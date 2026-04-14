@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { usePlayerStore } from '@/store/playerStore';
+import { useGangStore } from '@/store/gangStore';
 import { handleTileInvasion } from '@/components/game/tileInvasion';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
@@ -231,6 +232,12 @@ export default function GamePage() {
   const applyRemoteAttackResult = usePlayerStore((state) => state.applyRemoteAttackResult);
   const addAttackHistoryItem = usePlayerStore((state) => state.addAttackHistoryItem);
   const addNotification = usePlayerStore((state) => state.addNotification);
+  const gang = useGangStore((state) => state.gang);
+  const getGangBattleStats = useGangStore((state) => state.getBattleStats);
+  const applyBattleLossesToBackend = useGangStore(
+    (state) => state.applyBattleLossesToBackend
+  );
+  const loadGang = useGangStore((state) => state.loadGang);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
@@ -278,6 +285,10 @@ export default function GamePage() {
 
     try {
       setIsStartingBattle(true);
+
+      const attackerGangMembers = gang?.members || [];
+      const attackerGangStats = getGangBattleStats();
+      const attackerCTLevel = gang?.ct?.level || 1;
 
       const startResponse = await startBattle({
         origin: state.origin,
@@ -332,6 +343,11 @@ export default function GamePage() {
             try {
               const report = await resolveBattleById(startResponse.battleId);
               setBattleReport(report);
+
+              if (report?.resolution?.attackerGangLosses) {
+                await applyBattleLossesToBackend(report.resolution.attackerGangLosses);
+                await loadGang();
+              }
 
               pushAttackFeed(
                 report.resolution.success
