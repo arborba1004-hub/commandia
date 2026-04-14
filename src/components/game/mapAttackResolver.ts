@@ -1,3 +1,9 @@
+import type {
+  GangBattleCasualtyResult,
+  GangBattleCompositionStats,
+} from '@/types/gangWar';
+import { resolveGangCasualties } from '@/services/gangWarCalculationService';
+
 type LuxuryItemLike = {
   id: string;
   name?: string;
@@ -18,6 +24,9 @@ type AttackInput = {
     prestige?: number;
     corre?: number;
     level?: number;
+    gangMembers?: any[];
+    gangStats?: GangBattleCompositionStats;
+    ctLevel?: number;
   };
   defender: {
     defense: number;
@@ -27,6 +36,9 @@ type AttackInput = {
     corre?: number;
     level?: number;
     luxuryItems?: LuxuryItemLike[];
+    gangMembers?: any[];
+    gangStats?: GangBattleCompositionStats;
+    ctLevel?: number;
   };
   targetDirtyMoney?: number;
 };
@@ -50,6 +62,10 @@ export type AttackResult = {
   message: string;
   critical: boolean;
   spoils: SpoilsResult;
+  attackerGangLosses: GangBattleCasualtyResult;
+  defenderGangLosses: GangBattleCasualtyResult;
+  attackerGangStats: GangBattleCompositionStats;
+  defenderGangStats: GangBattleCompositionStats;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -80,10 +96,74 @@ function pickBreakableLuxuryItem(items: LuxuryItemLike[] = []) {
   const weighted: LuxuryItemLike[] = [];
   candidates.forEach((item) => {
     const weight = Math.max(1, Math.floor((item.baseValue || 1000) / 100000));
-    for (let i = 0; i < weight; i += 1) weighted.push(item);
+    for (let i = 0; i < weight; i += 1) {
+      weighted.push(item);
+    }
   });
 
   return weighted[Math.floor(Math.random() * weighted.length)] || candidates[0];
+}
+
+function buildEmptyGangLosses(): GangBattleCasualtyResult {
+  return {
+    mortos: {
+      capanga: 0,
+      frente: 0,
+      executor: 0,
+      assassino: 0,
+      muralha: 0,
+      certeiro: 0,
+      motorista: 0,
+      nitro: 0,
+      armeiro: 0,
+      informante: 0,
+      wifi: 0,
+      medico: 0,
+      lavador: 0,
+      ladrao: 0,
+      negociador: 0,
+    },
+    feridos: {
+      capanga: 0,
+      frente: 0,
+      executor: 0,
+      assassino: 0,
+      muralha: 0,
+      certeiro: 0,
+      motorista: 0,
+      nitro: 0,
+      armeiro: 0,
+      informante: 0,
+      wifi: 0,
+      medico: 0,
+      lavador: 0,
+      ladrao: 0,
+      negociador: 0,
+    },
+    preservadosPeloMedico: 0,
+  };
+}
+
+function buildEmptyGangStats(): GangBattleCompositionStats {
+  return {
+    totalMembers: 0,
+    ativos: 0,
+    feridos: 0,
+    mortos: 0,
+    rajada: 0,
+    blindagem: 0,
+    folego: 0,
+    quebra: 0,
+    medicalPower: 0,
+    economyPower: 0,
+    lootPower: 0,
+    intelPower: 0,
+    mobilityPower: 0,
+    weaponPower: 0,
+    coordinationPower: 0,
+    negotiationPower: 0,
+    totalPower: 0,
+  };
 }
 
 export function resolveMapAttack({
@@ -91,19 +171,40 @@ export function resolveMapAttack({
   defender,
   targetDirtyMoney = 0,
 }: AttackInput): AttackResult {
-  const attackPower =
+  const attackerGangStats = attacker.gangStats || buildEmptyGangStats();
+  const defenderGangStats = defender.gangStats || buildEmptyGangStats();
+
+  const attackerPersonalPower =
     attacker.attack +
     attacker.agility * 0.5 +
     (attacker.weaponBonus || 0) +
     (attacker.prestige || 0) * 0.1;
 
-  const defensePower =
+  const defenderPersonalPower =
     defender.defense +
     defender.resistance * 0.7 +
     (defender.protectionBonus || 0) +
     (defender.prestige || 0) * 0.08;
 
-  const rawChance = attackPower / (attackPower + defensePower);
+  const attackerGangPower =
+    attackerGangStats.rajada * 1.15 +
+    attackerGangStats.quebra * 1.2 +
+    attackerGangStats.weaponPower * 0.4 +
+    attackerGangStats.intelPower * 0.25 +
+    attackerGangStats.mobilityPower * 0.2 +
+    attackerGangStats.coordinationPower * 0.18;
+
+  const defenderGangPower =
+    defenderGangStats.blindagem * 1.2 +
+    defenderGangStats.folego * 1.05 +
+    defenderGangStats.intelPower * 0.22 +
+    defenderGangStats.coordinationPower * 0.18 +
+    defenderGangStats.medicalPower * 0.12;
+
+  const attackPower = attackerPersonalPower + attackerGangPower;
+  const defensePower = defenderPersonalPower + defenderGangPower;
+
+  const rawChance = attackPower / Math.max(1, attackPower + defensePower);
   const chance = clamp(rawChance, 0.3, 0.9);
 
   const roll = Math.random();
@@ -126,12 +227,28 @@ export function resolveMapAttack({
       : randomBetween(0.1, 0.15);
 
     const cap = getLootCapByLevel(attacker.level || 1);
-    dirtyMoneyLoot = Math.floor(Math.min(exposedDirty * lootPercent, cap));
 
-    correLoot = critical ? Math.floor(randomBetween(3, 5)) : Math.floor(randomBetween(1, 3));
+    const gangLootFactor = (attackerGangStats.lootPower || 0) * 0.0035;
+    const defenseReductionFactor =
+      (defender.protectionBonus || 0) * 0.002 +
+      (defenderGangStats.blindagem || 0) * 0.0008;
+
+    dirtyMoneyLoot = Math.floor(
+      Math.min(
+        exposedDirty * Math.max(0.05, lootPercent + gangLootFactor - defenseReductionFactor),
+        cap
+      )
+    );
+
+    correLoot = critical
+      ? Math.floor(randomBetween(3, 5))
+      : Math.floor(randomBetween(1, 3));
+
     prestigeLoot = critical ? 25 : 10;
 
-    const luxuryBreakChance = critical ? 0.25 : 0.1;
+    const luxuryBreakChance =
+      (critical ? 0.25 : 0.1) + (attackerGangStats.quebra || 0) * 0.0005;
+
     if (Math.random() <= luxuryBreakChance) {
       const brokenItem = pickBreakableLuxuryItem(defender.luxuryItems || []);
       if (brokenItem) {
@@ -144,50 +261,55 @@ export function resolveMapAttack({
       }
     }
 
-    const totalDirty = dirtyMoneyLoot + luxuryConvertedDirtyMoney;
-
     message = critical
       ? 'ATAQUE CRÍTICO. O alvo foi esmagado.'
       : 'Ataque bem-sucedido. Território enfraquecido.';
-
-    return {
-      success: true,
-      critical,
-      loot: totalDirty,
-      chance,
-      attackerPower: Math.floor(attackPower),
-      defenderPower: Math.floor(defensePower),
-      message,
-      spoils: {
-        dirtyMoneyLoot,
-        correLoot,
-        prestigeLoot,
-        brokenLuxuryItemId,
-        brokenLuxuryItemName,
-        brokenLuxuryItemValue,
-        luxuryConvertedDirtyMoney,
-      },
-    };
+  } else {
+    message = 'Sua investida falhou. A defesa resistiu.';
   }
 
-  message = 'Sua investida falhou. A defesa resistiu.';
+  const attackerGangLosses =
+    attacker.gangMembers && attacker.gangMembers.length > 0
+      ? resolveGangCasualties({
+          members: attacker.gangMembers,
+          ownStats: attackerGangStats,
+          enemyStats: defenderGangStats,
+          ctLevel: Number(attacker.ctLevel || 1),
+          side: 'attacker',
+        })
+      : buildEmptyGangLosses();
+
+  const defenderGangLosses =
+    defender.gangMembers && defender.gangMembers.length > 0
+      ? resolveGangCasualties({
+          members: defender.gangMembers,
+          ownStats: defenderGangStats,
+          enemyStats: attackerGangStats,
+          ctLevel: Number(defender.ctLevel || 1),
+          side: 'defender',
+        })
+      : buildEmptyGangLosses();
 
   return {
-    success: false,
-    critical: false,
-    loot: 0,
+    success,
+    critical,
+    loot: dirtyMoneyLoot + luxuryConvertedDirtyMoney,
     chance,
     attackerPower: Math.floor(attackPower),
     defenderPower: Math.floor(defensePower),
     message,
     spoils: {
-      dirtyMoneyLoot: 0,
-      correLoot: 0,
-      prestigeLoot: 0,
-      brokenLuxuryItemId: null,
-      brokenLuxuryItemName: null,
-      brokenLuxuryItemValue: null,
-      luxuryConvertedDirtyMoney: 0,
+      dirtyMoneyLoot,
+      correLoot,
+      prestigeLoot,
+      brokenLuxuryItemId,
+      brokenLuxuryItemName,
+      brokenLuxuryItemValue,
+      luxuryConvertedDirtyMoney,
     },
+    attackerGangLosses,
+    defenderGangLosses,
+    attackerGangStats,
+    defenderGangStats,
   };
 }
