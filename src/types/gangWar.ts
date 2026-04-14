@@ -55,7 +55,7 @@ export type GangMemberDefinition = {
 export type GangUnit = {
   id: string;
   type: GangMemberType;
-  level: number; // 1..10
+  level: number;
   status: GangMemberStatus;
   recruitedAt: string;
   trainingEndsAt: string | null;
@@ -82,10 +82,6 @@ export type GangCTState = {
   recoveryBonusPercent: number;
   trainingSpeedBonusPercent: number;
   gangCapacityBonus: number;
-};
-
-export type GangBattleMemberStats = GangCoreStats & {
-  effectivePower: number;
 };
 
 export type GangBattleCompositionStats = {
@@ -134,6 +130,16 @@ export type GangDailyUpkeep = {
 export type GangStateSnapshot = {
   members: GangUnit[];
   ct: GangCTState;
+  trainingJobs: GangTrainingJob[];
   maxMembers: number;
   dailyUpkeep: GangDailyUpkeep;
+};
+
+export type GangWarApiEnvelope = {
+  gang: GangStateSnapshot;
+  playerBalances?: {
+    dirtyMoney: number;
+    cleanMoney: number;
+    corre: number;
+  };
 };
