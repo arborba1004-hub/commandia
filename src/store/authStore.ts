@@ -99,18 +99,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const result = await syncGoogleAuth(googleToken);
 
-      const token = result?.token ?? null;
+      const authToken = result?.token ?? null;
       const player = result?.player ?? null;
 
-      if (!token || !player) {
+      if (!authToken || !player) {
         throw new Error('Resposta inválida do login');
       }
 
-      localStorage.setItem('authToken', token);
+      localStorage.setItem('authToken', authToken);
       localStorage.setItem('playerData', JSON.stringify(player));
 
       set({
-        authToken: token,
+        authToken: authToken,
         playerData: player,
         isLoading: false,
         error: null,

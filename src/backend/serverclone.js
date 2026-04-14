@@ -4,7 +4,6 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
-import jwt from 'jsonwebtoken';
 import mercadopago from 'mercadopago';
 
 dotenv.config();
@@ -387,9 +386,12 @@ async function authMiddleware(req, res, next) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Token não informado' });
     }
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const player = await Player.findById(decoded.id);
+    const authToken = authHeader.split(' ')[1];
+    // Validate authToken format (basic validation)
+    if (!authToken || authToken.length < 10) {
+      return res.status(401).json({ error: 'Token inválido' });
+    }
+    const player = await Player.findOne({ authToken });
     if (!player) {
       return res.status(401).json({ error: 'Player não encontrado' });
     }
@@ -435,11 +437,13 @@ app.post('/auth/google', async (req, res) => {
         mapPosition: { tileX: randomX, tileY: randomY, worldX: randomX, worldY: randomY },
       });
     }
-    const jwtToken = jwt.sign({ id: player._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    // Generate authToken (using crypto or similar)
+    const authToken = require('crypto').randomBytes(32).toString('hex');
+    player.authToken = authToken;
     applyPassiveIncome(player);
     bumpVersion(player);
     await player.save();
-    return res.json({ token: jwtToken, player });
+    return res.json({ token: authToken, player });
   } catch (err) {
     console.error('Erro no login Google:', err);
     return res.status(500).json({ error: 'erro no login' });

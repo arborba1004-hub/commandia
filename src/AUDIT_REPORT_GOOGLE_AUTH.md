@@ -95,18 +95,8 @@ export const MemberProvider = ({ children }) => {
 **Token Retrieval:** `/src/api/playerApi.ts` (lines 64-79)
 ```typescript
 function getAuthToken(): string | null {
-  const candidates = [
-    localStorage.getItem('authToken'),
-    localStorage.getItem('token'),
-    localStorage.getItem('jwt'),
-    localStorage.getItem('wix_auth_token'),
-  ];
-  
-  for (const token of candidates) {
-    if (token && token.trim()) {
-      return token.trim();
-    }
-  }
+  return localStorage.getItem('authToken');
+}
   
   return null;
 }
@@ -199,9 +189,6 @@ const handleLogout = () => {
 function getStoredAuthToken(): string | null {
   const candidates = [
     localStorage.getItem('authToken'),
-    localStorage.getItem('token'),
-    localStorage.getItem('jwt'),
-    localStorage.getItem('wix_auth_token'),
   ];
   
   for (const token of candidates) {
@@ -285,11 +272,11 @@ import { type FittingType, getPlaceholder, type ImageTransformOptions, sdk, STAT
 **Action:** No change needed
 
 ### Issue 2: Multiple Token Storage Keys ℹ️
-**Pattern:** Code checks multiple keys: `authToken`, `token`, `jwt`, `wix_auth_token`
+**Pattern:** Code now uses only `authToken` key for consistency
 
-**Status:** ℹ️ Defensive programming  
-**Recommendation:** Keep for flexibility, but primary is `authToken`  
-**Action:** No change needed
+**Status:** ✅ Standardized to single token key  
+**Recommendation:** All authentication now uses `authToken` exclusively  
+**Action:** Completed - all references standardized
 
 ### Issue 3: BaseCrudService Import ✅
 **Pattern:** `import { BaseCrudService } from '@/integrations'`
