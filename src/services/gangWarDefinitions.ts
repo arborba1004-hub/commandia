@@ -21,7 +21,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   capanga: {
     type: 'capanga',
     label: 'Capanga',
-    description: 'Base numérica da firma. Sustenta o volume do confronto.',
+    description: 'Base numérica da firma.',
     role: 'linha_de_frente',
     recruitBaseCostDirtyMoney: 1200,
     trainingBaseCostDirtyMoney: 700,
@@ -49,7 +49,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   executor: {
     type: 'executor',
     label: 'Executor',
-    description: 'Unidade de finalização pesada.',
+    description: 'Finalização pesada.',
     role: 'linha_de_frente',
     recruitBaseCostDirtyMoney: 2600,
     trainingBaseCostDirtyMoney: 1400,
@@ -63,7 +63,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   assassino: {
     type: 'assassino',
     label: 'Assassino',
-    description: 'Ofensiva letal e precisa.',
+    description: 'Ofensiva letal.',
     role: 'tatico',
     recruitBaseCostDirtyMoney: 3200,
     trainingBaseCostDirtyMoney: 1700,
@@ -119,7 +119,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   nitro: {
     type: 'nitro',
     label: 'Nitro',
-    description: 'Explosão ofensiva e aceleração.',
+    description: 'Explosão ofensiva.',
     role: 'tatico',
     recruitBaseCostDirtyMoney: 2500,
     trainingBaseCostDirtyMoney: 1350,
@@ -133,7 +133,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   armeiro: {
     type: 'armeiro',
     label: 'Armeiro',
-    description: 'Sustenta o poder de fogo da firma.',
+    description: 'Sustenta o poder de fogo.',
     role: 'tatico',
     recruitBaseCostDirtyMoney: 2600,
     trainingBaseCostDirtyMoney: 1400,
@@ -147,7 +147,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   informante: {
     type: 'informante',
     label: 'Informante',
-    description: 'Leitura tática e visão da rua.',
+    description: 'Leitura tática.',
     role: 'tatico',
     recruitBaseCostDirtyMoney: 2400,
     trainingBaseCostDirtyMoney: 1250,
@@ -161,7 +161,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   wifi: {
     type: 'wifi',
     label: 'WiFi',
-    description: 'Coordenação e comunicação do bonde.',
+    description: 'Coordenação do bonde.',
     role: 'tatico',
     recruitBaseCostDirtyMoney: 2200,
     trainingBaseCostDirtyMoney: 1200,
@@ -175,7 +175,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   medico: {
     type: 'medico',
     label: 'Médico',
-    description: 'Converte perdas definitivas em feridos.',
+    description: 'Converte mortos em feridos.',
     role: 'suporte',
     recruitBaseCostDirtyMoney: 3400,
     trainingBaseCostDirtyMoney: 1800,
@@ -189,7 +189,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   lavador: {
     type: 'lavador',
     label: 'Lavador',
-    description: 'Sustentação financeira da tropa.',
+    description: 'Sustentação financeira.',
     role: 'economico',
     recruitBaseCostDirtyMoney: 2800,
     trainingBaseCostDirtyMoney: 1450,
@@ -203,7 +203,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   ladrao: {
     type: 'ladrao',
     label: 'Ladrão',
-    description: 'Especialista em saque e retorno do ataque.',
+    description: 'Especialista em saque.',
     role: 'economico',
     recruitBaseCostDirtyMoney: 2100,
     trainingBaseCostDirtyMoney: 1150,
@@ -217,7 +217,7 @@ export const GANG_MEMBER_DEFINITIONS: Record<GangMemberType, GangMemberDefinitio
   negociador: {
     type: 'negociador',
     label: 'Negociador',
-    description: 'Reduz custo, melhora acordo e favorece a firma.',
+    description: 'Reduz custo e melhora acordo.',
     role: 'suporte',
     recruitBaseCostDirtyMoney: 2600,
     trainingBaseCostDirtyMoney: 1350,
