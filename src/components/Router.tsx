@@ -18,6 +18,7 @@ import ChatPage from '@/components/pages/ChatPage';
 import TalentsPage from '@/components/pages/TalentsPage';
 import FactionPage from '@/components/pages/FactionPage';
 import RankingPage from '@/components/pages/RankingPage';
+import GangPage from '@/components/gang/GangPage';
 import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
 
 function Layout() {
@@ -115,7 +116,7 @@ const router = createBrowserRouter(
 
         { path: 'ranking', element: <RankingPage /> },
 
-        { path: 'gang', element: <Navigate to="/faccao" replace /> },
+        { path: 'gang', element: <GangPage /> },
         { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
         { path: 'lavagemdedinheiro', element: <Navigate to="/lavagem-de-dinheiro" replace /> },
         { path: 'subornoilustrado', element: <Navigate to="/suborno-ilustrado" replace /> },

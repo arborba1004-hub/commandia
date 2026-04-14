@@ -262,6 +262,7 @@ export default function GamePage() {
     { name: 'Delação Premiada', path: '/delacao-premiada' },
     { name: 'Arsenal', path: '/arsenal' },
     { name: 'Facção', path: '/faccao' },
+    { name: 'Gangue', path: '/gang' },
     { name: 'Barraco', path: '/barraco' },
     { name: 'Fuga Ilustrada', path: '/fuga-ilustrada' },
   ];
