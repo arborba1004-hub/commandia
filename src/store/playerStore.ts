@@ -538,13 +538,19 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   };
 }
 
-async function syncFactionStoreFromEnvelope(faction: any | null) {
+async function syncFactionStoreFromEnvelope(
+  faction: any | null,
+  options?: { allowClear?: boolean }
+) {
   try {
     const { useFactionStore } = await import('@/store/factionStore');
 
     if (faction) {
       useFactionStore.getState().setFaction(faction);
-    } else {
+      return;
+    }
+
+    if (options?.allowClear) {
       useFactionStore.getState().setFaction(null);
     }
   } catch (error) {
@@ -614,15 +620,17 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         pollingAttempts: 0,
       });
 
-      await syncFactionStoreFromEnvelope(serverEnvelope.faction);
+      await syncFactionStoreFromEnvelope(serverEnvelope.faction, {
+        allowClear: serverEnvelope.player?.factionId == null,
+      });
     } catch (error) {
       console.error('Erro ao carregar playerData:', error);
-      set({
-        player: initialPlayer,
+      set((state) => ({
+        player: state.player,
         isLoaded: true,
         syncError: 'Erro ao carregar player',
         lastSyncAt: Date.now(),
-      });
+      }));
     }
   },
 
@@ -659,7 +667,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       pendingLocalChanges: false,
     });
 
-    void syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null);
+    void syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
+      allowClear: (playerData as any)?.factionId == null,
+    });
   },
 
   applyPlayerUpdate: (updater) => {
@@ -708,7 +718,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       lastServerHydrationAt: 0,
     });
 
-    void syncFactionStoreFromEnvelope(null);
+    void syncFactionStoreFromEnvelope(null, { allowClear: true });
   },
 
   saveLocal: () => {
@@ -718,6 +728,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   scheduleSync: () => {
     if (get().isSyncing) return;
+    if (!getStoredAuthToken()) return;
 
     if (syncTimeout) clearTimeout(syncTimeout);
 
@@ -728,6 +739,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   syncPlayerToBackend: async () => {
     if (get().isSyncing) return;
+    if (!getStoredAuthToken()) return;
 
     const player = get().player;
 
@@ -753,7 +765,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         ),
       }));
 
-      await syncFactionStoreFromEnvelope(data.faction);
+      await syncFactionStoreFromEnvelope(data.faction, {
+        allowClear: data.player?.factionId == null,
+      });
     } catch (error) {
       console.error('Erro sync player:', error);
       set({
@@ -821,7 +835,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         lastServerHydrationAt: Date.now(),
       });
 
-      await syncFactionStoreFromEnvelope(serverEnvelope.faction);
+      await syncFactionStoreFromEnvelope(serverEnvelope.faction, {
+        allowClear: serverEnvelope.player?.factionId == null,
+      });
     } catch (error: any) {
       console.error('Erro ao fazer polling do player:', error);
 
