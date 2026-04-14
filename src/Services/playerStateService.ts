@@ -1,18 +1,17 @@
-import {
-  BattleSnapshot,
-  PlayerBattleContext,
-  PlayerInvestments,
-  PlayerSkills,
-  GangMembers,
-} from '@/types/powerSystem';
-import { createInitialGangMembers } from '@/Services/gangService';
-import { createBattleSnapshot, calculateTotalPower, calculateBattleStats } from '@/Services/powerCalculationService';
-import { getGangComputedBonuses } from '@/Services/gangService';
+import { createInitialGangMembers } from '@/services/gangService';
+import { calculateTotalPower, createBattleSnapshot } from '@/Services/powerCalculationService';
 import {
   calculateLevelFromExperience,
   getAvailableInvestmentPoints,
   getAvailableSkillPoints,
 } from '@/Services/progressionService';
+import {
+  BattleSnapshot,
+  GangMembers,
+  PlayerBattleContext,
+  PlayerInvestments,
+  PlayerSkills,
+} from '@/types/powerSystem';
 
 export interface PowerSystemPlayerState {
   playerId: string;

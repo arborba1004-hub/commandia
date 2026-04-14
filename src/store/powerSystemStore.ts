@@ -3,21 +3,21 @@
  * Gerencia estado central do jogador: skills, investments, gang, faction, battle stats
  */
 
-import { create } from 'zustand';
 import {
-  PlayerSkills,
-  PlayerInvestments,
-  GangMembers,
-  BattleStats,
-  BattleSnapshot,
-  PowerCalculationBreakdown,
-} from '@/types/powerSystem';
-import {
-  calculateTotalPower,
   calculateBattleStats,
+  calculateTotalPower,
   createBattleSnapshot,
 } from '@/Services/powerCalculationService';
-import { initializeGangMembers } from '@/Services/gangService';
+import { initializeGangMembers } from '@/services/gangService';
+import {
+  BattleSnapshot,
+  BattleStats,
+  GangMembers,
+  PlayerInvestments,
+  PlayerSkills,
+  PowerCalculationBreakdown,
+} from '@/types/powerSystem';
+import { create } from 'zustand';
 
 // ============================================================================
 // TIPOS
