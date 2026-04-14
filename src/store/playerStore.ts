@@ -24,20 +24,8 @@ let syncTimeout: ReturnType<typeof setTimeout> | null = null;
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
 function getStoredAuthToken(): string | null {
-  const candidates = [
-    localStorage.getItem('authToken'),
-    localStorage.getItem('token'),
-    localStorage.getItem('jwt'),
-    localStorage.getItem('wix_auth_token'),
-  ];
-
-  for (const token of candidates) {
-    if (token && token.trim()) {
-      return token.trim();
-    }
-  }
-
-  return null;
+  const token = localStorage.getItem('authToken');
+  return token && token.trim() ? token.trim() : null;
 }
 
 type Balances = {
