@@ -296,7 +296,7 @@ export default function GamePage() {
           target: state.target,
         },
         {
-          attackerGangMembers: attackerGangMembers.length,
+          attackerGangMembers,
           attackerGangStats,
           attackerCTLevel,
         }
