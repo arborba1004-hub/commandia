@@ -106,6 +106,8 @@ const RECRUIT_OPTIONS: GangMemberType[] = [
 
 export default function GangPage() {
   const navigate = useNavigate();
+  const [recruitingType, setRecruitingType] = useState<GangMemberType | null>(null);
+  const [trainingId, setTrainingId] = useState<string | null>(null);
 
   const gang = useGangStore((state) => state.gang);
   const isLoading = useGangStore((state) => state.isLoading);
@@ -121,7 +123,49 @@ export default function GangPage() {
   const upgradeCT = useGangStore((state) => state.upgradeCT);
   const payMaintenance = useGangStore((state) => state.payMaintenance);
 
+  useEffect(() => {
+    void loadGang();
+  }, [loadGang]);
 
+  const handleRecruit = async (type: GangMemberType) => {
+    setRecruitingType(type);
+    try {
+      await recruitMember(type);
+    } finally {
+      setRecruitingType(null);
+    }
+  };
+
+  const handleTrain = async (memberId: string) => {
+    setTrainingId(memberId);
+    try {
+      await startTrainingMember(memberId);
+    } finally {
+      setTrainingId(null);
+    }
+  };
+
+  const members = useMemo(() => gang?.members || [], [gang?.members]);
+  const activeMembers = useMemo(
+    () => members.filter((m) => m.status === 'ativo'),
+    [members]
+  );
+  const injuredMembers = useMemo(
+    () => members.filter((m) => m.status === 'ferido'),
+    [members]
+  );
+  const trainingMembers = useMemo(
+    () => members.filter((m) => m.status === 'treinando'),
+    [members]
+  );
+  const deadMembers = useMemo(
+    () => members.filter((m) => m.status === 'morto'),
+    [members]
+  );
+  const otherMembers = useMemo(
+    () => [...injuredMembers, ...trainingMembers],
+    [injuredMembers, trainingMembers]
+  );
 
   if (!gang && isLoading) {
     return (
