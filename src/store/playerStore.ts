@@ -152,6 +152,26 @@ type Accessories = {
   weapons?: Record<string, string[]>;
 };
 
+type GangMember = {
+  id: string;
+  type: string;
+  level: number;
+  status: 'ativo' | 'ferido' | 'morto' | 'treinando';
+  recruitedAt: string;
+  trainingEndsAt?: string | null;
+  injuryEndsAt?: string | null;
+};
+
+type GangStats = {
+  totalMembers: number;
+  activemembers: number;
+  injuredMembers: number;
+  deadMembers: number;
+  trainingMembers: number;
+  totalPower: number;
+  averageLevel: number;
+};
+
 type AttackNotification = {
   id: string;
   type: 'attack_received' | 'attack_success' | 'revenge_available';
@@ -174,6 +194,8 @@ type AttackHistoryItem = {
   success: boolean;
   loot: number;
   createdAt: string;
+  attackerGangLosses?: Record<string, number>;
+  defenderGangLosses?: Record<string, number>;
 };
 
 export type PlayerState = {
@@ -206,6 +228,12 @@ export type PlayerState = {
   notifications?: AttackNotification[];
   attackHistory?: AttackHistoryItem[];
   factionId?: string | null;
+  
+  // Gang system
+  gangMembers?: GangMember[];
+  gangStats?: GangStats;
+  lastAttackAt?: string | null;
+  pvpProtectionUntil?: string | null;
 };
 
 type PlayerStore = {
@@ -310,6 +338,21 @@ type PlayerStore = {
   }) => void;
 
   setFactionId: (factionId: string | null) => void;
+
+  // Gang system methods
+  setGangMembers: (members: GangMember[]) => void;
+  addGangMember: (member: GangMember) => void;
+  updateGangMember: (memberId: string, updates: Partial<GangMember>) => void;
+  removeGangMember: (memberId: string) => void;
+  setGangStats: (stats: GangStats) => void;
+  updateGangStats: (updates: Partial<GangStats>) => void;
+  setLastAttackAt: (timestamp: string | null) => void;
+  setPvpProtectionUntil: (timestamp: string | null) => void;
+  getGangMemberById: (memberId: string) => GangMember | undefined;
+  getActiveGangMembers: () => GangMember[];
+  getInjuredGangMembers: () => GangMember[];
+  getTrainingGangMembers: () => GangMember[];
+  getDeadGangMembers: () => GangMember[];
 };
 const initialPlayer: PlayerState = {
   _id: '',
@@ -1461,5 +1504,97 @@ setNotifications: (notifications) => {
       ...player,
       factionId,
     }));
+  },
+
+  setGangMembers: (members) => {
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      gangMembers: members,
+    }));
+  },
+
+  addGangMember: (member) => {
+    get().applyPlayerUpdate((player) => {
+      const existing = player.gangMembers || [];
+      return {
+        ...player,
+        gangMembers: [...existing, member],
+      };
+    });
+  },
+
+  updateGangMember: (memberId, updates) => {
+    get().applyPlayerUpdate((player) => {
+      const members = (player.gangMembers || []).map((m) =>
+        m.id === memberId ? { ...m, ...updates } : m
+      );
+      return {
+        ...player,
+        gangMembers: members,
+      };
+    });
+  },
+
+  removeGangMember: (memberId) => {
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      gangMembers: (player.gangMembers || []).filter((m) => m.id !== memberId),
+    }));
+  },
+
+  setGangStats: (stats) => {
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      gangStats: stats,
+    }));
+  },
+
+  updateGangStats: (updates) => {
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      gangStats: {
+        ...player.gangStats,
+        ...updates,
+      },
+    }));
+  },
+
+  setLastAttackAt: (timestamp) => {
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      lastAttackAt: timestamp,
+    }));
+  },
+
+  setPvpProtectionUntil: (timestamp) => {
+    get().applyPlayerUpdate((player) => ({
+      ...player,
+      pvpProtectionUntil: timestamp,
+    }));
+  },
+
+  getGangMemberById: (memberId) => {
+    const members = get().player.gangMembers || [];
+    return members.find((m) => m.id === memberId);
+  },
+
+  getActiveGangMembers: () => {
+    const members = get().player.gangMembers || [];
+    return members.filter((m) => m.status === 'ativo');
+  },
+
+  getInjuredGangMembers: () => {
+    const members = get().player.gangMembers || [];
+    return members.filter((m) => m.status === 'ferido');
+  },
+
+  getTrainingGangMembers: () => {
+    const members = get().player.gangMembers || [];
+    return members.filter((m) => m.status === 'treinando');
+  },
+
+  getDeadGangMembers: () => {
+    const members = get().player.gangMembers || [];
+    return members.filter((m) => m.status === 'morto');
   },
 }));
