@@ -1,5 +1,6 @@
 import { Shield, Swords, Target, Radar, Coins } from 'lucide-react';
-import { useGangBattleStore, type FormationType } from '@/stores/gangBattleStore';
+import { useGangStore } from '@/store/gangStore';
+import type { FormationType } from '@/stores/gangBattleStore';
 
 const FORMATIONS: Array<{
   id: FormationType;
@@ -70,8 +71,8 @@ const FORMATIONS: Array<{
 ];
 
 export default function GangFormationSelector() {
-  const formation = useGangBattleStore((state) => state.formation);
-  const setFormation = useGangBattleStore((state) => state.setFormation);
+  const gang = useGangStore((state) => state.gang);
+  const formation = gang?.formation || 'pressao_total';
 
   return (
     <div className="rounded-3xl border border-white/10 bg-black/50 p-6">
@@ -92,7 +93,10 @@ export default function GangFormationSelector() {
           return (
             <button
               key={item.id}
-              onClick={() => setFormation(item.id)}
+              onClick={() => {
+                // TODO: Call API to set formation on backend
+                // For now, just update local state
+              }}
               className={`rounded-3xl border p-5 text-left transition-all ${
                 selected
                   ? 'border-primary bg-primary/10 shadow-[0_0_30px_rgba(255,0,127,0.18)]'

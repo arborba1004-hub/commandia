@@ -204,6 +204,17 @@ export async function serializeGang(doc, player) {
 }
 
 /**
+ * Formações válidas da gangue
+ */
+const VALID_FORMATIONS = [
+  'pressao_total',
+  'linha_fechada',
+  'bote_certo',
+  'cerco',
+  'saque_rapido',
+];
+
+/**
  * Handler para alterar a formação da gangue
  */
 export async function handleSetFormation(player, formation) {
@@ -211,9 +222,8 @@ export async function handleSetFormation(player, formation) {
     throw new Error('Jogador não autenticado');
   }
 
-  const validFormations = ['pressao_total', 'defesa_rigida', 'ataque_coordenado'];
-  if (!validFormations.includes(formation)) {
-    throw new Error(`Formação inválida: ${formation}`);
+  if (!VALID_FORMATIONS.includes(formation)) {
+    throw new Error('Formação inválida');
   }
 
   const doc = await getOrCreateGangWar(player._id);
