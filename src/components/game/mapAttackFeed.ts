@@ -8,11 +8,11 @@ let feed: FeedItem[] = [];
 
 export function pushAttackFeed(message: string) {
   const item = {
-    id: Math.random().toString(),
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
     message,
   };
 
-  feed = [item, ...feed.slice(0, 5)];
+  feed = [item, ...feed].slice(0, 5);
 
   listeners.forEach((l) => l(feed));
 }
