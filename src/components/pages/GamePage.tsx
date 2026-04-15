@@ -290,10 +290,17 @@ export default function GamePage() {
       const attackerGangStats = getGangBattleStats();
       const attackerCTLevel = gang?.ct?.level || 1;
 
-      const startResponse = await startBattle({
-        origin: state.origin,
-        target: state.target,
-      });
+      const startResponse = await startBattle(
+        {
+          origin: state.origin,
+          target: state.target,
+        },
+        {
+          attackerGangMembers: attackerGangMembers.length,
+          attackerGangStats,
+          attackerCTLevel,
+        }
+      );
 
       setActiveBattleId(startResponse.battleId);
 
