@@ -268,7 +268,7 @@ export async function startBattle(
 export async function resolveBattleById(
   battleId: string
 ): Promise<BattleReportResponse> {
-  const data = await request<any>(`/battle/${battleId}/resolve`, {
+  const data = await request<any>(`/battle/resolve/${battleId}`, {
     method: 'POST',
   });
 
@@ -295,7 +295,7 @@ export async function resolveBattleById(
 export async function getBattleReport(
   battleId: string
 ): Promise<BattleReportResponse> {
-  const data = await request<any>(`/battle/${battleId}`, {
+  const data = await request<any>(`/battle/report/${battleId}`, {
     method: 'GET',
   });
 
