@@ -343,3 +343,6 @@ export async function getBattleHistory(): Promise<BattleReportResponse[]> {
     },
   }));
 }
+
+// Alias for backward compatibility
+export const getAttackEstimate = estimateBattle;
