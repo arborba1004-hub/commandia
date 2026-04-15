@@ -3,6 +3,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import GangBattleStats from '@/components/gang/GangBattleStats';
 import GangFormationSelector from '@/components/gang/GangFormationSelector';
+import GangDebugPanel from '@/components/gang/GangDebugPanel';
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useNavigate } from 'react-router-dom';
@@ -289,13 +290,17 @@ export default function GangPage() {
             )}
           </section>
 
-          <section className="mb-8">
-            <GangBattleStats />
-          </section>
+          {gang && (
+            <>
+              <section className="mb-8">
+                <GangBattleStats />
+              </section>
 
-          <section className="mb-8">
-            <GangFormationSelector />
-          </section>
+              <section className="mb-8">
+                <GangFormationSelector />
+              </section>
+            </>
+          )}
 
           <section className="mb-8 rounded-3xl border border-white/10 bg-[#090909] p-6">
             <div className="mb-5 flex items-center justify-between">
@@ -622,6 +627,7 @@ export default function GangPage() {
       </main>
 
       <Footer />
+      <GangDebugPanel />
     </div>
   );
 }

@@ -135,6 +135,10 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await fetchMyGang();
 
+      if (!data?.gang) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
       syncBalancesToPlayerStore(data.playerBalances);
 
       set({
@@ -145,10 +149,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       return true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar gangue';
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Erro ao carregar gangue',
+        error: errorMessage,
       });
+      console.error('Erro ao carregar gangue:', error);
       return false;
     }
   },
@@ -159,6 +165,10 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await recruitGangMember(type);
 
+      if (!data?.gang) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
       syncBalancesToPlayerStore(data.playerBalances);
 
       set({
@@ -169,10 +179,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       return true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao recrutar membro';
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao recrutar membro',
+        error: errorMessage,
       });
+      console.error('Erro ao recrutar membro:', error);
       return false;
     }
   },
@@ -183,6 +195,10 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await startGangTraining(memberId);
 
+      if (!data?.gang) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
       syncBalancesToPlayerStore(data.playerBalances);
 
       set({
@@ -193,10 +209,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       return true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao iniciar treino';
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao iniciar treino',
+        error: errorMessage,
       });
+      console.error('Erro ao iniciar treino:', error);
       return false;
     }
   },
@@ -207,6 +225,10 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await completeGangTrainings();
 
+      if (!data?.gang) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
       syncBalancesToPlayerStore(data.playerBalances);
 
       set({
@@ -217,10 +239,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       return true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao concluir treinos';
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao concluir treinos',
+        error: errorMessage,
       });
+      console.error('Erro ao concluir treinos:', error);
       return false;
     }
   },
@@ -231,6 +255,10 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await upgradeGangCT();
 
+      if (!data?.gang) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
       syncBalancesToPlayerStore(data.playerBalances);
 
       set({
@@ -241,10 +269,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       return true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao evoluir CT';
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao evoluir CT',
+        error: errorMessage,
       });
+      console.error('Erro ao evoluir CT:', error);
       return false;
     }
   },
@@ -255,6 +285,10 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await payGangMaintenance();
 
+      if (!data?.gang) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
       syncBalancesToPlayerStore(data.playerBalances);
 
       set({
@@ -265,10 +299,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       return true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao pagar manutenção';
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao pagar manutenção',
+        error: errorMessage,
       });
+      console.error('Erro ao pagar manutenção:', error);
       return false;
     }
   },
@@ -298,6 +334,10 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await applyGangBattleLosses({ losses });
 
+      if (!data?.gang) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
       syncBalancesToPlayerStore(data.playerBalances);
 
       set({
@@ -308,13 +348,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       return true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao aplicar perdas da batalha';
       set({
         isSubmitting: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Erro ao aplicar perdas da batalha',
+        error: errorMessage,
       });
+      console.error('Erro ao aplicar perdas da batalha:', error);
       return false;
     }
   },
