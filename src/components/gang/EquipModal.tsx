@@ -3,12 +3,14 @@ import type { GangMemberType, GangUnit } from '@/types/gangWar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { usePlayerStore } from '@/store/playerStore';
+// ... keep existing code (imports are clean, no old references to remove)
 
 interface Props {
   isOpen: boolean;
   member: GangUnit | null;
   onClose: () => void;
 }
+// ... keep existing code (Props interface is correct)
 
 function getMemberLabel(type: GangMemberType) {
   if (type === 'capanga') return 'Capanga';
