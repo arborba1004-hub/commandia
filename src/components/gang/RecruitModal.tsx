@@ -5,142 +5,48 @@ interface RecruitModalProps {
   onClose: () => void;
   onRecruit: (type: GangMemberType) => void;
   isLoading?: boolean;
-  recruitingType?: GangMemberType | null;
 }
 
 const RECRUIT_OPTIONS: Array<{
   type: GangMemberType;
   label: string;
-  role: string;
   description: string;
 }> = [
-  {
-    type: 'capanga',
-    label: 'Capanga',
-    role: 'Base da tropa',
-    description: 'Sustenta volume de confronto e forma o corpo principal da gangue.',
-  },
-  {
-    type: 'frente',
-    label: 'Frente',
-    role: 'Linha de entrada',
-    description: 'Abre o ataque e segura a pressão inicial.',
-  },
-  {
-    type: 'executor',
-    label: 'Executor',
-    role: 'Finalização pesada',
-    description: 'Unidade forte em quebra e encerramento do confronto.',
-  },
-  {
-    type: 'assassino',
-    label: 'Assassino',
-    role: 'Ofensiva letal',
-    description: 'Alta rajada e alta quebra para investidas decisivas.',
-  },
-  {
-    type: 'muralha',
-    label: 'Muralha',
-    role: 'Defesa pesada',
-    description: 'Especialista em blindagem e fôlego.',
-  },
-  {
-    type: 'certeiro',
-    label: 'Certeiro',
-    role: 'Precisão ofensiva',
-    description: 'Melhora ataques limpos e aumenta eficiência de dano.',
-  },
-  {
-    type: 'motorista',
-    label: 'Motorista',
-    role: 'Mobilidade',
-    description: 'Ajuda em deslocamento, manobra e ataque rápido.',
-  },
-  {
-    type: 'nitro',
-    label: 'Nitro',
-    role: 'Aceleração ofensiva',
-    description: 'Explosão inicial e avanço agressivo.',
-  },
-  {
-    type: 'armeiro',
-    label: 'Armeiro',
-    role: 'Suporte bélico',
-    description: 'Fortalece o peso ofensivo da composição.',
-  },
-  {
-    type: 'informante',
-    label: 'Informante',
-    role: 'Leitura tática',
-    description: 'Melhora visão, antecipação e inteligência de combate.',
-  },
-  {
-    type: 'wifi',
-    label: 'WiFi',
-    role: 'Coordenação',
-    description: 'Aumenta sinergia e organização da gangue.',
-  },
-  {
-    type: 'medico',
-    label: 'Médico',
-    role: 'Recuperação',
-    description: 'Reduz mortes e aumenta chance de feridos recuperáveis.',
-  },
-  {
-    type: 'lavador',
-    label: 'Lavador',
-    role: 'Sustentação econômica',
-    description: 'Ajuda na manutenção financeira da máquina de guerra.',
-  },
-  {
-    type: 'ladrao',
-    label: 'Ladrão',
-    role: 'Saque e oportunidade',
-    description: 'Melhora retorno econômico e pilhagem.',
-  },
-  {
-    type: 'negociador',
-    label: 'Negociador',
-    role: 'Vantagem estrutural',
-    description: 'Reduz custos e melhora acordos da operação.',
-  },
+  { type: 'capanga', label: 'Capanga', description: 'Base da tropa e volume de combate.' },
+  { type: 'frente', label: 'Frente', description: 'Pressão ofensiva na linha de entrada.' },
+  { type: 'executor', label: 'Executor', description: 'Ataque pesado e finalização.' },
+  { type: 'assassino', label: 'Assassino', description: 'Dano alto e eliminação rápida.' },
+  { type: 'muralha', label: 'Muralha', description: 'Linha defensiva e contenção.' },
+  { type: 'certeiro', label: 'Certeiro', description: 'Precisão, cobertura e suporte ofensivo.' },
+  { type: 'motorista', label: 'Motorista', description: 'Mobilidade e reposicionamento.' },
+  { type: 'nitro', label: 'Nitro', description: 'Velocidade e impacto tático.' },
+  { type: 'armeiro', label: 'Armeiro', description: 'Suporte de arsenal e poder de fogo.' },
+  { type: 'informante', label: 'Informante', description: 'Leitura de campo e inteligência.' },
+  { type: 'wifi', label: 'WiFi', description: 'Coordenação e comunicação da operação.' },
+  { type: 'medico', label: 'Médico', description: 'Recuperação e preservação da tropa.' },
+  { type: 'lavador', label: 'Lavador', description: 'Força econômica e sustentação.' },
+  { type: 'ladrao', label: 'Ladrão', description: 'Saque, infiltração e oportunidade.' },
+  { type: 'negociador', label: 'Negociador', description: 'Ajuste fino e vantagem estratégica.' },
 ];
-
-function getCardClasses(type: GangMemberType) {
-  if (type === 'assassino' || type === 'executor' || type === 'frente') {
-    return 'border-red-500/20 hover:border-red-400';
-  }
-  if (type === 'muralha' || type === 'medico') {
-    return 'border-cyan-500/20 hover:border-cyan-400';
-  }
-  if (type === 'motorista' || type === 'nitro') {
-    return 'border-amber-500/20 hover:border-amber-400';
-  }
-  if (type === 'lavador' || type === 'ladrao' || type === 'negociador') {
-    return 'border-emerald-500/20 hover:border-emerald-400';
-  }
-  return 'border-white/10 hover:border-white/20';
-}
 
 export default function RecruitModal({
   isOpen,
   onClose,
   onRecruit,
   isLoading = false,
-  recruitingType = null,
 }: RecruitModalProps) {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4">
-      <div className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-3xl border border-white/10 bg-[#090909] p-6 text-white shadow-2xl">
+      <div className="w-full max-w-5xl rounded-3xl border border-white/10 bg-[#090909] p-6 text-white shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-black uppercase tracking-[0.08em]">
               Recrutar Integrante
             </h2>
             <p className="mt-2 text-sm text-zinc-400">
-              Escolha o tipo de operador que vai entrar para sua gangue.
+              Escolha qual integrante da gangue você quer recrutar.
             </p>
           </div>
 
@@ -158,25 +64,16 @@ export default function RecruitModal({
               key={option.type}
               onClick={() => onRecruit(option.type)}
               disabled={isLoading}
-              className={`rounded-3xl border bg-zinc-950/80 p-5 text-left transition-all disabled:opacity-50 ${getCardClasses(
-                option.type
-              )}`}
+              className="rounded-3xl border border-white/10 bg-zinc-950/80 p-5 text-left transition-all hover:border-primary disabled:opacity-50"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-black text-white">{option.label}</div>
-                  <div className="mt-1 text-sm font-semibold text-zinc-300">
-                    {option.role}
-                  </div>
-                </div>
+              <div className="text-lg font-black text-white">{option.label}</div>
+
+              <div className="mt-2 text-sm leading-relaxed text-zinc-400">
+                {option.description}
               </div>
 
-              <p className="mt-4 text-sm leading-relaxed text-zinc-400">
-                {option.description}
-              </p>
-
               <div className="mt-4 text-xs uppercase tracking-[0.18em] text-zinc-500">
-                {recruitingType === option.type ? 'Recrutando...' : 'Selecionar'}
+                {isLoading ? 'Recrutando...' : 'Selecionar'}
               </div>
             </button>
           ))}
