@@ -239,8 +239,10 @@ export function resolveBattle(
       defender: defenderStats,
       attackerPower: attacker.powerBreakdown.totalPower,
       defenderPower: defender.powerBreakdown.totalPower,
-      attackerGangBonuses: attacker.gangBonuses,
-      defenderGangBonuses: defender.gangBonuses,
+      attackerGangStats,
+      defenderGangStats,
+      attackerGangLosses,
+      defenderGangLosses,
     },
 
     attackerGangLosses,
