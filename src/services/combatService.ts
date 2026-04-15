@@ -69,14 +69,16 @@ export function calculateCombat(
     attackerGang.weaponPower * 0.4 +
     attackerGang.intelPower * 0.25 +
     attackerGang.mobilityPower * 0.2 +
-    attackerGang.coordinationPower * 0.18;
+    attackerGang.coordinationPower * 0.18 +
+    attackerGang.totalPower * 0.35;
 
   const defenderGangDefense =
     defenderGang.blindagem * 1.2 +
     defenderGang.folego * 1.05 +
     defenderGang.intelPower * 0.2 +
     defenderGang.coordinationPower * 0.15 +
-    defenderGang.medicalPower * 0.12;
+    defenderGang.medicalPower * 0.12 +
+    defenderGang.totalPower * 0.35;
 
   const atkRand = 0.9 + Math.random() * 0.2;
   const defRand = 0.9 + Math.random() * 0.2;
