@@ -1,130 +1,136 @@
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMapAttackStore } from '@/store/mapAttackStore';
 
-export default function AttackResultOverlay() {
-  const { resolution, phase, target, origin, resetAttack } = useMapAttackStore();
+interface AttackNotificationOverlayProps {
+  isVisible: boolean;
+  attackerName: string;
+  success: boolean;
+  loot: number;
+  critical: boolean;
+  message: string;
+  onClose: () => void;
+}
 
-  if (!resolution || phase !== 'finished') return null;
+export default function AttackNotificationOverlay({
+  isVisible,
+  attackerName,
+  success,
+  loot,
+  critical,
+  message,
+  onClose,
+}: AttackNotificationOverlayProps) {
+  useEffect(() => {
+    if (!isVisible) return;
 
-  const isWin = resolution.success;
-  const isCritical = resolution.critical;
-  const spoils = resolution.spoils;
+    const timer = window.setTimeout(() => {
+      onClose();
+    }, 3500);
+
+    return () => window.clearTimeout(timer);
+  }, [isVisible, onClose]);
 
   return (
     <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
+      {isVisible && (
         <motion.div
-          className={`w-full max-w-lg rounded-3xl border p-6 shadow-2xl ${
-            isWin
-              ? 'border-green-500/40 bg-green-950/30'
-              : 'border-red-500/40 bg-red-950/30'
-          }`}
-          initial={{ scale: 0.92, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.92, opacity: 0 }}
+          className="pointer-events-none fixed right-4 top-24 z-[90] w-[320px] max-w-[calc(100vw-2rem)]"
+          initial={{ opacity: 0, x: 40, scale: 0.96 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 40, scale: 0.96 }}
+          transition={{ duration: 0.22 }}
         >
-          <h2
-            className={`mb-2 text-3xl font-black ${
-              isWin ? 'text-green-400' : 'text-red-400'
+          <motion.div
+            className={`relative overflow-hidden rounded-2xl border shadow-2xl ${
+              success
+                ? 'border-red-500/40 bg-[#140909]/95'
+                : 'border-amber-500/40 bg-[#161008]/95'
             }`}
+            animate={{
+              boxShadow: success
+                ? [
+                    '0 0 0 rgba(239,68,68,0)',
+                    '0 0 24px rgba(239,68,68,0.35)',
+                    '0 0 0 rgba(239,68,68,0)',
+                  ]
+                : [
+                    '0 0 0 rgba(245,158,11,0)',
+                    '0 0 24px rgba(245,158,11,0.28)',
+                    '0 0 0 rgba(245,158,11,0)',
+                  ],
+            }}
+            transition={{ duration: 0.9, repeat: Infinity }}
           >
-            {isWin ? 'VOCÊ VENCEU' : 'VOCÊ PERDEU'}
-          </h2>
+            <div
+              className={`absolute inset-y-0 left-0 w-1.5 ${
+                success ? 'bg-red-500' : 'bg-amber-400'
+              }`}
+            />
 
-          {isCritical && (
-            <p className="mb-4 text-sm font-black uppercase tracking-[0.2em] text-yellow-400">
-              Ataque crítico
-            </p>
-          )}
+            <div className="p-4 pl-5">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg font-black ${
+                    success
+                      ? 'bg-red-500/15 text-red-300'
+                      : 'bg-amber-500/15 text-amber-300'
+                  }`}
+                >
+                  {success ? '⚠️' : '🛡️'}
+                </div>
 
-          <p className="mb-5 text-sm text-gray-200">{resolution.message}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p
+                      className={`text-[11px] font-black uppercase tracking-[0.2em] ${
+                        success ? 'text-red-300' : 'text-amber-300'
+                      }`}
+                    >
+                      {success ? 'Ataque sofrido' : 'Ataque repelido'}
+                    </p>
 
-          <div className="mb-5 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-              <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-400">
-                Atacante
-              </p>
-              <p className="font-black text-white">{origin?.playerName || 'Você'}</p>
-              <p className="mt-2 text-xs text-gray-400">Poder</p>
-              <p className="text-xl font-black text-white">{resolution.attackerPower}</p>
-            </div>
+                    {critical && (
+                      <span className="rounded-full bg-yellow-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-yellow-300">
+                        Crítico
+                      </span>
+                    )}
+                  </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-              <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-400">
-                Defensor
-              </p>
-              <p className="font-black text-white">{target?.playerName || 'Alvo'}</p>
-              <p className="mt-2 text-xs text-gray-400">Defesa</p>
-              <p className="text-xl font-black text-white">{resolution.defenderPower}</p>
-            </div>
-          </div>
+                  <p className="mt-1 truncate text-sm font-bold text-white">
+                    {attackerName}
+                  </p>
 
-          <div className="mb-5 rounded-2xl border border-white/10 bg-black/40 p-4">
-            <p className="mb-3 text-[11px] uppercase tracking-wider text-gray-400">
-              Espólios
-            </p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-300">
+                    {message}
+                  </p>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-white/10 bg-black/25 p-3">
-                <p className="text-xs text-gray-400">Dinheiro sujo</p>
-                <p className="text-xl font-black text-green-400">
-                  +{spoils.dirtyMoneyLoot.toLocaleString()}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-black/25 p-3">
-                <p className="text-xs text-gray-400">Corre</p>
-                <p className="text-xl font-black text-cyan-300">
-                  +{spoils.correLoot.toLocaleString()}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-black/25 p-3">
-                <p className="text-xs text-gray-400">Prestígio</p>
-                <p className="text-xl font-black text-yellow-300">
-                  +{spoils.prestigeLoot.toLocaleString()}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-black/25 p-3">
-                <p className="text-xs text-gray-400">Total ganho</p>
-                <p className="text-xl font-black text-white">
-                  +{resolution.loot.toLocaleString()}
-                </p>
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <span className="text-zinc-500">Impacto</span>
+                    <span
+                      className={`font-black ${
+                        success ? 'text-red-200' : 'text-emerald-300'
+                      }`}
+                    >
+                      {success
+                        ? `R$ ${loot.toLocaleString('pt-BR')}`
+                        : 'Sem perda confirmada'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {spoils.brokenLuxuryItemId && (
-              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-950/20 p-3">
-                <p className="text-xs font-black uppercase tracking-wider text-red-300">
-                  Item de luxo quebrado
-                </p>
-                <p className="mt-1 font-bold text-white">
-                  {spoils.brokenLuxuryItemName}
-                </p>
-                <p className="mt-2 text-sm text-gray-300">
-                  Valor convertido em dinheiro sujo:
-                  <span className="ml-2 font-black text-green-400">
-                    +{spoils.luxuryConvertedDirtyMoney.toLocaleString()}
-                  </span>
-                </p>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={resetAttack}
-            className="w-full rounded-2xl bg-white px-4 py-4 font-black text-black"
-          >
-            CONTINUAR
-          </button>
+            <motion.div
+              className={`h-1 w-full origin-left ${
+                success ? 'bg-red-500' : 'bg-amber-400'
+              }`}
+              initial={{ scaleX: 1 }}
+              animate={{ scaleX: 0 }}
+              transition={{ duration: 3.5, ease: 'linear' }}
+            />
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
 }
