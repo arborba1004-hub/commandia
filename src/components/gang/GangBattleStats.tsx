@@ -1,22 +1,9 @@
 import { Activity, Shield, Swords, Users } from 'lucide-react';
 import { useGangStore } from '@/store/gangStore';
-import { useGangBattleStore } from '@/stores/gangBattleStore';
-
-function formatFormationLabel(value: string) {
-  if (value === 'pressao_total') return 'Pressão total';
-  if (value === 'linha_fechada') return 'Linha fechada';
-  if (value === 'bote_certo') return 'Bote certo';
-  if (value === 'cerco') return 'Cerco';
-  if (value === 'saque_rapido') return 'Saque rápido';
-  return value;
-}
 
 export default function GangBattleStats() {
   const gang = useGangStore((state) => state.gang);
-  const baseStats = useGangStore((state) => state.getBattleStats());
-  const formation = useGangBattleStore((state) => state.formation);
-  const formationBonus = useGangBattleStore((state) => state.getFormationBonus());
-  const finalStats = useGangBattleStore((state) => state.applyFormationStats(baseStats));
+  const stats = useGangStore((state) => state.getBattleStats());
 
   const members = gang?.members || [];
   const ct = gang?.ct || {
@@ -42,10 +29,10 @@ export default function GangBattleStats() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-              Poder da composição
+              Poder total
             </p>
             <p className="mt-2 text-3xl font-black text-red-300">
-              {finalStats.totalPower.toLocaleString('pt-BR')}
+              {stats.totalPower.toLocaleString('pt-BR')}
             </p>
           </div>
           <Swords className="h-8 w-8 text-red-400" />
@@ -55,14 +42,14 @@ export default function GangBattleStats() {
           <div className="rounded-2xl bg-black/30 p-3">
             <p className="text-zinc-500">Rajada</p>
             <p className="mt-1 font-black text-white">
-              {finalStats.rajada.toLocaleString('pt-BR')}
+              {stats.rajada.toLocaleString('pt-BR')}
             </p>
           </div>
 
           <div className="rounded-2xl bg-black/30 p-3">
             <p className="text-zinc-500">Quebra</p>
             <p className="mt-1 font-black text-white">
-              {finalStats.quebra.toLocaleString('pt-BR')}
+              {stats.quebra.toLocaleString('pt-BR')}
             </p>
           </div>
         </div>
@@ -72,10 +59,10 @@ export default function GangBattleStats() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-              Linha de sustentação
+              Defesa
             </p>
             <p className="mt-2 text-3xl font-black text-cyan-300">
-              {finalStats.blindagem.toLocaleString('pt-BR')}
+              {stats.blindagem.toLocaleString('pt-BR')}
             </p>
           </div>
           <Shield className="h-8 w-8 text-cyan-400" />
@@ -85,28 +72,24 @@ export default function GangBattleStats() {
           <div className="rounded-2xl bg-black/30 p-3">
             <p className="text-zinc-500">Blindagem</p>
             <p className="mt-1 font-black text-white">
-              {finalStats.blindagem.toLocaleString('pt-BR')}
+              {stats.blindagem.toLocaleString('pt-BR')}
             </p>
           </div>
 
           <div className="rounded-2xl bg-black/30 p-3">
             <p className="text-zinc-500">Fôlego</p>
             <p className="mt-1 font-black text-white">
-              {finalStats.folego.toLocaleString('pt-BR')}
+              {stats.folego.toLocaleString('pt-BR')}
             </p>
           </div>
         </div>
-
-        <p className="mt-3 text-sm text-zinc-400">
-          Formação atual: <span className="font-semibold text-white">{formatFormationLabel(formation)}</span>
-        </p>
       </div>
 
       <div className="rounded-3xl border border-amber-500/20 bg-black/50 p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-              Efetivo da gangue
+              Efetivo
             </p>
             <p className="mt-2 text-3xl font-black text-amber-200">
               {activeCount}
@@ -118,13 +101,13 @@ export default function GangBattleStats() {
 
         <div className="mt-4 space-y-1 text-sm text-zinc-400">
           <p>
-            Feridos: <span className="font-bold text-white">{injuredCount}</span>
+            Ativos: <span className="font-bold text-white">{stats.ativos}</span>
           </p>
           <p>
-            Mortos: <span className="font-bold text-white">{deadCount}</span>
+            Feridos: <span className="font-bold text-white">{stats.feridos}</span>
           </p>
           <p>
-            Treinando: <span className="font-bold text-white">{trainingCount}</span>
+            Mortos: <span className="font-bold text-white">{stats.mortos}</span>
           </p>
         </div>
       </div>
@@ -164,25 +147,6 @@ export default function GangBattleStats() {
             <span className="font-bold text-emerald-300">
               {Number(dailyUpkeep.totalDirtyMoneyCost || 0).toLocaleString('pt-BR')}
             </span>
-          </p>
-        </div>
-
-        <div className="mt-4 rounded-2xl bg-black/30 p-3 text-sm text-zinc-400">
-          <p>
-            Bônus da formação em Rajada:{' '}
-            <span className="font-bold text-white">+{formationBonus.rajadaPercent}%</span>
-          </p>
-          <p>
-            Bônus da formação em Blindagem:{' '}
-            <span className="font-bold text-white">+{formationBonus.blindagemPercent}%</span>
-          </p>
-          <p>
-            Bônus da formação em Fôlego:{' '}
-            <span className="font-bold text-white">+{formationBonus.folegoPercent}%</span>
-          </p>
-          <p>
-            Bônus da formação em Quebra:{' '}
-            <span className="font-bold text-white">+{formationBonus.quebraPercent}%</span>
           </p>
         </div>
       </div>
