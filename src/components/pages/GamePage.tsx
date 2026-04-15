@@ -233,7 +233,6 @@ export default function GamePage() {
   const addAttackHistoryItem = usePlayerStore((state) => state.addAttackHistoryItem);
   const addNotification = usePlayerStore((state) => state.addNotification);
   const gang = useGangStore((state) => state.gang);
-  const getGangBattleStats = useGangStore((state) => state.getBattleStats);
   const loadGang = useGangStore((state) => state.loadGang);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -283,21 +282,14 @@ export default function GamePage() {
     try {
       setIsStartingBattle(true);
 
-      const attackerGangMembers = gang?.members || [];
-      const attackerGangStats = getGangBattleStats();
-      const attackerCTLevel = gang?.ct?.level || 1;
-
-      const startResponse = await startBattle(
-        {
-          origin: state.origin,
-          target: state.target,
-        },
-        {
-          attackerGangMembers,
-          attackerGangStats,
-          attackerCTLevel,
-        }
-      );
+      const startResponse = await startBattle({
+        targetId: state.target.playerId,
+        targetName: state.target.playerName,
+        targetTileX: state.target.tileX,
+        targetTileY: state.target.tileY,
+        originTileX: state.origin.tileX,
+        originTileY: state.origin.tileY,
+      });
 
       setActiveBattleId(startResponse.battleId);
 
