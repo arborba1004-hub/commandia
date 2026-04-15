@@ -37,6 +37,38 @@ function safeNumber(value, fallback = 0) {
 }
 
 /**
+ * Aplica perdas a um documento de gangue
+ */
+async function applyLossesToGangDoc(gangDoc, losses) {
+  if (!gangDoc || !losses) return false;
+  applyGangLossesToMembers(gangDoc, losses);
+  await gangDoc.save();
+  return true;
+}
+
+/**
+ * Aplica perdas aos membros da gangue
+ */
+function applyGangLossesToMembers(gangDoc, losses) {
+  if (!gangDoc || !gangDoc.members || !losses) return;
+  
+  const { membersKilled = 0, membersInjured = 0 } = losses;
+  
+  let killed = 0;
+  let injured = 0;
+  
+  for (const member of gangDoc.members) {
+    if (killed < membersKilled && member.status !== 'morto') {
+      member.status = 'morto';
+      killed++;
+    } else if (injured < membersInjured && member.status === 'ativo') {
+      member.status = 'ferido';
+      injured++;
+    }
+  }
+}
+
+/**
  * Carrega o contexto de combate da gangue oficial do jogador
  */
 async function getGangCombatContext(playerId) {
@@ -336,6 +368,15 @@ export async function resolveBattle(req, res) {
         ctLevel: defenderGangContext.ctLevel,
         side: 'defender',
       });
+    }
+
+    // Aplica perdas aos documentos de gangue
+    if (attackerGangContext.doc) {
+      await applyLossesToGangDoc(attackerGangContext.doc, attackerGangLosses);
+    }
+
+    if (defenderGangContext.doc) {
+      await applyLossesToGangDoc(defenderGangContext.doc, defenderGangLosses);
     }
 
     // Atualiza status da batalha
