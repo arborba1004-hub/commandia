@@ -7,49 +7,6 @@ type FlashParams = {
   duration?: number;
 };
 
-export function createImpactFlash({
-  scene,
-  position,
-  color = 0xff0000,
-  duration = 300,
-}: FlashParams) {
-  const geometry = new THREE.SphereGeometry(0.6, 16, 16);
-
-  const material = new THREE.MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity: 0.8,
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.copy(position);
-
-  scene.add(mesh);
-
-  const start = performance.now();
-
-  function animate(now: number) {
-    const elapsed = now - start;
-    const progress = elapsed / duration;
-
-    if (progress >= 1) {
-      scene.remove(mesh);
-      geometry.dispose();
-      material.dispose();
-      return;
-    }
-
-    const scale = 1 + progress * 2;
-    mesh.scale.set(scale, scale, scale);
-
-    material.opacity = 0.8 * (1 - progress);
-
-    requestAnimationFrame(animate);
-  }
-
-  requestAnimationFrame(animate);
-}
-
 type TileHighlightParams = {
   scene: THREE.Scene;
   tileX: number;
@@ -60,6 +17,275 @@ type TileHighlightParams = {
   duration?: number;
 };
 
+type FireAftermathParams = {
+  scene: THREE.Scene;
+  position: THREE.Vector3;
+  duration?: number;
+};
+
+function animateUntilDone(step: (progress: number, elapsed: number) => boolean, duration: number) {
+  const start = performance.now();
+
+  function animate(now: number) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const keepGoing = step(progress, elapsed);
+
+    if (keepGoing && progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function safeDisposeMaterial(material: THREE.Material | THREE.Material[]) {
+  if (Array.isArray(material)) {
+    material.forEach((mat) => mat.dispose());
+    return;
+  }
+
+  material.dispose();
+}
+
+function removeAndDispose(scene: THREE.Scene, object: THREE.Object3D) {
+  scene.remove(object);
+
+  object.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (mesh.isMesh) {
+      mesh.geometry?.dispose();
+      if (mesh.material) {
+        safeDisposeMaterial(mesh.material);
+      }
+    }
+
+    const sprite = child as THREE.Sprite;
+    if ((sprite as any).isSprite) {
+      if ((sprite.material as THREE.SpriteMaterial)?.map) {
+        (sprite.material as THREE.SpriteMaterial).map?.dispose();
+      }
+      sprite.material?.dispose?.();
+    }
+
+    const light = child as THREE.Light;
+    if ((light as any).isLight && light.parent) {
+      light.parent.remove(light);
+    }
+  });
+}
+
+function createSmokeSpriteTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return new THREE.Texture();
+  }
+
+  const gradient = ctx.createRadialGradient(128, 128, 12, 128, 128, 120);
+  gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
+  gradient.addColorStop(0.2, 'rgba(220,220,220,0.75)');
+  gradient.addColorStop(0.55, 'rgba(110,110,110,0.42)');
+  gradient.addColorStop(1, 'rgba(30,30,30,0)');
+
+  ctx.clearRect(0, 0, 256, 256);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(128, 128, 110, 0, Math.PI * 2);
+  ctx.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createFireSpriteTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return new THREE.Texture();
+  }
+
+  const gradient = ctx.createRadialGradient(128, 150, 10, 128, 128, 118);
+  gradient.addColorStop(0, 'rgba(255,255,220,1)');
+  gradient.addColorStop(0.18, 'rgba(255,220,120,0.95)');
+  gradient.addColorStop(0.42, 'rgba(255,120,20,0.82)');
+  gradient.addColorStop(0.7, 'rgba(180,30,0,0.36)');
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+  ctx.clearRect(0, 0, 256, 256);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(128, 128, 110, 0, Math.PI * 2);
+  ctx.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createShockwave(scene: THREE.Scene, position: THREE.Vector3, color: number) {
+  const geometry = new THREE.RingGeometry(0.5, 0.9, 64);
+  const material = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide,
+  });
+
+  const ring = new THREE.Mesh(geometry, material);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(position.x, 0.08, position.z);
+  scene.add(ring);
+
+  animateUntilDone((progress) => {
+    const scale = 1 + progress * 18;
+    ring.scale.set(scale, scale, scale);
+    material.opacity = 0.8 * (1 - progress);
+    return true;
+  }, 1200);
+
+  window.setTimeout(() => {
+    scene.remove(ring);
+    geometry.dispose();
+    material.dispose();
+  }, 1300);
+}
+
+function createMushroomCloud(scene: THREE.Scene, position: THREE.Vector3) {
+  const group = new THREE.Group();
+  const smokeTexture = createSmokeSpriteTexture();
+
+  const stemSprites: THREE.Sprite[] = [];
+  const capSprites: THREE.Sprite[] = [];
+
+  for (let i = 0; i < 10; i += 1) {
+    const material = new THREE.SpriteMaterial({
+      map: smokeTexture,
+      color: 0x5a514c,
+      transparent: true,
+      opacity: 0.82,
+      depthWrite: false,
+    });
+
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(
+      (Math.random() - 0.5) * 0.6,
+      0.8 + i * 0.45,
+      (Math.random() - 0.5) * 0.6
+    );
+    sprite.scale.set(1.8 + i * 0.18, 2.2 + i * 0.22, 1);
+    stemSprites.push(sprite);
+    group.add(sprite);
+  }
+
+  for (let i = 0; i < 18; i += 1) {
+    const angle = (i / 18) * Math.PI * 2;
+    const radius = 0.8 + Math.random() * 1.4;
+
+    const material = new THREE.SpriteMaterial({
+      map: smokeTexture,
+      color: 0x4d4641,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+    });
+
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(
+      Math.cos(angle) * radius,
+      5.8 + Math.random() * 0.8,
+      Math.sin(angle) * radius
+    );
+    const scale = 3.4 + Math.random() * 1.6;
+    sprite.scale.set(scale, scale, 1);
+    capSprites.push(sprite);
+    group.add(sprite);
+  }
+
+  const coreLight = new THREE.PointLight(0xff5a1f, 8, 20, 2);
+  coreLight.position.set(0, 1.2, 0);
+  group.add(coreLight);
+
+  group.position.copy(position);
+  scene.add(group);
+
+  animateUntilDone((progress) => {
+    const rise = progress < 0.55 ? progress / 0.55 : 1;
+    const spread = progress < 0.35 ? progress / 0.35 : 1;
+    const fadeStart = progress > 0.72 ? (progress - 0.72) / 0.28 : 0;
+
+    group.position.y = position.y + rise * 2.4;
+
+    stemSprites.forEach((sprite, index) => {
+      const p = (sprite.material as THREE.SpriteMaterial);
+      sprite.scale.setScalar((1.3 + index * 0.08) * (1 + spread * 0.9));
+      p.opacity = 0.82 * (1 - fadeStart * 0.85);
+    });
+
+    capSprites.forEach((sprite) => {
+      const p = sprite.material as THREE.SpriteMaterial;
+      sprite.scale.multiplyScalar(1.0025);
+      p.opacity = 0.92 * (1 - fadeStart * 0.9);
+    });
+
+    coreLight.intensity = 8 * (1 - progress);
+    return true;
+  }, 7000);
+
+  window.setTimeout(() => {
+    smokeTexture.dispose();
+    removeAndDispose(scene, group);
+  }, 7400);
+}
+
+export function createImpactFlash({
+  scene,
+  position,
+  color = 0xff3b1f,
+  duration = 1800,
+}: FlashParams) {
+  const group = new THREE.Group();
+  group.position.copy(position);
+  scene.add(group);
+
+  const sphereGeometry = new THREE.SphereGeometry(0.8, 24, 24);
+  const sphereMaterial = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.95,
+  });
+
+  const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+  group.add(sphere);
+
+  const glowLight = new THREE.PointLight(0xff6a2a, 14, 24, 2);
+  glowLight.position.set(0, 0.8, 0);
+  group.add(glowLight);
+
+  createShockwave(scene, position, 0xff5b2a);
+  createMushroomCloud(scene, position);
+  createFireAftermath({ scene, position, duration: 180000 });
+
+  animateUntilDone((progress) => {
+    const flashScale = 1 + progress * 8;
+    sphere.scale.set(flashScale, flashScale, flashScale);
+    sphereMaterial.opacity = 0.95 * (1 - progress);
+    glowLight.intensity = 14 * (1 - progress);
+    return true;
+  }, duration);
+
+  window.setTimeout(() => {
+    removeAndDispose(scene, group);
+  }, duration + 100);
+}
+
 export function highlightTile({
   scene,
   tileX,
@@ -67,68 +293,175 @@ export function highlightTile({
   tileSize,
   gridWidth,
   gridHeight,
-  duration = 500,
+  duration = 5000,
 }: TileHighlightParams) {
   const x = (tileX - gridWidth / 2) * tileSize;
   const z = (tileY - gridHeight / 2) * tileSize;
 
-  const geometry = new THREE.CircleGeometry(tileSize * 0.6, 24);
+  const group = new THREE.Group();
+  scene.add(group);
 
-  const material = new THREE.MeshBasicMaterial({
-    color: 0xff0000,
+  const ringGeometry = new THREE.RingGeometry(tileSize * 0.45, tileSize * 0.75, 48);
+  const ringMaterial = new THREE.MeshBasicMaterial({
+    color: 0xff3a1a,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.88,
+    side: THREE.DoubleSide,
   });
 
-  const circle = new THREE.Mesh(geometry, material);
-  circle.rotation.x = -Math.PI / 2;
-  circle.position.set(x, 0.02, z);
+  const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(x, 0.04, z);
+  group.add(ring);
 
-  scene.add(circle);
+  const innerGeometry = new THREE.CircleGeometry(tileSize * 0.44, 40);
+  const innerMaterial = new THREE.MeshBasicMaterial({
+    color: 0xff7a1a,
+    transparent: true,
+    opacity: 0.2,
+    side: THREE.DoubleSide,
+  });
+
+  const inner = new THREE.Mesh(innerGeometry, innerMaterial);
+  inner.rotation.x = -Math.PI / 2;
+  inner.position.set(x, 0.03, z);
+  group.add(inner);
+
+  animateUntilDone((progress, elapsed) => {
+    const pulse = 1 + Math.sin(elapsed * 0.008) * 0.12;
+    ring.scale.set(pulse, pulse, pulse);
+    inner.scale.set(1 + Math.sin(elapsed * 0.006) * 0.08, 1, 1 + Math.sin(elapsed * 0.006) * 0.08);
+
+    const fade = progress > 0.72 ? 1 - (progress - 0.72) / 0.28 : 1;
+    ringMaterial.opacity = 0.88 * fade;
+    innerMaterial.opacity = 0.2 * fade;
+    return true;
+  }, duration);
+
+  window.setTimeout(() => {
+    removeAndDispose(scene, group);
+  }, duration + 100);
+}
+
+export function createFireAftermath({
+  scene,
+  position,
+  duration = 180000,
+}: FireAftermathParams) {
+  const group = new THREE.Group();
+  group.position.copy(position);
+  scene.add(group);
+
+  const fireTexture = createFireSpriteTexture();
+  const smokeTexture = createSmokeSpriteTexture();
+
+  const flames: THREE.Sprite[] = [];
+  const smokes: THREE.Sprite[] = [];
+
+  for (let i = 0; i < 8; i += 1) {
+    const material = new THREE.SpriteMaterial({
+      map: fireTexture,
+      color: i % 2 === 0 ? 0xff6a1a : 0xffb347,
+      transparent: true,
+      opacity: 0.78,
+      depthWrite: false,
+    });
+
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(
+      (Math.random() - 0.5) * 2.2,
+      0.4 + Math.random() * 0.45,
+      (Math.random() - 0.5) * 2.2
+    );
+    const scale = 1.2 + Math.random() * 1.1;
+    sprite.scale.set(scale, scale * 1.6, 1);
+    flames.push(sprite);
+    group.add(sprite);
+  }
+
+  for (let i = 0; i < 10; i += 1) {
+    const material = new THREE.SpriteMaterial({
+      map: smokeTexture,
+      color: 0x4b423d,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+    });
+
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(
+      (Math.random() - 0.5) * 2.4,
+      1.1 + Math.random() * 0.4,
+      (Math.random() - 0.5) * 2.4
+    );
+    const scale = 1.6 + Math.random() * 1.8;
+    sprite.scale.set(scale, scale, 1);
+    smokes.push(sprite);
+    group.add(sprite);
+  }
+
+  const fireLight = new THREE.PointLight(0xff6a1f, 4.2, 12, 2);
+  fireLight.position.set(0, 1.2, 0);
+  group.add(fireLight);
 
   const start = performance.now();
 
   function animate(now: number) {
     const elapsed = now - start;
-    const progress = elapsed / duration;
+    const progress = Math.min(elapsed / duration, 1);
 
-    if (progress >= 1) {
-      scene.remove(circle);
-      geometry.dispose();
-      material.dispose();
+    flames.forEach((sprite, index) => {
+      const mat = sprite.material as THREE.SpriteMaterial;
+      const flicker = 0.84 + Math.sin(now * 0.012 + index * 1.7) * 0.18;
+      sprite.scale.y = (1.8 + index * 0.02) * flicker;
+      sprite.position.y = 0.45 + Math.sin(now * 0.01 + index) * 0.12;
+      mat.opacity = (0.62 + Math.sin(now * 0.015 + index) * 0.16) * (1 - progress * 0.75);
+    });
+
+    smokes.forEach((sprite, index) => {
+      const mat = sprite.material as THREE.SpriteMaterial;
+      sprite.position.y += 0.0025 + index * 0.00008;
+      sprite.position.x += Math.sin(now * 0.0007 + index) * 0.0015;
+      sprite.position.z += Math.cos(now * 0.0006 + index) * 0.0015;
+      sprite.scale.multiplyScalar(1.00045);
+      mat.opacity = Math.max(0, 0.2 * (1 - progress));
+    });
+
+    fireLight.intensity = (3.5 + Math.sin(now * 0.018) * 0.8) * (1 - progress * 0.7);
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
       return;
     }
 
-    const pulse = 1 + Math.sin(progress * Math.PI * 2) * 0.3;
-    circle.scale.set(pulse, pulse, pulse);
-
-    material.opacity = 0.5 * (1 - progress);
-
-    requestAnimationFrame(animate);
+    fireTexture.dispose();
+    smokeTexture.dispose();
+    removeAndDispose(scene, group);
   }
 
   requestAnimationFrame(animate);
 }
 
-export function shakeObject(object: THREE.Object3D, intensity = 0.1, duration = 300) {
+export function shakeObject(object: THREE.Object3D, intensity = 0.18, duration = 650) {
   const originalPosition = object.position.clone();
+  const originalRotation = object.rotation.clone();
   const start = performance.now();
 
   function animate(now: number) {
     const elapsed = now - start;
-    const progress = elapsed / duration;
+    const progress = Math.min(elapsed / duration, 1);
+    const factor = 1 - progress;
 
     if (progress >= 1) {
       object.position.copy(originalPosition);
+      object.rotation.copy(originalRotation);
       return;
     }
 
-    const factor = 1 - progress;
-
-    object.position.x =
-      originalPosition.x + (Math.random() - 0.5) * intensity * factor;
-    object.position.z =
-      originalPosition.z + (Math.random() - 0.5) * intensity * factor;
+    object.position.x = originalPosition.x + (Math.random() - 0.5) * intensity * factor;
+    object.position.z = originalPosition.z + (Math.random() - 0.5) * intensity * factor;
+    object.rotation.z = originalRotation.z + (Math.random() - 0.5) * 0.025 * factor;
+    object.rotation.x = originalRotation.x + (Math.random() - 0.5) * 0.015 * factor;
 
     requestAnimationFrame(animate);
   }
