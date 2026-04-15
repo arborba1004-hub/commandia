@@ -1,3 +1,10 @@
+export type GangFormationType =
+  | 'pressao_total'
+  | 'linha_fechada'
+  | 'bote_certo'
+  | 'cerco'
+  | 'saque_rapido';
+
 export type GangMemberType =
   | 'capanga'
   | 'frente'
@@ -131,6 +138,7 @@ export type GangStateSnapshot = {
   members: GangUnit[];
   ct: GangCTState;
   trainingJobs: GangTrainingJob[];
+  formation: GangFormationType;
   maxMembers: number;
   dailyUpkeep: GangDailyUpkeep;
 };

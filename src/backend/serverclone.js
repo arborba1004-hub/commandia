@@ -309,6 +309,99 @@ const gangSchema = new mongoose.Schema({
 const Gang = mongoose.model('Gang', gangSchema);
 
 // ==========================================
+// SCHEMA DE GANG WAR (NOVO - Sistema de Guerra de Gangues)
+// ==========================================
+const gangUnitSchema = new mongoose.Schema(
+  {
+    id: String,
+    type: String,
+    level: Number,
+    status: String,
+    recruitedAt: String,
+    trainingEndsAt: String,
+    injuryEndsAt: String,
+    lastBattleAt: String,
+  },
+  { _id: false }
+);
+
+const gangTrainingJobSchema = new mongoose.Schema(
+  {
+    id: String,
+    memberId: String,
+    memberType: String,
+    fromLevel: Number,
+    toLevel: Number,
+    costDirtyMoney: Number,
+    startedAt: String,
+    endsAt: String,
+    completed: Boolean,
+  },
+  { _id: false }
+);
+
+const gangCTStateSchema = new mongoose.Schema(
+  {
+    level: { type: Number, required: true, default: 1 },
+    maxLevel: { type: Number, required: true, default: 10 },
+    trainingSlots: { type: Number, required: true, default: 1 },
+    recoveryBonusPercent: { type: Number, required: true, default: 0 },
+    trainingSpeedBonusPercent: { type: Number, required: true, default: 0 },
+    gangCapacityBonus: { type: Number, required: true, default: 0 },
+  },
+  { _id: false }
+);
+
+const gangWarSchema = new mongoose.Schema(
+  {
+    playerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Player',
+      required: true,
+      unique: true,
+      index: true,
+    },
+    ct: {
+      level: { type: Number, required: true, default: 1 },
+      maxLevel: { type: Number, required: true, default: 10 },
+      trainingSlots: { type: Number, required: true, default: 1 },
+      recoveryBonusPercent: { type: Number, required: true, default: 0 },
+      trainingSpeedBonusPercent: { type: Number, required: true, default: 0 },
+      gangCapacityBonus: { type: Number, required: true, default: 0 },
+    },
+    formation: {
+      type: String,
+      required: true,
+      enum: [
+        'pressao_total',
+        'linha_fechada',
+        'bote_certo',
+        'cerco',
+        'saque_rapido',
+      ],
+      default: 'pressao_total',
+    },
+    members: {
+      type: [gangUnitSchema],
+      default: [],
+    },
+    trainingJobs: {
+      type: [gangTrainingJobSchema],
+      default: [],
+    },
+    lastMaintenanceDate: {
+      type: String,
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const GangWar = mongoose.model('GangWar', gangWarSchema);
+
+// ==========================================
 // SCHEMA DE CHAT (já existente)
 // ==========================================
 const chatSchema = new mongoose.Schema({
