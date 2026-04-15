@@ -201,39 +201,39 @@ export default function GangPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-zinc-500">
-                    CT
+                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-wide text-cyan-400">
+                    CT Level
                   </div>
-                  <div className="mt-1 text-2xl font-black">
-                    Nv. {gang?.ct.level || 1}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-zinc-500">
-                    Slots treino
-                  </div>
-                  <div className="mt-1 text-2xl font-black">
-                    {gang?.ct.trainingSlots || 1}
+                  <div className="mt-1 text-2xl font-black text-cyan-300">
+                    {gang?.ct?.level || 1}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-wide text-emerald-400">
+                    Tesouro
+                  </div>
+                  <div className="mt-1 text-2xl font-black text-emerald-300">
+                    {Number(gang?.treasury?.dirtyMoney || 0).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-wide text-amber-400">
                     Capacidade
                   </div>
-                  <div className="mt-1 text-2xl font-black">
-                    {members.length}/{gang?.maxMembers || 0}
+                  <div className="mt-1 text-2xl font-black text-amber-300">
+                    {gang?.members?.length || 0}/{gang?.limits?.maxMembers || 0}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-zinc-500">
-                    Manutenção
+                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-wide text-red-400">
+                    Manutenção diária
                   </div>
-                  <div className="mt-1 text-2xl font-black">
-                    {Number(gang?.dailyUpkeep.totalDirtyMoneyCost || 0).toLocaleString(
+                  <div className="mt-1 text-2xl font-black text-red-300">
+                    {Number(gang?.dailyUpkeep?.totalDirtyMoneyCost || 0).toLocaleString(
                       'pt-BR'
                     )}
                   </div>
