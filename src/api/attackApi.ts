@@ -1,43 +1,46 @@
-import { fetchCurrentPlayer } from './playerApi';
 import type {
-  AttackOrigin,
-  AttackResolution,
-  AttackTarget,
-  SpoilsResult,
-  GangLosses,
-  GangStats,
-} from '@/store/mapAttackStore';
+  GangBattleCasualtyResult,
+  GangBattleCompositionStats,
+} from '@/types/gangWar';
+import type { AttackResolution } from '@/store/mapAttackStore';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
-const REQUEST_TIMEOUT_MS = 60000;
 
 function getAuthToken(): string | null {
-  return localStorage.getItem('authToken');
+  const token = localStorage.getItem('authToken');
+  return token && token.trim() ? token.trim() : null;
+}
+
+function buildUrl(endpoint: string): string {
+  const normalizedBase = BACKEND_URL.replace(/\/+$/, '');
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${normalizedBase}${normalizedEndpoint}`;
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
 
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  if (!token) {
+    throw new Error('Usuário não autenticado');
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+    const response = await fetch(buildUrl(endpoint), {
       ...options,
-      headers,
       signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
     });
 
     let data: any = null;
+
     try {
       data = await response.json();
     } catch {
@@ -45,34 +48,43 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     }
 
     if (!response.ok) {
-      throw new Error(data?.error || `Erro ao acessar ${endpoint}`);
+      const error = new Error(
+        data?.error || `Erro ${response.status}: ${response.statusText}`
+      ) as Error & {
+        status?: number;
+        data?: unknown;
+      };
+      error.status = response.status;
+      error.data = data;
+      throw error;
     }
 
     return data as T;
   } catch (error: any) {
     if (error?.name === 'AbortError') {
-      throw new Error(`Tempo limite excedido ao acessar ${endpoint}`);
+      throw new Error('Tempo limite excedido ao conectar com o servidor de batalha.');
     }
+
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Não foi possível conectar ao servidor de batalha. Verifique sua conexão.');
+    }
+
     throw error;
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-export type BattleStartPayload = {
-  target: AttackTarget;
-  origin: AttackOrigin;
+type StartBattlePayload = {
+  targetId: string;
+  targetName?: string;
+  targetTileX?: number;
+  targetTileY?: number;
+  originTileX?: number;
+  originTileY?: number;
 };
 
-export type BattleEstimate = {
-  estimatedLoot: number;
-  estimatedChance: number;
-  attackerPower: number;
-  defenderPower: number;
-  correCost: number;
-};
-
-export type BattleStartResponse = {
+type StartBattleResponse = {
   battleId: string;
   success: boolean;
   message: string;
@@ -80,6 +92,18 @@ export type BattleStartResponse = {
   estimatedChance: number;
   attackerPower: number;
   defenderPower: number;
+  attackerFaction?: {
+    factionId: string;
+    factionName: string;
+    factionTag: string;
+    investmentBuffs?: Record<string, number>;
+  } | null;
+  defenderFaction?: {
+    factionId: string;
+    factionName: string;
+    factionTag: string;
+    investmentBuffs?: Record<string, number>;
+  } | null;
   route?: {
     fromTileX: number;
     fromTileY: number;
@@ -88,205 +112,182 @@ export type BattleStartResponse = {
   };
 };
 
-export type BattleReportResponse = {
+type BattleReportResponse = {
   battleId: string;
   resolution: AttackResolution;
   attacker: {
     playerId: string;
     playerName: string;
+    factionId?: string | null;
+    factionName?: string;
+    factionTag?: string;
   };
   defender: {
     playerId: string;
     playerName: string;
+    factionId?: string | null;
+    factionName?: string;
+    factionTag?: string;
   };
 };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
+type EstimateBattleResponse = {
+  estimatedLoot: number;
+  estimatedChance: number;
+  attackerPower: number;
+  defenderPower: number;
+  correCost: number;
+  attackerFactionBonuses?: Record<string, number> | null;
+  defenderFactionBonuses?: Record<string, number> | null;
+  attackerGangPower?: number;
+  defenderGangPower?: number;
+};
 
-function safeNumber(value: unknown, fallback = 0): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
+function normalizeGangLosses(
+  losses: any
+): GangBattleCasualtyResult | undefined {
+  if (!losses || typeof losses !== 'object') return undefined;
 
-function normalizeSpoils(raw?: Partial<SpoilsResult> | null): SpoilsResult {
   return {
-    dirtyMoneyLoot: safeNumber(raw?.dirtyMoneyLoot),
-    correLoot: safeNumber(raw?.correLoot),
-    prestigeLoot: safeNumber(raw?.prestigeLoot),
-    brokenLuxuryItemId: raw?.brokenLuxuryItemId ?? null,
-    brokenLuxuryItemName: raw?.brokenLuxuryItemName ?? null,
-    brokenLuxuryItemValue:
-      raw?.brokenLuxuryItemValue == null ? null : safeNumber(raw?.brokenLuxuryItemValue),
-    luxuryConvertedDirtyMoney: safeNumber(raw?.luxuryConvertedDirtyMoney),
+    mortos: {
+      capanga: Number(losses?.mortos?.capanga || 0),
+      frente: Number(losses?.mortos?.frente || 0),
+      executor: Number(losses?.mortos?.executor || 0),
+      assassino: Number(losses?.mortos?.assassino || 0),
+      muralha: Number(losses?.mortos?.muralha || 0),
+      certeiro: Number(losses?.mortos?.certeiro || 0),
+      motorista: Number(losses?.mortos?.motorista || 0),
+      nitro: Number(losses?.mortos?.nitro || 0),
+      armeiro: Number(losses?.mortos?.armeiro || 0),
+      informante: Number(losses?.mortos?.informante || 0),
+      wifi: Number(losses?.mortos?.wifi || 0),
+      medico: Number(losses?.mortos?.medico || 0),
+      lavador: Number(losses?.mortos?.lavador || 0),
+      ladrao: Number(losses?.mortos?.ladrao || 0),
+      negociador: Number(losses?.mortos?.negociador || 0),
+    },
+    feridos: {
+      capanga: Number(losses?.feridos?.capanga || 0),
+      frente: Number(losses?.feridos?.frente || 0),
+      executor: Number(losses?.feridos?.executor || 0),
+      assassino: Number(losses?.feridos?.assassino || 0),
+      muralha: Number(losses?.feridos?.muralha || 0),
+      certeiro: Number(losses?.feridos?.certeiro || 0),
+      motorista: Number(losses?.feridos?.motorista || 0),
+      nitro: Number(losses?.feridos?.nitro || 0),
+      armeiro: Number(losses?.feridos?.armeiro || 0),
+      informante: Number(losses?.feridos?.informante || 0),
+      wifi: Number(losses?.feridos?.wifi || 0),
+      medico: Number(losses?.feridos?.medico || 0),
+      lavador: Number(losses?.feridos?.lavador || 0),
+      ladrao: Number(losses?.feridos?.ladrao || 0),
+      negociador: Number(losses?.feridos?.negociador || 0),
+    },
+    preservadosPeloMedico: Number(losses?.preservadosPeloMedico || 0),
   };
 }
 
-function normalizeGangLosses(raw?: Partial<GangLosses> | null): GangLosses {
+function normalizeGangStats(
+  stats: any
+): GangBattleCompositionStats | undefined {
+  if (!stats || typeof stats !== 'object') return undefined;
+
   return {
-    membersKilled: safeNumber(raw?.membersKilled),
-    membersInjured: safeNumber(raw?.membersInjured),
-    totalLosses: safeNumber(raw?.totalLosses),
+    totalMembers: Number(stats.totalMembers || 0),
+    ativos: Number(stats.ativos || 0),
+    feridos: Number(stats.feridos || 0),
+    mortos: Number(stats.mortos || 0),
+    rajada: Number(stats.rajada || 0),
+    blindagem: Number(stats.blindagem || 0),
+    folego: Number(stats.folego || 0),
+    quebra: Number(stats.quebra || 0),
+    medicalPower: Number(stats.medicalPower || 0),
+    economyPower: Number(stats.economyPower || 0),
+    lootPower: Number(stats.lootPower || 0),
+    intelPower: Number(stats.intelPower || 0),
+    mobilityPower: Number(stats.mobilityPower || 0),
+    weaponPower: Number(stats.weaponPower || 0),
+    coordinationPower: Number(stats.coordinationPower || 0),
+    negotiationPower: Number(stats.negotiationPower || 0),
+    totalPower: Number(stats.totalPower || 0),
   };
 }
 
-function normalizeGangStats(raw?: Partial<GangStats> | null): GangStats {
+function normalizeResolution(input: any): AttackResolution {
   return {
-    totalMembers: safeNumber(raw?.totalMembers),
-    averageLevel: safeNumber(raw?.averageLevel),
-    totalPower: safeNumber(raw?.totalPower),
-    morale: safeNumber(raw?.morale),
+    success: Boolean(input?.success),
+    loot: Number(input?.loot || 0),
+    chance: Number(input?.chance || 0),
+    attackerPower: Number(input?.attackerPower || 0),
+    defenderPower: Number(input?.defenderPower || 0),
+    message: String(input?.message || ''),
+    critical: Boolean(input?.critical),
+    spoils: {
+      dirtyMoneyLoot: Number(input?.spoils?.dirtyMoneyLoot || input?.loot || 0),
+      correLoot: Number(input?.spoils?.correLoot || 0),
+      prestigeLoot: Number(input?.spoils?.prestigeLoot || 0),
+      brokenLuxuryItemId: input?.spoils?.brokenLuxuryItemId || null,
+      brokenLuxuryItemName: input?.spoils?.brokenLuxuryItemName || null,
+      brokenLuxuryItemValue: input?.spoils?.brokenLuxuryItemValue || null,
+      luxuryConvertedDirtyMoney: Number(input?.spoils?.luxuryConvertedDirtyMoney || 0),
+    },
+    attackerGangLosses: normalizeGangLosses(input?.attackerGangLosses),
+    defenderGangLosses: normalizeGangLosses(input?.defenderGangLosses),
+    attackerGangStats: normalizeGangStats(input?.attackerGangStats),
+    defenderGangStats: normalizeGangStats(input?.defenderGangStats),
   };
 }
 
-function buildEmptyGangLosses(): GangLosses {
-  return {
-    membersKilled: 0,
-    membersInjured: 0,
-    totalLosses: 0,
-  };
-}
-
-function buildEmptyGangStats(): GangStats {
-  return {
-    totalMembers: 0,
-    averageLevel: 0,
-    totalPower: 0,
-    morale: 0,
-  };
-}
-
-function normalizeResolution(raw: any): AttackResolution {
-  return {
-    success: !!raw?.success,
-    loot: safeNumber(raw?.loot),
-    chance: safeNumber(raw?.chance),
-    attackerPower: safeNumber(raw?.attackerPower),
-    defenderPower: safeNumber(raw?.defenderPower),
-    message: raw?.message || 'Batalha concluída.',
-    critical: !!raw?.critical,
-    spoils: normalizeSpoils(raw?.spoils),
-    attackerGangLosses: normalizeGangLosses(raw?.attackerGangLosses),
-    defenderGangLosses: normalizeGangLosses(raw?.defenderGangLosses),
-    attackerGangStats: normalizeGangStats(raw?.attackerGangStats),
-    defenderGangStats: normalizeGangStats(raw?.defenderGangStats),
-  };
-}
-
-function buildLocalEstimate(
-  attacker: {
-    power?: number;
-    balances?: { corre?: number };
-    skills?: {
-      attack?: number;
-      defense?: number;
-      intelligence?: number;
-      agility?: number;
-      respect?: number;
-      vigor?: number;
-    };
-    gangPower?: number;
-  } | null,
-  target: AttackTarget
-): BattleEstimate {
-  const attack = safeNumber(attacker?.skills?.attack);
-  const defense = safeNumber(attacker?.skills?.defense);
-  const intelligence = safeNumber(attacker?.skills?.intelligence);
-  const agility = safeNumber(attacker?.skills?.agility);
-  const respect = safeNumber(attacker?.skills?.respect);
-  const vigor = safeNumber(attacker?.skills?.vigor);
-
-  // Usa dados reais do player + poder da gangue
-  const attackerBasePower = safeNumber(attacker?.power, 100);
-  const gangPower = safeNumber(attacker?.gangPower, 0);
-  const attackerComputedPower =
-    attackerBasePower +
-    gangPower +
-    attack * 8 +
-    defense * 4 +
-    intelligence * 5 +
-    agility * 6 +
-    respect * 3 +
-    vigor * 5;
-
-  const defenderComputedPower =
-    safeNumber(target?.power, 100) +
-    safeNumber(target?.barracoLevel, 1) * 45;
-
-  const estimatedChance = clamp(
-    attackerComputedPower / Math.max(attackerComputedPower + defenderComputedPower, 1),
-    0.15,
-    0.85
-  );
-
-  const targetDirtyMoney = safeNumber(target?.dirtyMoney);
-  const lootBonus = attack * 0.003;
-  const defenseReduction = defense * 0.001;
-
-  const estimatedLoot = Math.max(
-    0,
-    Math.floor(targetDirtyMoney * 0.18 * (1 + lootBonus - defenseReduction))
-  );
-
-  return {
-    estimatedLoot,
-    estimatedChance: Number((estimatedChance * 100).toFixed(2)),
-    attackerPower: Math.round(attackerComputedPower),
-    defenderPower: Math.round(defenderComputedPower),
-    correCost: 10,
-  };
-}
-
-export async function getAttackEstimate(target: AttackTarget): Promise<BattleEstimate> {
-  const player = await fetchCurrentPlayer();
-  return buildLocalEstimate(player as any, target);
+export async function estimateBattle(
+  payload: Pick<StartBattlePayload, 'targetId'>
+): Promise<EstimateBattleResponse> {
+  return request<EstimateBattleResponse>('/battle/estimate', {
+    method: 'POST',
+    body: JSON.stringify({
+      targetId: payload.targetId,
+    }),
+  });
 }
 
 export async function startBattle(
-  payload: BattleStartPayload,
-  gangData?: {
-    attackerGangMembers?: number;
-    attackerGangStats?: GangStats;
-    attackerCTLevel?: number;
-  }
-): Promise<BattleStartResponse> {
-  const body = {
-    targetId: payload.target.playerId,
-    targetName: payload.target.playerName,
-    targetTileX: payload.target.tileX,
-    targetTileY: payload.target.tileY,
-    originTileX: payload.origin.tileX,
-    originTileY: payload.origin.tileY,
-    ...(gangData && {
-      attackerGangMembers: gangData.attackerGangMembers,
-      attackerGangStats: gangData.attackerGangStats,
-      attackerCTLevel: gangData.attackerCTLevel,
-    }),
-  };
-
-  return request<BattleStartResponse>('/battle/start', {
+  payload: StartBattlePayload
+): Promise<StartBattleResponse> {
+  return request<StartBattleResponse>('/battle/start', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      targetId: payload.targetId,
+      targetName: payload.targetName,
+      targetTileX: payload.targetTileX,
+      targetTileY: payload.targetTileY,
+      originTileX: payload.originTileX,
+      originTileY: payload.originTileY,
+    }),
   });
 }
 
 export async function resolveBattleById(
   battleId: string
 ): Promise<BattleReportResponse> {
-  const data = await request<any>(`/battle/resolve/${battleId}`, {
+  const data = await request<any>(`/battle/${battleId}/resolve`, {
     method: 'POST',
   });
 
   return {
-    battleId: data?.battleId || battleId,
-    resolution: normalizeResolution(data?.resolution || data),
+    battleId: String(data?.battleId || battleId),
+    resolution: normalizeResolution(data?.resolution),
     attacker: {
-      playerId: data?.attacker?.playerId || '',
-      playerName: data?.attacker?.playerName || 'ATACANTE',
+      playerId: String(data?.attacker?.playerId || ''),
+      playerName: String(data?.attacker?.playerName || ''),
+      factionId: data?.attacker?.factionId || null,
+      factionName: String(data?.attacker?.factionName || ''),
+      factionTag: String(data?.attacker?.factionTag || ''),
     },
     defender: {
-      playerId: data?.defender?.playerId || '',
-      playerName: data?.defender?.playerName || 'DEFENSOR',
+      playerId: String(data?.defender?.playerId || ''),
+      playerName: String(data?.defender?.playerName || ''),
+      factionId: data?.defender?.factionId || null,
+      factionName: String(data?.defender?.factionName || ''),
+      factionTag: String(data?.defender?.factionTag || ''),
     },
   };
 }
@@ -294,20 +295,26 @@ export async function resolveBattleById(
 export async function getBattleReport(
   battleId: string
 ): Promise<BattleReportResponse> {
-  const data = await request<any>(`/battle/report/${battleId}`, {
+  const data = await request<any>(`/battle/${battleId}`, {
     method: 'GET',
   });
 
   return {
-    battleId: data?.battleId || battleId,
-    resolution: normalizeResolution(data?.resolution || data),
+    battleId: String(data?.battleId || battleId),
+    resolution: normalizeResolution(data?.resolution),
     attacker: {
-      playerId: data?.attacker?.playerId || '',
-      playerName: data?.attacker?.playerName || 'ATACANTE',
+      playerId: String(data?.attacker?.playerId || ''),
+      playerName: String(data?.attacker?.playerName || ''),
+      factionId: data?.attacker?.factionId || null,
+      factionName: String(data?.attacker?.factionName || ''),
+      factionTag: String(data?.attacker?.factionTag || ''),
     },
     defender: {
-      playerId: data?.defender?.playerId || '',
-      playerName: data?.defender?.playerName || 'DEFENSOR',
+      playerId: String(data?.defender?.playerId || ''),
+      playerName: String(data?.defender?.playerName || ''),
+      factionId: data?.defender?.factionId || null,
+      factionName: String(data?.defender?.factionName || ''),
+      factionTag: String(data?.defender?.factionTag || ''),
     },
   };
 }
@@ -317,18 +324,22 @@ export async function getBattleHistory(): Promise<BattleReportResponse[]> {
     method: 'GET',
   });
 
-  if (!Array.isArray(data)) return [];
-
-  return data.map((item) => ({
-    battleId: item?.battleId || '',
-    resolution: normalizeResolution(item?.resolution || item),
+  return (Array.isArray(data) ? data : []).map((item) => ({
+    battleId: String(item?.battleId || ''),
+    resolution: normalizeResolution(item?.resolution),
     attacker: {
-      playerId: item?.attacker?.playerId || '',
-      playerName: item?.attacker?.playerName || 'ATACANTE',
+      playerId: String(item?.attacker?.playerId || ''),
+      playerName: String(item?.attacker?.playerName || ''),
+      factionId: item?.attacker?.factionId || null,
+      factionName: String(item?.attacker?.factionName || ''),
+      factionTag: String(item?.attacker?.factionTag || ''),
     },
     defender: {
-      playerId: item?.defender?.playerId || '',
-      playerName: item?.defender?.playerName || 'DEFENSOR',
+      playerId: String(item?.defender?.playerId || ''),
+      playerName: String(item?.defender?.playerName || ''),
+      factionId: item?.defender?.factionId || null,
+      factionName: String(item?.defender?.factionName || ''),
+      factionTag: String(item?.defender?.factionTag || ''),
     },
   }));
 }
