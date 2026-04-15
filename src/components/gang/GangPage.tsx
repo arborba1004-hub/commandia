@@ -174,8 +174,44 @@ export default function GangPage() {
     return (
       <>
         <Header />
-        <div className="flex min-h-screen items-center justify-center bg-black pt-[140px] text-white md:pt-[160px]">
-          Carregando gangue...
+        <div className="flex min-h-screen flex-col items-center justify-center bg-black pt-[140px] text-white md:pt-[160px]">
+          <div className="text-center">
+            <div className="mb-4 inline-block">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-red-500/20 border-t-red-500"></div>
+            </div>
+            <p className="text-lg font-semibold">Carregando gangue...</p>
+            <p className="mt-2 text-sm text-zinc-400">Conectando ao servidor</p>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
+  if (!gang && error) {
+    return (
+      <>
+        <Header />
+        <div className="flex min-h-screen flex-col items-center justify-center bg-black px-4 pt-[140px] text-white md:pt-[160px]">
+          <div className="max-w-md text-center">
+            <div className="mb-4 text-4xl">⚠️</div>
+            <h2 className="text-2xl font-bold">Erro ao carregar gangue</h2>
+            <p className="mt-3 text-zinc-300">{error}</p>
+            <button
+              onClick={() => {
+                void loadGang();
+              }}
+              className="mt-6 rounded-2xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700"
+            >
+              Tentar novamente
+            </button>
+            <button
+              onClick={() => navigate('/game')}
+              className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 font-bold text-white hover:bg-white/10"
+            >
+              Voltar ao mapa
+            </button>
+          </div>
         </div>
         <Footer />
       </>
