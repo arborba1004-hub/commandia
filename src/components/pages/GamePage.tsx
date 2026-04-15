@@ -11,7 +11,6 @@ import { Menu, X } from 'lucide-react';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { buildManhattanAttackRoute } from '@/components/game/mapAttackPath';
 import {
-  getAttackEstimate,
   startBattle,
   resolveBattleById,
 } from '@/api/attackApi';
