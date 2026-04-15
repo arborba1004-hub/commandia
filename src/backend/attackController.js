@@ -18,22 +18,6 @@ import {
 } from '../services/gangWarService.js';
 
 /**
- * Normaliza membros da gangue para o formato esperado
- */
-function normalizeGangMembers(members = []) {
-  if (!Array.isArray(members)) return [];
-  return members.map(m => ({
-    id: m.id || m._id,
-    level: typeof m.level === 'number' ? m.level : 1,
-    health: typeof m.health === 'number' ? m.health : 100,
-    maxHealth: typeof m.maxHealth === 'number' ? m.maxHealth : 100,
-    power: typeof m.power === 'number' ? m.power : 10,
-    active: m.active !== false,
-    ...m,
-  }));
-}
-
-/**
  * Retorna stats vazios da gangue
  */
 function emptyGangStats() {
@@ -66,7 +50,7 @@ async function getGangCombatContext(playerId) {
       return { members: [], stats: emptyGangStats(), ctLevel: 1, doc: null };
     }
 
-    const members = normalizeGangMembers(gangDoc.members || []);
+    const members = gangDoc.members || [];
     const stats = buildOfficialGangBattleCompositionStats(members);
     const ctLevel = Math.max(1, safeNumber(gangDoc?.ct?.level, 1));
 
@@ -144,13 +128,13 @@ export async function startBattle(req, res) {
     const attackerGangContext = await getGangCombatContext(attacker._id);
     const defenderGangContext = await getGangCombatContext(defender._id);
 
-    const normalizedAttackerGangMembers = attackerGangContext.members;
-    const normalizedAttackerGangStats = attackerGangContext.stats;
+    const attackerGangMembers = attackerGangContext.members;
+    const attackerGangStats = attackerGangContext.stats;
     const attackerCTLevel = attackerGangContext.ctLevel;
 
     // Calcula poder do atacante
     const attackerPower = calculatePlayerPower(attacker, {
-      gangStats: normalizedAttackerGangStats,
+      gangStats: attackerGangStats,
       factionStats: attackerFaction.stats,
     });
 
@@ -179,8 +163,8 @@ export async function startBattle(req, res) {
       defenderPower,
       winChance,
       estimatedLoot,
-      attackerGangMembers: normalizedAttackerGangMembers.length,
-      attackerGangStats: normalizedAttackerGangStats,
+      attackerGangMembers: attackerGangMembers.length,
+      attackerGangStats: attackerGangStats,
       attackerCTLevel,
       defenderGangMembers: defenderGangContext.members.length,
       defenderGangStats: defenderGangContext.stats,
@@ -244,12 +228,12 @@ export async function estimateBattle(req, res) {
     const attackerGangContext = await getGangCombatContext(attacker._id);
     const defenderGangContext = await getGangCombatContext(defender._id);
 
-    const normalizedAttackerGangMembers = attackerGangContext.members;
-    const normalizedAttackerGangStats = attackerGangContext.stats;
+    const attackerGangMembers = attackerGangContext.members;
+    const attackerGangStats = attackerGangContext.stats;
 
     // Calcula poder do atacante
     const attackerPower = calculatePlayerPower(attacker, {
-      gangStats: normalizedAttackerGangStats,
+      gangStats: attackerGangStats,
       factionStats: attackerFaction.stats,
     });
 
@@ -271,8 +255,8 @@ export async function estimateBattle(req, res) {
       estimatedChance: winChance * 100,
       attackerPower,
       defenderPower,
-      attackerGangMembers: normalizedAttackerGangMembers.length,
-      attackerGangStats: normalizedAttackerGangStats,
+      attackerGangMembers: attackerGangMembers.length,
+      attackerGangStats: attackerGangStats,
       defenderGangMembers: defenderGangContext.members.length,
       defenderGangStats: defenderGangContext.stats,
     });
@@ -326,23 +310,31 @@ export async function resolveBattle(req, res) {
       message = 'Derrota! O defensor resistiu ao ataque';
     }
 
+    // Recarrega contextos de gangue OFICIAIS do banco de dados
+    const attackerGangContext = await getGangCombatContext(attacker._id);
+    const defenderGangContext = await getGangCombatContext(defender._id);
+
     // Processa perdas da gangue se houver
     let attackerGangLosses = { membersKilled: 0, membersInjured: 0, totalLosses: 0 };
     let defenderGangLosses = { membersKilled: 0, membersInjured: 0, totalLosses: 0 };
 
-    if (attack.attackerGangMembers > 0) {
-      attackerGangLosses = await resolveOfficialGangCasualties({
-        ownStats: attack.attackerGangStats,
-        enemyStats: attack.defenderGangStats,
-        battleOutcome: success ? 'victory' : 'defeat',
+    if (attackerGangContext.members.length > 0) {
+      attackerGangLosses = resolveOfficialGangCasualties({
+        members: attackerGangContext.members,
+        ownStats: attackerGangContext.stats,
+        enemyStats: defenderGangContext.stats,
+        ctLevel: attackerGangContext.ctLevel,
+        side: 'attacker',
       });
     }
 
-    if (attack.defenderGangMembers > 0) {
-      defenderGangLosses = await resolveOfficialGangCasualties({
-        ownStats: attack.defenderGangStats,
-        enemyStats: attack.attackerGangStats,
-        battleOutcome: success ? 'defeat' : 'victory',
+    if (defenderGangContext.members.length > 0) {
+      defenderGangLosses = resolveOfficialGangCasualties({
+        members: defenderGangContext.members,
+        ownStats: defenderGangContext.stats,
+        enemyStats: attackerGangContext.stats,
+        ctLevel: defenderGangContext.ctLevel,
+        side: 'defender',
       });
     }
 
@@ -366,8 +358,8 @@ export async function resolveBattle(req, res) {
       message,
       attackerGangLosses,
       defenderGangLosses,
-      attackerGangStats: attack.attackerGangStats,
-      defenderGangStats: attack.defenderGangStats,
+      attackerGangStats: attackerGangContext.stats,
+      defenderGangStats: defenderGangContext.stats,
     });
   } catch (error) {
     console.error('Erro ao resolver batalha:', error);
