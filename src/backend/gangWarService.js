@@ -71,6 +71,7 @@ export async function getOrCreateGangWar(playerId) {
     doc = await GangWar.create({
       playerId,
       ct: getCTStateFromLevel(1),
+      formation: 'pressao_total',
       members: [],
       trainingJobs: [],
       lastMaintenanceDate: null,
@@ -170,4 +171,54 @@ export function resolveGangCasualties(params) {
     feridos,
     preservadosPeloMedico,
   };
+}
+
+/**
+ * Calcula o custo diário de manutenção da gangue
+ */
+export function getGangDailyUpkeep(members) {
+  return members.length * 500; // 500 por membro
+}
+
+/**
+ * Serializa o estado da gangue para resposta da API
+ */
+export async function serializeGang(doc, player) {
+  const maxMembers = Math.min(10, 3 + Math.floor((doc.ct?.level || 1) / 2));
+
+  return {
+    gang: {
+      members: doc.members,
+      ct: doc.ct,
+      trainingJobs: doc.trainingJobs,
+      formation: doc.formation || 'pressao_total',
+      maxMembers,
+      dailyUpkeep: getGangDailyUpkeep(doc.members),
+    },
+    playerBalances: {
+      dirtyMoney: Number(player?.balances?.dirtyMoney || 0),
+      cleanMoney: Number(player?.balances?.cleanMoney || 0),
+      corre: Number(player?.balances?.corre || 0),
+    },
+  };
+}
+
+/**
+ * Handler para alterar a formação da gangue
+ */
+export async function handleSetFormation(player, formation) {
+  if (!player) {
+    throw new Error('Jogador não autenticado');
+  }
+
+  const validFormations = ['pressao_total', 'defesa_rigida', 'ataque_coordenado'];
+  if (!validFormations.includes(formation)) {
+    throw new Error(`Formação inválida: ${formation}`);
+  }
+
+  const doc = await getOrCreateGangWar(player._id);
+  doc.formation = formation;
+  await doc.save();
+
+  return serializeGang(doc, player);
 }

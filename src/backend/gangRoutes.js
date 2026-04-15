@@ -2,6 +2,17 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('./authMiddleware');
 const { generateRandomMember, calculateExpNeeded } = require('./gangUtils');
+const {
+  getOrCreateGangWar,
+  handleApplyBattleLosses,
+  handleCompleteTraining,
+  handlePayMaintenance,
+  handleRecruitMember,
+  handleSetFormation,
+  handleStartTraining,
+  handleUpgradeCT,
+  serializeGang,
+} = require('./gangWarService.js');
 
 // GET /gang/my
 router.get('/my', authMiddleware, async (req, res) => {
@@ -59,3 +70,16 @@ router.post('/train', authMiddleware, async (req, res) => {
 });
 
 // Outras rotas: equip, toggle-active, dismiss, donate, upgrade-skill seguem o mesmo padrão.
+
+// POST /gang-war/formation/set
+router.post('/gang-war/formation/set', authMiddleware, async (req, res) => {
+  try {
+    const { formation } = req.body || {};
+    const payload = await handleSetFormation(req.player, String(formation || ''));
+    return res.json(payload);
+  } catch (error) {
+    return res.status(400).json({
+      error: error instanceof Error ? error.message : 'Erro ao alterar formação',
+    });
+  }
+});
