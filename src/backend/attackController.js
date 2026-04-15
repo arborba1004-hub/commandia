@@ -218,6 +218,71 @@ export async function startBattle(req, res) {
 }
 
 /**
+ * Estima o resultado de uma batalha antes de iniciá-la
+ */
+export async function estimateBattle(req, res) {
+  try {
+    const attacker = req.player;
+    const { targetId } = req.body || {};
+
+    // Validações básicas
+    if (!attacker || !targetId) {
+      return res.status(400).json({ error: 'Atacante ou alvo inválido' });
+    }
+
+    // Busca o defensor
+    const defender = await Player.findById(targetId);
+    if (!defender) {
+      return res.status(404).json({ error: 'Defensor não encontrado' });
+    }
+
+    // Carrega contextos de combate
+    const attackerFaction = await getFactionCombatContext(attacker);
+    const defenderFaction = await getFactionCombatContext(defender);
+
+    // Carrega contextos de gangue OFICIAIS
+    const attackerGangContext = await getGangCombatContext(attacker._id);
+    const defenderGangContext = await getGangCombatContext(defender._id);
+
+    const normalizedAttackerGangMembers = attackerGangContext.members;
+    const normalizedAttackerGangStats = attackerGangContext.stats;
+
+    // Calcula poder do atacante
+    const attackerPower = calculatePlayerPower(attacker, {
+      gangStats: normalizedAttackerGangStats,
+      factionStats: attackerFaction.stats,
+    });
+
+    // Calcula poder do defensor
+    const defenderPower = calculatePlayerPower(defender, {
+      gangStats: defenderGangContext.stats,
+      factionStats: defenderFaction.stats,
+    });
+
+    // Calcula chance de vitória
+    const winChance = calculateWinChance(attackerPower, defenderPower);
+
+    // Calcula saque estimado
+    const estimatedLoot = calculateLoot(defender.balances?.dirtyMoney || 0, attacker.skills?.attack || 0);
+
+    return res.json({
+      success: true,
+      estimatedLoot,
+      estimatedChance: winChance * 100,
+      attackerPower,
+      defenderPower,
+      attackerGangMembers: normalizedAttackerGangMembers.length,
+      attackerGangStats: normalizedAttackerGangStats,
+      defenderGangMembers: defenderGangContext.members.length,
+      defenderGangStats: defenderGangContext.stats,
+    });
+  } catch (error) {
+    console.error('Erro ao estimar batalha:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao estimar batalha' });
+  }
+}
+
+/**
  * Resolve uma batalha já iniciada
  */
 export async function resolveBattle(req, res) {
