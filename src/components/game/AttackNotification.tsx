@@ -10,7 +10,7 @@ export default function AttackNotification() {
   const [attacker, setAttacker] = useState('');
   const [loot, setLoot] = useState(0);
   const [lastSeenNotificationId, setLastSeenNotificationId] = useState<string | null>(null);
-  const playerStore = usePlayerStore();
+  const markNotificationAsReadLocal = usePlayerStore((state) => state.markNotificationAsRead);
 
   useEffect(() => {
     let pollingInterval: ReturnType<typeof setInterval> | null = null;
@@ -44,7 +44,7 @@ export default function AttackNotification() {
           await markNotificationAsRead(unreadAttackNotification.id);
 
           // Atualiza no store local
-          playerStore.markNotificationAsRead(unreadAttackNotification.id);
+          markNotificationAsReadLocal(unreadAttackNotification.id);
         }
       } catch (error) {
         console.error('Erro ao fazer polling de notificações:', error);
@@ -58,7 +58,7 @@ export default function AttackNotification() {
       if (pollingInterval) clearInterval(pollingInterval);
       if (autoHideTimeout) clearTimeout(autoHideTimeout);
     };
-  }, [lastSeenNotificationId, playerStore]);
+  }, [lastSeenNotificationId, markNotificationAsReadLocal]);
 
   if (!visible) return null;
   return (
