@@ -212,7 +212,8 @@ export default function HomePage() {
     clearPlayer();
     navigate('/', { replace: true });
   };
-return (
+
+  return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
       <Header />
 
