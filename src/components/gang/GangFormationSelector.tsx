@@ -1,6 +1,8 @@
 import { Shield, Swords, Target, Radar, Coins } from 'lucide-react';
 import { useGangStore } from '@/store/gangStore';
-import type { FormationType } from '@/stores/gangBattleStore';
+import type { GangFormationType } from '@/types/gangWar';
+
+type FormationType = GangFormationType;
 
 const FORMATIONS: Array<{
   id: FormationType;
@@ -27,7 +29,8 @@ const FORMATIONS: Array<{
   {
     id: 'linha_fechada',
     title: 'Linha Fechada',
-    description: 'Formação de sustentação, melhor para resistir, preservar a tropa e segurar confronto longo.',
+    description:
+      'Formação de sustentação, melhor para resistir, preservar a tropa e segurar confronto longo.',
     rajada: '-6%',
     blindagem: '+20%',
     folego: '+10%',
@@ -72,6 +75,9 @@ const FORMATIONS: Array<{
 
 export default function GangFormationSelector() {
   const gang = useGangStore((state) => state.gang);
+  const isSubmitting = useGangStore((state) => state.isSubmitting);
+  const setFormation = useGangStore((state) => state.setFormation);
+
   const formation = gang?.formation || 'pressao_total';
 
   return (
@@ -94,10 +100,10 @@ export default function GangFormationSelector() {
             <button
               key={item.id}
               onClick={() => {
-                // TODO: Call API to set formation on backend
-                // For now, just update local state
+                void setFormation(item.id);
               }}
-              className={`rounded-3xl border p-5 text-left transition-all ${
+              disabled={isSubmitting}
+              className={`rounded-3xl border p-5 text-left transition-all disabled:opacity-50 ${
                 selected
                   ? 'border-primary bg-primary/10 shadow-[0_0_30px_rgba(255,0,127,0.18)]'
                   : 'border-white/10 bg-zinc-950/70 hover:border-white/20'
@@ -115,7 +121,7 @@ export default function GangFormationSelector() {
                 <div>
                   <h3 className="text-lg font-bold text-white">{item.title}</h3>
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    {selected ? 'Ativa' : 'Selecionar'}
+                    {selected ? 'Ativa' : isSubmitting ? 'Salvando...' : 'Selecionar'}
                   </p>
                 </div>
               </div>
