@@ -122,3 +122,12 @@ export async function applyGangBattleLosses(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+export async function setGangFormation(
+  formation: 'pressao_total' | 'linha_fechada' | 'bote_certo' | 'cerco' | 'saque_rapido'
+): Promise<GangWarApiEnvelope> {
+  return request<GangWarApiEnvelope>('/gang-war/formation/set', {
+    method: 'POST',
+    body: JSON.stringify({ formation }),
+  });
+}
