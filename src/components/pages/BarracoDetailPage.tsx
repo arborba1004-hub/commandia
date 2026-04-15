@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
-import { getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
+
 
 export default function BarracoDetailPage() {
   const navigate = useNavigate();
@@ -185,11 +185,7 @@ export default function BarracoDetailPage() {
             </div>
           )}
 
-          {!requirements.allowed && requirements.reason && !error && (
-            <div className="mb-4 rounded-xl bg-yellow-500/20 border border-yellow-500/30 px-4 py-3 text-sm text-yellow-200">
-              {requirements.reason}
-            </div>
-          )}
+          
 
           <button
             onClick={handleUpgrade}
