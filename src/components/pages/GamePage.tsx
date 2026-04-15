@@ -234,9 +234,6 @@ export default function GamePage() {
   const addNotification = usePlayerStore((state) => state.addNotification);
   const gang = useGangStore((state) => state.gang);
   const getGangBattleStats = useGangStore((state) => state.getBattleStats);
-  const applyBattleLossesToBackend = useGangStore(
-    (state) => state.applyBattleLossesToBackend
-  );
   const loadGang = useGangStore((state) => state.loadGang);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -351,10 +348,7 @@ export default function GamePage() {
               const report = await resolveBattleById(startResponse.battleId);
               useMapAttackStore.getState().setResolution(report.resolution);
 
-              if (report?.resolution?.attackerGangLosses) {
-                await applyBattleLossesToBackend(report.resolution.attackerGangLosses);
-                await loadGang();
-              }
+              await loadGang();
 
               pushAttackFeed(
                 report.resolution.success
