@@ -1,4 +1,8 @@
 import { create } from 'zustand';
+import type {
+  GangBattleCasualtyResult,
+  GangBattleCompositionStats,
+} from '@/types/gangWar';
 
 export type MapAttackPhase =
   | 'idle'
@@ -70,10 +74,10 @@ export type AttackResolution = {
   message: string;
   critical?: boolean;
   spoils: SpoilsResult;
-  attackerGangLosses: GangLosses;
-  defenderGangLosses: GangLosses;
-  attackerGangStats: GangStats;
-  defenderGangStats: GangStats;
+  attackerGangLosses?: GangBattleCasualtyResult;
+  defenderGangLosses?: GangBattleCasualtyResult;
+  attackerGangStats?: GangBattleCompositionStats;
+  defenderGangStats?: GangBattleCompositionStats;
 };
 
 type PreviewPayload = {
