@@ -4,6 +4,7 @@ import Footer from '@/components/Footer';
 import GangBattleStats from '@/components/gang/GangBattleStats';
 import GangFormationSelector from '@/components/gang/GangFormationSelector';
 import { useGangStore } from '@/store/gangStore';
+import { usePlayerStore } from '@/store/playerStore';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -113,6 +114,7 @@ export default function GangPage() {
   const isLoading = useGangStore((state) => state.isLoading);
   const isSubmitting = useGangStore((state) => state.isSubmitting);
   const error = useGangStore((state) => state.error);
+  const player = usePlayerStore((state) => state.player);
 
   const loadGang = useGangStore((state) => state.loadGang);
   const recruitMember = useGangStore((state) => state.recruitMember);
@@ -212,10 +214,10 @@ export default function GangPage() {
 
                 <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
                   <div className="text-[11px] uppercase tracking-wide text-emerald-400">
-                    Tesouro
+                    Cofre da Gangue
                   </div>
                   <div className="mt-1 text-2xl font-black text-emerald-300">
-                    {Number(gang?.treasury?.dirtyMoney || 0).toLocaleString('pt-BR')}
+                    {Number(player?.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}
                   </div>
                 </div>
 
@@ -224,7 +226,7 @@ export default function GangPage() {
                     Capacidade
                   </div>
                   <div className="mt-1 text-2xl font-black text-amber-300">
-                    {gang?.members?.length || 0}/{gang?.limits?.maxMembers || 0}
+                    {gang?.members?.length || 0}/{gang?.maxMembers || 0}
                   </div>
                 </div>
 
