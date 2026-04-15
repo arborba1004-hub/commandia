@@ -245,7 +245,6 @@ export default function GamePage() {
   const [showPromotion, setShowPromotion] = useState(false);
   const [isStartingBattle, setIsStartingBattle] = useState(false);
   const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
-  const [battleReport, setBattleReport] = useState<any | null>(null);
 
   const level = playerState?.niveis?.barracoLevel || 1;
   const displayName =
@@ -343,7 +342,7 @@ export default function GamePage() {
           onComplete: async () => {
             try {
               const report = await resolveBattleById(startResponse.battleId);
-              setBattleReport(report);
+              useMapAttackStore.getState().setResolution(report.resolution);
 
               if (report?.resolution?.attackerGangLosses) {
                 await applyBattleLossesToBackend(report.resolution.attackerGangLosses);
@@ -366,8 +365,6 @@ export default function GamePage() {
 
               const obj = enemyBarracoMapRef.current[state.target.playerId];
               if (obj) shakeObject(obj);
-
-              useMapAttackStore.getState().setResolution(report.resolution);
 
               applyRemoteAttackResult({
                 dirtyMoneyDelta: report.resolution.success
@@ -1066,111 +1063,6 @@ const rect = containerRef.current.getBoundingClientRect();
         )}
 
        <AttackResultOverlay />
-
-        {battleReport && (
-          <div className="absolute inset-0 z-[70] bg-black/70 flex items-center justify-center p-4">
-            <div className="relative w-full max-w-2xl rounded-3xl border border-red-500/30 bg-[#090909] p-6 text-white shadow-2xl">
-              <button
-                onClick={() => setBattleReport(null)}
-                className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl font-bold text-white hover:bg-white/20"
-                aria-label="Fechar relatório"
-              >
-                ×
-              </button>
-
-              <div className="mb-6 text-center">
-                <p className="text-xs uppercase tracking-[0.28em] text-zinc-400">
-                  Relatório de batalha
-                </p>
-                <h2 className="mt-2 text-3xl font-black uppercase tracking-[0.08em]">
-                  {battleReport.resolution.success ? 'Vitória' : 'Derrota'}
-                </h2>
-                <p className="mt-2 text-sm text-zinc-300">
-                  {battleReport.resolution.message || 'Confronto concluído.'}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                    Atacante
-                  </p>
-                  <p className="mt-2 text-lg font-bold text-red-200">
-                    {battleReport.attacker.playerName}
-                  </p>
-                  <p className="mt-2 text-sm text-zinc-300">
-                    Poder:{' '}
-                    {battleReport.resolution.attackerPower?.toLocaleString?.('pt-BR') ??
-                      battleReport.resolution.attackerPower ??
-                      0}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                    Defensor
-                  </p>
-                  <p className="mt-2 text-lg font-bold text-zinc-100">
-                    {battleReport.defender.playerName}
-                  </p>
-                  <p className="mt-2 text-sm text-zinc-300">
-                    Poder:{' '}
-                    {battleReport.resolution.defenderPower?.toLocaleString?.('pt-BR') ??
-                      battleReport.resolution.defenderPower ??
-                      0}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                    Chance
-                  </p>
-                  <p className="mt-2 text-xl font-black text-amber-200">
-                    {battleReport.resolution.chance ?? 0}%
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                    Espólio
-                  </p>
-                  <p className="mt-2 text-xl font-black text-green-300">
-                    {(battleReport.resolution.loot || 0).toLocaleString('pt-BR')}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                    Crítico
-                  </p>
-                  <p className="mt-2 text-xl font-black text-red-300">
-                    {battleReport.resolution.critical ? 'SIM' : 'NÃO'}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                    Resultado
-                  </p>
-                  <p className="mt-2 text-xl font-black text-white">
-                    {battleReport.resolution.success ? 'DOMINOU' : 'FALHOU'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setBattleReport(null)}
-                  className="rounded-2xl bg-red-600 px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-white hover:bg-red-500"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         <RankPromotionNotification
           rank={promotionRank}
