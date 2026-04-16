@@ -843,21 +843,12 @@ const rect = containerRef.current.getBoundingClientRect();
         (async () => {
           try {
             const estimate = await getAttackEstimate({ targetId: target.playerId });
-            useMapAttackStore.getState().openPreview({
-              origin: {
-                playerId: playerState._id,
-                playerName: playerState.name,
-                tileX: playerState?.mapPosition?.tileX ?? 60,
-                tileY: playerState?.mapPosition?.tileY ?? 60,
-              },
-              target,
+            useMapAttackStore.getState().setEstimate({
               estimatedLoot: estimate.estimatedLoot,
-              estimatedChance: estimate.estimatedChance / 100,
+              estimatedChance: estimate.estimatedChance,
             });
           } catch (error) {
-            // Estimativa falhou (ex: sem corre, backend offline)
-            // O modal já está aberto — jogador pode ver o alvo e decidir
-            console.warn('Estimativa de ataque indisponível:', error);
+            console.error('Erro ao calcular estimativa de ataque:', error);
           }
         })();
         return;
