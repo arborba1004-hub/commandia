@@ -14,6 +14,7 @@ import {
   recruitGangMember,
   startGangTraining,
   upgradeGangCT,
+  setGangFormation,
 } from '@/api/gangWarApi';
 import {
   buildGangBattleCompositionStats,
@@ -26,85 +27,47 @@ type GangStore = {
   isSubmitting: boolean;
   error: string | null;
 
+  // Ações de Estado e API
   loadGang: () => Promise<boolean>;
   recruitMember: (type: GangMemberType) => Promise<boolean>;
   startTrainingMember: (memberId: string) => Promise<boolean>;
   completeFinishedTrainings: () => Promise<boolean>;
   upgradeCT: () => Promise<boolean>;
   payMaintenance: () => Promise<boolean>;
+  updateFormation: (formation: any) => Promise<boolean>;
 
+  // Lógica de Batalha (Frontend)
   getBattleStats: () => GangBattleCompositionStats;
   resolveBattleLossesLocally: (params: {
     enemyStats: GangBattleCompositionStats;
     side: 'attacker' | 'defender';
   }) => GangBattleCasualtyResult;
 
+  // Sincronização
   applyBattleLossesToBackend: (losses: GangBattleCasualtyResult) => Promise<boolean>;
   clearGang: () => void;
 };
 
+// Helpers para estados vazios
 function emptyBattleStats(): GangBattleCompositionStats {
   return {
-    totalMembers: 0,
-    ativos: 0,
-    feridos: 0,
-    mortos: 0,
-    rajada: 0,
-    blindagem: 0,
-    folego: 0,
-    quebra: 0,
-    medicalPower: 0,
-    economyPower: 0,
-    lootPower: 0,
-    intelPower: 0,
-    mobilityPower: 0,
-    weaponPower: 0,
-    coordinationPower: 0,
-    negotiationPower: 0,
+    totalMembers: 0, ativos: 0, feridos: 0, mortos: 0,
+    rajada: 0, blindagem: 0, folego: 0, quebra: 0,
+    medicalPower: 0, economyPower: 0, lootPower: 0, intelPower: 0,
+    mobilityPower: 0, weaponPower: 0, coordinationPower: 0, negotiationPower: 0,
     totalPower: 0,
   };
 }
 
 function emptyLosses(): GangBattleCasualtyResult {
   return {
-    mortos: {
-      capanga: 0,
-      frente: 0,
-      executor: 0,
-      assassino: 0,
-      muralha: 0,
-      certeiro: 0,
-      motorista: 0,
-      nitro: 0,
-      armeiro: 0,
-      informante: 0,
-      wifi: 0,
-      medico: 0,
-      lavador: 0,
-      ladrao: 0,
-      negociador: 0,
-    },
-    feridos: {
-      capanga: 0,
-      frente: 0,
-      executor: 0,
-      assassino: 0,
-      muralha: 0,
-      certeiro: 0,
-      motorista: 0,
-      nitro: 0,
-      armeiro: 0,
-      informante: 0,
-      wifi: 0,
-      medico: 0,
-      lavador: 0,
-      ladrao: 0,
-      negociador: 0,
-    },
+    mortos: {} as any,
+    feridos: {} as any,
     preservadosPeloMedico: 0,
   };
 }
 
+// Sincroniza o dinheiro e corre no topo da tela após cada ação
 function syncBalancesToPlayerStore(playerBalances?: {
   dirtyMoney: number;
   cleanMoney: number;
@@ -132,36 +95,17 @@ export const useGangStore = create<GangStore>((set, get) => ({
   loadGang: async () => {
     try {
       set({ isLoading: true, error: null });
-
       const data = await fetchMyGang();
-
-      // Aceita tanto data.gang quanto o objeto direto
       const gangData = data?.gang || data;
 
-      if (!gangData) {
-        throw new Error('Resposta inválida do servidor');
-      }
+      if (!gangData) throw new Error('Resposta inválida do servidor');
 
       syncBalancesToPlayerStore(data?.playerBalances);
 
-      // Verifica se o backend envia 'members' ou 'membros'
-      // Se necessário, force a tradução aqui:
-      // const members = gangData.membros || gangData.members;
-
-      set({
-        gang: gangData,
-        isLoading: false,
-        error: null,
-      });
-
+      set({ gang: gangData, isLoading: false, error: null });
       return true;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar gangue';
-      set({
-        isLoading: false,
-        error: errorMessage,
-      });
-      console.error('Erro ao carregar gangue:', error);
+    } catch (error: any) {
+      set({ isLoading: false, error: error.message || 'Erro ao carregar gangue' });
       return false;
     }
   },
@@ -169,29 +113,13 @@ export const useGangStore = create<GangStore>((set, get) => ({
   recruitMember: async (type) => {
     try {
       set({ isSubmitting: true, error: null });
-
       const data = await recruitGangMember(type);
-
-      if (!data?.gang) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
+      
       syncBalancesToPlayerStore(data.playerBalances);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-        error: null,
-      });
-
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao recrutar membro';
-      set({
-        isSubmitting: false,
-        error: errorMessage,
-      });
-      console.error('Erro ao recrutar membro:', error);
+    } catch (error: any) {
+      set({ isSubmitting: false, error: error.message });
       return false;
     }
   },
@@ -199,119 +127,64 @@ export const useGangStore = create<GangStore>((set, get) => ({
   startTrainingMember: async (memberId) => {
     try {
       set({ isSubmitting: true, error: null });
-
+      // Aqui a API já deve estar usando 'memberId' no corpo da requisição
       const data = await startGangTraining(memberId);
-
-      if (!data?.gang) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
+      
       syncBalancesToPlayerStore(data.playerBalances);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-        error: null,
-      });
-
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao iniciar treino';
-      set({
-        isSubmitting: false,
-        error: errorMessage,
-      });
-      console.error('Erro ao iniciar treino:', error);
+    } catch (error: any) {
+      set({ isSubmitting: false, error: error.message });
       return false;
     }
   },
 
   completeFinishedTrainings: async () => {
     try {
-      set({ isSubmitting: true, error: null });
-
+      set({ isSubmitting: true });
       const data = await completeGangTrainings();
-
-      if (!data?.gang) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
-      syncBalancesToPlayerStore(data.playerBalances);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-        error: null,
-      });
-
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao concluir treinos';
-      set({
-        isSubmitting: false,
-        error: errorMessage,
-      });
-      console.error('Erro ao concluir treinos:', error);
+    } catch (error: any) {
+      set({ isSubmitting: false, error: error.message });
+      return false;
+    }
+  },
+
+  updateFormation: async (formation) => {
+    try {
+      set({ isSubmitting: true });
+      const data = await setGangFormation(formation);
+      set({ gang: data.gang, isSubmitting: false });
+      return true;
+    } catch (error: any) {
+      set({ isSubmitting: false, error: error.message });
       return false;
     }
   },
 
   upgradeCT: async () => {
     try {
-      set({ isSubmitting: true, error: null });
-
+      set({ isSubmitting: true });
       const data = await upgradeGangCT();
-
-      if (!data?.gang) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
       syncBalancesToPlayerStore(data.playerBalances);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-        error: null,
-      });
-
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao evoluir CT';
-      set({
-        isSubmitting: false,
-        error: errorMessage,
-      });
-      console.error('Erro ao evoluir CT:', error);
+    } catch (error: any) {
+      set({ isSubmitting: false, error: error.message });
       return false;
     }
   },
 
   payMaintenance: async () => {
     try {
-      set({ isSubmitting: true, error: null });
-
+      set({ isSubmitting: true });
       const data = await payGangMaintenance();
-
-      if (!data?.gang) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
       syncBalancesToPlayerStore(data.playerBalances);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-        error: null,
-      });
-
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao pagar manutenção';
-      set({
-        isSubmitting: false,
-        error: errorMessage,
-      });
-      console.error('Erro ao pagar manutenção:', error);
+    } catch (error: any) {
+      set({ isSubmitting: false, error: error.message });
       return false;
     }
   },
@@ -324,7 +197,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
   resolveBattleLossesLocally: ({ enemyStats, side }) => {
     const gang = get().gang;
-    if (!gang) return emptyLosses();
+    if (!gang || !gang.members) return emptyLosses();
 
     return resolveGangCasualties({
       members: gang.members,
@@ -337,40 +210,16 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
   applyBattleLossesToBackend: async (losses) => {
     try {
-      set({ isSubmitting: true, error: null });
-
+      set({ isSubmitting: true });
       const data = await applyGangBattleLosses({ losses });
-
-      if (!data?.gang) {
-        throw new Error('Resposta inválida do servidor');
-      }
-
       syncBalancesToPlayerStore(data.playerBalances);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-        error: null,
-      });
-
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao aplicar perdas da batalha';
-      set({
-        isSubmitting: false,
-        error: errorMessage,
-      });
-      console.error('Erro ao aplicar perdas da batalha:', error);
+    } catch (error: any) {
+      set({ isSubmitting: false, error: error.message });
       return false;
     }
   },
 
-  clearGang: () => {
-    set({
-      gang: null,
-      isLoading: false,
-      isSubmitting: false,
-      error: null,
-    });
-  },
+  clearGang: () => set({ gang: null, error: null }),
 }));
