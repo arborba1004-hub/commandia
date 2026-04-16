@@ -13,6 +13,7 @@ import { buildManhattanAttackRoute } from '@/components/game/mapAttackPath';
 import {
   startBattle,
   resolveBattleById,
+  getAttackEstimate,
 } from '@/api/attackApi';
 import { loadSquadModel } from '@/components/game/createSquadVisual';
 import { animateSquadOnRoute } from '@/components/game/animateSquadOnRoute';
@@ -823,10 +824,25 @@ const rect = containerRef.current.getBoundingClientRect();
       const target = pickEnemyBarracoFromIntersections(enemyHits);
 
       if (target && playerState) {
+        // Abre o preview imediatamente com dados básicos do alvo
+        // A estimativa é carregada em background — se falhar, o modal
+        // ainda abre com estimativas zeradas em vez de não abrir nada.
+        useMapAttackStore.getState().openPreview({
+          origin: {
+            playerId: playerState._id,
+            playerName: playerState.name,
+            tileX: playerState?.mapPosition?.tileX ?? 60,
+            tileY: playerState?.mapPosition?.tileY ?? 60,
+          },
+          target,
+          estimatedLoot: 0,
+          estimatedChance: 0,
+        });
+
+        // Carrega a estimativa real e atualiza o preview
         (async () => {
           try {
             const estimate = await getAttackEstimate(target);
-
             useMapAttackStore.getState().openPreview({
               origin: {
                 playerId: playerState._id,
@@ -839,7 +855,9 @@ const rect = containerRef.current.getBoundingClientRect();
               estimatedChance: estimate.estimatedChance / 100,
             });
           } catch (error) {
-            console.error('Erro ao calcular estimativa de ataque:', error);
+            // Estimativa falhou (ex: sem corre, backend offline)
+            // O modal já está aberto — jogador pode ver o alvo e decidir
+            console.warn('Estimativa de ataque indisponível:', error);
           }
         })();
         return;
