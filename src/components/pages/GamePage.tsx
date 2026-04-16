@@ -616,4 +616,462 @@ useEffect(() => {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-   
+   const loadedObjects: THREE.Object3D[] = [];
+
+    loader.load(
+      getBarracoModelUrl(level),
+      (gltf) => {
+        if (!isMounted) return;
+
+        const barraco = gltf.scene;
+        const { labelY } = fitModelToFootprint(barraco, getBarracoSize(level));
+
+        barraco.position.x = playerWorldX;
+        barraco.position.z = playerWorldZ;
+        barraco.traverse(setMeshQuality);
+
+        barraco.userData.route = '/barraco';
+        barraco.userData.type = 'player_barraco';
+        playerBarracoRef.current = barraco;
+
+        scene.add(barraco);
+        loadedObjects.push(barraco);
+
+        const playerRank = getPlayerRank(level);
+        const label = createTextLabel(displayName, playerRank.title);
+        label.position.set(playerWorldX, labelY, playerWorldZ);
+        scene.add(label);
+        loadedObjects.push(label);
+
+        const reservedArea = new THREE.Mesh(
+          new THREE.PlaneGeometry(4, 4),
+          new THREE.MeshBasicMaterial({
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 0.22,
+            side: THREE.DoubleSide,
+          })
+        );
+        reservedArea.rotation.x = -Math.PI / 2;
+        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ);
+        scene.add(reservedArea);
+        loadedObjects.push(reservedArea);
+      },
+      undefined,
+      (error) => console.error('❌ Erro crítico ao carregar o barraco:', error)
+    );
+
+    COMPLEXO_BUILDINGS.forEach((building) => {
+      loader.load(
+        building.url,
+        (gltf) => {
+          if (!isMounted) return;
+
+          const model = gltf.scene;
+          const { labelY } = fitModelToFootprint(model, building.footprint);
+
+          model.position.x = building.x;
+          model.position.z = building.z;
+          model.traverse(setMeshQuality);
+
+          model.userData.route = building.path;
+          model.userData.type = 'public_building';
+          model.userData.name = building.name;
+
+          const label = createTextLabel(building.name);
+          label.position.set(building.x, labelY, building.z);
+          model.userData.nameLabel = label;
+
+          scene.add(model);
+          scene.add(label);
+
+          publicBuildingsRef.current.push(model);
+          loadedObjects.push(model);
+          loadedObjects.push(label);
+        },
+        undefined,
+        (error) => console.error(`❌ Erro ao carregar prédio ${building.name}:`, error)
+      );
+    });
+
+    const textureLoader = new THREE.TextureLoader();
+    const floorTexture = textureLoader.load(FLOOR_TEXTURE);
+    floorTexture.wrapS = THREE.ClampToEdgeWrapping;
+    floorTexture.wrapT = THREE.ClampToEdgeWrapping;
+    floorTexture.repeat.set(1, 1);
+
+    const topMaterial = new THREE.MeshStandardMaterial({
+      map: floorTexture,
+      roughness: 1,
+      metalness: 0,
+    });
+
+    const sideMaterial = new THREE.MeshStandardMaterial({
+      color: '#6e5742',
+      roughness: 1,
+      metalness: 0,
+    });
+
+    const platformGeometry = new THREE.BoxGeometry(GRID_WIDTH, PLATFORM_HEIGHT, GRID_HEIGHT);
+    const platform = new THREE.Mesh(platformGeometry, [
+      sideMaterial,
+      sideMaterial,
+      topMaterial,
+      sideMaterial,
+      sideMaterial,
+      sideMaterial,
+    ]);
+    platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
+    platform.receiveShadow = true;
+    platform.castShadow = true;
+    scene.add(platform);
+
+    const gridGroup = new THREE.Group();
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.18,
+    });
+
+    for (let x = 0; x <= GRID_WIDTH; x++) {
+      const geo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, -GRID_HEIGHT / 2),
+        new THREE.Vector3(x - GRID_WIDTH / 2, 0.03, GRID_HEIGHT / 2),
+      ]);
+      gridGroup.add(new THREE.Line(geo, lineMaterial));
+    }
+
+    for (let z = 0; z <= GRID_HEIGHT; z++) {
+      const geo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
+        new THREE.Vector3(GRID_WIDTH / 2, 0.03, z - GRID_HEIGHT / 2),
+      ]);
+      gridGroup.add(new THREE.Line(geo, lineMaterial));
+    }
+
+    scene.add(gridGroup);
+
+    let pointerDownPos = { x: 0, y: 0 };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      pointerDownPos = { x: event.clientX, y: event.clientY };
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!containerRef.current) return;
+
+      const moveDistance =
+        Math.abs(event.clientX - pointerDownPos.x) +
+        Math.abs(event.clientY - pointerDownPos.y);
+      if (moveDistance > 5) return;
+
+const rect = containerRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      const publicHits = raycaster.intersectObjects(publicBuildingsRef.current, true);
+      if (publicHits.length > 0) {
+        let obj: THREE.Object3D | null = publicHits[0].object;
+        while (obj && !obj.userData?.route) {
+          obj = obj.parent;
+        }
+        if (obj?.userData?.route) {
+          navigate(obj.userData.route);
+          return;
+        }
+      }
+
+      if (playerBarracoRef.current) {
+        const ownHits = raycaster.intersectObject(playerBarracoRef.current, true);
+        if (ownHits.length > 0) {
+          navigate('/barraco');
+          return;
+        }
+      }
+
+      const enemyHits = raycaster.intersectObjects(enemyBarracosRef.current, true);
+      const target = pickEnemyBarracoFromIntersections(enemyHits);
+
+      if (target && playerState) {
+        (async () => {
+          try {
+            const estimate = await getAttackEstimate(target);
+
+            useMapAttackStore.getState().openPreview({
+              origin: {
+                playerId: playerState._id,
+                playerName: playerState.name,
+                tileX: playerState?.mapPosition?.tileX ?? 60,
+                tileY: playerState?.mapPosition?.tileY ?? 60,
+              },
+              target,
+              estimatedLoot: estimate.estimatedLoot,
+              estimatedChance: estimate.estimatedChance / 100,
+            });
+          } catch (error) {
+            console.error('Erro ao calcular estimativa de ataque:', error);
+          }
+        })();
+        return;
+      }
+
+      const intersects = raycaster.intersectObject(platform);
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+        const tileX = Math.floor(point.x + GRID_WIDTH / 2);
+        const tileZ = Math.floor(point.z + GRID_HEIGHT / 2);
+
+        highlight.visible = true;
+        highlight.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.05,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
+        playerModel.position.set(
+          tileX - GRID_WIDTH / 2 + 0.5,
+          0.3,
+          tileZ - GRID_HEIGHT / 2 + 0.5
+        );
+
+        void handleTileInvasion(tileX, tileZ, otherPlayers);
+      }
+    };
+
+    let animationId = 0;
+    const animate = () => {
+      controls.update();
+      renderer.render(scene, camera);
+      animationId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    const handleResize = () => {
+      if (!containerRef.current) return;
+      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+    container.addEventListener('pointerdown', handlePointerDown);
+    container.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      isMounted = false;
+      cancelAnimationFrame(animationId);
+
+      window.removeEventListener('resize', handleResize);
+      container.removeEventListener('pointerdown', handlePointerDown);
+      container.removeEventListener('pointerup', handlePointerUp);
+
+      controls.dispose();
+
+      if (activeAnimationRef.current?.stop) {
+        activeAnimationRef.current.stop();
+      }
+
+      if (sceneRef.current && squadRef.current) {
+        sceneRef.current.remove(squadRef.current);
+        squadRef.current = null;
+      }
+
+      publicBuildingsRef.current = [];
+      playerBarracoRef.current = null;
+      enemyBarracosRef.current = [];
+      enemyBarracoMapRef.current = {};
+
+      loadedObjects.forEach((obj) => {
+        scene.remove(obj);
+        obj.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.geometry.dispose();
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((mat) => mat.dispose());
+            } else if (mesh.material) {
+              mesh.material.dispose();
+            }
+          }
+        });
+      });
+
+      highlightGeometry.dispose();
+      highlightMaterial.dispose();
+      playerGeometry.dispose();
+      playerMaterial.dispose();
+      platformGeometry.dispose();
+      topMaterial.dispose();
+      sideMaterial.dispose();
+      lineMaterial.dispose();
+
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+
+      renderer.dispose();
+      sceneRef.current = null;
+      rendererRef.current = null;
+    };
+  }, [
+    isLoaded,
+    navigate,
+    playerState?._id,
+    playerState?.mapPosition?.tileX,
+    playerState?.mapPosition?.tileY,
+    playerState?.niveis?.barracoLevel,
+    (playerState as any)?.headerCustomization?.customName,
+    playerState?.name,
+  ]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+
+    const currentIds = new Set(otherPlayers.map((p: any) => String(p.id || p._id)));
+
+    Object.keys(enemyBarracoMapRef.current).forEach((playerId) => {
+      if (!currentIds.has(playerId)) {
+        const existing = enemyBarracoMapRef.current[playerId];
+        if (existing) {
+          scene.remove(existing);
+          const label = existing.userData?.nameLabel;
+          if (label) scene.remove(label);
+          delete enemyBarracoMapRef.current[playerId];
+          enemyBarracosRef.current = enemyBarracosRef.current.filter((obj) => obj !== existing);
+        }
+      }
+    });
+
+    otherPlayers.forEach((p: any) => {
+      const playerId = String(p.id || p._id);
+      const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+      const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+      const pLevel = p.barracoLevel || 1;
+      const existing = enemyBarracoMapRef.current[playerId];
+
+      if (existing) {
+        existing.position.x = posX;
+        existing.position.z = posZ;
+
+        attachEnemyBarracoData(existing, {
+          playerId,
+          playerName: p.name || 'VIZINHO',
+          tileX: p.tileX,
+          tileY: p.tileY,
+          barracoLevel: pLevel,
+          power: p.power || 100,
+          dirtyMoney: p.dirtyMoney || 100000,
+          factionId: p.factionId ?? null,
+        });
+
+        const label = existing.userData?.nameLabel;
+        if (label) {
+          label.position.set(posX, label.position.y, posZ);
+        }
+        return;
+      }
+
+      loader.load(getBarracoModelUrl(pLevel), (gltf) => {
+        const model = gltf.scene;
+        const { labelY } = fitModelToFootprint(model, getBarracoSize(pLevel));
+
+        model.position.set(posX, model.position.y, posZ);
+        model.traverse(setMeshQuality);
+
+        attachEnemyBarracoData(model, {
+          playerId,
+          playerName: p.name || 'VIZINHO',
+          tileX: p.tileX,
+          tileY: p.tileY,
+          barracoLevel: pLevel,
+          power: p.power || 100,
+          dirtyMoney: p.dirtyMoney || 100000,
+          factionId: p.factionId ?? null,
+        });
+
+        const label = createTextLabel(p.name || 'VIZINHO', getPlayerRank(pLevel).title);
+        label.position.set(posX, labelY, posZ);
+        model.userData.nameLabel = label;
+
+        scene.add(model);
+        scene.add(label);
+
+        enemyBarracoMapRef.current[playerId] = model;
+        enemyBarracosRef.current.push(model);
+      });
+    });
+
+    return () => {
+      enemyBarracosRef.current = enemyBarracosRef.current.filter((obj) =>
+        currentIds.has(String(obj.userData?.playerId || obj.userData?.enemyBarracoData?.playerId))
+      );
+    };
+  }, [otherPlayers]);
+
+  if (!isLoaded || !playerState?._id) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando mapa...
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="w-full h-full relative flex flex-col">
+      <Header />
+
+      <div className="flex-1 relative">
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg hover:bg-opacity-90 transition-all"
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+
+        {isMenuOpen && (
+          <div className="absolute top-16 left-4 z-40 bg-background border border-primary rounded-lg shadow-lg p-4 max-w-xs max-h-96 overflow-y-auto">
+            <h3 className="text-primary font-heading text-lg mb-4">Páginas</h3>
+            <div className="grid grid-cols-1 gap-2">
+              {pages.map((page) => (
+                <button
+                  key={page.path}
+                  onClick={() => handleNavigate(page.path)}
+                  className="w-full text-left px-4 py-2 rounded-lg bg-custom4 text-foreground hover:bg-primary hover:text-primary-foreground transition-colors font-paragraph text-sm"
+                >
+                  {page.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+       <AttackResultOverlay />
+
+        <RankPromotionNotification
+          rank={promotionRank}
+          isVisible={showPromotion}
+          onClose={() => setShowPromotion(false)}
+        />
+
+        <MapTargetActionModal
+          isStartingBattle={isStartingBattle}
+          onAttack={executeMapAttack}
+        />
+
+        <div
+          ref={containerRef}
+          className="w-full h-full cursor-grab active:cursor-grabbing outline-none"
+        />
+      </div>
+    </div>
+  );
+}
