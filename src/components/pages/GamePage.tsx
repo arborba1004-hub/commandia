@@ -125,16 +125,7 @@ const COMPLEXO_BUILDINGS = [
   {
     key: 'ct1',
     name: 'CT1',
-    path: '/game',
-    url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
-    x: -26,
-    z: 12,
-    footprint: 6,
-  },
-  {
-    key: 'ct2',
-    name: 'CT2',
-    path: '/game',
+    path: '/gang',
     url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
     x: -8,
     z: 12,
@@ -143,7 +134,7 @@ const COMPLEXO_BUILDINGS = [
   {
     key: 'ct3',
     name: 'CT3',
-    path: '/game',
+    path: '/gang',
     url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
     x: 10,
     z: 12,
@@ -152,7 +143,7 @@ const COMPLEXO_BUILDINGS = [
   {
     key: 'ct4',
     name: 'CT4',
-    path: '/game',
+    path: '/gang',
     url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
     x: 28,
     z: 12,
@@ -211,15 +202,13 @@ function setMeshQuality(child: any, buildingKey?: string) {
     child.castShadow = true;
     child.receiveShadow = true;
 
-    // Só aplica emissive/roughness nos prédios comuns
-    if (!buildingKey || !buildingKey.startsWith('ct')) {
-      if (child.material) {
-        child.material.metalness = 0;
-        child.material.roughness = 0.8;
-        child.material.emissive = new THREE.Color(0x3a220f);
-        child.material.emissiveIntensity = 0.16;
-        child.material.needsUpdate = true;
-      }
+    // Aplica emissive/roughness em todos os prédios, incluindo CT
+    if (child.material) {
+      child.material.metalness = 0;
+      child.material.roughness = 0.8;
+      child.material.emissive = new THREE.Color(0x3a220f);
+      child.material.emissiveIntensity = 0.16;
+      child.material.needsUpdate = true;
     }
   }
 }
