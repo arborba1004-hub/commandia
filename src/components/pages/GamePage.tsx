@@ -276,6 +276,7 @@ export default function GamePage() {
   const [showPromotion, setShowPromotion] = useState(false);
   const [isStartingBattle, setIsStartingBattle] = useState(false);
   const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
+  const [openSlot, setOpenSlot] = useState<number | null>(null);
 
   const level = playerState?.niveis?.barracoLevel || 1;
   const displayName =
@@ -814,6 +815,11 @@ const rect = containerRef.current.getBoundingClientRect();
           obj = obj.parent;
         }
         if (obj?.userData?.route) {
+          if (obj.userData.route.startsWith('/ct')) {
+            const slotIndex = parseInt(obj.userData.route.replace('/ct', ''), 10) - 1;
+            setOpenSlot(slotIndex);
+            return;
+          }
           navigate(obj.userData.route);
           return;
         }
@@ -1102,6 +1108,25 @@ const rect = containerRef.current.getBoundingClientRect();
           isStartingBattle={isStartingBattle}
           onAttack={executeMapAttack}
         />
+
+        {openSlot !== null && (
+          <TrainModal
+            isOpen={true}
+            member={{
+              id: `slot-${openSlot}`,
+              type: 'capanga',
+              status: 'ativo',
+              level: 1,
+              recruitedAt: new Date().toISOString(),
+              trainingEndsAt: null,
+              injuryEndsAt: null,
+            }}
+            onClose={() => setOpenSlot(null)}
+            onTrain={() => {
+              setOpenSlot(null);
+            }}
+          />
+        )}
 
         <div
           ref={containerRef}
