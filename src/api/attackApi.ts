@@ -217,7 +217,8 @@ function normalizeResolution(input: any): AttackResolution {
   return {
     success: Boolean(input?.success),
     loot: Number(input?.loot || 0),
-    chance: Number(input?.chance || 0),
+    // Backend stores chance as 0-100 (e.g. 67.5). UI multiplies by 100 to display, so we normalize to 0-1 here.
+    chance: Number(input?.chance || 0) / 100,
     attackerPower: Number(input?.attackerPower || 0),
     defenderPower: Number(input?.defenderPower || 0),
     message: String(input?.message || ''),
