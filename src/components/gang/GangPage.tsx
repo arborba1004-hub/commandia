@@ -148,6 +148,13 @@ export default function GangPage() {
     }
   };
 
+  const activeTrainingCount = useMemo(
+    () => (gang?.trainingJobs || []).filter((j: any) => !j.completed).length,
+    [gang?.trainingJobs]
+  );
+  const availableSlots = (gang?.ct?.trainingSlots || 1) - activeTrainingCount;
+  const slotsExhausted = availableSlots <= 0;
+
   const members = useMemo(() => gang?.members || [], [gang?.members]);
   const activeMembers = useMemo(
     () => members.filter((m) => m.status === 'ativo'),
@@ -392,8 +399,17 @@ export default function GangPage() {
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-red-500/10 px-3 py-2 text-sm font-bold text-red-300">
-                  {activeMembers.length} ativos
+                <div className="flex flex-col gap-2 items-end">
+                  <div className="rounded-2xl bg-red-500/10 px-3 py-2 text-sm font-bold text-red-300">
+                    {activeMembers.length} ativos
+                  </div>
+                  <div className={`rounded-xl px-3 py-1 text-xs font-bold ${
+                    slotsExhausted
+                      ? 'bg-zinc-800 text-zinc-400'
+                      : 'bg-amber-500/10 text-amber-300'
+                  }`}>
+                    CT: {availableSlots}/{gang?.ct?.trainingSlots || 1} slots livres
+                  </div>
                 </div>
               </div>
 
@@ -457,20 +473,30 @@ export default function GangPage() {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                          {slotsExhausted && member.status === 'ativo' && member.level < 10 && (
+                            <span className="rounded-xl bg-zinc-800 px-3 py-2 text-xs text-zinc-400">
+                              CT lotado ({gang?.ct?.trainingSlots || 1} slots)
+                            </span>
+                          )}
                           <button
                             onClick={() => {
                               void handleTrain(member.id);
                             }}
                             disabled={
                               trainingId === member.id ||
-                              isSubmitting ||
-                              member.status !== 'ativo'
+                              slotsExhausted ||
+                              member.status !== 'ativo' ||
+                              member.level >= 10
                             }
                             className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-black disabled:opacity-50"
                           >
                             <Zap className="h-4 w-4" />
-                            {trainingId === member.id ? 'Treinando...' : 'Treinar'}
+                            {trainingId === member.id
+                              ? 'Treinando...'
+                              : member.level >= 10
+                              ? 'Nível máximo'
+                              : 'Treinar'}
                           </button>
                         </div>
                       </div>
@@ -587,16 +613,29 @@ export default function GangPage() {
                         </div>
 
                         {member.status === 'ativo' && (
-                          <div className="flex flex-wrap gap-2 lg:justify-end">
+                          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                            {slotsExhausted && member.level < 10 && (
+                              <span className="rounded-xl bg-zinc-800 px-3 py-2 text-xs text-zinc-400">
+                                CT lotado
+                              </span>
+                            )}
                             <button
                               onClick={() => {
                                 void handleTrain(member.id);
                               }}
-                              disabled={trainingId === member.id || isSubmitting}
+                              disabled={
+                                trainingId === member.id ||
+                                slotsExhausted ||
+                                member.level >= 10
+                              }
                               className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-black disabled:opacity-50"
                             >
                               <ArrowUpCircle className="h-4 w-4" />
-                              {trainingId === member.id ? 'Treinando...' : 'Treinar'}
+                              {trainingId === member.id
+                                ? 'Treinando...'
+                                : member.level >= 10
+                                ? 'Nível máximo'
+                                : 'Treinar'}
                             </button>
                           </div>
                         )}
