@@ -9,10 +9,8 @@ import AttackResultDisplay from '@/components/game/AttackResultDisplay';
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
-import {
-  resolveAttackWithGangMembers,
-  estimateAttackOutcome,
-} from '@/services/attackResolverService';
+import { estimateAttackOutcome } from '@/services/attackResolverService';
+import { estimateBattle, startBattle, resolveBattleById } from '@/api/attackApi';
 import {
   AlertTriangle,
   Swords,
@@ -94,45 +92,44 @@ export default function MapAttackWithGangModal({
     setIsResolving(true);
 
     try {
-      // Simulate network delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const attackResult = resolveAttackWithGangMembers({
-        attacker: {
-          playerId: player._id || '',
-          playerName: player.name || 'Você',
-          level: player.niveis.playerLevel,
-          attack: player.skills.attack,
-          agility: player.skills.agility,
-          defense: player.skills.defense,
-          resistance: player.skills.resistance,
-          prestige: player.power,
-          dirtyMoney: player.balances.dirtyMoney,
-          gang,
-          selectedMemberIds,
-        },
-        defender: {
-          playerId: target.playerId,
-          playerName: target.playerName,
-          level: 1,
-          attack: 10,
-          agility: 5,
-          defense: 15,
-          resistance: 8,
-          prestige: target.power || 0,
-          dirtyMoney: target.dirtyMoney || 0,
-          gang: null,
-        },
+      // 1. Start the battle on the backend
+      const startResponse = await startBattle({
+        targetId: target.playerId,
+        targetName: target.playerName,
+        targetTileX: target.tileX,
+        targetTileY: target.tileY,
       });
+
+      // 2. Small delay for UX
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      // 3. Resolve the battle on the backend
+      const report = await resolveBattleById(startResponse.battleId);
+
+      const attackResult = report.resolution;
 
       setResult(attackResult);
       setResolution(attackResult);
       setPhase('result');
 
+      // 4. Sync player dirty money locally
+      usePlayerStore.getState().applyRemoteAttackResult({
+        dirtyMoneyDelta: attackResult.success
+          ? attackResult.loot
+          : -Math.floor((usePlayerStore.getState().player?.balances?.dirtyMoney || 0) * 0.05),
+        pvpProtectionUntil: null,
+      });
+
+      // 5. Sync corre
+      usePlayerStore.getState().removeCorre(10);
+
+      // 6. Reload gang state (to reflect casualties applied by backend)
+      await useGangStore.getState().loadGang();
+
       if (onAttackConfirmed) {
         onAttackConfirmed(attackResult);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao resolver ataque:', error);
     } finally {
       setIsResolving(false);
