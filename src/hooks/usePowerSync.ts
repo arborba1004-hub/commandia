@@ -75,6 +75,5 @@ export function usePowerSync() {
       setPower(newPower);
       scheduleSync();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skillsKey, inventoryKey, accessoriesKey, gangKey]);
 }

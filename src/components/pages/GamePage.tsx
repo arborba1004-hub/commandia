@@ -842,7 +842,7 @@ const rect = containerRef.current.getBoundingClientRect();
         // Carrega a estimativa real e atualiza o preview
         (async () => {
           try {
-            const estimate = await getAttackEstimate(target);
+            const estimate = await getAttackEstimate({ targetId: target.playerId });
             useMapAttackStore.getState().openPreview({
               origin: {
                 playerId: playerState._id,
