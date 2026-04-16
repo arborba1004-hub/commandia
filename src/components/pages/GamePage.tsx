@@ -28,6 +28,7 @@ import RankPromotionNotification from '@/components/RankPromotionNotification';
 import Header from '@/components/Header';
 import { fetchOtherPlayersMap } from '@/api/playersApi';
 import MapTargetActionModal from '@/components/game/MapTargetActionModal';
+import TrainModal from '@/components/gang/TrainModal';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
