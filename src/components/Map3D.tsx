@@ -32,6 +32,7 @@ const BARRACO_MODELS = [
 
 const COMPLEXO_BUILDINGS = [
   {
+    key: 'qg',
     name: 'QG',
     url: 'https://static.wixstatic.com/3d/50f4bf_938928189a844f56ac340bada0b551bd.glb',
     x: 0,
@@ -42,6 +43,7 @@ const COMPLEXO_BUILDINGS = [
     rotationY: 0,
   },
   {
+    key: 'cc',
     name: 'Centro Comercial',
     url: 'https://static.wixstatic.com/3d/50f4bf_122d344399914dd7b74c6e9c166a2d57.glb',
     x: 17,
@@ -52,6 +54,7 @@ const COMPLEXO_BUILDINGS = [
     rotationY: -Math.PI / 2,
   },
   {
+    key: 'ct',
     name: 'Centro Comunitário',
     url: 'https://static.wixstatic.com/3d/50f4bf_1641be50f6a74954848cfaae281d6b15.glb',
     x: 17,
@@ -247,7 +250,7 @@ export default function Map3D() {
           wrapper.rotation.y = building.rotationY;
 
           const model = gltf.scene;
-          model.traverse(fixDarkMaterials);
+          model.traverse((child: any) => fixDarkMaterials(child, building.key));
 
           const sourceBox = new THREE.Box3().setFromObject(model);
           const sourceSize = new THREE.Vector3();
@@ -325,16 +328,20 @@ export default function Map3D() {
 
     COMPLEXO_BUILDINGS.forEach(loadComplexoBuilding);
 
-    const fixDarkMaterials = (child: any) => {
+    const fixDarkMaterials = (child: any, buildingKey?: string) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
-        if (child.material) {
-          child.material.metalness = 0;
-          child.material.roughness = 0.8;
-          child.material.emissive = new THREE.Color(0x3a220f);
-          child.material.emissiveIntensity = 0.2;
-          child.material.needsUpdate = true;
+
+        // Só aplica emissive/roughness nos prédios comuns
+        if (!buildingKey || !buildingKey.startsWith('ct')) {
+          if (child.material) {
+            child.material.metalness = 0;
+            child.material.roughness = 0.8;
+            child.material.emissive = new THREE.Color(0x3a220f);
+            child.material.emissiveIntensity = 0.2;
+            child.material.needsUpdate = true;
+          }
         }
       }
     };
