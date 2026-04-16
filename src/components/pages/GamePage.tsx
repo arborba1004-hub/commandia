@@ -122,6 +122,42 @@ const COMPLEXO_BUILDINGS = [
     z: -6,
     footprint: 6,
   },
+  {
+    key: 'ct1',
+    name: 'CT1',
+    path: '/game',
+    url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
+    x: -26,
+    z: 12,
+    footprint: 6,
+  },
+  {
+    key: 'ct2',
+    name: 'CT2',
+    path: '/game',
+    url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
+    x: -8,
+    z: 12,
+    footprint: 6,
+  },
+  {
+    key: 'ct3',
+    name: 'CT3',
+    path: '/game',
+    url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
+    x: 10,
+    z: 12,
+    footprint: 6,
+  },
+  {
+    key: 'ct4',
+    name: 'CT4',
+    path: '/game',
+    url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
+    x: 28,
+    z: 12,
+    footprint: 6,
+  },
 ];
 
 function getBarracoModelUrl(level: number) {
@@ -170,17 +206,20 @@ function createTextLabel(text: string, rank?: string): THREE.Sprite | THREE.Grou
   return sprite;
 }
 
-function setMeshQuality(child: any) {
+function setMeshQuality(child: any, buildingKey?: string) {
   if (child.isMesh) {
     child.castShadow = true;
     child.receiveShadow = true;
 
-    if (child.material) {
-      child.material.metalness = 0;
-      child.material.roughness = 0.8;
-      child.material.emissive = new THREE.Color(0x3a220f);
-      child.material.emissiveIntensity = 0.16;
-      child.material.needsUpdate = true;
+    // Só aplica emissive/roughness nos prédios comuns
+    if (!buildingKey || !buildingKey.startsWith('ct')) {
+      if (child.material) {
+        child.material.metalness = 0;
+        child.material.roughness = 0.8;
+        child.material.emissive = new THREE.Color(0x3a220f);
+        child.material.emissiveIntensity = 0.16;
+        child.material.needsUpdate = true;
+      }
     }
   }
 }
@@ -628,7 +667,7 @@ useEffect(() => {
 
         barraco.position.x = playerWorldX;
         barraco.position.z = playerWorldZ;
-        barraco.traverse(setMeshQuality);
+        barraco.traverse((child) => setMeshQuality(child, 'barraco'));
 
         barraco.userData.route = '/barraco';
         barraco.userData.type = 'player_barraco';
@@ -672,7 +711,7 @@ useEffect(() => {
 
           model.position.x = building.x;
           model.position.z = building.z;
-          model.traverse(setMeshQuality);
+          model.traverse((child) => setMeshQuality(child, building.key));
 
           model.userData.route = building.path;
           model.userData.type = 'public_building';
@@ -981,7 +1020,7 @@ const rect = containerRef.current.getBoundingClientRect();
         const { labelY } = fitModelToFootprint(model, getBarracoSize(pLevel));
 
         model.position.set(posX, model.position.y, posZ);
-        model.traverse(setMeshQuality);
+        model.traverse((child) => setMeshQuality(child, 'barraco'));
 
         attachEnemyBarracoData(model, {
           playerId,
