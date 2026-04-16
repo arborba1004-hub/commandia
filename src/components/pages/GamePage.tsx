@@ -122,6 +122,42 @@ const COMPLEXO_BUILDINGS = [
     z: -6,
     footprint: 6,
   },
+  {
+    key: 'ct1',
+    name: 'CT1',
+    path: '/ct1',
+    url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
+    x: -30,
+    z: 12,
+    footprint: 6,
+  },
+  {
+    key: 'ct2',
+    name: 'CT2',
+    path: '/ct2',
+    url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
+    x: -10,
+    z: 12,
+    footprint: 6,
+  },
+  {
+    key: 'ct3',
+    name: 'CT3',
+    path: '/ct3',
+    url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
+    x: 10,
+    z: 12,
+    footprint: 6,
+  },
+  {
+    key: 'ct4',
+    name: 'CT4',
+    path: '/ct4',
+    url: 'https://static.wixstatic.com/3d/50f4bf_73c20b20e04f4edca1ab7c640c270e22.glb',
+    x: 30,
+    z: 12,
+    footprint: 6,
+  },
 ];
 
 function getBarracoModelUrl(level: number) {
