@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
-import { resolveAttackWithGangMembers, estimateAttackOutcome } from '@/services/attackResolverService';
+import { estimateBattle, startBattle, resolveBattleById } from '@/api/attackApi';
 import type { AttackTarget } from '@/store/mapAttackStore';
 
 export function useMapAttackWithGang() {
@@ -26,91 +26,69 @@ export function useMapAttackWithGang() {
     setSelectedMemberIds([]);
   }, []);
 
+  // Estimativa real vinda do backend
   const estimateAttack = useCallback(
-    (memberIds: string[]) => {
-      if (!selectedTarget || !gang || !player) return null;
-
-      return estimateAttackOutcome({
-        attacker: {
-          playerId: player._id || '',
-          playerName: player.name || 'Você',
-          level: player.niveis.playerLevel,
-          attack: player.skills.attack,
-          agility: player.skills.agility,
-          defense: player.skills.defense,
-          resistance: player.skills.resistance,
-          prestige: player.power,
-          dirtyMoney: player.balances.dirtyMoney,
-          gang,
-          selectedMemberIds: memberIds,
-        },
-        defender: {
-          playerId: selectedTarget.playerId,
-          playerName: selectedTarget.playerName,
-          level: 1,
-          attack: 10,
-          agility: 5,
-          defense: 15,
-          resistance: 8,
-          prestige: selectedTarget.power || 0,
-          dirtyMoney: selectedTarget.dirtyMoney || 0,
-          gang: null,
-        },
-      });
+    async (_memberIds: string[]) => {
+      if (!selectedTarget) return null;
+      try {
+        const data = await estimateBattle({ targetId: selectedTarget.playerId });
+        return {
+          estimatedChance: data.estimatedChance / 100,
+          estimatedLoot: data.estimatedLoot,
+          estimatedCasualties: Math.ceil(
+            (gang?.members.filter((m) => m.status === 'ativo').length || 0) * 0.15
+          ),
+        };
+      } catch {
+        return null;
+      }
     },
-    [selectedTarget, gang, player]
+    [selectedTarget, gang]
   );
 
   const executeAttack = useCallback(
     async (memberIds: string[]) => {
-      if (!selectedTarget || !gang || !player) return false;
+      if (!selectedTarget || !player) return false;
 
       setIsResolving(true);
 
       try {
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        const result = resolveAttackWithGangMembers({
-          attacker: {
-            playerId: player._id || '',
-            playerName: player.name || 'Você',
-            level: player.niveis.playerLevel,
-            attack: player.skills.attack,
-            agility: player.skills.agility,
-            defense: player.skills.defense,
-            resistance: player.skills.resistance,
-            prestige: player.power,
-            dirtyMoney: player.balances.dirtyMoney,
-            gang,
-            selectedMemberIds: memberIds,
-          },
-          defender: {
-            playerId: selectedTarget.playerId,
-            playerName: selectedTarget.playerName,
-            level: 1,
-            attack: 10,
-            agility: 5,
-            defense: 15,
-            resistance: 8,
-            prestige: selectedTarget.power || 0,
-            dirtyMoney: selectedTarget.dirtyMoney || 0,
-            gang: null,
-          },
+        // 1. Registra a batalha no backend
+        const startResponse = await startBattle({
+          targetId: selectedTarget.playerId,
+          targetName: selectedTarget.playerName,
+          targetTileX: selectedTarget.tileX,
+          targetTileY: selectedTarget.tileY,
         });
 
-        setResolution(result);
+        // 2. Delay para UX
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+
+        // 3. Resolve no backend
+        const report = await resolveBattleById(startResponse.battleId);
+
+        setResolution(report.resolution);
         setSelectedMemberIds(memberIds);
 
-        // Trigger return journey
-        setTimeout(() => {
-          startReturn();
-        }, 3000);
+        // 4. Sincroniza saldo local
+        usePlayerStore.getState().applyRemoteAttackResult({
+          dirtyMoneyDelta: report.resolution.success
+            ? report.resolution.loot
+            : -Math.floor(
+                (usePlayerStore.getState().player?.balances?.dirtyMoney || 0) * 0.05
+              ),
+          pvpProtectionUntil: null,
+        });
 
-        // Finish attack
-        setTimeout(() => {
-          finishAttack();
-        }, 6000);
+        // 5. Debita corre localmente
+        usePlayerStore.getState().removeCorre(10);
+
+        // 6. Recarrega gangue para refletir baixas do backend
+        await useGangStore.getState().loadGang();
+
+        // 7. Animação de retorno
+        setTimeout(() => { startReturn(); }, 3000);
+        setTimeout(() => { finishAttack(); }, 6000);
 
         return true;
       } catch (error) {
@@ -120,7 +98,7 @@ export function useMapAttackWithGang() {
         setIsResolving(false);
       }
     },
-    [selectedTarget, gang, player, setResolution, startReturn, finishAttack]
+    [selectedTarget, player, setResolution, startReturn, finishAttack]
   );
 
   return {
