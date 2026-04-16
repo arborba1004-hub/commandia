@@ -135,14 +135,21 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await fetchMyGang();
 
-      if (!data?.gang) {
+      // Aceita tanto data.gang quanto o objeto direto
+      const gangData = data?.gang || data;
+
+      if (!gangData) {
         throw new Error('Resposta inválida do servidor');
       }
 
-      syncBalancesToPlayerStore(data.playerBalances);
+      syncBalancesToPlayerStore(data?.playerBalances);
+
+      // Verifica se o backend envia 'members' ou 'membros'
+      // Se necessário, force a tradução aqui:
+      // const members = gangData.membros || gangData.members;
 
       set({
-        gang: data.gang,
+        gang: gangData,
         isLoading: false,
         error: null,
       });
