@@ -20,6 +20,7 @@ import FactionPage from '@/components/pages/FactionPage';
 import RankingPage from '@/components/pages/RankingPage';
 import GangPage from '@/components/gang/GangPage';
 import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
+import ProtectedRoute from '@/components/routes/ProtectedRoute';
 
 function Layout() {
   return (
@@ -48,75 +49,96 @@ const router = createBrowserRouter(
           ),
         },
 
-        { path: 'profile', element: <ProfilePage /> },
-        { path: 'game', element: <GamePage /> },
-        { path: 'chat', element: <ChatPage /> },
+        { path: 'profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
+        { path: 'game',    element: <ProtectedRoute><GamePage /></ProtectedRoute> },
+        { path: 'chat',    element: <ProtectedRoute><ChatPage /></ProtectedRoute> },
 
         {
           path: 'giro',
           element: (
-            <FeatureGateRoute branch="giro">
-              <GiroPage />
-            </FeatureGateRoute>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="giro">
+                <GiroPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
         {
           path: 'lavagem-de-dinheiro',
           element: (
-            <FeatureGateRoute branch="lavagem">
-              <LavagemDeDinheiroPage />
-            </FeatureGateRoute>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="lavagem">
+                <LavagemDeDinheiroPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
         {
           path: 'suborno-ilustrado',
           element: (
-            <FeatureGateRoute branch="bribery">
-              <SubornoIlustradoPage />
-            </FeatureGateRoute>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="bribery">
+                <SubornoIlustradoPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
-        { path: 'delacao-premiada', element: <DelacaoPremiadaPage /> },
+        { path: 'delacao-premiada', element: <ProtectedRoute><DelacaoPremiadaPage /></ProtectedRoute> },
 
         {
           path: 'arsenal',
           element: (
-            <FeatureGateRoute branch="arsenal">
-              <ArsenalPage />
-            </FeatureGateRoute>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="arsenal">
+                <ArsenalPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
-        { path: 'armas', element: <ArmasPage /> },
-        { path: 'luxo-item', element: <LuxoItemPage /> },
-        { path: 'barraco', element: <BarracoPage /> },
+        { path: 'armas',     element: <ProtectedRoute><ArmasPage /></ProtectedRoute> },
+        { path: 'luxo-item', element: <ProtectedRoute><LuxoItemPage /></ProtectedRoute> },
+        { path: 'barraco',   element: <ProtectedRoute><BarracoPage /></ProtectedRoute> },
 
         {
           path: 'fuga-ilustrada',
           element: (
-            <FeatureGateRoute branch="fuga">
-              <FugaIlustradaPage />
-            </FeatureGateRoute>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="fuga">
+                <FugaIlustradaPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
         {
           path: 'talentos',
           element: (
-            <FeatureGateRoute branch="talents">
-              <TalentsPage />
-            </FeatureGateRoute>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="talents">
+                <TalentsPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
-        { path: 'faccao', element: <FactionPage /> },
+        {
+          path: 'galeria',
+          element: (
+            <ProtectedRoute>
+              <FeatureGateRoute branch="luxury">
+                <GaleriaPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
+          ),
+        },
 
-        { path: 'ranking', element: <RankingPage /> },
-
-        { path: 'gang', element: <GangPage /> },
+        { path: 'faccao',  element: <ProtectedRoute><FactionPage /></ProtectedRoute> },
+        { path: 'ranking', element: <ProtectedRoute><RankingPage /></ProtectedRoute> },
+        { path: 'gang',    element: <ProtectedRoute><GangPage /></ProtectedRoute> },
         { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
         { path: 'lavagemdedinheiro', element: <Navigate to="/lavagem-de-dinheiro" replace /> },
         { path: 'subornoilustrado', element: <Navigate to="/suborno-ilustrado" replace /> },
