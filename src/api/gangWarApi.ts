@@ -92,7 +92,7 @@ export async function recruitGangMember(type: GangMemberType): Promise<GangWarAp
 export async function startGangTraining(memberId: string): Promise<GangWarApiEnvelope> {
   return request<GangWarApiEnvelope>('/gang-war/train/start', {
     method: 'POST',
-    body: JSON.stringify({ memberId }),
+    body: JSON.stringify({ characterId: memberId }),
   });
 }
 
