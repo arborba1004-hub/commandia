@@ -538,6 +538,15 @@ useEffect(() => {
   }, [isLoaded, startPolling, stopPolling]);
 
   const fetchOtherPlayers = useCallback(async () => {
+    if (!sceneReadyRef.current) return;
+    if (isFetchingPlayersRef.current) return;
+
+    const now = Date.now();
+    if (now - lastPlayersFetchAtRef.current < 2500) return;
+
+    isFetchingPlayersRef.current = true;
+    lastPlayersFetchAtRef.current = now;
+
     try {
       const data = await fetchOtherPlayersMap();
 
@@ -554,6 +563,8 @@ useEffect(() => {
       setOtherPlayers(filtered);
     } catch (error) {
       console.error('Erro no polling de players:', error);
+    } finally {
+      isFetchingPlayersRef.current = false;
     }
   }, [playerState]);
 
@@ -656,9 +667,9 @@ useEffect(() => {
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    const dirLight = new THREE.DirectionalLight(0xffffff, isMobile ? 1.35 : 2.2);
     dirLight.position.set(8, 20, 10);
-    dirLight.castShadow = true;
+    dirLight.castShadow = !isMobile;
     scene.add(dirLight);
 
     const fillLight = new THREE.DirectionalLight(0xffe0b0, 2);
@@ -907,6 +918,8 @@ const rect = containerRef.current.getBoundingClientRect();
     };
     animate();
 
+    sceneReadyRef.current = true;
+
     const handleResize = () => {
       if (!containerRef.current) return;
       camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
@@ -920,6 +933,7 @@ const rect = containerRef.current.getBoundingClientRect();
 
     return () => {
       isMounted = false;
+      sceneReadyRef.current = false;
       cancelAnimationFrame(animationId);
 
       window.removeEventListener('resize', handleResize);
