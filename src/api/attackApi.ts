@@ -197,6 +197,7 @@ function normalizeGangStats(
     ativos: Number(stats.ativos || 0),
     feridos: Number(stats.feridos || 0),
     mortos: Number(stats.mortos || 0),
+    bondeAtivos: Number(stats.bondeAtivos || 0),
     rajada: Number(stats.rajada || 0),
     blindagem: Number(stats.blindagem || 0),
     folego: Number(stats.folego || 0),
