@@ -50,6 +50,7 @@ function emptyBattleStats(): GangBattleCompositionStats {
     ativos: 0,
     feridos: 0,
     mortos: 0,
+    bondeAtivos: 0,
     rajada: 0,
     blindagem: 0,
     folego: 0,
