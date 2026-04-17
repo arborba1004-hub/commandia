@@ -59,7 +59,12 @@ export default function HomePage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const isAuthenticated = !!player?._id;
+  const isAuthenticated =
+    !!(
+      (player as any)?._id ||
+      (player as any)?.id ||
+      player?.googleId
+    );
 
   useEffect(() => {
     if (!isLoaded) {
