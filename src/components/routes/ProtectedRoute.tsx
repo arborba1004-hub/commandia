@@ -6,19 +6,19 @@ interface ProtectedRouteProps {
   children: ReactNode;
 }
 
-/**
- * Redireciona para "/" se o jogador não estiver autenticado.
- * Aguarda o carregamento inicial antes de decidir.
- */
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const isLoaded = usePlayerStore((state) => state.isLoaded);
-  const player   = usePlayerStore((state) => state.player);
+  const player = usePlayerStore((state) => state.player);
 
-  // Ainda carregando — não redireciona ainda
+  const playerId =
+    (player as any)?._id ||
+    (player as any)?.id ||
+    player?.googleId ||
+    '';
+
   if (!isLoaded) return null;
 
-  // Não autenticado → volta para home/login
-  if (!player?._id) {
+  if (!playerId) {
     return <Navigate to="/" replace />;
   }
 
