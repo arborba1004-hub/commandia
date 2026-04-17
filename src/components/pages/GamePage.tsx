@@ -279,6 +279,12 @@ export default function GamePage() {
     playerState?.name ||
     '—';
 
+  const playerId =
+    (playerState as any)?._id ||
+    (playerState as any)?.id ||
+    playerState?.googleId ||
+    '';
+
   const pages = [
     { name: 'Home', path: '/' },
     { name: 'Galeria', path: '/galeria' },
@@ -863,8 +869,8 @@ const rect = containerRef.current.getBoundingClientRect();
         // ainda abre com estimativas zeradas em vez de não abrir nada.
         useMapAttackStore.getState().openPreview({
           origin: {
-            playerId: playerState._id,
-            playerName: playerState.name,
+            playerId,
+            playerName: playerState.name || 'JOGADOR',
             tileX: playerState?.mapPosition?.tileX ?? 60,
             tileY: playerState?.mapPosition?.tileY ?? 60,
           },
@@ -991,7 +997,7 @@ const rect = containerRef.current.getBoundingClientRect();
   }, [
     isLoaded,
     navigate,
-    playerState?._id,
+    playerId,
     playerState?.mapPosition?.tileX,
     playerState?.mapPosition?.tileY,
     playerState?.niveis?.barracoLevel,
@@ -1089,7 +1095,7 @@ const rect = containerRef.current.getBoundingClientRect();
     };
   }, [visibleOtherPlayers]);
 
-  if (!isLoaded || !playerState?._id) {
+  if (!isLoaded || !playerId) {
     return (
       <>
         <Header />
