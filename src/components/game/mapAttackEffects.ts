@@ -343,103 +343,149 @@ export function highlightTile({
   }, duration + 100);
 }
 
+// ========== SISTEMA DE PARTÍCULAS DE FOGO ==========
+interface ParticulaFogo {
+  posicao: THREE.Vector3;
+  velocidade: THREE.Vector3;
+  cor: THREE.Color;
+  tamanho: number;
+  vida: number;
+  vidaMax: number;
+}
+
+class SistemaParticulasFogo {
+  private geometria: THREE.BufferGeometry;
+  private material: THREE.PointsMaterial;
+  private pontos: THREE.Points;
+  private particulas: ParticulaFogo[] = [];
+  private textura: THREE.Texture;
+  private vento = new THREE.Vector3(0.5, 0, 0.3);
+  private origem: THREE.Vector3;
+
+  constructor(private cena: THREE.Scene, origem: THREE.Vector3) {
+    this.origem = origem.clone();
+    this.textura = this.criarTexturaFogo();
+    this.geometria = new THREE.BufferGeometry();
+    this.material = new THREE.PointsMaterial({
+      map: this.textura,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true,
+      vertexColors: true,
+      size: 0.8,
+      sizeAttenuation: true,
+    });
+    this.pontos = new THREE.Points(this.geometria, this.material);
+    this.pontos.position.copy(this.origem);
+    this.cena.add(this.pontos);
+  }
+
+  private criarTexturaFogo(): THREE.Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createRadialGradient(32, 48, 4, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.3, 'rgba(255,220,100,1)');
+    grad.addColorStop(0.7, 'rgba(255,80,0,0.9)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  emitir(qtd = 1) {
+    for (let i = 0; i < qtd; i++) {
+      const vida = 0.8 + Math.random() * 0.5;
+      this.particulas.push({
+        posicao: new THREE.Vector3(
+          (Math.random() - 0.5) * 1.2,
+          0.2 + Math.random() * 0.3,
+          (Math.random() - 0.5) * 1.2
+        ),
+        velocidade: new THREE.Vector3(
+          (Math.random() - 0.5) * 0.04,
+          0.05 + Math.random() * 0.08,
+          (Math.random() - 0.5) * 0.04
+        ),
+        cor: new THREE.Color().setHSL(0.08, 1, 0.6),
+        tamanho: 0.5 + Math.random() * 1.0,
+        vida,
+        vidaMax: vida,
+      });
+    }
+  }
+
+  atualizar(deltaTime: number) {
+    if (this.particulas.length < 150) this.emitir(2);
+
+    for (let i = this.particulas.length - 1; i >= 0; i--) {
+      const p = this.particulas[i];
+      p.vida -= deltaTime * 0.6;
+      if (p.vida <= 0) {
+        this.particulas.splice(i, 1);
+        continue;
+      }
+
+      p.velocidade.x += (Math.random() - 0.5) * 0.006;
+      p.velocidade.z += (Math.random() - 0.5) * 0.006;
+      p.velocidade.addScaledVector(this.vento, deltaTime * 0.15);
+      p.posicao.addScaledVector(p.velocidade, deltaTime * 35);
+
+      const prog = 1 - p.vida / p.vidaMax;
+      if (prog < 0.3) p.cor.setHSL(0.08, 1, 0.65);
+      else if (prog < 0.7) p.cor.setHSL(0.05, 1, 0.45);
+      else p.cor.setHSL(0.02, 1, 0.25);
+      p.cor.multiplyScalar(1 - prog * 0.7);
+    }
+
+    const posicoes = new Float32Array(this.particulas.length * 3);
+    const cores = new Float32Array(this.particulas.length * 3);
+    this.particulas.forEach((p, i) => {
+      posicoes[i*3] = p.posicao.x;
+      posicoes[i*3+1] = p.posicao.y;
+      posicoes[i*3+2] = p.posicao.z;
+      cores[i*3] = p.cor.r;
+      cores[i*3+1] = p.cor.g;
+      cores[i*3+2] = p.cor.b;
+    });
+    this.geometria.setAttribute('position', new THREE.BufferAttribute(posicoes, 3));
+    this.geometria.setAttribute('color', new THREE.BufferAttribute(cores, 3));
+  }
+
+  destruir() {
+    this.cena.remove(this.pontos);
+    this.geometria.dispose();
+    this.material.dispose();
+    this.textura.dispose();
+  }
+}
+
 export function createFireAftermath({
   scene,
   position,
   duration = 180000,
 }: FireAftermathParams) {
-  const group = new THREE.Group();
-  group.position.copy(position);
-  scene.add(group);
+  const sistema = new SistemaParticulasFogo(scene, position);
+  const inicio = performance.now();
+  let ultimoTempo = inicio;
 
-  const fireTexture = createFireSpriteTexture();
-  const smokeTexture = createSmokeSpriteTexture();
+  function animar(agora: number) {
+    const deltaTime = Math.min(0.1, (agora - ultimoTempo) / 1000);
+    ultimoTempo = agora;
+    const progresso = Math.min((agora - inicio) / duration, 1);
 
-  const flames: THREE.Sprite[] = [];
-  const smokes: THREE.Sprite[] = [];
+    sistema.atualizar(deltaTime);
 
-  for (let i = 0; i < 8; i += 1) {
-    const material = new THREE.SpriteMaterial({
-      map: fireTexture,
-      color: i % 2 === 0 ? 0xff6a1a : 0xffb347,
-      transparent: true,
-      opacity: 0.78,
-      depthWrite: false,
-    });
-
-    const sprite = new THREE.Sprite(material);
-    sprite.position.set(
-      (Math.random() - 0.5) * 2.2,
-      0.4 + Math.random() * 0.45,
-      (Math.random() - 0.5) * 2.2
-    );
-    const scale = 1.2 + Math.random() * 1.1;
-    sprite.scale.set(scale, scale * 1.6, 1);
-    flames.push(sprite);
-    group.add(sprite);
-  }
-
-  for (let i = 0; i < 10; i += 1) {
-    const material = new THREE.SpriteMaterial({
-      map: smokeTexture,
-      color: 0x4b423d,
-      transparent: true,
-      opacity: 0.22,
-      depthWrite: false,
-    });
-
-    const sprite = new THREE.Sprite(material);
-    sprite.position.set(
-      (Math.random() - 0.5) * 2.4,
-      1.1 + Math.random() * 0.4,
-      (Math.random() - 0.5) * 2.4
-    );
-    const scale = 1.6 + Math.random() * 1.8;
-    sprite.scale.set(scale, scale, 1);
-    smokes.push(sprite);
-    group.add(sprite);
-  }
-
-  const fireLight = new THREE.PointLight(0xff6a1f, 4.2, 12, 2);
-  fireLight.position.set(0, 1.2, 0);
-  group.add(fireLight);
-
-  const start = performance.now();
-
-  function animate(now: number) {
-    const elapsed = now - start;
-    const progress = Math.min(elapsed / duration, 1);
-
-    flames.forEach((sprite, index) => {
-      const mat = sprite.material as THREE.SpriteMaterial;
-      const flicker = 0.84 + Math.sin(now * 0.012 + index * 1.7) * 0.18;
-      sprite.scale.y = (1.8 + index * 0.02) * flicker;
-      sprite.position.y = 0.45 + Math.sin(now * 0.01 + index) * 0.12;
-      mat.opacity = (0.62 + Math.sin(now * 0.015 + index) * 0.16) * (1 - progress * 0.75);
-    });
-
-    smokes.forEach((sprite, index) => {
-      const mat = sprite.material as THREE.SpriteMaterial;
-      sprite.position.y += 0.0025 + index * 0.00008;
-      sprite.position.x += Math.sin(now * 0.0007 + index) * 0.0015;
-      sprite.position.z += Math.cos(now * 0.0006 + index) * 0.0015;
-      sprite.scale.multiplyScalar(1.00045);
-      mat.opacity = Math.max(0, 0.2 * (1 - progress));
-    });
-
-    fireLight.intensity = (3.5 + Math.sin(now * 0.018) * 0.8) * (1 - progress * 0.7);
-
-    if (progress < 1) {
-      requestAnimationFrame(animate);
-      return;
+    if (progresso < 1) {
+      requestAnimationFrame(animar);
+    } else {
+      sistema.destruir();
     }
-
-    fireTexture.dispose();
-    smokeTexture.dispose();
-    removeAndDispose(scene, group);
   }
 
-  requestAnimationFrame(animate);
+  requestAnimationFrame(animar);
 }
 
 export function shakeObject(object: THREE.Object3D, intensity = 0.18, duration = 650) {
