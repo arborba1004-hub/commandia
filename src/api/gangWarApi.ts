@@ -1,5 +1,6 @@
 import type {
   GangBattleCasualtyResult,
+  GangFormationType,
   GangMemberType,
   GangWarApiEnvelope,
 } from '@/types/gangWar';
@@ -19,91 +20,74 @@ function buildUrl(endpoint: string): string {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
+  if (!token) throw new Error('Usuário não autenticado');
 
-  if (!token) {
-    throw new Error('Usuário não autenticado');
-  }
+  const response = await fetch(buildUrl(endpoint), {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+  });
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
+  let data: any = null;
   try {
-    const response = await fetch(buildUrl(endpoint), {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...(options.headers || {}),
-      },
-    });
-
-    let data: any = null;
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
-
-    if (!response.ok) {
-      const error = new Error(data?.error || `Erro ${response.status}: ${response.statusText}`) as Error & {
-        status?: number;
-        data?: unknown;
-      };
-      error.status = response.status;
-      error.data = data;
-      throw error;
-    }
-
-    return data as T;
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
-      throw new Error('Tempo limite excedido ao conectar com o servidor da gangue.');
-    }
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Não foi possível conectar ao servidor da gangue. Verifique sua conexão.');
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
+    data = await response.json();
+  } catch {
+    data = null;
   }
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Erro ${response.status}`);
+  }
+
+  return data as T;
 }
 
 export async function fetchMyGang(): Promise<GangWarApiEnvelope> {
-  return request<GangWarApiEnvelope>('/gang-war/me', {
-    method: 'GET',
-  });
+  return request('/gang-war/me', { method: 'GET' });
 }
 
 export async function recruitGangMember(type: GangMemberType): Promise<GangWarApiEnvelope> {
-  return request<GangWarApiEnvelope>('/gang-war/recruit', {
+  return request('/gang-war/recruit', {
     method: 'POST',
     body: JSON.stringify({ type }),
   });
 }
 
+export async function queueGangTraining(
+  type: GangMemberType,
+  quantity: number
+): Promise<GangWarApiEnvelope> {
+  return request('/gang-war/train/queue', {
+    method: 'POST',
+    body: JSON.stringify({ type, quantity }),
+  });
+}
+
 export async function startGangTraining(memberId: string): Promise<GangWarApiEnvelope> {
-  return request<GangWarApiEnvelope>('/gang-war/train/start', {
+  return request('/gang-war/train/start', {
     method: 'POST',
     body: JSON.stringify({ memberId }),
   });
 }
 
 export async function completeGangTrainings(): Promise<GangWarApiEnvelope> {
-  return request<GangWarApiEnvelope>('/gang-war/train/complete', {
+  return request('/gang-war/train/complete', {
     method: 'POST',
   });
 }
 
 export async function upgradeGangCT(): Promise<GangWarApiEnvelope> {
-  return request<GangWarApiEnvelope>('/gang-war/ct/upgrade', {
+  return request('/gang-war/ct/upgrade', {
     method: 'POST',
   });
 }
 
 export async function payGangMaintenance(): Promise<GangWarApiEnvelope> {
-  return request<GangWarApiEnvelope>('/gang-war/maintenance/pay', {
+  return request('/gang-war/maintenance/pay', {
     method: 'POST',
   });
 }
@@ -111,16 +95,16 @@ export async function payGangMaintenance(): Promise<GangWarApiEnvelope> {
 export async function applyGangBattleLosses(payload: {
   losses: GangBattleCasualtyResult;
 }): Promise<GangWarApiEnvelope> {
-  return request<GangWarApiEnvelope>('/gang-war/apply-battle-losses', {
+  return request('/gang-war/apply-battle-losses', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
 export async function setGangFormation(
-  formation: 'pressao_total' | 'linha_fechada' | 'bote_certo' | 'cerco' | 'saque_rapido'
+  formation: GangFormationType
 ): Promise<GangWarApiEnvelope> {
-  return request<GangWarApiEnvelope>('/gang-war/formation/set', {
+  return request('/gang-war/formation/set', {
     method: 'POST',
     body: JSON.stringify({ formation }),
   });

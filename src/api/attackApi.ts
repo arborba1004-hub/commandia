@@ -1,6 +1,8 @@
+import { useMapAttackStore } from '@/store/mapAttackStore';
 import type {
   GangBattleCasualtyResult,
   GangBattleCompositionStats,
+  GangTroopSelection,
 } from '@/types/gangWar';
 import type { AttackResolution } from '@/store/mapAttackStore';
 
@@ -60,16 +62,6 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     }
 
     return data as T;
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
-      throw new Error('Tempo limite excedido ao conectar com o servidor de batalha.');
-    }
-
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Não foi possível conectar ao servidor de batalha. Verifique sua conexão.');
-    }
-
-    throw error;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -92,18 +84,6 @@ type StartBattleResponse = {
   estimatedChance: number;
   attackerPower: number;
   defenderPower: number;
-  attackerFaction?: {
-    factionId: string;
-    factionName: string;
-    factionTag: string;
-    investmentBuffs?: Record<string, number>;
-  } | null;
-  defenderFaction?: {
-    factionId: string;
-    factionName: string;
-    factionTag: string;
-    investmentBuffs?: Record<string, number>;
-  } | null;
   route?: {
     fromTileX: number;
     fromTileY: number;
@@ -137,52 +117,41 @@ type EstimateBattleResponse = {
   attackerPower: number;
   defenderPower: number;
   correCost: number;
-  attackerFactionBonuses?: Record<string, number> | null;
-  defenderFactionBonuses?: Record<string, number> | null;
   attackerGangPower?: number;
   defenderGangPower?: number;
 };
+
+function readSelectedTroops(): GangTroopSelection[] {
+  return useMapAttackStore.getState().selectedTroops || [];
+}
 
 function normalizeGangLosses(
   losses: any
 ): GangBattleCasualtyResult | undefined {
   if (!losses || typeof losses !== 'object') return undefined;
 
+  const keys = [
+    'capanga',
+    'frente',
+    'executor',
+    'muralha',
+    'certeiro',
+    'motorista',
+    'nitro',
+    'armeiro',
+    'informante',
+    'wifi',
+    'medico',
+    'lavador',
+    'negociador',
+  ];
+
+  const mapSide = (side: any) =>
+    Object.fromEntries(keys.map((key) => [key, Number(side?.[key] || 0)])) as any;
+
   return {
-    mortos: {
-      capanga: Number(losses?.mortos?.capanga || 0),
-      frente: Number(losses?.mortos?.frente || 0),
-      executor: Number(losses?.mortos?.executor || 0),
-      assassino: Number(losses?.mortos?.assassino || 0),
-      muralha: Number(losses?.mortos?.muralha || 0),
-      certeiro: Number(losses?.mortos?.certeiro || 0),
-      motorista: Number(losses?.mortos?.motorista || 0),
-      nitro: Number(losses?.mortos?.nitro || 0),
-      armeiro: Number(losses?.mortos?.armeiro || 0),
-      informante: Number(losses?.mortos?.informante || 0),
-      wifi: Number(losses?.mortos?.wifi || 0),
-      medico: Number(losses?.mortos?.medico || 0),
-      lavador: Number(losses?.mortos?.lavador || 0),
-      ladrao: Number(losses?.mortos?.ladrao || 0),
-      negociador: Number(losses?.mortos?.negociador || 0),
-    },
-    feridos: {
-      capanga: Number(losses?.feridos?.capanga || 0),
-      frente: Number(losses?.feridos?.frente || 0),
-      executor: Number(losses?.feridos?.executor || 0),
-      assassino: Number(losses?.feridos?.assassino || 0),
-      muralha: Number(losses?.feridos?.muralha || 0),
-      certeiro: Number(losses?.feridos?.certeiro || 0),
-      motorista: Number(losses?.feridos?.motorista || 0),
-      nitro: Number(losses?.feridos?.nitro || 0),
-      armeiro: Number(losses?.feridos?.armeiro || 0),
-      informante: Number(losses?.feridos?.informante || 0),
-      wifi: Number(losses?.feridos?.wifi || 0),
-      medico: Number(losses?.feridos?.medico || 0),
-      lavador: Number(losses?.feridos?.lavador || 0),
-      ladrao: Number(losses?.feridos?.ladrao || 0),
-      negociador: Number(losses?.feridos?.negociador || 0),
-    },
+    mortos: mapSide(losses?.mortos),
+    feridos: mapSide(losses?.feridos),
     preservadosPeloMedico: Number(losses?.preservadosPeloMedico || 0),
   };
 }
@@ -218,7 +187,6 @@ function normalizeResolution(input: any): AttackResolution {
   return {
     success: Boolean(input?.success),
     loot: Number(input?.loot || 0),
-    // Backend stores chance as 0-100 (e.g. 67.5). UI multiplies by 100 to display, so we normalize to 0-1 here.
     chance: Number(input?.chance || 0) / 100,
     attackerPower: Number(input?.attackerPower || 0),
     defenderPower: Number(input?.defenderPower || 0),
@@ -247,6 +215,7 @@ export async function estimateBattle(
     method: 'POST',
     body: JSON.stringify({
       targetId: payload.targetId,
+      selectedTroops: readSelectedTroops(),
     }),
   });
 }
@@ -257,12 +226,8 @@ export async function startBattle(
   return request<StartBattleResponse>('/battle/start', {
     method: 'POST',
     body: JSON.stringify({
-      targetId: payload.targetId,
-      targetName: payload.targetName,
-      targetTileX: payload.targetTileX,
-      targetTileY: payload.targetTileY,
-      originTileX: payload.originTileX,
-      originTileY: payload.originTileY,
+      ...payload,
+      selectedTroops: readSelectedTroops(),
     }),
   });
 }
@@ -322,9 +287,7 @@ export async function getBattleReport(
 }
 
 export async function getBattleHistory(): Promise<BattleReportResponse[]> {
-  const data = await request<any[]>('/battle/history', {
-    method: 'GET',
-  });
+  const data = await request<any[]>('/battle/history', { method: 'GET' });
 
   return (Array.isArray(data) ? data : []).map((item) => ({
     battleId: String(item?.battleId || ''),
@@ -346,5 +309,4 @@ export async function getBattleHistory(): Promise<BattleReportResponse[]> {
   }));
 }
 
-// Alias for backward compatibility
 export const getAttackEstimate = estimateBattle;
