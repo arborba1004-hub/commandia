@@ -573,7 +573,7 @@ useEffect(() => {
 
     const playersInterval = setInterval(() => {
       void fetchOtherPlayers();
-    }, 3000);
+    }, 6000);
 
     return () => {
       clearInterval(playersInterval);
@@ -1006,7 +1006,9 @@ const rect = containerRef.current.getBoundingClientRect();
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    const currentIds = new Set(otherPlayers.map((p: any) => String(p.id || p._id)));
+    const currentIds = new Set(
+      visibleOtherPlayers.map((p: any) => String(p.id || p._id))
+    );
 
     Object.keys(enemyBarracoMapRef.current).forEach((playerId) => {
       if (!currentIds.has(playerId)) {
@@ -1021,7 +1023,7 @@ const rect = containerRef.current.getBoundingClientRect();
       }
     });
 
-    otherPlayers.forEach((p: any) => {
+    visibleOtherPlayers.forEach((p: any) => {
       const playerId = String(p.id || p._id);
       const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
       const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
@@ -1085,7 +1087,7 @@ const rect = containerRef.current.getBoundingClientRect();
         currentIds.has(String(obj.userData?.playerId || obj.userData?.enemyBarracoData?.playerId))
       );
     };
-  }, [otherPlayers]);
+  }, [visibleOtherPlayers]);
 
   if (!isLoaded || !playerState?._id) {
     return (
