@@ -456,6 +456,11 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   return {
     ...initialPlayer,
     ...(incoming || {}),
+    _id:
+      (incoming as any)?._id ||
+      (incoming as any)?.id ||
+      (incoming as any)?.googleId ||
+      initialPlayer._id,
 
     niveis: {
       ...initialPlayer.niveis,
