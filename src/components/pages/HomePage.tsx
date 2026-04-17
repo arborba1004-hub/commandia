@@ -151,6 +151,18 @@ export default function HomePage() {
         localStorage.setItem('playerData', JSON.stringify(data.player));
 
         await loadPlayer();
+
+        const loadedPlayer = usePlayerStore.getState().player;
+        const playerId =
+          (loadedPlayer as any)?._id ||
+          (loadedPlayer as any)?.id ||
+          loadedPlayer?.googleId ||
+          '';
+
+        if (!playerId) {
+          throw new Error('Player não foi carregado corretamente após o login.');
+        }
+
         navigate('/game', { replace: true });
       } catch (error) {
         const message =
