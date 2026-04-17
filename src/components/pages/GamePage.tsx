@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
@@ -249,6 +249,9 @@ export default function GamePage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const previousLevelRef = useRef<number | null>(null);
+  const isFetchingPlayersRef = useRef(false);
+  const lastPlayersFetchAtRef = useRef(0);
+  const sceneReadyRef = useRef(false);
 
   const navigate = useNavigate();
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
@@ -294,6 +297,23 @@ export default function GamePage() {
     navigate(path);
     setIsMenuOpen(false);
   };
+
+  const visibleOtherPlayers = useMemo(() => {
+    const myTileX = playerState?.mapPosition?.tileX ?? 60;
+    const myTileY = playerState?.mapPosition?.tileY ?? 60;
+
+    return [...otherPlayers]
+      .map((p: any) => {
+        const dx = (p.tileX ?? 0) - myTileX;
+        const dy = (p.tileY ?? 0) - myTileY;
+        return {
+          ...p,
+          __dist: Math.abs(dx) + Math.abs(dy),
+        };
+      })
+      .sort((a: any, b: any) => a.__dist - b.__dist)
+      .slice(0, 12);
+  }, [otherPlayers, playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY]);
 
   const getBarracoSize = (barracoLevel: number) => {
     if (barracoLevel >= 60) return 4;
@@ -562,18 +582,21 @@ useEffect(() => {
     enemyBarracoMapRef.current = {};
 
     const renderer = new THREE.WebGLRenderer({
-      antialias: !isMobile,
+      antialias: false,
       powerPreference: 'high-performance',
       alpha: false,
       stencil: false,
       depth: true,
+      preserveDrawingBuffer: false,
     });
 
     rendererRef.current = renderer;
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.8));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setPixelRatio(isMobile ? 0.8 : Math.min(window.devicePixelRatio, 1.25));
+    renderer.shadowMap.enabled = !isMobile;
+    if (!isMobile) {
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
 
     container.appendChild(renderer.domElement);
 

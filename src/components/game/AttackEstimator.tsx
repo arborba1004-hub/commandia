@@ -18,7 +18,7 @@ interface Props {
   attackerStats: Stats;
   defenderStats: Stats;
   formationBonus?: number;
-  onAttack?: (canAttack: boolean, chance: number);
+  onAttack?: (canAttack: boolean, chance: number) => void;
 }
 
 export const AttackEstimator: React.FC<Props> = ({

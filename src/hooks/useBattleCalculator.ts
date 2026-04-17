@@ -15,7 +15,7 @@ interface BattleStats {
 
 interface BattleResult {
   winChance: number;
-  estim atedAttackerLosses: number;
+  estimatedAttackerLosses: number;
   estimatedDefenderLosses: number;
   estimatedGangLossPercent: number;
   recommendation: string;
