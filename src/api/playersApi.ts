@@ -11,6 +11,7 @@ export type OtherPlayerMapItem = {
   barracoLevel?: number;
   power?: number;
   dirtyMoney?: number;
+  factionId?: string | null;
 };
 
 function getAuthToken(): string | null {
@@ -24,23 +25,37 @@ export async function fetchOtherPlayersMap(): Promise<OtherPlayerMapItem[]> {
     throw new Error('Usuário não autenticado');
   }
 
-  const response = await fetch(`${BACKEND_URL}/players`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  let data: any = null;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 8000);
 
   try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
+    const response = await fetch(`${BACKEND_URL}/players`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error(data?.error || 'Erro ao buscar jogadores do mapa');
-  }
+    let data: any = null;
 
-  return Array.isArray(data) ? data : [];
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Erro ao buscar jogadores do mapa');
+    }
+
+    return Array.isArray(data) ? data : [];
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Timeout ao buscar jogadores do mapa');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
