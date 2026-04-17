@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type {
   GangBattleCasualtyResult,
   GangBattleCompositionStats,
+  GangMemberType,
+  GangTroopSelection,
 } from '@/types/gangWar';
 
 export type MapAttackPhase =
@@ -52,19 +54,6 @@ export type SpoilsResult = {
   luxuryConvertedDirtyMoney: number;
 };
 
-export type GangLosses = {
-  membersKilled: number;
-  membersInjured: number;
-  totalLosses: number;
-};
-
-export type GangStats = {
-  totalMembers: number;
-  averageLevel: number;
-  totalPower: number;
-  morale: number;
-};
-
 export type AttackResolution = {
   success: boolean;
   loot: number;
@@ -106,6 +95,8 @@ type MapAttackState = {
   estimatedLoot: number;
   estimatedChance: number;
 
+  selectedTroops: GangTroopSelection[];
+
   routeToTarget: RouteTile[];
   routeBack: RouteTile[];
 
@@ -121,6 +112,10 @@ type MapAttackState = {
 
   openPreview: (payload: PreviewPayload) => void;
   closePreview: () => void;
+  setEstimate: (payload: { estimatedLoot: number; estimatedChance: number }) => void;
+  setSelectedTroops: (troops: GangTroopSelection[]) => void;
+  clearSelectedTroops: () => void;
+  updateTroopSelection: (type: GangMemberType, quantity: number) => void;
 
   startAttack: (payload: StartAttackPayload) => void;
   setPhase: (phase: MapAttackPhase) => void;
@@ -148,23 +143,18 @@ const emptySpoils: SpoilsResult = {
 const initialState = {
   active: false,
   phase: 'idle' as MapAttackPhase,
-
   origin: null as AttackOrigin | null,
   target: null as AttackTarget | null,
-
   previewOpen: false,
   estimatedLoot: 0,
   estimatedChance: 0,
-
+  selectedTroops: [] as GangTroopSelection[],
   routeToTarget: [] as RouteTile[],
   routeBack: [] as RouteTile[],
-
   currentRoute: [] as RouteTile[],
   currentStep: 0,
-
   squadWorldPosition: null as SquadWorldPosition | null,
   squadVisible: false,
-
   resolution: null as AttackResolution | null,
   startedAt: null as number | null,
   finishedAt: null as number | null,
@@ -190,6 +180,7 @@ export const useMapAttackStore = create<MapAttackState>((set, get) => ({
       currentStep: 0,
       squadWorldPosition: null,
       squadVisible: false,
+      selectedTroops: [],
     }),
 
   closePreview: () =>
@@ -203,8 +194,32 @@ export const useMapAttackStore = create<MapAttackState>((set, get) => ({
             estimatedChance: 0,
             origin: null,
             target: null,
+            selectedTroops: [],
           }),
     })),
+
+  setEstimate: ({ estimatedLoot, estimatedChance }) =>
+    set({
+      estimatedLoot,
+      estimatedChance,
+    }),
+
+  setSelectedTroops: (troops) =>
+    set({
+      selectedTroops: troops.filter((troop) => troop.quantity > 0),
+    }),
+
+  clearSelectedTroops: () =>
+    set({
+      selectedTroops: [],
+    }),
+
+  updateTroopSelection: (type, quantity) =>
+    set((state) => {
+      const next = state.selectedTroops.filter((troop) => troop.type !== type);
+      if (quantity > 0) next.push({ type, quantity });
+      return { selectedTroops: next };
+    }),
 
   startAttack: ({
     target,
@@ -213,7 +228,7 @@ export const useMapAttackStore = create<MapAttackState>((set, get) => ({
     routeBack = [...routeToTarget].reverse(),
     squadWorldPosition = null,
   }) =>
-    set({
+    set((state) => ({
       active: true,
       previewOpen: false,
       phase: 'moving',
@@ -228,7 +243,8 @@ export const useMapAttackStore = create<MapAttackState>((set, get) => ({
       resolution: null,
       startedAt: Date.now(),
       finishedAt: null,
-    }),
+      selectedTroops: state.selectedTroops,
+    })),
 
   setPhase: (phase) => set({ phase }),
 
@@ -282,6 +298,7 @@ export const useMapAttackStore = create<MapAttackState>((set, get) => ({
       finishedAt: Date.now(),
       currentRoute: state.routeBack.length ? state.routeBack : state.currentRoute,
       currentStep: 0,
+      selectedTroops: [],
     })),
 
   resetAttack: () =>
