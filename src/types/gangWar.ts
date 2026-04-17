@@ -9,7 +9,6 @@ export type GangMemberType =
   | 'capanga'
   | 'frente'
   | 'executor'
-  | 'assassino'
   | 'muralha'
   | 'certeiro'
   | 'motorista'
@@ -19,154 +18,102 @@ export type GangMemberType =
   | 'wifi'
   | 'medico'
   | 'lavador'
-  | 'ladrao'
   | 'negociador';
 
-export type GangMemberStatus =
-  | 'ativo'
-  | 'ferido'
-  | 'morto'
-  | 'treinando';
+export type GangMemberStatus = 'ativo' | 'ferido' | 'morto' | 'treinando';
 
-export type GangTalentType =
-  | 'bonde'          // Nitro + Capanga: bypassa camadas 1-4
-  | 'colete'         // Muralha: -30% dano de Certeiros/Wifis
-  | 'cobertura'      // Motorista: +blindagem ao atacar território
-  | 'porrada'        // Frente: crítico vs Capangas, chance 3× dano
-  | 'pesado'         // Executor: +ataque ao invadir barraco
-  | 'silencioso'     // Assassino: reduz retaliação
-  | 'mira'           // Certeiro: +ataque na defesa
-  | 'fogo_duplo'     // Wifi: ataque 2× mais rápido
-  | 'arsenal_vivo'   // Armeiro: +weaponPower global
-  | 'antena'         // Informante: revela stats inimigos
-  | 'salva_vidas'    // Médico: +medicalPower
-  | 'conversa'       // Negociador: -custo upkeep
-  | 'giro_limpo'     // Lavador: +economyPower
-  | 'gatuno';        // Ladrão: +lootPower
-
-export type GangCoreStats = {
-  rajada:    number;
-  blindagem: number;
-  folego:    number;
-  quebra:    number;
-};
-
-export type GangMemberDefinition = {
-  type:        GangMemberType;
-  label:       string;
-  description: string;
-  role:        'linha_de_frente' | 'tatico' | 'suporte' | 'economico';
-
-  recruitBaseCostDirtyMoney:     number;
-  trainingBaseCostDirtyMoney:    number;
-  maintenanceBaseCostDirtyMoney: number;
-  trainingBaseHours:             number;
-
-  casualtyWeight: number;
-  battlePriority: number;
-  battleLayer:    number;   // 1 (frente) → 8 (retaguarda)
-  talent:         GangTalentType;
-  hasBonde:       boolean;  // true = bypassa camadas melee no ataque
-  isRanged:       boolean;  // true = alvo prioritário do talento BONDE
-
-  baseStats: GangCoreStats;
-  special: {
-    medicalPower?:      number;
-    economyPower?:      number;
-    lootPower?:         number;
-    intelPower?:        number;
-    mobilityPower?:     number;
-    weaponPower?:       number;
-    coordinationPower?: number;
-    negotiationPower?:  number;
-  };
+export type GangTroopSelection = {
+  type: GangMemberType;
+  quantity: number;
 };
 
 export type GangUnit = {
-  id:             string;
-  type:           GangMemberType;
-  level:          number;
-  status:         GangMemberStatus;
-  recruitedAt:    string;
+  id: string;
+  type: GangMemberType;
+  level: number;
+  status: GangMemberStatus;
+  recruitedAt: string;
   trainingEndsAt: string | null;
-  injuryEndsAt:   string | null;
-  lastBattleAt?:  string | null;
+  injuryEndsAt: string | null;
+  lastBattleAt?: string | null;
 };
 
 export type GangTrainingJob = {
-  id:              string;
-  memberId:        string;
-  memberType:      GangMemberType;
-  fromLevel:       number;
-  toLevel:         number;
-  costDirtyMoney:  number;
-  startedAt:       string;
-  endsAt:          string;
-  completed:       boolean;
+  id: string;
+  batchId: string;
+  memberType: GangMemberType;
+  quantity: number;
+  fromLevel: number;
+  toLevel: number;
+  costDirtyMoney: number;
+  startedAt: string;
+  endsAt: string;
+  completed: boolean;
 };
 
 export type GangCTState = {
-  level:                     number;
-  maxLevel:                  number;
-  trainingSlots:             number;
-  recoveryBonusPercent:      number;
+  level: number;
+  maxLevel: number;
+  trainingSlots: number;
+  recoveryBonusPercent: number;
   trainingSpeedBonusPercent: number;
-  gangCapacityBonus:         number;
+  gangCapacityBonus: number;
 };
 
 export type GangBattleCompositionStats = {
   totalMembers: number;
-  ativos:       number;
-  feridos:      number;
-  mortos:       number;
-
-  rajada:    number;
-  blindagem: number;
-  folego:    number;
-  quebra:    number;
-
-  medicalPower:      number;
-  economyPower:      number;
-  lootPower:         number;
-  intelPower:        number;
-  mobilityPower:     number;
-  weaponPower:       number;
-  coordinationPower: number;
-  negotiationPower:  number;
-
-  // Quantos membros com talento BONDE estão ativos
+  ativos: number;
+  feridos: number;
+  mortos: number;
   bondeAtivos: number;
-
+  rajada: number;
+  blindagem: number;
+  folego: number;
+  quebra: number;
+  medicalPower: number;
+  economyPower: number;
+  lootPower: number;
+  intelPower: number;
+  mobilityPower: number;
+  weaponPower: number;
+  coordinationPower: number;
+  negotiationPower: number;
   totalPower: number;
 };
 
 export type GangBattleLossesByType = Record<GangMemberType, number>;
 
 export type GangBattleCasualtyResult = {
-  mortos:                GangBattleLossesByType;
-  feridos:               GangBattleLossesByType;
+  mortos: GangBattleLossesByType;
+  feridos: GangBattleLossesByType;
   preservadosPeloMedico: number;
 };
 
-export type GangBattleResolution = {
-  attackerStats:  GangBattleCompositionStats;
-  defenderStats:  GangBattleCompositionStats;
-  attackerLosses: GangBattleCasualtyResult;
-  defenderLosses: GangBattleCasualtyResult;
-};
-
-export type GangDailyUpkeep = {
-  totalDirtyMoneyCost: number;
-  byType:              Record<GangMemberType, number>;
-};
-
 export type GangStateSnapshot = {
-  members:      GangUnit[];
-  ct:           GangCTState;
+  members: GangUnit[];
+  ct: GangCTState;
   trainingJobs: GangTrainingJob[];
-  formation:    GangFormationType;
-  maxMembers:   number;
-  dailyUpkeep:  GangDailyUpkeep;
+  formation: GangFormationType;
+  maxMembers: number;
+  gangLevel: number;
+  dailyUpkeep: {
+    totalDirtyMoneyCost: number;
+    byType: Record<GangMemberType, number>;
+  };
+  trainingConfig: {
+    quantityPerOrder: number;
+    durationSeconds: number;
+    slots: number;
+  };
+  troopSummary: {
+    totalMembers: number;
+    activeMembers: number;
+    injuredMembers: number;
+    deadMembers: number;
+    trainingMembers: number;
+    byType: Record<GangMemberType, number>;
+    activeByType: Record<GangMemberType, number>;
+  };
 };
 
 export type GangWarApiEnvelope = {
@@ -174,6 +121,6 @@ export type GangWarApiEnvelope = {
   playerBalances?: {
     dirtyMoney: number;
     cleanMoney: number;
-    corre:      number;
+    corre: number;
   };
 };
