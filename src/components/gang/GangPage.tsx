@@ -1,98 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import GangBattleStats from '@/components/gang/GangBattleStats';
-import GangFormationSelector from '@/components/gang/GangFormationSelector';
-import GangDebugPanel from '@/components/gang/GangDebugPanel';
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
-import { useNavigate } from 'react-router-dom';
-import {
-  Activity,
-  ArrowUpCircle,
-  Coins,
-  HeartPulse,
-  Plus,
-  Shield,
-  Swords,
-  Wallet,
-  Zap,
-} from 'lucide-react';
 import type { GangMemberType, GangUnit } from '@/types/gangWar';
+import { Clock3, Plus, Shield, Swords, Zap } from 'lucide-react';
 
-function getMemberLabel(type: GangMemberType) {
-  if (type === 'capanga') return 'Capanga';
-  if (type === 'frente') return 'Frente';
-  if (type === 'executor') return 'Executor';
-  if (type === 'assassino') return 'Assassino';
-  if (type === 'muralha') return 'Muralha';
-  if (type === 'certeiro') return 'Certeiro';
-  if (type === 'motorista') return 'Motorista';
-  if (type === 'nitro') return 'Nitro';
-  if (type === 'armeiro') return 'Armeiro';
-  if (type === 'informante') return 'Informante';
-  if (type === 'wifi') return 'WiFi';
-  if (type === 'medico') return 'Médico';
-  if (type === 'lavador') return 'Lavador';
-  if (type === 'ladrao') return 'Ladrão';
-  return 'Negociador';
-}
-
-function getMemberRole(type: GangMemberType) {
-  if (type === 'capanga' || type === 'frente' || type === 'executor') {
-    return 'Linha de frente';
-  }
-  if (type === 'muralha') return 'Defesa pesada';
-  if (type === 'assassino' || type === 'certeiro') return 'Ofensiva';
-  if (type === 'motorista' || type === 'nitro') return 'Mobilidade';
-  if (type === 'armeiro' || type === 'informante' || type === 'wifi') {
-    return 'Tático';
-  }
-  if (type === 'medico' || type === 'negociador') return 'Suporte';
-  return 'Econômico';
-}
-
-function getTypeBadgeClasses(type: GangMemberType) {
-  if (type === 'assassino' || type === 'executor' || type === 'frente') {
-    return 'border-red-500/30 bg-red-500/10 text-red-300';
-  }
-  if (type === 'muralha' || type === 'medico') {
-    return 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300';
-  }
-  if (type === 'motorista' || type === 'nitro') {
-    return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
-  }
-  if (type === 'lavador' || type === 'ladrao' || type === 'negociador') {
-    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
-  }
-  return 'border-white/10 bg-white/[0.03] text-zinc-200';
-}
-
-function getStatusLabel(status: GangUnit['status']) {
-  if (status === 'ativo') return 'Ativo';
-  if (status === 'ferido') return 'Ferido';
-  if (status === 'morto') return 'Morto';
-  return 'Treinando';
-}
-
-function getStatusClasses(status: GangUnit['status']) {
-  if (status === 'ativo') {
-    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
-  }
-  if (status === 'ferido') {
-    return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
-  }
-  if (status === 'morto') {
-    return 'border-red-500/30 bg-red-500/10 text-red-300';
-  }
-  return 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300';
-}
-
-const RECRUIT_OPTIONS: GangMemberType[] = [
+const RECRUIT_TYPES: GangMemberType[] = [
   'capanga',
   'frente',
   'executor',
-  'assassino',
   'muralha',
   'certeiro',
   'motorista',
@@ -102,607 +19,346 @@ const RECRUIT_OPTIONS: GangMemberType[] = [
   'wifi',
   'medico',
   'lavador',
-  'ladrao',
   'negociador',
 ];
 
-export default function GangPage() {
-  const navigate = useNavigate();
-  const [recruitingType, setRecruitingType] = useState<GangMemberType | null>(null);
-  const [trainingId, setTrainingId] = useState<string | null>(null);
+const ATTACK_ORDER: GangMemberType[] = [
+  'muralha',
+  'frente',
+  'executor',
+  'capanga',
+  'nitro',
+  'certeiro',
+  'motorista',
+  'armeiro',
+  'informante',
+  'wifi',
+  'medico',
+  'lavador',
+  'negociador',
+];
 
+function label(type: GangMemberType) {
+  return {
+    capanga: 'Capanga',
+    frente: 'Frente',
+    executor: 'Executor',
+    muralha: 'Muralha',
+    certeiro: 'Certeiro',
+    motorista: 'Motorista',
+    nitro: 'Nitro',
+    armeiro: 'Armeiro',
+    informante: 'Informante',
+    wifi: 'WiFi',
+    medico: 'Médico',
+    lavador: 'Lavador',
+    negociador: 'Negociador',
+  }[type];
+}
+
+function statusLabel(status: GangUnit['status']) {
+  return {
+    ativo: 'Ativo',
+    ferido: 'Ferido',
+    morto: 'Morto',
+    treinando: 'Treinando',
+  }[status];
+}
+
+function statusClass(status: GangUnit['status']) {
+  return {
+    ativo: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
+    ferido: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
+    morto: 'text-red-300 border-red-500/30 bg-red-500/10',
+    treinando: 'text-cyan-300 border-cyan-500/30 bg-cyan-500/10',
+  }[status];
+}
+
+function tone(type: GangMemberType) {
+  if (['muralha', 'medico'].includes(type)) return 'border-cyan-500/20 bg-cyan-500/5';
+  if (['frente', 'executor', 'certeiro'].includes(type)) return 'border-red-500/20 bg-red-500/5';
+  if (['motorista', 'nitro'].includes(type)) return 'border-amber-500/20 bg-amber-500/5';
+  if (['lavador', 'negociador'].includes(type)) return 'border-emerald-500/20 bg-emerald-500/5';
+  return 'border-white/10 bg-white/[0.03]';
+}
+
+export default function GangPage() {
+  const player = usePlayerStore((state) => state.player);
   const gang = useGangStore((state) => state.gang);
   const isLoading = useGangStore((state) => state.isLoading);
   const isSubmitting = useGangStore((state) => state.isSubmitting);
   const error = useGangStore((state) => state.error);
-  const player = usePlayerStore((state) => state.player);
-
   const loadGang = useGangStore((state) => state.loadGang);
   const recruitMember = useGangStore((state) => state.recruitMember);
-  const startTrainingMember = useGangStore((state) => state.startTrainingMember);
-  const completeFinishedTrainings = useGangStore(
-    (state) => state.completeFinishedTrainings
-  );
+  const queueTraining = useGangStore((state) => state.queueTraining);
+  const completeFinishedTrainings = useGangStore((state) => state.completeFinishedTrainings);
   const upgradeCT = useGangStore((state) => state.upgradeCT);
-  const payMaintenance = useGangStore((state) => state.payMaintenance);
+  const setFormation = useGangStore((state) => state.setFormation);
+
+  const [recruiting, setRecruiting] = useState<GangMemberType | null>(null);
+  const [queueing, setQueueing] = useState<GangMemberType | null>(null);
 
   useEffect(() => {
     void loadGang();
   }, [loadGang]);
 
-  const handleRecruit = async (type: GangMemberType) => {
-    setRecruitingType(type);
+  const activeJobs = useMemo(
+    () => (gang?.trainingJobs || []).filter((job) => !job.completed),
+    [gang?.trainingJobs]
+  );
+
+  const slotsUsed = activeJobs.length;
+  const slotsTotal = gang?.trainingConfig?.slots || gang?.ct?.trainingSlots || 0;
+  const slotsFree = Math.max(0, slotsTotal - slotsUsed);
+  const qtyPerOrder = gang?.trainingConfig?.quantityPerOrder || 10;
+  const duration = gang?.trainingConfig?.durationSeconds || 10;
+  const activeByType = gang?.troopSummary?.activeByType;
+
+  async function handleRecruit(type: GangMemberType) {
+    setRecruiting(type);
     try {
       await recruitMember(type);
     } finally {
-      setRecruitingType(null);
+      setRecruiting(null);
     }
-  };
-
-  const handleTrain = async (memberId: string) => {
-    setTrainingId(memberId);
-    try {
-      await startTrainingMember(memberId);
-    } finally {
-      setTrainingId(null);
-    }
-  };
-
-  const activeTrainingCount = useMemo(
-    () => (gang?.trainingJobs || []).filter((j: any) => !j.completed).length,
-    [gang?.trainingJobs]
-  );
-  const availableSlots = (gang?.ct?.trainingSlots || 1) - activeTrainingCount;
-  const slotsExhausted = availableSlots <= 0;
-
-  const members = useMemo(() => gang?.members || [], [gang?.members]);
-  const activeMembers = useMemo(
-    () => members.filter((m) => m.status === 'ativo'),
-    [members]
-  );
-  const injuredMembers = useMemo(
-    () => members.filter((m) => m.status === 'ferido'),
-    [members]
-  );
-  const trainingMembers = useMemo(
-    () => members.filter((m) => m.status === 'treinando'),
-    [members]
-  );
-  const deadMembers = useMemo(
-    () => members.filter((m) => m.status === 'morto'),
-    [members]
-  );
-  const otherMembers = useMemo(
-    () => [...injuredMembers, ...trainingMembers],
-    [injuredMembers, trainingMembers]
-  );
-
-  if (!gang && isLoading) {
-    return (
-      <>
-        <Header />
-        <div className="flex min-h-screen flex-col items-center justify-center bg-black pt-[140px] text-white md:pt-[160px]">
-          <div className="text-center">
-            <div className="mb-4 inline-block">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-red-500/20 border-t-red-500"></div>
-            </div>
-            <p className="text-lg font-semibold">Carregando gangue...</p>
-            <p className="mt-2 text-sm text-zinc-400">Conectando ao servidor</p>
-          </div>
-        </div>
-        <Footer />
-      </>
-    );
   }
 
-  if (!gang && error) {
-    return (
-      <>
-        <Header />
-        <div className="flex min-h-screen flex-col items-center justify-center bg-black px-4 pt-[140px] text-white md:pt-[160px]">
-          <div className="max-w-md text-center">
-            <div className="mb-4 text-4xl">⚠️</div>
-            <h2 className="text-2xl font-bold">Erro ao carregar gangue</h2>
-            <p className="mt-3 text-zinc-300">{error}</p>
-            <button
-              onClick={() => {
-                void loadGang();
-              }}
-              className="mt-6 rounded-2xl bg-red-600 px-6 py-3 font-bold text-white hover:bg-red-700"
-            >
-              Tentar novamente
-            </button>
-            <button
-              onClick={() => navigate('/game')}
-              className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 font-bold text-white hover:bg-white/10"
-            >
-              Voltar ao mapa
-            </button>
-          </div>
-        </div>
-        <Footer />
-      </>
-    );
+  async function handleQueue(type: GangMemberType) {
+    setQueueing(type);
+    try {
+      await queueTraining(type, qtyPerOrder);
+    } finally {
+      setQueueing(null);
+    }
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-black text-white">
+    <div className="min-h-screen bg-black text-white">
       <Header />
+      <main className="mx-auto max-w-7xl px-4 pb-20 pt-[140px] md:pt-[160px]">
+        <section className="rounded-3xl border border-red-500/20 bg-gradient-to-r from-red-950/30 to-black p-6">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.28em] text-red-400">gangue</div>
+              <h1 className="mt-2 text-4xl font-black">Centro de Treinamento</h1>
+              <p className="mt-3 max-w-3xl text-zinc-400">
+                Treino em lote por slots e marcha manual para ataque no mapa. Cada ordem treina {qtyPerOrder} membros do tipo escolhido por operação.
+              </p>
+            </div>
 
-      <main className="flex-1 px-4 pb-20 pt-[140px] md:pt-[160px]">
-        <div className="mx-auto max-w-7xl">
-          <section className="mb-8 rounded-3xl border border-red-500/20 bg-gradient-to-r from-red-950/30 to-black p-6 md:p-8">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
+                <div className="text-xs uppercase text-cyan-300">Gang level</div>
+                <div className="mt-1 text-2xl font-black">{gang?.gangLevel || 1}</div>
+              </div>
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+                <div className="text-xs uppercase text-amber-300">Slots</div>
+                <div className="mt-1 text-2xl font-black">{slotsFree}/{slotsTotal}</div>
+              </div>
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                <div className="text-xs uppercase text-emerald-300">Dinheiro sujo</div>
+                <div className="mt-1 text-2xl font-black">{Number(player?.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}</div>
+              </div>
+              <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+                <div className="text-xs uppercase text-red-300">Capacidade</div>
+                <div className="mt-1 text-2xl font-black">{gang?.troopSummary?.totalMembers || 0}/{gang?.maxMembers || 0}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              onClick={() => void completeFinishedTrainings()}
+              disabled={isSubmitting}
+              className="rounded-2xl bg-amber-500 px-4 py-3 font-black text-black disabled:opacity-50"
+            >
+              Concluir treinos
+            </button>
+            <button
+              onClick={() => void upgradeCT()}
+              disabled={isSubmitting}
+              className="rounded-2xl bg-cyan-500 px-4 py-3 font-black text-black disabled:opacity-50"
+            >
+              Evoluir CT
+            </button>
+            <button
+              onClick={() => void setFormation('pressao_total')}
+              disabled={isSubmitting}
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-bold disabled:opacity-50"
+            >
+              Formação pressão total
+            </button>
+          </div>
+
+          {error && <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
+        </section>
+
+        <section className="mt-8 grid grid-cols-1 gap-8 xl:grid-cols-2">
+          <div className="rounded-3xl border border-white/10 bg-[#090909] p-6">
+            <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.28em] text-red-400">
-                  Centro tático da gangue
-                </p>
-                <h1 className="mt-3 text-4xl font-black tracking-tight text-white md:text-6xl">
-                  Centro de Treinamento
-                </h1>
-                <p className="mt-3 max-w-2xl text-zinc-400">
-                  Recrute operadores, fortaleça sua composição, mantenha a tropa
-                  treinada e prepare sua gangue para ataque e defesa no mapa.
-                </p>
+                <h2 className="text-2xl font-black uppercase">Treino em lote</h2>
+                <p className="mt-1 text-sm text-zinc-400">Cada slot treina um tipo por vez, no padrão parecido com marcha/tropa por categoria.</p>
               </div>
-
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-cyan-400">
-                    CT Level
-                  </div>
-                  <div className="mt-1 text-2xl font-black text-cyan-300">
-                    {gang?.ct?.level || 1}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-emerald-400">
-                    Cofre da Gangue
-                  </div>
-                  <div className="mt-1 text-2xl font-black text-emerald-300">
-                    {Number(player?.balances?.dirtyMoney || 0).toLocaleString('pt-BR')}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-amber-400">
-                    Capacidade
-                  </div>
-                  <div className="mt-1 text-2xl font-black text-amber-300">
-                    {gang?.members?.length || 0}/{gang?.maxMembers || 0}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-wide text-red-400">
-                    Manutenção diária
-                  </div>
-                  <div className="mt-1 text-2xl font-black text-red-300">
-                    {Number(gang?.dailyUpkeep?.totalDirtyMoneyCost || 0).toLocaleString(
-                      'pt-BR'
-                    )}
-                  </div>
-                </div>
-              </div>
+              <div className="rounded-2xl bg-zinc-900 px-3 py-2 text-sm text-zinc-300">{duration}s por operação</div>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <button
-                onClick={() => {
-                  void completeFinishedTrainings();
-                }}
-                disabled={isSubmitting}
-                className="rounded-2xl bg-amber-500 px-5 py-3 font-black text-black disabled:opacity-50"
-              >
-                Concluir treinos
-              </button>
-
-              <button
-                onClick={() => {
-                  void upgradeCT();
-                }}
-                disabled={isSubmitting}
-                className="rounded-2xl bg-cyan-500 px-5 py-3 font-black text-black disabled:opacity-50"
-              >
-                Evoluir CT
-              </button>
-
-              <button
-                onClick={() => {
-                  void payMaintenance();
-                }}
-                disabled={isSubmitting}
-                className="rounded-2xl bg-emerald-500 px-5 py-3 font-black text-black disabled:opacity-50"
-              >
-                Pagar manutenção
-              </button>
-
-              <button
-                onClick={() => navigate('/game')}
-                className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white"
-              >
-                Voltar ao mapa
-              </button>
-            </div>
-
-            {error && (
-              <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                {error}
-              </div>
-            )}
-          </section>
-
-          {gang && (
-            <>
-              <section className="mb-8">
-                <GangBattleStats />
-              </section>
-
-              <section className="mb-8">
-                <GangFormationSelector />
-              </section>
-            </>
-          )}
-
-          <section className="mb-8 rounded-3xl border border-white/10 bg-[#090909] p-6">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-black uppercase tracking-[0.08em] text-white">
-                  Recrutamento
-                </h2>
-                <p className="mt-1 text-sm text-zinc-400">
-                  Cada operador fortalece uma parte diferente da sua máquina de
-                  guerra.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {RECRUIT_OPTIONS.map((type) => (
-                <button
-                  key={type}
-                  onClick={() => {
-                    void handleRecruit(type);
-                  }}
-                  disabled={isSubmitting || recruitingType !== null}
-                  className={`rounded-3xl border p-4 text-left transition hover:scale-[1.01] ${getTypeBadgeClasses(
-                    type
-                  )} disabled:opacity-50`}
-                >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {ATTACK_ORDER.map((type) => (
+                <div key={type} className={`rounded-2xl border p-4 ${tone(type)}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-lg font-black">{getMemberLabel(type)}</div>
-                      <div className="mt-1 text-sm opacity-80">
-                        {getMemberRole(type)}
+                      <div className="text-lg font-black">{label(type)}</div>
+                      <div className="mt-1 text-sm text-zinc-400">
+                        Ativos: {activeByType?.[type] || 0}
                       </div>
                     </div>
-                    <Plus className="h-5 w-5 shrink-0" />
+                    <button
+                      onClick={() => void handleQueue(type)}
+                      disabled={isSubmitting || slotsFree <= 0 || queueing !== null}
+                      className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black text-white disabled:opacity-50"
+                    >
+                      {queueing === type ? 'Enfileirando...' : `Treinar +${qtyPerOrder}`}
+                    </button>
                   </div>
-
-                  <div className="mt-4 text-xs uppercase tracking-wide opacity-70">
-                    {recruitingType === type ? 'Recrutando...' : 'Recrutar'}
-                  </div>
-                </button>
+                </div>
               ))}
             </div>
-          </section>
-<section className="grid grid-cols-1 gap-8 xl:grid-cols-2">
-            <div className="rounded-3xl border border-white/10 bg-[#090909] p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-black uppercase tracking-[0.08em] text-white">
-                    Tropa ativa
-                  </h2>
-                  <p className="mt-1 text-sm text-zinc-400">
-                    Operadores prontos para entrar em combate agora.
-                  </p>
-                </div>
+          </div>
 
-                <div className="flex flex-col gap-2 items-end">
-                  <div className="rounded-2xl bg-red-500/10 px-3 py-2 text-sm font-bold text-red-300">
-                    {activeMembers.length} ativos
-                  </div>
-                  <div className={`rounded-xl px-3 py-1 text-xs font-bold ${
-                    slotsExhausted
-                      ? 'bg-zinc-800 text-zinc-400'
-                      : 'bg-amber-500/10 text-amber-300'
-                  }`}>
-                    CT: {availableSlots}/{gang?.ct?.trainingSlots || 1} slots livres
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {activeMembers.length === 0 ? (
-                  <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-zinc-500">
-                    Nenhum integrante ativo ainda.
-                  </div>
-                ) : (
-                  activeMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className={`rounded-3xl border p-5 ${getTypeBadgeClasses(member.type)}`}
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-xl font-black">
-                              {getMemberLabel(member.type)}
-                            </h3>
-
-                            <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold">
-                              {getMemberRole(member.type)}
-                            </span>
-
-                            <span
-                              className={`rounded-full border px-3 py-1 text-xs font-bold ${getStatusClasses(
-                                member.status
-                              )}`}
-                            >
-                              {getStatusLabel(member.status)}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-                            <div className="rounded-xl bg-black/30 px-3 py-2">
-                              <div className="text-zinc-400">Nível</div>
-                              <div className="font-bold">{member.level}</div>
-                            </div>
-
-                            <div className="rounded-xl bg-black/30 px-3 py-2">
-                              <div className="text-zinc-400">Recrutado</div>
-                              <div className="font-bold">
-                                {new Date(member.recruitedAt).toLocaleDateString('pt-BR')}
-                              </div>
-                            </div>
-
-                            <div className="rounded-xl bg-black/30 px-3 py-2">
-                              <div className="text-zinc-400">Treino</div>
-                              <div className="font-bold">
-                                {member.trainingEndsAt ? 'Em andamento' : 'Livre'}
-                              </div>
-                            </div>
-
-                            <div className="rounded-xl bg-black/30 px-3 py-2">
-                              <div className="text-zinc-400">Condição</div>
-                              <div className="font-bold">
-                                {getStatusLabel(member.status)}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                          {slotsExhausted && member.status === 'ativo' && member.level < 10 && (
-                            <span className="rounded-xl bg-zinc-800 px-3 py-2 text-xs text-zinc-400">
-                              CT lotado ({gang?.ct?.trainingSlots || 1} slots)
-                            </span>
-                          )}
-                          <button
-                            onClick={() => {
-                              void handleTrain(member.id);
-                            }}
-                            disabled={
-                              trainingId === member.id ||
-                              slotsExhausted ||
-                              member.status !== 'ativo' ||
-                              member.level >= 10
-                            }
-                            className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-black disabled:opacity-50"
-                          >
-                            <Zap className="h-4 w-4" />
-                            {trainingId === member.id
-                              ? 'Treinando...'
-                              : member.level >= 10
-                              ? 'Nível máximo'
-                              : 'Treinar'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-[#090909] p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-black uppercase tracking-[0.08em] text-white">
-                    Feridos, treino e perdas
-                  </h2>
-                  <p className="mt-1 text-sm text-zinc-400">
-                    Controle de recuperação, treino e baixas da gangue.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-white/5 px-3 py-2 text-sm font-bold text-zinc-300">
-                  {otherMembers.length + deadMembers.length} registros
-                </div>
-              </div>
-
-              <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                  <div className="flex items-center gap-2 text-amber-300">
-                    <HeartPulse className="h-4 w-4" />
-                    <span className="text-xs font-black uppercase tracking-wide">
-                      Feridos
-                    </span>
-                  </div>
-                  <div className="mt-2 text-2xl font-black text-white">
-                    {injuredMembers.length}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
-                  <div className="flex items-center gap-2 text-cyan-300">
-                    <Activity className="h-4 w-4" />
-                    <span className="text-xs font-black uppercase tracking-wide">
-                      Treinando
-                    </span>
-                  </div>
-                  <div className="mt-2 text-2xl font-black text-white">
-                    {trainingMembers.length}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-                  <div className="flex items-center gap-2 text-red-300">
-                    <Swords className="h-4 w-4" />
-                    <span className="text-xs font-black uppercase tracking-wide">
-                      Mortos
-                    </span>
-                  </div>
-                  <div className="mt-2 text-2xl font-black text-white">
-                    {deadMembers.length}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {otherMembers.length === 0 && deadMembers.length === 0 ? (
-                  <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-zinc-500">
-                    Nenhum registro fora da tropa ativa.
-                  </div>
-                ) : (
-                  [...otherMembers, ...deadMembers].map((member) => (
-                    <div
-                      key={member.id}
-                      className={`rounded-3xl border p-5 ${getTypeBadgeClasses(member.type)}`}
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-xl font-black">
-                              {getMemberLabel(member.type)}
-                            </h3>
-
-                            <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold">
-                              {getMemberRole(member.type)}
-                            </span>
-
-                            <span
-                              className={`rounded-full border px-3 py-1 text-xs font-bold ${getStatusClasses(
-                                member.status
-                              )}`}
-                            >
-                              {getStatusLabel(member.status)}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2 text-sm text-zinc-300">
-                            <span className="rounded-xl bg-black/30 px-3 py-2">
-                              Lv. {member.level}
-                            </span>
-
-                            {member.injuryEndsAt && (
-                              <span className="rounded-xl bg-black/30 px-3 py-2">
-                                Recupera em{' '}
-                                {new Date(member.injuryEndsAt).toLocaleString('pt-BR')}
-                              </span>
-                            )}
-
-                            {member.trainingEndsAt && (
-                              <span className="rounded-xl bg-black/30 px-3 py-2">
-                                Treino até{' '}
-                                {new Date(member.trainingEndsAt).toLocaleString('pt-BR')}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {member.status === 'ativo' && (
-                          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                            {slotsExhausted && member.level < 10 && (
-                              <span className="rounded-xl bg-zinc-800 px-3 py-2 text-xs text-zinc-400">
-                                CT lotado
-                              </span>
-                            )}
-                            <button
-                              onClick={() => {
-                                void handleTrain(member.id);
-                              }}
-                              disabled={
-                                trainingId === member.id ||
-                                slotsExhausted ||
-                                member.level >= 10
-                              }
-                              className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-black disabled:opacity-50"
-                            >
-                              <ArrowUpCircle className="h-4 w-4" />
-                              {trainingId === member.id
-                                ? 'Treinando...'
-                                : member.level >= 10
-                                ? 'Nível máximo'
-                                : 'Treinar'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </section>
-<section className="mt-8 rounded-3xl border border-white/10 bg-[#090909] p-6">
-            <div className="mb-5 flex items-center justify-between">
+          <div className="rounded-3xl border border-white/10 bg-[#090909] p-6">
+            <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-black uppercase tracking-[0.08em] text-white">
-                  Custos operacionais
-                </h2>
-                <p className="mt-1 text-sm text-zinc-400">
-                  Sustente sua máquina de guerra com dinheiro sujo.
-                </p>
+                <h2 className="text-2xl font-black uppercase">Filas de treino</h2>
+                <p className="mt-1 text-sm text-zinc-400">Os 7 slots simultâneos ficam visíveis aqui.</p>
               </div>
+              <div className="rounded-2xl bg-zinc-900 px-3 py-2 text-sm text-zinc-300">{activeJobs.length} em andamento</div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
-                <div className="flex items-center gap-2 text-emerald-300">
-                  <Coins className="h-4 w-4" />
-                  <span className="text-xs font-black uppercase tracking-wide">
-                    Manutenção diária
-                  </span>
-                </div>
-                <div className="mt-3 text-3xl font-black text-white">
-                  {Number(gang?.dailyUpkeep.totalDirtyMoneyCost || 0).toLocaleString(
-                    'pt-BR'
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-5">
-                <div className="flex items-center gap-2 text-cyan-300">
-                  <Shield className="h-4 w-4" />
-                  <span className="text-xs font-black uppercase tracking-wide">
-                    Recuperação do CT
-                  </span>
-                </div>
-                <div className="mt-3 text-3xl font-black text-white">
-                  +{gang?.ct.recoveryBonusPercent || 0}%
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5">
-                <div className="flex items-center gap-2 text-amber-300">
-                  <Wallet className="h-4 w-4" />
-                  <span className="text-xs font-black uppercase tracking-wide">
-                    Velocidade de treino
-                  </span>
-                </div>
-                <div className="mt-3 text-3xl font-black text-white">
-                  +{gang?.ct.trainingSpeedBonusPercent || 0}%
-                </div>
-              </div>
+            <div className="space-y-3">
+              {slotsTotal === 0 || isLoading ? (
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-zinc-500">Carregando slots...</div>
+              ) : Array.from({ length: slotsTotal }).map((_, index) => {
+                const job = activeJobs[index];
+                return (
+                  <div key={index} className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                    {job ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm uppercase text-zinc-500">Slot {index + 1}</div>
+                          <div className="mt-1 text-lg font-black">{label(job.memberType)}</div>
+                          <div className="mt-1 text-sm text-zinc-400">+{job.quantity} membros • termina {new Date(job.endsAt).toLocaleTimeString('pt-BR')}</div>
+                        </div>
+                        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-cyan-300">
+                          <Clock3 className="inline-block h-4 w-4 mr-1" />
+                          Em treino
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm uppercase text-zinc-500">Slot {index + 1}</div>
+                          <div className="mt-1 font-bold text-zinc-300">Livre</div>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-zinc-500">Disponível</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-3xl border border-white/10 bg-[#090909] p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-black uppercase">Recrutamento direto</h2>
+              <p className="mt-1 text-sm text-zinc-400">Mantive o recrutamento unitário para não quebrar seu fluxo atual.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {RECRUIT_TYPES.map((type) => (
+              <button
+                key={type}
+                onClick={() => void handleRecruit(type)}
+                disabled={isSubmitting || recruiting !== null}
+                className={`rounded-2xl border p-4 text-left ${tone(type)} disabled:opacity-50`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-lg font-black">{label(type)}</div>
+                    <div className="mt-1 text-sm text-zinc-400">Ativos: {activeByType?.[type] || 0}</div>
+                  </div>
+                  <Plus className="h-5 w-5" />
+                </div>
+                <div className="mt-3 text-xs uppercase tracking-wide text-zinc-400">{recruiting === type ? 'Recrutando...' : 'Recrutar 1'}</div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-3xl border border-white/10 bg-[#090909] p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-black uppercase">Resumo da tropa para ataque</h2>
+              <p className="mt-1 text-sm text-zinc-400">Esses números alimentam a escolha manual no modal de invasão do mapa.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {ATTACK_ORDER.map((type) => (
+              <div key={type} className={`rounded-2xl border p-4 ${tone(type)}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-black">{label(type)}</div>
+                    <div className="mt-1 text-sm text-zinc-400">Disponíveis para marcha</div>
+                  </div>
+                  <div className="text-2xl font-black">{activeByType?.[type] || 0}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-3xl border border-white/10 bg-[#090909] p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-black uppercase">Lista de membros</h2>
+              <p className="mt-1 text-sm text-zinc-400">Persistidos no backend com status real.</p>
+            </div>
+            <div className="rounded-2xl bg-zinc-900 px-3 py-2 text-sm text-zinc-300">{gang?.members?.length || 0} registros</div>
+          </div>
+
+          <div className="space-y-3">
+            {(gang?.members || []).map((member) => (
+              <div key={member.id} className={`rounded-2xl border p-4 ${tone(member.type)}`}>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-lg font-black">{label(member.type)}</span>
+                      <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusClass(member.status)}`}>{statusLabel(member.status)}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-sm text-zinc-400">
+                      <span className="rounded-xl bg-black/30 px-3 py-2">ID {member.id.slice(0, 8)}</span>
+                      <span className="rounded-xl bg-black/30 px-3 py-2">Lv {member.level}</span>
+                      {member.trainingEndsAt && <span className="rounded-xl bg-black/30 px-3 py-2">Treino até {new Date(member.trainingEndsAt).toLocaleTimeString('pt-BR')}</span>}
+                      {member.injuryEndsAt && <span className="rounded-xl bg-black/30 px-3 py-2">Recupera {new Date(member.injuryEndsAt).toLocaleTimeString('pt-BR')}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-zinc-400">
+                    {member.status === 'ativo' && <Shield className="h-4 w-4" />}
+                    {member.status === 'treinando' && <Zap className="h-4 w-4" />}
+                    {member.status === 'morto' && <Swords className="h-4 w-4" />}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
-
       <Footer />
-      <GangDebugPanel />
     </div>
   );
 }
