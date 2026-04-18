@@ -153,16 +153,21 @@ export default function HomePage() {
         }
 
         localStorage.setItem('authToken', data.token);
-        localStorage.setItem('playerData', JSON.stringify(data.player));
+
+        const rawPlayer = data.player ?? {};
+        const normalizedPlayer = {
+          ...rawPlayer,
+          _id: String(rawPlayer._id ?? rawPlayer.id ?? rawPlayer.googleId ?? ''),
+        };
+        localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
 
         await loadPlayer();
 
         const loadedPlayer = usePlayerStore.getState().player;
         const playerId =
-          (loadedPlayer as any)?._id ||
-          (loadedPlayer as any)?.id ||
-          loadedPlayer?.googleId ||
-          '';
+          String((loadedPlayer as any)?._id ?? '').trim() ||
+          String((loadedPlayer as any)?.id ?? '').trim() ||
+          String(loadedPlayer?.googleId ?? '').trim();
 
         if (!playerId) {
           throw new Error('Player não foi carregado corretamente após o login.');
