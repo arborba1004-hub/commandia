@@ -30,7 +30,13 @@ export default function Header() {
   const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
 
   const isLoadedReady = Boolean(isLoaded);
-  const isPlayerReady = Boolean(player?._id);
+  const playerId =
+    (player as any)?._id ||
+    (player as any)?.id ||
+    player?.googleId ||
+    '';
+
+  const isPlayerReady = Boolean(playerId);
   const showPlayerState = isLoadedReady && isPlayerReady;
   const disableQuickActions = !isLoadedReady || !isPlayerReady;
   const playerLevel = player?.niveis?.barracoLevel ?? 0;
