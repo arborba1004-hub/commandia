@@ -69,45 +69,31 @@ export default function MapAttackWithGangModal({
   );
 
   const handleMembersSelected = useCallback(
-    (memberIds: string[]) => {
+    async (memberIds: string[]) => {
       setSelectedMemberIds(memberIds);
 
-      // Estimate outcome
-      if (target && gang && player) {
-        const estimation = estimateAttackOutcome({
-          attacker: {
-            playerId: player._id || '',
-            playerName: player.name || 'Você',
-            level: player.niveis.playerLevel,
-            attack: player.skills.attack,
-            agility: player.skills.agility,
-            defense: player.skills.defense,
-            resistance: player.skills.resistance,
-            prestige: player.power,
-            dirtyMoney: player.balances.dirtyMoney,
-            gang,
-            selectedMemberIds: memberIds,
-          },
-          defender: {
-            playerId: target.playerId,
-            playerName: target.playerName,
-            level: 1, // Would need to fetch from server
-            attack: 10,
-            agility: 5,
-            defense: 15,
-            resistance: 8,
-            prestige: target.power || 0,
-            dirtyMoney: target.dirtyMoney || 0,
-            gang: null, // Would need to fetch from server
-          },
+      const selectedTroops = buildSelectedTroopsFromMemberIds(memberIds);
+      setSelectedTroops(selectedTroops);
+
+      if (!target) return;
+
+      try {
+        const estimationResponse = await estimateBattle({
+          targetId: target.playerId,
         });
 
-        setEstimation(estimation);
-      }
+        setEstimation({
+          estimatedChance: estimationResponse.estimatedChance,
+          estimatedLoot: estimationResponse.estimatedLoot,
+          estimatedCasualties: Math.ceil(memberIds.length * 0.15),
+        });
 
-      setPhase('preview');
+        setPhase('preview');
+      } catch (error) {
+        console.error('Erro ao estimar ataque:', error);
+      }
     },
-    [target, gang, player]
+    [target, buildSelectedTroopsFromMemberIds, setSelectedTroops]
   );
 
   const handleConfirmAttack = useCallback(async () => {
