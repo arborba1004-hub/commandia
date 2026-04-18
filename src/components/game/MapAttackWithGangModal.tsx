@@ -151,6 +151,7 @@ export default function MapAttackWithGangModal({
     setSelectedMemberIds([]);
     setResult(null);
     setEstimation(null);
+    clearSelectedTroops();
     onClose();
   };
 
