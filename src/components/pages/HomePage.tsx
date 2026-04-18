@@ -220,7 +220,20 @@ export default function HomePage() {
 
   const handleEnterComplexo = async () => {
     await loadPlayer();
-    navigate('/game');
+
+    const loadedPlayer = usePlayerStore.getState().player;
+    const playerId =
+      (loadedPlayer as any)?._id ||
+      (loadedPlayer as any)?.id ||
+      loadedPlayer?.googleId ||
+      '';
+
+    if (!playerId) {
+      setLoginError('Player não foi carregado corretamente.');
+      return;
+    }
+
+    navigate('/game', { replace: true });
   };
 
   const handleLogout = () => {
