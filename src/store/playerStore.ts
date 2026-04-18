@@ -681,7 +681,7 @@ function persistMergedPlayer(playerData: Partial<PlayerState>) {
   const merged = clearExpiredPunishments(mergePlayer(sanitized));
 
   const persistable = stripGangState(merged);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
+  writeStorage(STORAGE_KEY, JSON.stringify(persistable));
 
   return merged;
 }
