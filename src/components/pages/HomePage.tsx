@@ -127,11 +127,7 @@ export default function HomePage() {
           throw new Error('Não foi possível obter a credencial do Google.');
         }
 
-        try {
-          await fetch('https://comando-backend.onrender.com', { method: 'GET' });
-        } catch {
-          // Backend pode estar acordando
-        }
+        fetch('https://comando-backend.onrender.com', { method: 'GET' }).catch(() => {});
 
         const backendResponse = await fetch(
           'https://comando-backend.onrender.com/auth/google',
