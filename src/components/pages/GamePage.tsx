@@ -654,7 +654,7 @@ useEffect(() => {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-   const loadedObjects: THREE.Object3D[] = [];
+    const loadedObjects: THREE.Object3D[] = [];
 
     loader.load(
       getBarracoModelUrl(level),
