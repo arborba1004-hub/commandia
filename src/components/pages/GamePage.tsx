@@ -521,15 +521,15 @@ useEffect(() => {
     };
   }, [isLoaded, startPolling, stopPolling]);
 
+  const currentPlayerId =
+    (playerState as any)?._id ||
+    (playerState as any)?.id ||
+    playerState?.googleId ||
+    null;
+
   const fetchOtherPlayers = useCallback(async () => {
     try {
       const data = await fetchOtherPlayersMap();
-
-      const currentPlayerId =
-        (playerState as any)?._id ||
-        (playerState as any)?.id ||
-        playerState?.googleId ||
-        null;
 
       const filtered = data.filter(
         (p) => String(p.id || p._id) !== String(currentPlayerId)
@@ -539,7 +539,7 @@ useEffect(() => {
     } catch (error) {
       console.error('Erro no polling de players:', error);
     }
-  }, [playerState]);
+  }, [currentPlayerId]);
 
   useEffect(() => {
     void fetchOtherPlayers();
