@@ -23,6 +23,37 @@ const GRID_HEIGHT = 120;
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
+function canUseStorage() {
+  return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+}
+
+function readStorage(key: string): string | null {
+  if (!canUseStorage()) return null;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string) {
+  if (!canUseStorage()) return;
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // noop
+  }
+}
+
+function removeStorage(key: string) {
+  if (!canUseStorage()) return;
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // noop
+  }
+}
+
 function getStoredAuthToken(): string | null {
   const token = localStorage.getItem('authToken');
   return token && token.trim() ? token.trim() : null;
