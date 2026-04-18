@@ -637,12 +637,19 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     attackHistory: incoming?.attackHistory || initialPlayer.attackHistory || [],
 
     factionId: incoming?.factionId ?? initialPlayer.factionId,
+    gangId: incoming?.gangId ?? initialPlayer.gangId,
 
     gangMembers: initialPlayer.gangMembers,
 
     gangStats: {
       ...initialPlayer.gangStats!,
     },
+
+    lastAttackAt: incoming?.lastAttackAt ?? initialPlayer.lastAttackAt,
+    pvpProtectionUntil:
+      incoming?.pvpProtectionUntil ??
+      incoming?.punishments?.pvpProtectionUntil ??
+      initialPlayer.pvpProtectionUntil,
   };
 }
 
