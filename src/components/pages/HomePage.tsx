@@ -88,30 +88,18 @@ export default function HomePage() {
   }, [player, checkAndUnlockAchievements]);
 
   useEffect(() => {
-    const scriptId = 'google-gsi-script';
-
-    if (document.getElementById(scriptId)) {
-      if (window.google) setGoogleReady(true);
+    // GSI já está no <head> da página Astro — apenas aguarda estar disponível
+    if (window.google) {
+      setGoogleReady(true);
       return;
     }
-
-    const script = document.createElement('script');
-    script.id = scriptId;
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => {
+    const interval = setInterval(() => {
       if (window.google) {
         setGoogleReady(true);
+        clearInterval(interval);
       }
-    };
-
-    script.onerror = () => {
-      setLoginError('Falha ao carregar o login Google.');
-    };
-
-    document.head.appendChild(script);
+    }, 100);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
