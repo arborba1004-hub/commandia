@@ -115,16 +115,17 @@ export default function HomePage() {
           throw new Error('Não foi possível obter a credencial do Google.');
         }
 
-        // Warm-up fetch with 3s timeout (máximo 3s, depois continua)
-        const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 3000);
+        // Warm-up fetch with 4s timeout
         try {
-          await fetch('https://comando-backend.onrender.com', {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => ctrl.abort(), 4000);
+          await fetch('https://comando-backend.onrender.com/health', {
             method: 'GET',
             signal: ctrl.signal,
           });
+          clearTimeout(t);
         } catch {
-          // Timeout ou erro — prossegue
+          // Backend acordando ou lento — prossegue normalmente
         }
 
         const backendResponse = await fetch(
