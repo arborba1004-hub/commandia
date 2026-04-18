@@ -244,6 +244,7 @@ export default function GamePage() {
   const publicBuildingsRef = useRef<THREE.Object3D[]>([]);
   const enemyBarracosRef = useRef<THREE.Object3D[]>([]);
   const enemyBarracoMapRef = useRef<Record<string, THREE.Object3D>>({});
+  const enemyBarracoLoadingRef = useRef<Record<string, boolean>>({});
   const squadRef = useRef<THREE.Object3D | null>(null);
   const activeAnimationRef = useRef<any>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -564,6 +565,7 @@ useEffect(() => {
     playerBarracoRef.current = null;
     enemyBarracosRef.current = [];
     enemyBarracoMapRef.current = {};
+    enemyBarracoLoadingRef.current = {};
 
     const renderer = new THREE.WebGLRenderer({
       antialias: false,
@@ -925,6 +927,7 @@ const rect = containerRef.current.getBoundingClientRect();
       playerBarracoRef.current = null;
       enemyBarracosRef.current = [];
       enemyBarracoMapRef.current = {};
+      enemyBarracoLoadingRef.current = {};
 
       loadedObjects.forEach((obj) => {
         scene.remove(obj);
@@ -1019,34 +1022,49 @@ const rect = containerRef.current.getBoundingClientRect();
         return;
       }
 
-      loader.load(getBarracoModelUrl(pLevel), (gltf) => {
-        const model = gltf.scene;
-        const { labelY } = fitModelToFootprint(model, getBarracoSize(pLevel));
+      if (enemyBarracoLoadingRef.current[playerId]) {
+        return;
+      }
 
-        model.position.set(posX, model.position.y, posZ);
-        model.traverse((child) => setMeshQuality(child, 'barraco'));
+      enemyBarracoLoadingRef.current[playerId] = true;
 
-        attachEnemyBarracoData(model, {
-          playerId,
-          playerName: p.name || 'VIZINHO',
-          tileX: p.tileX,
-          tileY: p.tileY,
-          barracoLevel: pLevel,
-          power: p.power || 100,
-          dirtyMoney: p.dirtyMoney || 100000,
-          factionId: p.factionId ?? null,
-        });
+      loader.load(
+        getBarracoModelUrl(pLevel),
+        (gltf) => {
+          const model = gltf.scene;
+          const { labelY } = fitModelToFootprint(model, getBarracoSize(pLevel));
 
-        const label = createTextLabel(p.name || 'VIZINHO', getPlayerRank(pLevel).title);
-        label.position.set(posX, labelY, posZ);
-        model.userData.nameLabel = label;
+          model.position.set(posX, model.position.y, posZ);
+          model.traverse((child) => setMeshQuality(child, 'barraco'));
 
-        scene.add(model);
-        scene.add(label);
+          attachEnemyBarracoData(model, {
+            playerId,
+            playerName: p.name || 'VIZINHO',
+            tileX: p.tileX,
+            tileY: p.tileY,
+            barracoLevel: pLevel,
+            power: p.power || 100,
+            dirtyMoney: p.dirtyMoney || 100000,
+            factionId: p.factionId ?? null,
+          });
 
-        enemyBarracoMapRef.current[playerId] = model;
-        enemyBarracosRef.current.push(model);
-      });
+          const label = createTextLabel(p.name || 'VIZINHO', getPlayerRank(pLevel).title);
+          label.position.set(posX, labelY, posZ);
+          model.userData.nameLabel = label;
+
+          scene.add(model);
+          scene.add(label);
+
+          enemyBarracoMapRef.current[playerId] = model;
+          enemyBarracosRef.current.push(model);
+          delete enemyBarracoLoadingRef.current[playerId];
+        },
+        undefined,
+        (error) => {
+          console.error(`Erro ao carregar barraco do player ${playerId}:`, error);
+          delete enemyBarracoLoadingRef.current[playerId];
+        }
+      );
     });
 
     return () => {
