@@ -615,9 +615,25 @@ function persistMergedPlayer(playerData: Partial<PlayerState>) {
   return merged;
 }
 
+function buildInitialState(): { player: PlayerState; isLoaded: boolean } {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const merged = clearExpiredPunishments(mergePlayer(parsed));
+      return { player: merged, isLoaded: true };
+    }
+  } catch {
+    // localStorage corrompido — começa do zero
+  }
+  return { player: initialPlayer, isLoaded: false };
+}
+
+const _initial = buildInitialState();
+
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
-  player: initialPlayer,
-  isLoaded: false,
+  player: _initial.player,
+  isLoaded: _initial.isLoaded,
   isSyncing: false,
   syncError: null,
   isPolling: false,

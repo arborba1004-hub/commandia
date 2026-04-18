@@ -127,7 +127,17 @@ export default function HomePage() {
           throw new Error('Não foi possível obter a credencial do Google.');
         }
 
-        fetch('https://comando-backend.onrender.com', { method: 'GET' }).catch(() => {});
+        // Warm-up fetch with 3s timeout (máximo 3s, depois continua)
+        const ctrl = new AbortController();
+        setTimeout(() => ctrl.abort(), 3000);
+        try {
+          await fetch('https://comando-backend.onrender.com', {
+            method: 'GET',
+            signal: ctrl.signal,
+          });
+        } catch {
+          // Timeout ou erro — prossegue
+        }
 
         const backendResponse = await fetch(
           'https://comando-backend.onrender.com/auth/google',
