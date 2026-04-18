@@ -266,6 +266,7 @@ export type PlayerState = {
   notifications?: AttackNotification[];
   attackHistory?: AttackHistoryItem[];
   factionId?: string | null;
+  gangId?: string | null;
   
   // Gang system
   gangMembers?: GangMember[];
@@ -488,6 +489,21 @@ const initialPlayer: PlayerState = {
   notifications: [],
   attackHistory: [],
   factionId: null,
+  gangId: null,
+
+  gangMembers: [],
+  gangStats: {
+    totalMembers: 0,
+    activeMembers: 0,
+    injuredMembers: 0,
+    deadMembers: 0,
+    trainingMembers: 0,
+    totalPower: 0,
+    averageLevel: 0,
+  },
+
+  lastAttackAt: null,
+  pvpProtectionUntil: null,
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
