@@ -1086,10 +1086,10 @@ const rect = containerRef.current.getBoundingClientRect();
   }
 
   return (
-    <div className="w-full h-full relative flex flex-col">
+    <div className="relative min-h-screen bg-black">
       <Header />
 
-      <div className="flex-1 relative">
+      <div className="relative pt-[84px] md:pt-[96px]">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg hover:bg-opacity-90 transition-all"
@@ -1115,7 +1115,7 @@ const rect = containerRef.current.getBoundingClientRect();
           </div>
         )}
 
-       <AttackResultOverlay />
+        <AttackResultOverlay />
 
         <RankPromotionNotification
           rank={promotionRank}
@@ -1130,7 +1130,7 @@ const rect = containerRef.current.getBoundingClientRect();
 
         <div
           ref={containerRef}
-          className="w-full h-full cursor-grab active:cursor-grabbing outline-none"
+          className="w-full h-[calc(100vh-84px)] md:h-[calc(100vh-96px)] cursor-grab active:cursor-grabbing outline-none"
         />
       </div>
     </div>
