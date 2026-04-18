@@ -16,7 +16,6 @@ import {
   Users,
   TrendingUp,
   Coins,
-  Zap,
 } from 'lucide-react';
 import type { AttackTarget } from '@/store/mapAttackStore';
 
@@ -144,7 +143,7 @@ export default function MapAttackWithGangModal({
     } finally {
       setIsResolving(false);
     }
-  }, [target, gang, player, selectedMemberIds, setResolution, onAttackConfirmed]);
+  }, [target, gang, player, setResolution, onAttackConfirmed]);
 
   const handleClose = () => {
     setPhase('select');
