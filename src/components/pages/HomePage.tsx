@@ -161,7 +161,7 @@ export default function HomePage() {
         };
         localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
 
-        void loadPlayer();  // seta isLoaded:true de forma síncrona antes do primeiro await
+        void loadPlayer();
         navigate('/game', { replace: true });
       } catch (error) {
         const message =
