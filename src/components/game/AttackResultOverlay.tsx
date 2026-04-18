@@ -1,34 +1,37 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useMapAttackStore } from '@/store/mapAttackStore';
 
-interface AttackNotificationOverlayProps {
-  isVisible: boolean;
-  attackerName: string;
-  success: boolean;
-  loot: number;
-  critical: boolean;
-  message: string;
-  onClose: () => void;
-}
+export default function AttackResultOverlay() {
+  const resolution = useMapAttackStore((state) => state.resolution);
+  const target = useMapAttackStore((state) => state.target);
+  const phase = useMapAttackStore((state) => state.phase);
+  const resetAttack = useMapAttackStore((state) => state.resetAttack);
 
-export default function AttackNotificationOverlay({
-  isVisible,
-  attackerName,
-  success,
-  loot,
-  critical,
-  message,
-  onClose,
-}: AttackNotificationOverlayProps) {
+  const isVisible = Boolean(
+    resolution && (phase === 'resolving' || phase === 'finished' || phase === 'returning')
+  );
+
   useEffect(() => {
     if (!isVisible) return;
 
     const timer = window.setTimeout(() => {
-      onClose();
+      resetAttack();
     }, 3500);
 
     return () => window.clearTimeout(timer);
-  }, [isVisible, onClose]);
+  }, [isVisible, resetAttack]);
+
+  if (!resolution) return null;
+
+  const attackerName = target?.playerName || 'Alvo';
+  const success = Boolean(resolution.success);
+  const loot = Number(resolution.loot || 0);
+  const critical = Boolean(resolution.critical);
+  const message = String(
+    resolution.message ||
+      (success ? 'Ataque concluído com sucesso.' : 'O ataque falhou.')
+  );
 
   return (
     <AnimatePresence>
