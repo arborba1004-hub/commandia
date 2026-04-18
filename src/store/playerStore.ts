@@ -28,6 +28,13 @@ function getStoredAuthToken(): string | null {
   return token && token.trim() ? token.trim() : null;
 }
 
+function stripGangState<T extends Partial<PlayerState>>(playerData: T): T {
+  const clone = { ...(playerData as any) };
+  delete clone.gangMembers;
+  delete clone.gangStats;
+  return clone as T;
+}
+
 type Balances = {
   dirtyMoney: number;
   cleanMoney: number;
@@ -583,6 +590,12 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     attackHistory: incoming?.attackHistory || initialPlayer.attackHistory || [],
 
     factionId: incoming?.factionId ?? initialPlayer.factionId,
+
+    gangMembers: initialPlayer.gangMembers,
+
+    gangStats: {
+      ...initialPlayer.gangStats!,
+    },
   };
 }
 
@@ -610,8 +623,12 @@ async function syncFactionStoreFromEnvelope(
 }
 
 function persistMergedPlayer(playerData: Partial<PlayerState>) {
-  const merged = clearExpiredPunishments(mergePlayer(playerData));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  const sanitized = stripGangState(playerData);
+  const merged = clearExpiredPunishments(mergePlayer(sanitized));
+
+  const persistable = stripGangState(merged);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
+
   return merged;
 }
 
@@ -1529,54 +1546,69 @@ setNotifications: (notifications) => {
   },
 
   setGangMembers: (members) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      gangMembers: members,
+    set((state) => ({
+      player: {
+        ...state.player,
+        gangMembers: members,
+      },
     }));
   },
 
   addGangMember: (member) => {
-    get().applyPlayerUpdate((player) => {
-      const existing = player.gangMembers || [];
+    set((state) => {
+      const existing = state.player.gangMembers || [];
       return {
-        ...player,
-        gangMembers: [...existing, member],
+        player: {
+          ...state.player,
+          gangMembers: [...existing, member],
+        },
       };
     });
   },
 
   updateGangMember: (memberId, updates) => {
-    get().applyPlayerUpdate((player) => {
-      const members = (player.gangMembers || []).map((m) =>
+    set((state) => {
+      const members = (state.player.gangMembers || []).map((m) =>
         m.id === memberId ? { ...m, ...updates } : m
       );
+
       return {
-        ...player,
-        gangMembers: members,
+        player: {
+          ...state.player,
+          gangMembers: members,
+        },
       };
     });
   },
 
   removeGangMember: (memberId) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      gangMembers: (player.gangMembers || []).filter((m) => m.id !== memberId),
+    set((state) => ({
+      player: {
+        ...state.player,
+        gangMembers: (state.player.gangMembers || []).filter(
+          (m) => m.id !== memberId
+        ),
+      },
     }));
   },
 
   setGangStats: (stats) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      gangStats: stats,
+    set((state) => ({
+      player: {
+        ...state.player,
+        gangStats: stats,
+      },
     }));
   },
 
   updateGangStats: (updates) => {
-    get().applyPlayerUpdate((player) => ({
-      ...player,
-      gangStats: {
-        ...player.gangStats,
-        ...updates,
+    set((state) => ({
+      player: {
+        ...state.player,
+        gangStats: {
+          ...state.player.gangStats!,
+          ...updates,
+        },
       },
     }));
   },
