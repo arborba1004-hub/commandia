@@ -587,7 +587,7 @@ useEffect(() => {
   }, [fetchOtherPlayers]);
 
   useEffect(() => {
-    if (!containerRef.current || !isLoaded) return;
+    if (!containerRef.current || !isLoaded || !playerId) return;
 
     let isMounted = true;
     const container = containerRef.current;
@@ -996,13 +996,10 @@ const rect = containerRef.current.getBoundingClientRect();
     };
   }, [
     isLoaded,
-    navigate,
     playerId,
     playerState?.mapPosition?.tileX,
     playerState?.mapPosition?.tileY,
     playerState?.niveis?.barracoLevel,
-    (playerState as any)?.headerCustomization?.customName,
-    playerState?.name,
   ]);
 
   useEffect(() => {
