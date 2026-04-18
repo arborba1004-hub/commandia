@@ -212,7 +212,11 @@ type GangStats = {
 
 type AttackNotification = {
   id: string;
-  type: 'attack_received' | 'attack_success' | 'revenge_available';
+  type:
+    | 'attack_received'
+    | 'attack_success'
+    | 'attack_failed'
+    | 'revenge_available';
   attackerId?: string;
   attackerName?: string;
   targetId?: string;
@@ -1672,6 +1676,10 @@ setNotifications: (notifications) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
       pvpProtectionUntil: timestamp,
+      punishments: {
+        ...player.punishments,
+        pvpProtectionUntil: timestamp,
+      },
     }));
   },
 
