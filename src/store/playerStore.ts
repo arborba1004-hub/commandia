@@ -719,7 +719,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   loadPlayer: async () => {
     try {
       const token = getStoredAuthToken();
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = readStorage(STORAGE_KEY);
 
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -771,12 +771,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   setPlayer: (incoming) => {
     const newVersion = get().localVersion + 1;
-    const merged = mergePlayer({
+    const merged = persistMergedPlayer({
       ...get().player,
       ...incoming,
     });
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 
     set({
       player: merged,
