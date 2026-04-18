@@ -808,10 +808,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   applyPlayerUpdate: (updater) => {
     const current = get().player;
-    const updated = mergePlayer(updater(current));
+    const updated = persistMergedPlayer(updater(current));
     const newVersion = get().localVersion + 1;
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
     set({
       player: updated,
@@ -826,7 +824,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   clearPlayer: () => {
-    localStorage.removeItem(STORAGE_KEY);
+    removeStorage(STORAGE_KEY);
 
     if (syncTimeout) {
       clearTimeout(syncTimeout);
