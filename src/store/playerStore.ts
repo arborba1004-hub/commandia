@@ -1275,7 +1275,7 @@ setBalances: (balances) => {
     const current = get().player;
     const today = new Date().toISOString().split('T')[0];
 
-    const updated = mergePlayer({
+    const updated = persistMergedPlayer({
       ...current,
       laundryProgress: {
         ...current.laundryProgress,
@@ -1284,8 +1284,6 @@ setBalances: (balances) => {
         ),
       },
     });
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
     set({
       player: updated,
