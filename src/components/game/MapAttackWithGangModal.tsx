@@ -44,6 +44,30 @@ export default function MapAttackWithGangModal({
   const [result, setResult] = useState<any>(null);
   const [estimation, setEstimation] = useState<any>(null);
 
+  const buildSelectedTroopsFromMemberIds = useCallback(
+    (memberIds: string[]) => {
+      const selectedMembers =
+        gang?.members.filter(
+          (member) =>
+            member.status === 'ativo' && memberIds.includes(member.id)
+        ) || [];
+
+      const grouped = selectedMembers.reduce<Record<string, number>>(
+        (acc, member) => {
+          acc[member.type] = (acc[member.type] || 0) + 1;
+          return acc;
+        },
+        {}
+      );
+
+      return Object.entries(grouped).map(([type, quantity]) => ({
+        type: type as any,
+        quantity,
+      }));
+    },
+    [gang]
+  );
+
   const handleMembersSelected = useCallback(
     (memberIds: string[]) => {
       setSelectedMemberIds(memberIds);
