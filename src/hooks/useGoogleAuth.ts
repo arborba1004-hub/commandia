@@ -92,19 +92,26 @@ export function useGoogleAuth() {
         throw new Error(data.message || 'Falha na autenticação');
       }
 
+      // Normalize player data to ensure correct _id extraction
+      const rawPlayer = data.player ?? {};
+      const normalizedPlayer = {
+        ...rawPlayer,
+        _id: String(rawPlayer._id ?? rawPlayer.id ?? rawPlayer.googleId ?? ''),
+      };
+
       // salva local
       localStorage.setItem(STORAGE_KEY_TOKEN, data.token);
-      localStorage.setItem(STORAGE_KEY_PLAYER, JSON.stringify(data.player));
+      localStorage.setItem(STORAGE_KEY_PLAYER, JSON.stringify(normalizedPlayer));
 
       // hidrata store com dados do servidor (não dispara sync)
-      hydratePlayerFromServer(data.player);
+      hydratePlayerFromServer(normalizedPlayer);
 
       // Inicia polling após login bem-sucedido
       startPolling();
 
       setAuthState({
         authToken: data.token,
-        playerData: data.player,
+        playerData: normalizedPlayer,
         isLoading: false,
         error: null,
       });

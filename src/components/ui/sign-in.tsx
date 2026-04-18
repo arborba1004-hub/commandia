@@ -129,12 +129,19 @@ export function SignIn({
         throw new Error(data.message || 'Backend authentication failed');
       }
 
+      // Normalize player data to ensure correct _id extraction
+      const rawPlayer = data.player ?? {};
+      const normalizedPlayer = {
+        ...rawPlayer,
+        _id: String(rawPlayer._id ?? rawPlayer.id ?? rawPlayer.googleId ?? ''),
+      };
+
       // Save authentication data to localStorage
       if (data.token) {
         localStorage.setItem('authToken', data.token);
       }
-      if (data.player) {
-        localStorage.setItem('playerData', JSON.stringify(data.player));
+      if (normalizedPlayer) {
+        localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
       }
 
       setSuccess(true);
