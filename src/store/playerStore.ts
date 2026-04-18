@@ -55,7 +55,7 @@ function removeStorage(key: string) {
 }
 
 function getStoredAuthToken(): string | null {
-  const token = localStorage.getItem('authToken');
+  const token = readStorage('authToken');
   return token && token.trim() ? token.trim() : null;
 }
 
