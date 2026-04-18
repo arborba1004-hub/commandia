@@ -161,15 +161,7 @@ export default function HomePage() {
         };
         localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
 
-        // Hydrate store directly with player data
-        usePlayerStore.getState().setPlayer(normalizedPlayer);
-
-        const playerId = String(normalizedPlayer._id ?? '').trim();
-
-        if (!playerId) {
-          throw new Error('Player não foi carregado corretamente após o login.');
-        }
-
+        void loadPlayer();  // seta isLoaded:true de forma síncrona antes do primeiro await
         navigate('/game', { replace: true });
       } catch (error) {
         const message =
@@ -220,21 +212,8 @@ export default function HomePage() {
     manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleEnterComplexo = async () => {
-    await loadPlayer();
-
-    const loadedPlayer = usePlayerStore.getState().player;
-    const playerId =
-      (loadedPlayer as any)?._id ||
-      (loadedPlayer as any)?.id ||
-      loadedPlayer?.googleId ||
-      '';
-
-    if (!playerId) {
-      setLoginError('Player não foi carregado corretamente.');
-      return;
-    }
-
+  const handleEnterComplexo = () => {
+    void loadPlayer();
     navigate('/game', { replace: true });
   };
 
