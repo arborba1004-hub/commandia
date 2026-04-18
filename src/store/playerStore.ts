@@ -171,7 +171,7 @@ type GangMember = {
 
 type GangStats = {
   totalMembers: number;
-  activemembers: number;
+  activeMembers: number;
   injuredMembers: number;
   deadMembers: number;
   trainingMembers: number;
