@@ -249,9 +249,6 @@ export default function GamePage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const previousLevelRef = useRef<number | null>(null);
-  const isFetchingPlayersRef = useRef(false);
-  const lastPlayersFetchAtRef = useRef(0);
-  const sceneReadyRef = useRef(false);
 
   const navigate = useNavigate();
   const previewOpen = useMapAttackStore((state) => state.previewOpen);
@@ -303,23 +300,6 @@ export default function GamePage() {
     navigate(path);
     setIsMenuOpen(false);
   };
-
-  const visibleOtherPlayers = useMemo(() => {
-    const myTileX = playerState?.mapPosition?.tileX ?? 60;
-    const myTileY = playerState?.mapPosition?.tileY ?? 60;
-
-    return [...otherPlayers]
-      .map((p: any) => {
-        const dx = (p.tileX ?? 0) - myTileX;
-        const dy = (p.tileY ?? 0) - myTileY;
-        return {
-          ...p,
-          __dist: Math.abs(dx) + Math.abs(dy),
-        };
-      })
-      .sort((a: any, b: any) => a.__dist - b.__dist)
-      .slice(0, 12);
-  }, [otherPlayers, playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY]);
 
   const getBarracoSize = (barracoLevel: number) => {
     if (barracoLevel >= 60) return 4;
@@ -544,15 +524,6 @@ useEffect(() => {
   }, [isLoaded, startPolling, stopPolling]);
 
   const fetchOtherPlayers = useCallback(async () => {
-    if (!sceneReadyRef.current) return;
-    if (isFetchingPlayersRef.current) return;
-
-    const now = Date.now();
-    if (now - lastPlayersFetchAtRef.current < 2500) return;
-
-    isFetchingPlayersRef.current = true;
-    lastPlayersFetchAtRef.current = now;
-
     try {
       const data = await fetchOtherPlayersMap();
 
@@ -569,8 +540,6 @@ useEffect(() => {
       setOtherPlayers(filtered);
     } catch (error) {
       console.error('Erro no polling de players:', error);
-    } finally {
-      isFetchingPlayersRef.current = false;
     }
   }, [playerState]);
 
@@ -579,7 +548,7 @@ useEffect(() => {
 
     const playersInterval = setInterval(() => {
       void fetchOtherPlayers();
-    }, 6000);
+    }, 3000);
 
     return () => {
       clearInterval(playersInterval);
@@ -939,7 +908,6 @@ const rect = containerRef.current.getBoundingClientRect();
 
     return () => {
       isMounted = false;
-      sceneReadyRef.current = false;
       cancelAnimationFrame(animationId);
 
       window.removeEventListener('resize', handleResize);
@@ -1010,7 +978,7 @@ const rect = containerRef.current.getBoundingClientRect();
     loader.setDRACOLoader(dracoLoader);
 
     const currentIds = new Set(
-      visibleOtherPlayers.map((p: any) => String(p.id || p._id))
+      otherPlayers.map((p: any) => String(p.id || p._id))
     );
 
     Object.keys(enemyBarracoMapRef.current).forEach((playerId) => {
@@ -1026,7 +994,7 @@ const rect = containerRef.current.getBoundingClientRect();
       }
     });
 
-    visibleOtherPlayers.forEach((p: any) => {
+    otherPlayers.forEach((p: any) => {
       const playerId = String(p.id || p._id);
       const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
       const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
@@ -1090,7 +1058,7 @@ const rect = containerRef.current.getBoundingClientRect();
         currentIds.has(String(obj.userData?.playerId || obj.userData?.enemyBarracoData?.playerId))
       );
     };
-  }, [visibleOtherPlayers]);
+  }, [otherPlayers]);
 
   if (!isLoaded || !playerId) {
     return (
