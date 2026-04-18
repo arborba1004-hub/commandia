@@ -125,8 +125,11 @@ export function SignIn({
       const data = await backendResponse.json();
 
       // Check if backend response indicates success
-      if (!data.success) {
-        throw new Error(data.message || 'Backend authentication failed');
+      if (!backendResponse.ok) {
+        throw new Error(data?.error || data?.message || 'Backend authentication failed');
+      }
+      if (!data.token) {
+        throw new Error('Token não recebido do servidor');
       }
 
       // Normalize player data to ensure correct _id extraction
