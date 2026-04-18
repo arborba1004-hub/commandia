@@ -251,7 +251,6 @@ export default function GamePage() {
   const previousLevelRef = useRef<number | null>(null);
 
   const navigate = useNavigate();
-  const previewOpen = useMapAttackStore((state) => state.previewOpen);
   const playerState = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
@@ -260,7 +259,6 @@ export default function GamePage() {
   const applyRemoteAttackResult = usePlayerStore((state) => state.applyRemoteAttackResult);
   const addAttackHistoryItem = usePlayerStore((state) => state.addAttackHistoryItem);
   const addNotification = usePlayerStore((state) => state.addNotification);
-  const gang = useGangStore((state) => state.gang);
   const loadGang = useGangStore((state) => state.loadGang);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -892,8 +890,6 @@ const rect = containerRef.current.getBoundingClientRect();
       animationId = requestAnimationFrame(animate);
     };
     animate();
-
-    sceneReadyRef.current = true;
 
     const handleResize = () => {
       if (!containerRef.current) return;
