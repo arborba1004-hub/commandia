@@ -9,7 +9,6 @@ import AttackResultDisplay from '@/components/game/AttackResultDisplay';
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
-import { estimateAttackOutcome } from '@/services/attackResolverService';
 import { estimateBattle, startBattle, resolveBattleById } from '@/api/attackApi';
 import {
   AlertTriangle,
@@ -36,7 +35,8 @@ export default function MapAttackWithGangModal({
 }: MapAttackWithGangModalProps) {
   const { gang } = useGangStore();
   const { player } = usePlayerStore();
-  const { setResolution } = useMapAttackStore();
+  const { setResolution, setSelectedTroops, clearSelectedTroops } =
+    useMapAttackStore();
 
   const [phase, setPhase] = useState<'select' | 'preview' | 'result'>('select');
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
