@@ -161,13 +161,10 @@ export default function HomePage() {
         };
         localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
 
-        await loadPlayer();
+        // Hydrate store directly with player data
+        usePlayerStore.getState().setPlayer(normalizedPlayer);
 
-        const loadedPlayer = usePlayerStore.getState().player;
-        const playerId =
-          String((loadedPlayer as any)?._id ?? '').trim() ||
-          String((loadedPlayer as any)?.id ?? '').trim() ||
-          String(loadedPlayer?.googleId ?? '').trim();
+        const playerId = String(normalizedPlayer._id ?? '').trim();
 
         if (!playerId) {
           throw new Error('Player não foi carregado corretamente após o login.');

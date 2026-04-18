@@ -159,6 +159,14 @@ function getBarracoModelUrl(level: number) {
   );
 }
 
+// Helper to get current map position and barraco level from refs
+function getCurrentMapState(playerState: any) {
+  return {
+    mapPosition: playerState?.mapPosition,
+    barracoLevel: playerState?.niveis?.barracoLevel,
+  };
+}
+
 function createTextLabel(text: string, rank?: string): THREE.Sprite | THREE.Group {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -250,6 +258,8 @@ export default function GamePage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const previousLevelRef = useRef<number | null>(null);
+  const mapPositionRef = useRef<any>(null);
+  const barracoLevelRef = useRef<number | null>(null);
 
   const navigate = useNavigate();
   const playerState = usePlayerStore((state) => state.player);
@@ -491,7 +501,13 @@ export default function GamePage() {
     }
   }, [isLoaded, loadPlayer]);
 
-useEffect(() => {
+  // Synchronize refs with player state
+  useEffect(() => {
+    mapPositionRef.current = playerState?.mapPosition;
+    barracoLevelRef.current = playerState?.niveis?.barracoLevel;
+  }, [playerState?.mapPosition, playerState?.niveis?.barracoLevel]);
+
+  useEffect(() => {
     const currentLevel = playerState?.niveis?.barracoLevel;
     if (!currentLevel) return;
 
@@ -613,8 +629,8 @@ useEffect(() => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const myTileX = playerState?.mapPosition?.tileX ?? 60;
-    const myTileY = playerState?.mapPosition?.tileY ?? 60;
+    const myTileX = mapPositionRef.current?.tileX ?? 60;
+    const myTileY = mapPositionRef.current?.tileY ?? 60;
 
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
@@ -662,7 +678,7 @@ useEffect(() => {
         if (!isMounted) return;
 
         const barraco = gltf.scene;
-        const { labelY } = fitModelToFootprint(barraco, getBarracoSize(level));
+        const { labelY } = fitModelToFootprint(barraco, getBarracoSize(barracoLevelRef.current || level));
 
         barraco.position.x = playerWorldX;
         barraco.position.z = playerWorldZ;
@@ -964,9 +980,6 @@ const rect = containerRef.current.getBoundingClientRect();
   }, [
     isLoaded,
     playerId,
-    playerState?.mapPosition?.tileX,
-    playerState?.mapPosition?.tileY,
-    playerState?.niveis?.barracoLevel,
   ]);
 
   useEffect(() => {
