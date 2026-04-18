@@ -688,7 +688,7 @@ function persistMergedPlayer(playerData: Partial<PlayerState>) {
 
 function buildInitialState(): { player: PlayerState; isLoaded: boolean } {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = readStorage(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
       const merged = clearExpiredPunishments(mergePlayer(parsed));
