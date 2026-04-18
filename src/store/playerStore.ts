@@ -724,6 +724,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     set({
       player: merged,
+      isLoaded: true,
       syncError: null,
       lastSyncAt: Date.now(),
       lastServerHydrationAt: Date.now(),
