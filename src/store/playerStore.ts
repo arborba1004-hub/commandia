@@ -873,7 +873,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     if (get().isSyncing) return;
     if (!getStoredAuthToken()) return;
 
-    const player = get().player;
+    const player = stripGangState(get().player);
 
     try {
       set({
@@ -979,7 +979,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       if (newAttempts >= get().maxPollingAttempts || error?.status === 401) {
         get().stopPolling();
         if (error?.status === 401) {
-          localStorage.removeItem('authToken');
+          removeStorage('authToken');
         }
       }
     }
