@@ -53,6 +53,10 @@ export default function HomePage() {
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const clearPlayer = usePlayerStore((state) => state.clearPlayer);
+  const hydratePlayerFromServer = usePlayerStore(
+    (state) => state.hydratePlayerFromServer
+  );
+  const startPolling = usePlayerStore((state) => state.startPolling);
   const { checkAndUnlockAchievements, loadAchievements } = useAchievementStore();
 
   const [googleReady, setGoogleReady] = useState(false);
@@ -156,7 +160,9 @@ export default function HomePage() {
         };
         localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
 
-        await loadPlayer();
+        hydratePlayerFromServer(normalizedPlayer);
+        startPolling();
+
         navigate('/game', { replace: true });
       } catch (error) {
         const message =
@@ -201,7 +207,13 @@ export default function HomePage() {
         width: 280,
       });
     }
-  }, [googleReady, isAuthenticated, loadPlayer, navigate]);
+  }, [
+    googleReady,
+    isAuthenticated,
+    hydratePlayerFromServer,
+    startPolling,
+    navigate,
+  ]);
 
   const scrollToManifesto = () => {
     manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });
