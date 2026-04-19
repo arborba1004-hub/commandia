@@ -156,7 +156,7 @@ export default function HomePage() {
         };
         localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
 
-        void loadPlayer();
+        await loadPlayer();
         navigate('/game', { replace: true });
       } catch (error) {
         const message =
