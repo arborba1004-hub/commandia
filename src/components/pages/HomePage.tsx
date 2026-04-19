@@ -56,7 +56,6 @@ export default function HomePage() {
   const hydratePlayerFromServer = usePlayerStore(
     (state) => state.hydratePlayerFromServer
   );
-  const startPolling = usePlayerStore((state) => state.startPolling);
   const { checkAndUnlockAchievements, loadAchievements } = useAchievementStore();
 
   const [googleReady, setGoogleReady] = useState(false);
@@ -161,7 +160,6 @@ export default function HomePage() {
         localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
 
         hydratePlayerFromServer(normalizedPlayer);
-        startPolling();
 
         navigate('/game', { replace: true });
       } catch (error) {
@@ -211,7 +209,6 @@ export default function HomePage() {
     googleReady,
     isAuthenticated,
     hydratePlayerFromServer,
-    startPolling,
     navigate,
   ]);
 
