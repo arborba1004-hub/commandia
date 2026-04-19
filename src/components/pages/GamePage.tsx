@@ -278,6 +278,7 @@ export default function GamePage() {
   const [showPromotion, setShowPromotion] = useState(false);
   const [isStartingBattle, setIsStartingBattle] = useState(false);
   const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
+  const [mapBootError, setMapBootError] = useState<string | null>(null);
 
   const level = playerState?.niveis?.barracoLevel || 1;
   const displayName =
@@ -583,15 +584,24 @@ export default function GamePage() {
     enemyBarracoMapRef.current = {};
     enemyBarracoLoadingRef.current = {};
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: false,
-      powerPreference: 'high-performance',
-      alpha: false,
-      stencil: false,
-      depth: true,
-      preserveDrawingBuffer: false,
-    });
+    let renderer: THREE.WebGLRenderer;
 
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        powerPreference: 'high-performance',
+        alpha: false,
+        stencil: false,
+        depth: true,
+        preserveDrawingBuffer: false,
+      });
+    } catch (error) {
+      console.error('Erro ao inicializar WebGLRenderer:', error);
+      setMapBootError('Falha ao iniciar o mapa 3D');
+      return;
+    }
+
+    setMapBootError(null);
     rendererRef.current = renderer;
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(isMobile ? 0.8 : Math.min(window.devicePixelRatio, 1.25));
@@ -1093,6 +1103,17 @@ const rect = containerRef.current.getBoundingClientRect();
         <Header />
         <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
           Carregando mapa...
+        </div>
+      </>
+    );
+  }
+
+  if (mapBootError) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          {mapBootError}
         </div>
       </>
     );
