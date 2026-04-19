@@ -207,8 +207,8 @@ export default function HomePage() {
     manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleEnterComplexo = () => {
-    void loadPlayer();
+  const handleEnterComplexo = async () => {
+    await loadPlayer();
     navigate('/game', { replace: true });
   };
 
