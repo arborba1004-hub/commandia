@@ -746,22 +746,28 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
       if (!token) return;
 
-      const serverEnvelope = await fetchCurrentPlayerWithFaction();
-      if (!serverEnvelope?.player) return;
+      try {
+        const serverEnvelope = await fetchCurrentPlayerWithFaction();
+        if (!serverEnvelope?.player) return;
 
-      const mergedServer = persistMergedPlayer(serverEnvelope.player);
+        const mergedServer = persistMergedPlayer(serverEnvelope.player);
 
-      set({
-        player: mergedServer,
-        isLoaded: true,
-        syncError: null,
-        lastSyncAt: Date.now(),
-        pollingAttempts: 0,
-      });
+        set({
+          player: mergedServer,
+          isLoaded: true,
+          syncError: null,
+          lastSyncAt: Date.now(),
+          pollingAttempts: 0,
+        });
 
-      await syncFactionStoreFromEnvelope(serverEnvelope.faction, {
-        allowClear: serverEnvelope.player?.factionId == null,
-      });
+        await syncFactionStoreFromEnvelope(serverEnvelope.faction, {
+          allowClear: serverEnvelope.player?.factionId == null,
+        });
+      } catch (serverError) {
+        console.error('Erro ao buscar dados do servidor:', serverError);
+        // Se falhar ao buscar do servidor, mantém os dados locais já carregados
+        // Não atualiza o syncError para não bloquear a navegação
+      }
     } catch (error) {
       console.error('Erro ao carregar playerData:', error);
       set((state) => ({
