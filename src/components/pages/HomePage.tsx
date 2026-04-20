@@ -53,10 +53,6 @@ export default function HomePage() {
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
-  const clearPlayer = usePlayerStore((state) => state.clearPlayer);
-  const hydratePlayerFromServer = usePlayerStore(
-    (state) => state.hydratePlayerFromServer
-  );
   const { checkAndUnlockAchievements, loadAchievements } = useAchievementStore();
 
   const [googleReady, setGoogleReady] = useState(false);
