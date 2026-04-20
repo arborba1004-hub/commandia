@@ -257,6 +257,14 @@ export default function GamePage() {
   const activeAnimationRef = useRef<any>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
+  const playerMarkerRef = useRef<THREE.Mesh | null>(null);
+  const playerLabelRef = useRef<THREE.Sprite | THREE.Group | null>(null);
+  const highlightRef = useRef<THREE.Mesh | null>(null);
+  const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
+  const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
+  const animationFrameRef = useRef<number>(0);
   const previousLevelRef = useRef<number | null>(null);
   const mapPositionRef = useRef<any>(null);
   const barracoLevelRef = useRef<number | null>(null);
