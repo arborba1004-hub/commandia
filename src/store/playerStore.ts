@@ -662,7 +662,16 @@ async function syncFactionStoreFromEnvelope(
   options?: { allowClear?: boolean }
 ) {
   try {
-    const { useFactionStore } = await import('@/store/factionStore');
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Faction store sync timeout')), 2000)
+    );
+
+    const importPromise = import('@/store/factionStore');
+    const { useFactionStore } = await Promise.race([
+      importPromise,
+      timeoutPromise,
+    ]);
 
     if (faction) {
       useFactionStore.getState().setFaction(faction);
@@ -677,6 +686,7 @@ async function syncFactionStoreFromEnvelope(
       'Não foi possível sincronizar factionStore a partir do playerStore:',
       error
     );
+    // Don't throw - allow the app to continue even if faction sync fails
   }
 }
 
@@ -811,9 +821,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       pendingLocalChanges: false,
     });
 
-    void syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
-      allowClear: (playerData as any)?.factionId == null,
-    });
+    // Sync faction store in background without blocking
+    // Use setTimeout to ensure it doesn't block the main thread
+    setTimeout(() => {
+      void syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
+        allowClear: (playerData as any)?.factionId == null,
+      });
+    }, 0);
   },
 
   applyPlayerUpdate: (updater) => {
