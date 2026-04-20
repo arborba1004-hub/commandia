@@ -8,20 +8,38 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const isLoaded   = usePlayerStore((s) => s.isLoaded);
-  const player     = usePlayerStore((s) => s.player);
+  const isLoaded = usePlayerStore((s) => s.isLoaded);
+  const player = usePlayerStore((s) => s.player);
   const loadPlayer = usePlayerStore((s) => s.loadPlayer);
 
   useEffect(() => {
-    if (!isLoaded) void loadPlayer();
+    if (!isLoaded) {
+      void loadPlayer();
+    }
   }, [isLoaded, loadPlayer]);
 
-  // Validate player is an object
-  const isValidPlayer = player && typeof player === 'object';
-  const playerId =
-    isValidPlayer ? ((player as any)?._id || (player as any)?.id || player?.googleId || '') : '';
+  const hasToken =
+    typeof window !== 'undefined' &&
+    Boolean(localStorage.getItem('authToken'));
 
-  if (!isLoaded) return <div className="min-h-screen bg-black" />;
-  if (!playerId || !isValidPlayer)  return <Navigate to="/" replace />;
+  const isValidPlayer = Boolean(player && typeof player === 'object');
+
+  const playerId = isValidPlayer
+    ? String(
+        (player as any)?._id ||
+          (player as any)?.id ||
+          player?.googleId ||
+          ''
+      )
+    : '';
+
+  if (!isLoaded) {
+    return <div className="min-h-screen bg-black" />;
+  }
+
+  if (!hasToken || !playerId) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 }
