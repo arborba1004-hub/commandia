@@ -664,7 +664,7 @@ async function syncFactionStoreFromEnvelope(
   try {
     // Add timeout to prevent hanging
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Faction store sync timeout')), 2000)
+      setTimeout(() => reject(new Error('Faction store sync timeout')), 1000)
     );
 
     const importPromise = import('@/store/factionStore');
@@ -770,9 +770,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
           pollingAttempts: 0,
         });
 
-        await syncFactionStoreFromEnvelope(serverEnvelope.faction, {
-          allowClear: serverEnvelope.player?.factionId == null,
-        });
+        // Sync faction store in background without blocking
+        setTimeout(() => {
+          void syncFactionStoreFromEnvelope(serverEnvelope.faction, {
+            allowClear: serverEnvelope.player?.factionId == null,
+          });
+        }, 100);
       } catch (serverError) {
         console.error('Erro ao buscar dados do servidor:', serverError);
         // Se falhar ao buscar do servidor, mantém os dados locais já carregados
@@ -822,12 +825,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     });
 
     // Sync faction store in background without blocking
-    // Use setTimeout to ensure it doesn't block the main thread
+    // Use setTimeout with longer delay to ensure it doesn't interfere with navigation
     setTimeout(() => {
       void syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
         allowClear: (playerData as any)?.factionId == null,
       });
-    }, 0);
+    }, 100);
   },
 
   applyPlayerUpdate: (updater) => {

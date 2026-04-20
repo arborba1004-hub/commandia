@@ -161,7 +161,10 @@ export default function HomePage() {
 
         hydratePlayerFromServer(normalizedPlayer);
 
-        navigate('/game', { replace: true });
+        // Use setTimeout to ensure navigation happens after state is fully updated
+        setTimeout(() => {
+          navigate('/game', { replace: true });
+        }, 50);
       } catch (error) {
         const message =
           error instanceof Error
