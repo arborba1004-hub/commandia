@@ -512,6 +512,18 @@ const initialPlayer: PlayerState = {
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
+  // Safely extract nested values with fallbacks
+  const incomingNiveis = incoming?.niveis || {};
+  const incomingBalances = incoming?.balances || {};
+  const incomingInventory = incoming?.inventory || {};
+  const incomingPageLevels = incoming?.pageLevels || {};
+  const incomingSkills = incoming?.skills || {};
+  const incomingBarracoPosition = incoming?.barracoPosition || {};
+  const incomingMapPosition = incoming?.mapPosition || {};
+  const incomingHeaderCustomization = incoming?.headerCustomization || {};
+  const incomingLaundryProgress = incoming?.laundryProgress || {};
+  const incomingPunishments = incoming?.punishments || {};
+
   return {
     ...initialPlayer,
     ...(incoming || {}),
@@ -523,109 +535,109 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
 
     niveis: {
       ...initialPlayer.niveis,
-      ...(incoming?.niveis || {}),
+      ...incomingNiveis,
     },
 
     balances: {
       ...initialPlayer.balances,
-      ...(incoming?.balances || {}),
+      ...incomingBalances,
     },
 
     inventory: {
       ...initialPlayer.inventory,
-      ...(incoming?.inventory || {}),
-      items: incoming?.inventory?.items || initialPlayer.inventory.items,
-      gifts: incoming?.inventory?.gifts || initialPlayer.inventory.gifts,
-      rewards: incoming?.inventory?.rewards || initialPlayer.inventory.rewards,
+      ...incomingInventory,
+      items: incomingInventory?.items || initialPlayer.inventory.items,
+      gifts: incomingInventory?.gifts || initialPlayer.inventory.gifts,
+      rewards: incomingInventory?.rewards || initialPlayer.inventory.rewards,
     },
 
     pageLevels: {
       ...initialPlayer.pageLevels,
-      ...(incoming?.pageLevels || {}),
+      ...incomingPageLevels,
     },
 
     skills: {
       ...initialPlayer.skills,
-      ...(incoming?.skills || {}),
+      ...incomingSkills,
     },
 
     barracoPosition: {
       ...initialPlayer.barracoPosition,
-      ...(incoming?.barracoPosition || {}),
+      ...incomingBarracoPosition,
     },
 
     mapPosition: {
       tileX:
-        incoming?.mapPosition?.tileX ??
+        incomingMapPosition?.tileX ??
         initialPlayer.mapPosition?.tileX ??
         GRID_WIDTH / 2,
       tileY:
-        incoming?.mapPosition?.tileY ??
+        incomingMapPosition?.tileY ??
         initialPlayer.mapPosition?.tileY ??
         GRID_HEIGHT / 2,
       worldX:
-        incoming?.mapPosition?.worldX ??
+        incomingMapPosition?.worldX ??
         initialPlayer.mapPosition?.worldX ??
         0,
       worldY:
-        incoming?.mapPosition?.worldY ??
+        incomingMapPosition?.worldY ??
         initialPlayer.mapPosition?.worldY ??
         0,
     },
 
     headerCustomization: {
       playerNameFont:
-        incoming?.headerCustomization?.playerNameFont || 'oswald',
+        incomingHeaderCustomization?.playerNameFont || 'oswald',
       playerNameFontSize:
-        incoming?.headerCustomization?.playerNameFontSize || '1.875rem',
+        incomingHeaderCustomization?.playerNameFontSize || '1.875rem',
       playerNameColor:
-        incoming?.headerCustomization?.playerNameColor || '#1a1205',
-      customName: incoming?.headerCustomization?.customName || '',
-      customAvatar: incoming?.headerCustomization?.customAvatar || '',
+        incomingHeaderCustomization?.playerNameColor || '#1a1205',
+      customName: incomingHeaderCustomization?.customName || '',
+      customAvatar: incomingHeaderCustomization?.customAvatar || '',
     },
 
     laundryProgress: {
       activeOperations:
-        incoming?.laundryProgress?.activeOperations ||
+        incomingLaundryProgress?.activeOperations ||
         initialPlayer.laundryProgress.activeOperations,
       dailyOperations:
-        incoming?.laundryProgress?.dailyOperations ||
+        incomingLaundryProgress?.dailyOperations ||
         initialPlayer.laundryProgress.dailyOperations,
     },
 
     punishments: {
-      active: incoming?.punishments?.active || initialPlayer.punishments.active,
+      active: incomingPunishments?.active || initialPlayer.punishments.active,
       delacao:
-        incoming?.punishments?.delacao || initialPlayer.punishments.delacao,
+        incomingPunishments?.delacao || initialPlayer.punishments.delacao,
       inventoryBlocked:
-        incoming?.punishments?.inventoryBlocked ??
+        incomingPunishments?.inventoryBlocked ??
         initialPlayer.punishments.inventoryBlocked,
       dirtyMoneyBlocked:
-        incoming?.punishments?.dirtyMoneyBlocked ??
+        incomingPunishments?.dirtyMoneyBlocked ??
         initialPlayer.punishments.dirtyMoneyBlocked,
       cleanMoneyBlocked:
-        incoming?.punishments?.cleanMoneyBlocked ??
+        incomingPunishments?.cleanMoneyBlocked ??
         initialPlayer.punishments.cleanMoneyBlocked,
       levelProgressionBlocked:
-        incoming?.punishments?.levelProgressionBlocked ??
+        incomingPunishments?.levelProgressionBlocked ??
         initialPlayer.punishments.levelProgressionBlocked,
       inventoryBonusReductionPercent:
-        incoming?.punishments?.inventoryBonusReductionPercent ??
+        incomingPunishments?.inventoryBonusReductionPercent ??
         initialPlayer.punishments.inventoryBonusReductionPercent,
       pvpProtectionUntil:
-        incoming?.punishments?.pvpProtectionUntil ??
+        incomingPunishments?.pvpProtectionUntil ??
         initialPlayer.punishments.pvpProtectionUntil,
       delacaoRewardPending:
-        incoming?.punishments?.delacaoRewardPending ??
+        incomingPunishments?.delacaoRewardPending ??
         initialPlayer.punishments.delacaoRewardPending,
       delacaoRewardUnlockAt:
-        incoming?.punishments?.delacaoRewardUnlockAt ??
+        incomingPunishments?.delacaoRewardUnlockAt ??
         initialPlayer.punishments.delacaoRewardUnlockAt,
       pendingSkillBoost:
-        incoming?.punishments?.pendingSkillBoost ??
+        incomingPunishments?.pendingSkillBoost ??
         initialPlayer.punishments.pendingSkillBoost,
       lastVehicleLost:
-        incoming?.punishments?.lastVehicleLost ??
+        incomingPunishments?.lastVehicleLost ??
         initialPlayer.punishments.lastVehicleLost,
     },
 
@@ -653,7 +665,7 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     lastAttackAt: incoming?.lastAttackAt ?? initialPlayer.lastAttackAt,
     pvpProtectionUntil:
       incoming?.pvpProtectionUntil ??
-      incoming?.punishments?.pvpProtectionUntil ??
+      incomingPunishments?.pvpProtectionUntil ??
       initialPlayer.pvpProtectionUntil,
   };
 }

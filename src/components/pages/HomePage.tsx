@@ -161,8 +161,10 @@ export default function HomePage() {
 
         hydratePlayerFromServer(normalizedPlayer);
 
-        // Navigate immediately - state is already updated synchronously
-        navigate('/game', { replace: true });
+        // Add a small delay to ensure state is fully synchronized before navigation
+        setTimeout(() => {
+          navigate('/game', { replace: true });
+        }, 100);
       } catch (error) {
         const message =
           error instanceof Error
