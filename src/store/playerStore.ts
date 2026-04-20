@@ -271,7 +271,7 @@ export type PlayerState = {
   attackHistory?: AttackHistoryItem[];
   factionId?: string | null;
   gangId?: string | null;
-  
+
   // Gang system
   gangMembers?: GangMember[];
   gangStats?: GangStats;
@@ -397,6 +397,7 @@ type PlayerStore = {
   getTrainingGangMembers: () => GangMember[];
   getDeadGangMembers: () => GangMember[];
 };
+
 const initialPlayer: PlayerState = {
   _id: '',
   googleId: '',
@@ -511,7 +512,6 @@ const initialPlayer: PlayerState = {
 };
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
-  // Safely extract nested values with fallbacks
   const incomingNiveis = (incoming?.niveis && typeof incoming.niveis === 'object') ? incoming.niveis : {};
   const incomingBalances = (incoming?.balances && typeof incoming.balances === 'object') ? incoming.balances : {};
   const incomingInventory = (incoming?.inventory && typeof incoming.inventory === 'object') ? incoming.inventory : {};
@@ -669,31 +669,29 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   };
 }
 
-function syncFactionStoreFromEnvelope(
+// Corrigido: usa import dinâmico em vez de require
+async function syncFactionStoreFromEnvelope(
   faction: any | null,
   options?: { allowClear?: boolean }
 ) {
   try {
-    // Dynamically import to avoid circular dependency
-    const { useFactionStore: getFactionStore } = require('@/store/factionStore');
+    const { useFactionStore } = await import('@/store/factionStore');
     
     if (faction) {
-      // Only sync if faction data is valid
       if (typeof faction === 'object' && faction !== null) {
-        getFactionStore.getState().setFaction(faction);
+        useFactionStore.getState().setFaction(faction);
       }
       return;
     }
 
     if (options?.allowClear) {
-      getFactionStore.getState().setFaction(null);
+      useFactionStore.getState().setFaction(null);
     }
   } catch (error) {
     console.warn(
       'Não foi possível sincronizar factionStore a partir do playerStore:',
       error
     );
-    // Don't throw - allow the app to continue even if faction sync fails
   }
 }
 
@@ -712,7 +710,6 @@ function buildInitialState(): { player: PlayerState; isLoaded: boolean } {
     const stored = readStorage(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // Validate parsed data is an object
       if (typeof parsed !== 'object' || parsed === null) {
         console.warn('Stored player data is not a valid object, clearing storage');
         removeStorage(STORAGE_KEY);
@@ -722,7 +719,6 @@ function buildInitialState(): { player: PlayerState; isLoaded: boolean } {
       return { player: merged, isLoaded: true };
     }
   } catch (error) {
-    // localStorage corrompido — começa do zero
     console.warn('Erro ao carregar playerData do storage:', error);
     try {
       removeStorage(STORAGE_KEY);
@@ -749,7 +745,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   lastLocalMutationAt: 0,
   lastServerHydrationAt: 0,
 
-  loadPlayer: async () => {
+loadPlayer: async () => {
     try {
       const token = getStoredAuthToken();
       const stored = readStorage(STORAGE_KEY);
@@ -757,7 +753,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
-          // Validate parsed data is an object
           if (typeof parsed !== 'object' || parsed === null) {
             throw new Error('Stored player data is not a valid object');
           }
@@ -794,7 +789,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         const serverEnvelope = await fetchCurrentPlayerWithFaction();
         if (!serverEnvelope?.player) return;
 
-        // Validate server player data
         if (typeof serverEnvelope.player !== 'object' || serverEnvelope.player === null) {
           console.error('Invalid player data from server');
           return;
@@ -810,26 +804,15 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
           pollingAttempts: 0,
         });
 
-        // Sync faction store asynchronously without blocking
-        // Use setTimeout to defer execution and avoid blocking the UI
-        // Wrap in try-catch to prevent errors from blocking the main thread
         setTimeout(() => {
-          try {
-            const factionData = serverEnvelope.faction ?? null;
-            // Only sync if faction data is valid
-            if (factionData === null || (typeof factionData === 'object' && factionData !== null)) {
-              syncFactionStoreFromEnvelope(factionData, {
-                allowClear: serverEnvelope.player?.factionId == null,
-              });
-            }
-          } catch (factionError) {
-            console.warn('Erro ao sincronizar facção após carregar player:', factionError);
-          }
+          syncFactionStoreFromEnvelope(serverEnvelope.faction ?? null, {
+            allowClear: serverEnvelope.player?.factionId == null,
+          }).catch((err) => {
+            console.warn('Erro ao sincronizar facção após carregar player:', err);
+          });
         }, 0);
       } catch (serverError) {
         console.error('Erro ao buscar dados do servidor:', serverError);
-        // Se falhar ao buscar do servidor, mantém os dados locais já carregados
-        // Não atualiza o syncError para não bloquear a navegação
       }
     } catch (error) {
       console.error('Erro ao carregar playerData:', error);
@@ -863,7 +846,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   hydratePlayerFromServer: (playerData) => {
     try {
-      // Validate incoming data is an object
       if (!playerData || typeof playerData !== 'object') {
         console.error('Invalid playerData received:', playerData);
         set({
@@ -877,8 +859,20 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
       const merged = persistMergedPlayer(playerData);
 
+      // CRITICAL FIX: Garante que _id esteja sempre definido
+      const normalizedPlayer = {
+        ...merged,
+        _id: String(
+          (playerData as any)?._id ||
+          (playerData as any)?.id ||
+          (playerData as any)?.googleId ||
+          merged._id ||
+          ''
+        ),
+      };
+
       set({
-        player: merged,
+        player: normalizedPlayer,
         isLoaded: true,
         syncError: null,
         lastSyncAt: Date.now(),
@@ -887,22 +881,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         pendingLocalChanges: false,
       });
 
-      // Sync faction store asynchronously without blocking
-      // Use setTimeout to defer execution and avoid blocking the UI
-      // Wrap in try-catch to prevent errors from blocking the main thread
       setTimeout(() => {
-        try {
-          const factionData = (playerData as any)?.faction ?? null;
-          // Only sync if faction data is valid
-          if (factionData === null || (typeof factionData === 'object' && factionData !== null)) {
-            syncFactionStoreFromEnvelope(factionData, {
-              allowClear: (playerData as any)?.factionId == null,
-            });
-          }
-        } catch (error) {
+        syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
+          allowClear: (playerData as any)?.factionId == null,
+        }).catch((error) => {
           console.warn('Erro ao sincronizar factionStore:', error);
-          // Don't throw - allow the app to continue
-        }
+        });
       }, 0);
     } catch (error) {
       console.error('Erro ao hidratar playerData:', error);
@@ -959,7 +943,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       lastServerHydrationAt: 0,
     });
 
-    void syncFactionStoreFromEnvelope(null, { allowClear: true });
+    syncFactionStoreFromEnvelope(null, { allowClear: true }).catch(() => {});
   },
 
   saveLocal: () => {
@@ -1006,19 +990,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         ),
       }));
 
-      // Wrap in try-catch to prevent errors from blocking the main thread
-      try {
-        const factionData = data.faction ?? null;
-        // Only sync if faction data is valid
-        if (factionData === null || (typeof factionData === 'object' && factionData !== null)) {
-          await syncFactionStoreFromEnvelope(factionData, {
-            allowClear: data.player?.factionId == null,
-          });
-        }
-      } catch (factionError) {
-        console.warn('Erro ao sincronizar facção durante sync:', factionError);
-        // Don't throw - allow the app to continue
-      }
+
+await syncFactionStoreFromEnvelope(data.faction ?? null, {
+        allowClear: data.player?.factionId == null,
+      });
     } catch (error) {
       console.error('Erro sync player:', error);
       set({
@@ -1075,7 +1050,6 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       const serverEnvelope = await fetchCurrentPlayerWithFaction();
       if (!serverEnvelope?.player) return;
 
-      // Validate server player data is an object
       if (typeof serverEnvelope.player !== 'object' || serverEnvelope.player === null) {
         console.error('Invalid player data from server polling');
         return;
@@ -1092,19 +1066,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         lastServerHydrationAt: Date.now(),
       });
 
-      // Sync faction store synchronously without blocking
-      try {
-        const factionData = serverEnvelope.faction ?? null;
-        // Only sync if faction data is valid
-        if (factionData === null || (typeof factionData === 'object' && factionData !== null)) {
-          syncFactionStoreFromEnvelope(factionData, {
-            allowClear: serverEnvelope.player?.factionId == null,
-          });
-        }
-      } catch (factionError) {
-        console.warn('Erro ao sincronizar factionStore durante polling:', factionError);
-        // Don't throw - allow polling to continue
-      }
+      await syncFactionStoreFromEnvelope(serverEnvelope.faction ?? null, {
+        allowClear: serverEnvelope.player?.factionId == null,
+      });
     } catch (error: any) {
       console.error('Erro ao fazer polling do player:', error);
 
@@ -1119,7 +1083,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       }
     }
   },
-setBalances: (balances) => {
+
+  setBalances: (balances) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
       balances: {
@@ -1295,7 +1260,7 @@ setBalances: (balances) => {
     });
   },
 
-  setPower: (value) => {
+setPower: (value) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
       power: value,
@@ -1524,7 +1489,8 @@ setBalances: (balances) => {
     });
   },
 
-  getAccessoryBonusPercent: () => {
+
+getAccessoryBonusPercent: () => {
     const current = get().player;
     const playerLevel = current.niveis.playerLevel || 1;
     return playerLevel <= 50 ? 1 : 2;
@@ -1551,7 +1517,7 @@ setBalances: (balances) => {
     });
   },
 
-setNotifications: (notifications) => {
+  setNotifications: (notifications) => {
     get().applyPlayerUpdate((player) => ({
       ...player,
       notifications,
@@ -1764,7 +1730,7 @@ setNotifications: (notifications) => {
     });
   },
 
-  removeGangMember: (memberId) => {
+removeGangMember: (memberId) => {
     set((state) => ({
       player: {
         ...state.player,
@@ -1839,3 +1805,4 @@ setNotifications: (notifications) => {
     return members.filter((m) => m.status === 'morto');
   },
 }));
+```
