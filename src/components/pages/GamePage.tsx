@@ -556,29 +556,59 @@ addNotification({
 
   const fetchOtherPlayers = useCallback(async () => {
     try {
-      const data = await fetchOtherPlayersMap();
+      if (
+        !currentPlayerId ||
+        currentPlayerTileX === null ||
+        currentPlayerTileY === null
+      ) {
+        return;
+      }
+
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+
+      const data = await fetchOtherPlayersMap({
+        centerTileX: currentPlayerTileX,
+        centerTileY: currentPlayerTileY,
+        radius: MAP_PLAYERS_RADIUS,
+        limit: MAP_PLAYERS_LIMIT,
+      });
+
       const filtered = data.filter(
         (p) => String(p.id || p._id) !== String(currentPlayerId)
       );
-      setOtherPlayers(filtered);
+
+      setOtherPlayers(filtered.slice(0, MAP_PLAYERS_LIMIT));
     } catch (error) {
       console.error('Erro no polling de players:', error);
     }
-  }, [currentPlayerId]);
+  }, [currentPlayerId, currentPlayerTileX, currentPlayerTileY]);
 
   useEffect(() => {
-    if (!currentPlayerId) return;
+    if (
+      !currentPlayerId ||
+      currentPlayerTileX === null ||
+      currentPlayerTileY === null
+    ) {
+      return;
+    }
 
     void fetchOtherPlayers();
 
     const playersInterval = setInterval(() => {
       void fetchOtherPlayers();
-    }, 3000);
+    }, MAP_PLAYERS_POLLING_INTERVAL);
 
     return () => {
       clearInterval(playersInterval);
     };
-  }, [currentPlayerId, fetchOtherPlayers]);
+  }, [
+    currentPlayerId,
+    currentPlayerTileX,
+    currentPlayerTileY,
+    fetchOtherPlayers,
+  ]);
 
   // ========== INICIALIZAÇÃO DA CENA (executa apenas uma vez) ==========
   useEffect(() => {
