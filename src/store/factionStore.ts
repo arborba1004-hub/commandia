@@ -89,14 +89,29 @@ function syncPlayerFactionId(factionId: string | null) {
   try {
     const playerStore = usePlayerStore.getState();
     const currentPlayer = playerStore.player;
+    
+    // Validate currentPlayer is an object
+    if (!currentPlayer || typeof currentPlayer !== 'object') {
+      console.warn('Invalid player state when syncing faction ID');
+      return;
+    }
+    
     const currentFactionId = currentPlayer?.factionId ?? null;
 
     if (currentFactionId === factionId) return;
 
-    playerStore.hydratePlayerFromServer({
+    // Ensure we're passing a valid object
+    const updatedPlayer = {
       ...currentPlayer,
       factionId,
-    } as any);
+    };
+    
+    if (typeof updatedPlayer !== 'object' || updatedPlayer === null) {
+      console.warn('Failed to create valid player object for faction sync');
+      return;
+    }
+
+    playerStore.hydratePlayerFromServer(updatedPlayer as any);
   } catch (error) {
     console.warn('Erro ao sincronizar factionId no playerStore:', error);
     // Don't throw - allow the app to continue

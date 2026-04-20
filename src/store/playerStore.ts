@@ -678,7 +678,10 @@ function syncFactionStoreFromEnvelope(
     const { useFactionStore: getFactionStore } = require('@/store/factionStore');
     
     if (faction) {
-      getFactionStore.getState().setFaction(faction);
+      // Only sync if faction data is valid
+      if (typeof faction === 'object' && faction !== null) {
+        getFactionStore.getState().setFaction(faction);
+      }
       return;
     }
 
@@ -809,11 +812,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
         // Sync faction store asynchronously without blocking
         // Use setTimeout to defer execution and avoid blocking the UI
+        // Wrap in try-catch to prevent errors from blocking the main thread
         setTimeout(() => {
           try {
-            syncFactionStoreFromEnvelope(serverEnvelope.faction, {
-              allowClear: serverEnvelope.player?.factionId == null,
-            });
+            const factionData = serverEnvelope.faction ?? null;
+            // Only sync if faction data is valid
+            if (factionData === null || (typeof factionData === 'object' && factionData !== null)) {
+              syncFactionStoreFromEnvelope(factionData, {
+                allowClear: serverEnvelope.player?.factionId == null,
+              });
+            }
           } catch (factionError) {
             console.warn('Erro ao sincronizar facção após carregar player:', factionError);
           }
@@ -881,11 +889,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
       // Sync faction store asynchronously without blocking
       // Use setTimeout to defer execution and avoid blocking the UI
+      // Wrap in try-catch to prevent errors from blocking the main thread
       setTimeout(() => {
         try {
-          syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
-            allowClear: (playerData as any)?.factionId == null,
-          });
+          const factionData = (playerData as any)?.faction ?? null;
+          // Only sync if faction data is valid
+          if (factionData === null || (typeof factionData === 'object' && factionData !== null)) {
+            syncFactionStoreFromEnvelope(factionData, {
+              allowClear: (playerData as any)?.factionId == null,
+            });
+          }
         } catch (error) {
           console.warn('Erro ao sincronizar factionStore:', error);
           // Don't throw - allow the app to continue
@@ -993,9 +1006,19 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         ),
       }));
 
-      await syncFactionStoreFromEnvelope(data.faction, {
-        allowClear: data.player?.factionId == null,
-      });
+      // Wrap in try-catch to prevent errors from blocking the main thread
+      try {
+        const factionData = data.faction ?? null;
+        // Only sync if faction data is valid
+        if (factionData === null || (typeof factionData === 'object' && factionData !== null)) {
+          await syncFactionStoreFromEnvelope(factionData, {
+            allowClear: data.player?.factionId == null,
+          });
+        }
+      } catch (factionError) {
+        console.warn('Erro ao sincronizar facção durante sync:', factionError);
+        // Don't throw - allow the app to continue
+      }
     } catch (error) {
       console.error('Erro sync player:', error);
       set({
@@ -1071,9 +1094,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
       // Sync faction store synchronously without blocking
       try {
-        syncFactionStoreFromEnvelope(serverEnvelope.faction, {
-          allowClear: serverEnvelope.player?.factionId == null,
-        });
+        const factionData = serverEnvelope.faction ?? null;
+        // Only sync if faction data is valid
+        if (factionData === null || (typeof factionData === 'object' && factionData !== null)) {
+          syncFactionStoreFromEnvelope(factionData, {
+            allowClear: serverEnvelope.player?.factionId == null,
+          });
+        }
       } catch (factionError) {
         console.warn('Erro ao sincronizar factionStore durante polling:', factionError);
         // Don't throw - allow polling to continue
