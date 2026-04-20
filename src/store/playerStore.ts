@@ -16,12 +16,13 @@ import {
 import { create } from 'zustand';
 
 const STORAGE_KEY = 'playerData';
-const POLLING_INTERVAL = 3000; // 3 segundos
+const POLLING_INTERVAL = 15000; // 15 segundos
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
 
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
+let pollingRequestInFlight = false;
 
 function canUseStorage() {
   return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
@@ -1009,11 +1010,14 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
 
     if (pollingInterval) {
       clearInterval(pollingInterval);
+      pollingInterval = null;
     }
 
     set({ isPolling: true });
 
-    void get().pollPlayerFromBackend();
+    if (document.visibilityState !== 'hidden') {
+      void get().pollPlayerFromBackend();
+    }
 
     pollingInterval = setInterval(() => {
       void get().pollPlayerFromBackend();
