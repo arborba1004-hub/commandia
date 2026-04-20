@@ -37,6 +37,9 @@ const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
+const MAP_PLAYERS_RADIUS = 12;
+const MAP_PLAYERS_LIMIT = 18;
+const MAP_PLAYERS_POLLING_INTERVAL = 8000;
 
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
@@ -540,6 +543,16 @@ addNotification({
       null
     );
   }, [playerState]);
+
+  const currentPlayerTileX = useMemo(() => {
+    const tileX = playerState?.mapPosition?.tileX;
+    return typeof tileX === 'number' ? tileX : null;
+  }, [playerState?.mapPosition?.tileX]);
+
+  const currentPlayerTileY = useMemo(() => {
+    const tileY = playerState?.mapPosition?.tileY;
+    return typeof tileY === 'number' ? tileY : null;
+  }, [playerState?.mapPosition?.tileY]);
 
   const fetchOtherPlayers = useCallback(async () => {
     try {
