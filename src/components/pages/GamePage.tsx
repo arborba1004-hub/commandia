@@ -269,9 +269,6 @@ export default function GamePage() {
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const startPolling = usePlayerStore((state) => state.startPolling);
   const stopPolling = usePlayerStore((state) => state.stopPolling);
-  const applyRemoteAttackResult = usePlayerStore((state) => state.applyRemoteAttackResult);
-  const addAttackHistoryItem = usePlayerStore((state) => state.addAttackHistoryItem);
-  const addNotification = usePlayerStore((state) => state.addNotification);
   const loadGang = useGangStore((state) => state.loadGang);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -386,7 +383,11 @@ export default function GamePage() {
               const report = await resolveBattleById(startResponse.battleId);
               useMapAttackStore.getState().setResolution(report.resolution);
 
-              await loadGang();
+              await Promise.all([
+                loadGang(),
+                loadPlayer(),
+                fetchOtherPlayers(),
+              ]);
 
               pushAttackFeed(
                 report.resolution.success
@@ -404,39 +405,6 @@ export default function GamePage() {
 
               const obj = enemyBarracoMapRef.current[state.target.playerId];
               if (obj) shakeObject(obj);
-
-              applyRemoteAttackResult({
-                dirtyMoneyDelta: report.resolution.success
-                  ? report.resolution.loot
-                  : -Math.floor((usePlayerStore.getState().player?.balances?.dirtyMoney || 0) * 0.05),
-                pvpProtectionUntil: null,
-              });
-
-              usePlayerStore.getState().removeCorre(10);
-
-              addAttackHistoryItem({
-                id: report.battleId,
-                attackerId: report.attacker.playerId,
-                attackerName: report.attacker.playerName,
-                targetId: report.defender.playerId,
-                targetName: report.defender.playerName,
-                success: report.resolution.success,
-                loot: report.resolution.loot || 0,
-                createdAt: new Date().toISOString(),
-              });
-
-addNotification({
-                id: `battle_${report.battleId}`,
-                type: report.resolution.success ? 'attack_success' : 'attack_failed',
-                attackerId: report.attacker.playerId,
-                attackerName: report.attacker.playerName,
-                targetId: report.defender.playerId,
-                targetName: report.defender.playerName,
-                success: report.resolution.success,
-                loot: report.resolution.loot || 0,
-                createdAt: new Date().toISOString(),
-                read: false,
-              });
 
               window.setTimeout(() => {
                 returnSquad();
