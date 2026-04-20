@@ -14,7 +14,6 @@ import {
   isMoneyLaunderingBlocked,
 } from '@/services/punishmentService';
 import { create } from 'zustand';
-import { useFactionStore } from '@/store/factionStore';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
@@ -675,13 +674,16 @@ function syncFactionStoreFromEnvelope(
   options?: { allowClear?: boolean }
 ) {
   try {
+    // Dynamically import to avoid circular dependency
+    const { useFactionStore: getFactionStore } = require('@/store/factionStore');
+    
     if (faction) {
-      useFactionStore.getState().setFaction(faction);
+      getFactionStore.getState().setFaction(faction);
       return;
     }
 
     if (options?.allowClear) {
-      useFactionStore.getState().setFaction(null);
+      getFactionStore.getState().setFaction(null);
     }
   } catch (error) {
     console.warn(
@@ -805,10 +807,17 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
           pollingAttempts: 0,
         });
 
-        // Sync faction store synchronously without blocking
-        syncFactionStoreFromEnvelope(serverEnvelope.faction, {
-          allowClear: serverEnvelope.player?.factionId == null,
-        });
+        // Sync faction store asynchronously without blocking
+        // Use setTimeout to defer execution and avoid blocking the UI
+        setTimeout(() => {
+          try {
+            syncFactionStoreFromEnvelope(serverEnvelope.faction, {
+              allowClear: serverEnvelope.player?.factionId == null,
+            });
+          } catch (factionError) {
+            console.warn('Erro ao sincronizar facção após carregar player:', factionError);
+          }
+        }, 0);
       } catch (serverError) {
         console.error('Erro ao buscar dados do servidor:', serverError);
         // Se falhar ao buscar do servidor, mantém os dados locais já carregados
@@ -870,15 +879,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         pendingLocalChanges: false,
       });
 
-      // Sync faction store synchronously without blocking
-      try {
-        syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
-          allowClear: (playerData as any)?.factionId == null,
-        });
-      } catch (error) {
-        console.warn('Erro ao sincronizar factionStore:', error);
-        // Don't throw - allow the app to continue
-      }
+      // Sync faction store asynchronously without blocking
+      // Use setTimeout to defer execution and avoid blocking the UI
+      setTimeout(() => {
+        try {
+          syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
+            allowClear: (playerData as any)?.factionId == null,
+          });
+        } catch (error) {
+          console.warn('Erro ao sincronizar factionStore:', error);
+          // Don't throw - allow the app to continue
+        }
+      }, 0);
     } catch (error) {
       console.error('Erro ao hidratar playerData:', error);
       set({

@@ -172,10 +172,11 @@ export default function HomePage() {
 
         hydratePlayerFromServer(normalizedPlayer);
 
-        // Add a small delay to ensure state is fully synchronized before navigation
+        // Add a delay to ensure state is fully synchronized before navigation
+        // Increased to 300ms to allow async faction sync to complete
         setTimeout(() => {
           navigate('/game', { replace: true });
-        }, 100);
+        }, 300);
       } catch (error) {
         const message =
           error instanceof Error

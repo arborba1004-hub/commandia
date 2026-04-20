@@ -86,16 +86,21 @@ function endLoadingFactionList(set: (partial: Partial<FactionStore>) => void) {
 }
 
 function syncPlayerFactionId(factionId: string | null) {
-  const playerStore = usePlayerStore.getState();
-  const currentPlayer = playerStore.player;
-  const currentFactionId = currentPlayer?.factionId ?? null;
+  try {
+    const playerStore = usePlayerStore.getState();
+    const currentPlayer = playerStore.player;
+    const currentFactionId = currentPlayer?.factionId ?? null;
 
-  if (currentFactionId === factionId) return;
+    if (currentFactionId === factionId) return;
 
-  playerStore.hydratePlayerFromServer({
-    ...currentPlayer,
-    factionId,
-  } as any);
+    playerStore.hydratePlayerFromServer({
+      ...currentPlayer,
+      factionId,
+    } as any);
+  } catch (error) {
+    console.warn('Erro ao sincronizar factionId no playerStore:', error);
+    // Don't throw - allow the app to continue
+  }
 }
 
 function syncPlayerBalancesFromFactionDonationBeforeAfter(
