@@ -125,17 +125,6 @@ const router = createBrowserRouter(
           ),
         },
 
-        {
-          path: 'galeria',
-          element: (
-            <ProtectedRoute>
-              <FeatureGateRoute branch="luxury">
-                <GaleriaPage />
-              </FeatureGateRoute>
-            </ProtectedRoute>
-          ),
-        },
-
         { path: 'faccao',  element: <ProtectedRoute><FactionPage /></ProtectedRoute> },
         { path: 'ranking', element: <ProtectedRoute><RankingPage /></ProtectedRoute> },
         { path: 'gang',    element: <ProtectedRoute><GangPage /></ProtectedRoute> },

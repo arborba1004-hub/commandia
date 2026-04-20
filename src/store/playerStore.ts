@@ -1805,4 +1805,3 @@ removeGangMember: (memberId) => {
     return members.filter((m) => m.status === 'morto');
   },
 }));
-```
