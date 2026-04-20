@@ -267,8 +267,6 @@ export default function GamePage() {
   const playerState = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
-  const startPolling = usePlayerStore((state) => state.startPolling);
-  const stopPolling = usePlayerStore((state) => state.stopPolling);
   const loadGang = useGangStore((state) => state.loadGang);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -492,16 +490,6 @@ export default function GamePage() {
       previousLevelRef.current = currentLevel;
     }
   }, [playerState?.niveis?.barracoLevel]);
-
-  useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    if (!token || !isLoaded) return;
-
-    startPolling();
-    return () => {
-      stopPolling();
-    };
-  }, [isLoaded, startPolling, stopPolling]);
 
   const currentPlayerId = useMemo(() => {
     return (
