@@ -8,6 +8,8 @@ import Header from '@/components/Header';
 import { usePlayerStore } from '@/store/playerStore';
 import { getPlayerRank } from '@/utils/hierarchySystem';
 import { mountFixedMapBuildings } from '@/components/game/fixedMapBuildings';
+import { mountRealtimeMapPlayersLayer } from '@/components/game/realtimeMapPlayersLayer';
+import { fetchMapPlayersSnapshot } from '@/api/mapPlayersApi';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath(
@@ -367,6 +369,23 @@ export default function GamePage() {
       onMessage: (message) => showMapMessage(message),
     });
 
+    const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
+      scene,
+      camera,
+      container,
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      tileSize: TILE_SIZE,
+      fetchPlayers: async () => {
+        const players = await fetchMapPlayersSnapshot(1000);
+        return players.filter((p) => String(p.id) !== String(playerId));
+      },
+      pollingIntervalMs: 5000,
+      maxPlayers: 1000,
+    });
+
+    realtimePlayersLayer.start();
+
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let pointerDownPos = { x: 0, y: 0 };
@@ -399,6 +418,16 @@ export default function GamePage() {
       }
 
       fixedBuildingsLayer.tryHandleBuildingClick(event.clientX, event.clientY);
+
+      const pickedPlayer = realtimePlayersLayer.tryPickPlayer(
+        event.clientX,
+        event.clientY
+      );
+
+      if (pickedPlayer) {
+        showMapMessage(`Alvo: ${pickedPlayer.name || 'Jogador'} [${pickedPlayer.id}]`);
+        return;
+      }
     };
 
     const animate = () => {
@@ -439,6 +468,7 @@ export default function GamePage() {
 
       controls.dispose();
       fixedBuildingsLayer.cleanup();
+      realtimePlayersLayer.cleanup();
 
       if (playerBarracoRef.current) {
         scene.remove(playerBarracoRef.current);
