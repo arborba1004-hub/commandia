@@ -14,6 +14,7 @@ import {
   isMoneyLaunderingBlocked,
 } from '@/services/punishmentService';
 import { create } from 'zustand';
+import { useFactionStore } from '@/store/factionStore';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 3000; // 3 segundos
@@ -657,22 +658,11 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   };
 }
 
-async function syncFactionStoreFromEnvelope(
+function syncFactionStoreFromEnvelope(
   faction: any | null,
   options?: { allowClear?: boolean }
 ) {
   try {
-    // Add timeout to prevent hanging
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Faction store sync timeout')), 1000)
-    );
-
-    const importPromise = import('@/store/factionStore');
-    const { useFactionStore } = await Promise.race([
-      importPromise,
-      timeoutPromise,
-    ]);
-
     if (faction) {
       useFactionStore.getState().setFaction(faction);
       return;
@@ -770,12 +760,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
           pollingAttempts: 0,
         });
 
-        // Sync faction store in background without blocking
-        setTimeout(() => {
-          void syncFactionStoreFromEnvelope(serverEnvelope.faction, {
-            allowClear: serverEnvelope.player?.factionId == null,
-          });
-        }, 100);
+        // Sync faction store synchronously without blocking
+        syncFactionStoreFromEnvelope(serverEnvelope.faction, {
+          allowClear: serverEnvelope.player?.factionId == null,
+        });
       } catch (serverError) {
         console.error('Erro ao buscar dados do servidor:', serverError);
         // Se falhar ao buscar do servidor, mantém os dados locais já carregados
@@ -824,13 +812,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       pendingLocalChanges: false,
     });
 
-    // Sync faction store in background without blocking
-    // Use setTimeout with longer delay to ensure it doesn't interfere with navigation
-    setTimeout(() => {
-      void syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
-        allowClear: (playerData as any)?.factionId == null,
-      });
-    }, 100);
+    // Sync faction store synchronously without blocking
+    syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
+      allowClear: (playerData as any)?.factionId == null,
+    });
   },
 
   applyPlayerUpdate: (updater) => {
@@ -994,7 +979,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         lastServerHydrationAt: Date.now(),
       });
 
-      await syncFactionStoreFromEnvelope(serverEnvelope.faction, {
+      // Sync faction store synchronously without blocking
+      syncFactionStoreFromEnvelope(serverEnvelope.faction, {
         allowClear: serverEnvelope.player?.factionId == null,
       });
     } catch (error: any) {
