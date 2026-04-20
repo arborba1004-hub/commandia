@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { useAchievementStore } from '@/store/achievementStore';
 import { Image } from '@/components/ui/image';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 declare global {
   interface Window {
@@ -59,15 +60,14 @@ export default function HomePage() {
   const { checkAndUnlockAchievements, loadAchievements } = useAchievementStore();
 
   const [googleReady, setGoogleReady] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [loginLoading, setLoginLoading] = useState(false);
 
-  const isAuthenticated =
-    !!(
-      (player as any)?._id ||
-      (player as any)?.id ||
-      player?.googleId
-    );
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    error: authError,
+    handleGoogleResponse,
+    logout,
+  } = useGoogleAuth();
 
   useEffect(() => {
     if (!isLoaded) {
@@ -109,82 +109,12 @@ export default function HomePage() {
     if (!googleReady || isAuthenticated || !window.google) return;
 
     const handleGoogleLogin = async (response: any) => {
-      try {
-        setLoginError(null);
-        setLoginLoading(true);
+      const result = await handleGoogleResponse(response);
 
-        const credential = response?.credential;
-        if (!credential) {
-          throw new Error('Não foi possível obter a credencial do Google.');
-        }
-
-        // Warm-up fetch with 4s timeout
-        try {
-          const ctrl = new AbortController();
-          const t = setTimeout(() => ctrl.abort(), 4000);
-          await fetch('https://comando-backend.onrender.com/health', {
-            method: 'GET',
-            signal: ctrl.signal,
-          });
-          clearTimeout(t);
-        } catch {
-          // Backend acordando ou lento — prossegue normalmente
-        }
-
-        const backendResponse = await fetch(
-          'https://comando-backend.onrender.com/auth/google',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: credential }),
-          }
-        );
-
-        const data = await backendResponse.json();
-
-        if (!backendResponse.ok) {
-          throw new Error(data?.error || 'Falha na autenticação.');
-        }
-
-        if (!(data.token && data.player)) {
-          throw new Error('Resposta inválida do servidor.');
-        }
-
-        // Validate player data is an object
-        if (typeof data.player !== 'object' || data.player === null) {
-          throw new Error('Dados de jogador inválidos recebidos do servidor.');
-        }
-
-        localStorage.setItem('authToken', data.token);
-
-        const rawPlayer = data.player ?? {};
-        const normalizedPlayer = {
-          ...rawPlayer,
-          _id: String(rawPlayer._id ?? rawPlayer.id ?? rawPlayer.googleId ?? ''),
-        };
-        
-        // Validate normalized player before storing
-        if (typeof normalizedPlayer !== 'object' || normalizedPlayer === null) {
-          throw new Error('Erro ao processar dados do jogador.');
-        }
-
-        localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
-
-        hydratePlayerFromServer(normalizedPlayer);
-
-        // Add a delay to ensure state is fully synchronized before navigation
-        // Increased to 300ms to allow async faction sync to complete
+      if (result?.ok) {
         setTimeout(() => {
           navigate('/game', { replace: true });
         }, 300);
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Erro ao conectar com o servidor. Tente novamente.';
-        setLoginError(message);
-      } finally {
-        setLoginLoading(false);
       }
     };
 
@@ -222,9 +152,9 @@ export default function HomePage() {
     }
   }, [
     googleReady,
-    hydratePlayerFromServer,
-    navigate,
     isAuthenticated,
+    navigate,
+    handleGoogleResponse,
   ]);
 
   const scrollToManifesto = () => {
@@ -239,9 +169,7 @@ export default function HomePage() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('playerData');
-    clearPlayer();
+    logout();
     navigate('/', { replace: true });
   };
 
@@ -409,15 +337,15 @@ export default function HomePage() {
                       />
                     </div>
 
-                    {loginLoading && (
+                    {authLoading && (
                       <p className="mt-4 text-sm text-zinc-300">
                         Conectando ao servidor...
                       </p>
                     )}
 
-                    {loginError && (
+                    {authError && (
                       <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-950/35 px-4 py-3 text-sm text-red-200">
-                        {loginError}
+                        {authError}
                       </div>
                     )}
                   </div>
@@ -444,15 +372,15 @@ export default function HomePage() {
                 />
               </div>
 
-              {loginLoading && (
+              {authLoading && (
                 <p className="mt-4 text-center text-sm text-zinc-300">
                   Conectando ao servidor...
                 </p>
               )}
 
-              {loginError && (
+              {authError && (
                 <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-950/35 px-4 py-3 text-sm text-red-200">
-                  {loginError}
+                  {authError}
                 </div>
               )}
             </div>
