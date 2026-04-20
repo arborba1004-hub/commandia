@@ -3,9 +3,11 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { usePlayerStore } from '@/store/playerStore';
 import { getPlayerRank } from '@/utils/hierarchySystem';
+import { mountFixedMapBuildings } from '@/components/game/fixedMapBuildings';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath(
@@ -148,8 +150,14 @@ function fitModelToFootprint(model: THREE.Object3D, footprint: number) {
 export default function GamePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number>(0);
-  const [mapBootError, setMapBootError] = useState<string | null>(null);
+  const playerBarracoRef = useRef<THREE.Object3D | null>(null);
+  const playerLabelRef = useRef<THREE.Sprite | THREE.Group | null>(null);
+  const messageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [mapBootError, setMapBootError] = useState<string | null>(null);
+  const [mapMessage, setMapMessage] = useState<string | null>(null);
+
+  const navigate = useNavigate();
   const playerState = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
@@ -224,7 +232,7 @@ export default function GamePage() {
     );
 
     const cameraTarget = new THREE.Vector3(worldX, 1.2, worldZ);
-    camera.position.set(worldX + 10, 11, worldZ + 12);
+    camera.position.set(worldX + 16, 18, worldZ + 18);
     camera.lookAt(cameraTarget);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -232,8 +240,8 @@ export default function GamePage() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.maxPolarAngle = Math.PI / 2 - 0.05;
-    controls.minDistance = 10;
-    controls.maxDistance = 70;
+    controls.minDistance = 12;
+    controls.maxDistance = 90;
     controls.update();
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
@@ -308,8 +316,17 @@ export default function GamePage() {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    let playerBarraco: THREE.Object3D | null = null;
-    let playerLabel: THREE.Sprite | THREE.Group | null = null;
+    const showMapMessage = (message: string) => {
+      setMapMessage(message);
+
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
+
+      messageTimeoutRef.current = setTimeout(() => {
+        setMapMessage(null);
+      }, 1800);
+    };
 
     loader.load(
       getBarracoModelUrl(barracoLevel),
@@ -322,13 +339,16 @@ export default function GamePage() {
 
         barraco.position.set(worldX, 0, worldZ);
         barraco.traverse((child) => setMeshQuality(child));
-        playerBarraco = barraco;
+        barraco.userData.isPlayerBarraco = true;
+        barraco.userData.route = '/barraco';
+
+        playerBarracoRef.current = barraco;
         scene.add(barraco);
 
         const playerRank = getPlayerRank(barracoLevel);
         const label = createTextLabel(displayName, playerRank.title);
         label.position.set(worldX, labelY, worldZ);
-        playerLabel = label;
+        playerLabelRef.current = label;
         scene.add(label);
       },
       undefined,
@@ -337,6 +357,49 @@ export default function GamePage() {
         setMapBootError('Erro ao carregar o barraco do jogador');
       }
     );
+
+    const fixedBuildingsLayer = mountFixedMapBuildings({
+      scene,
+      loader,
+      camera,
+      container,
+      onNavigate: (path) => navigate(path),
+      onMessage: (message) => showMapMessage(message),
+    });
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let pointerDownPos = { x: 0, y: 0 };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      pointerDownPos = { x: event.clientX, y: event.clientY };
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!containerRef.current) return;
+
+      const moveDistance =
+        Math.abs(event.clientX - pointerDownPos.x) +
+        Math.abs(event.clientY - pointerDownPos.y);
+
+      if (moveDistance > 5) return;
+
+      const rect = containerRef.current.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+
+      if (playerBarracoRef.current) {
+        const ownHits = raycaster.intersectObject(playerBarracoRef.current, true);
+        if (ownHits.length > 0) {
+          navigate('/barraco');
+          return;
+        }
+      }
+
+      fixedBuildingsLayer.tryHandleBuildingClick(event.clientX, event.clientY);
+    };
 
     const animate = () => {
       controls.update();
@@ -359,19 +422,32 @@ export default function GamePage() {
     };
 
     window.addEventListener('resize', handleResize);
+    container.addEventListener('pointerdown', handlePointerDown);
+    container.addEventListener('pointerup', handlePointerUp);
 
     return () => {
       cancelAnimationFrame(animationFrameRef.current);
-      window.removeEventListener('resize', handleResize);
 
-      controls.dispose();
-
-      if (playerBarraco) {
-        scene.remove(playerBarraco);
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+        messageTimeoutRef.current = null;
       }
 
-      if (playerLabel) {
-        scene.remove(playerLabel);
+      window.removeEventListener('resize', handleResize);
+      container.removeEventListener('pointerdown', handlePointerDown);
+      container.removeEventListener('pointerup', handlePointerUp);
+
+      controls.dispose();
+      fixedBuildingsLayer.cleanup();
+
+      if (playerBarracoRef.current) {
+        scene.remove(playerBarracoRef.current);
+        playerBarracoRef.current = null;
+      }
+
+      if (playerLabelRef.current) {
+        scene.remove(playerLabelRef.current);
+        playerLabelRef.current = null;
       }
 
       platformGeometry.dispose();
@@ -386,7 +462,7 @@ export default function GamePage() {
       renderer.dispose();
       container.innerHTML = '';
     };
-  }, [isLoaded, playerId, barracoLevel, tileX, tileY, displayName]);
+  }, [isLoaded, playerId, barracoLevel, tileX, tileY, displayName, navigate]);
 
   if (!isLoaded || !playerId) {
     return (
@@ -413,7 +489,14 @@ export default function GamePage() {
   return (
     <div className="relative min-h-screen bg-black">
       <Header />
+
       <div className="relative pt-[84px] md:pt-[96px]">
+        {mapMessage && (
+          <div className="pointer-events-none absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-full border border-[#d7a84a]/40 bg-black/75 px-4 py-2 text-sm font-bold text-[#f6d27b] shadow-lg">
+            {mapMessage}
+          </div>
+        )}
+
         <div
           ref={containerRef}
           className="w-full h-[calc(100vh-84px)] md:h-[calc(100vh-96px)] outline-none"
