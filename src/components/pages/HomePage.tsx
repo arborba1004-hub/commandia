@@ -212,6 +212,7 @@ export default function HomePage() {
     googleReady,
     hydratePlayerFromServer,
     navigate,
+    isAuthenticated,
   ]);
 
   const scrollToManifesto = () => {

@@ -825,9 +825,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     });
 
     // Sync faction store synchronously without blocking
-    syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
-      allowClear: (playerData as any)?.factionId == null,
-    });
+    try {
+      syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
+        allowClear: (playerData as any)?.factionId == null,
+      });
+    } catch (error) {
+      console.warn('Erro ao sincronizar factionStore:', error);
+      // Don't throw - allow the app to continue
+    }
   },
 
   applyPlayerUpdate: (updater) => {

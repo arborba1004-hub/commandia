@@ -572,7 +572,7 @@ export default function GamePage() {
   }, [fetchOtherPlayers]);
 
   useEffect(() => {
-    if (!containerRef.current || !isLoaded || !playerId) return;
+    if (!containerRef.current || !isLoaded || !playerId || !playerState) return;
 
     let isMounted = true;
     const container = containerRef.current;
@@ -639,8 +639,8 @@ export default function GamePage() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const myTileX = mapPositionRef.current?.tileX ?? 60;
-    const myTileY = mapPositionRef.current?.tileY ?? 60;
+    const myTileX = playerState?.mapPosition?.tileX ?? 60;
+    const myTileY = playerState?.mapPosition?.tileY ?? 60;
 
     const playerWorldX = (myTileX - GRID_WIDTH / 2) * TILE_SIZE;
     const playerWorldZ = (myTileY - GRID_HEIGHT / 2) * TILE_SIZE;
@@ -990,6 +990,7 @@ const rect = containerRef.current.getBoundingClientRect();
   }, [
     isLoaded,
     playerId,
+    playerState,
   ]);
 
   useEffect(() => {
