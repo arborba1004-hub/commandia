@@ -1076,8 +1076,10 @@ const intersects = raycaster.intersectObject(platform);
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
+    const playersToRender = otherPlayers.slice(0, MAP_PLAYERS_LIMIT);
+
     const currentIds = new Set(
-      otherPlayers.map((p: any) => String(p.id || p._id))
+      playersToRender.map((p: any) => String(p.id || p._id))
     );
 
     Object.keys(enemyBarracoMapRef.current).forEach((playerId) => {
@@ -1093,7 +1095,7 @@ const intersects = raycaster.intersectObject(platform);
       }
     });
 
-    otherPlayers.forEach((p: any) => {
+    playersToRender.forEach((p: any) => {
       const playerId = String(p.id || p._id);
       const posX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
       const posZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
@@ -1111,7 +1113,6 @@ const intersects = raycaster.intersectObject(platform);
           tileY: p.tileY,
           barracoLevel: pLevel,
           power: p.power || 100,
-          dirtyMoney: p.dirtyMoney || 100000,
           factionId: p.factionId ?? null,
         });
 
@@ -1144,7 +1145,6 @@ enemyBarracoLoadingRef.current[playerId] = true;
             tileY: p.tileY,
             barracoLevel: pLevel,
             power: p.power || 100,
-            dirtyMoney: p.dirtyMoney || 100000,
             factionId: p.factionId ?? null,
           });
 
