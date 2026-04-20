@@ -37,6 +37,19 @@ export default function FeatureGateRoute({
     );
   }
 
+  // Validate player is an object
+  if (!player || typeof player !== 'object') {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Erro ao carregar dados do jogador
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
   const requirement = getBranchRequirement(branch, player);
 
   if (!requirement.unlocked) {

@@ -150,6 +150,11 @@ export default function HomePage() {
           throw new Error('Resposta inválida do servidor.');
         }
 
+        // Validate player data is an object
+        if (typeof data.player !== 'object' || data.player === null) {
+          throw new Error('Dados de jogador inválidos recebidos do servidor.');
+        }
+
         localStorage.setItem('authToken', data.token);
 
         const rawPlayer = data.player ?? {};
@@ -157,6 +162,12 @@ export default function HomePage() {
           ...rawPlayer,
           _id: String(rawPlayer._id ?? rawPlayer.id ?? rawPlayer.googleId ?? ''),
         };
+        
+        // Validate normalized player before storing
+        if (typeof normalizedPlayer !== 'object' || normalizedPlayer === null) {
+          throw new Error('Erro ao processar dados do jogador.');
+        }
+
         localStorage.setItem('playerData', JSON.stringify(normalizedPlayer));
 
         hydratePlayerFromServer(normalizedPlayer);

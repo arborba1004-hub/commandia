@@ -16,10 +16,12 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     if (!isLoaded) void loadPlayer();
   }, [isLoaded, loadPlayer]);
 
+  // Validate player is an object
+  const isValidPlayer = player && typeof player === 'object';
   const playerId =
-    (player as any)?._id || (player as any)?.id || player?.googleId || '';
+    isValidPlayer ? ((player as any)?._id || (player as any)?.id || player?.googleId || '') : '';
 
   if (!isLoaded) return <div className="min-h-screen bg-black" />;
-  if (!playerId)  return <Navigate to="/" replace />;
+  if (!playerId || !isValidPlayer)  return <Navigate to="/" replace />;
   return <>{children}</>;
 }

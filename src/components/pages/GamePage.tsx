@@ -574,6 +574,13 @@ export default function GamePage() {
   useEffect(() => {
     if (!containerRef.current || !isLoaded || !playerId || !playerState) return;
 
+    // Validate playerState structure
+    if (typeof playerState !== 'object' || playerState === null) {
+      console.error('Invalid playerState:', playerState);
+      setMapBootError('Dados do jogador inválidos');
+      return;
+    }
+
     let isMounted = true;
     const container = containerRef.current;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);

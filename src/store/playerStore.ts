@@ -513,16 +513,16 @@ const initialPlayer: PlayerState = {
 
 function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   // Safely extract nested values with fallbacks
-  const incomingNiveis = incoming?.niveis || {};
-  const incomingBalances = incoming?.balances || {};
-  const incomingInventory = incoming?.inventory || {};
-  const incomingPageLevels = incoming?.pageLevels || {};
-  const incomingSkills = incoming?.skills || {};
-  const incomingBarracoPosition = incoming?.barracoPosition || {};
-  const incomingMapPosition = incoming?.mapPosition || {};
-  const incomingHeaderCustomization = incoming?.headerCustomization || {};
-  const incomingLaundryProgress = incoming?.laundryProgress || {};
-  const incomingPunishments = incoming?.punishments || {};
+  const incomingNiveis = (incoming?.niveis && typeof incoming.niveis === 'object') ? incoming.niveis : {};
+  const incomingBalances = (incoming?.balances && typeof incoming.balances === 'object') ? incoming.balances : {};
+  const incomingInventory = (incoming?.inventory && typeof incoming.inventory === 'object') ? incoming.inventory : {};
+  const incomingPageLevels = (incoming?.pageLevels && typeof incoming.pageLevels === 'object') ? incoming.pageLevels : {};
+  const incomingSkills = (incoming?.skills && typeof incoming.skills === 'object') ? incoming.skills : {};
+  const incomingBarracoPosition = (incoming?.barracoPosition && typeof incoming.barracoPosition === 'object') ? incoming.barracoPosition : {};
+  const incomingMapPosition = (incoming?.mapPosition && typeof incoming.mapPosition === 'object') ? incoming.mapPosition : {};
+  const incomingHeaderCustomization = (incoming?.headerCustomization && typeof incoming.headerCustomization === 'object') ? incoming.headerCustomization : {};
+  const incomingLaundryProgress = (incoming?.laundryProgress && typeof incoming.laundryProgress === 'object') ? incoming.laundryProgress : {};
+  const incomingPunishments = (incoming?.punishments && typeof incoming.punishments === 'object') ? incoming.punishments : {};
 
   return {
     ...initialPlayer,
@@ -707,11 +707,23 @@ function buildInitialState(): { player: PlayerState; isLoaded: boolean } {
     const stored = readStorage(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
+      // Validate parsed data is an object
+      if (typeof parsed !== 'object' || parsed === null) {
+        console.warn('Stored player data is not a valid object, clearing storage');
+        removeStorage(STORAGE_KEY);
+        return { player: initialPlayer, isLoaded: false };
+      }
       const merged = clearExpiredPunishments(mergePlayer(parsed));
       return { player: merged, isLoaded: true };
     }
-  } catch {
+  } catch (error) {
     // localStorage corrompido — começa do zero
+    console.warn('Erro ao carregar playerData do storage:', error);
+    try {
+      removeStorage(STORAGE_KEY);
+    } catch {
+      // noop
+    }
   }
   return { player: initialPlayer, isLoaded: false };
 }
@@ -738,15 +750,30 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       const stored = readStorage(STORAGE_KEY);
 
       if (stored) {
-        const parsed = JSON.parse(stored);
-        const merged = clearExpiredPunishments(mergePlayer(parsed));
+        try {
+          const parsed = JSON.parse(stored);
+          // Validate parsed data is an object
+          if (typeof parsed !== 'object' || parsed === null) {
+            throw new Error('Stored player data is not a valid object');
+          }
+          const merged = clearExpiredPunishments(mergePlayer(parsed));
 
-        set({
-          player: merged,
-          isLoaded: true,
-          syncError: null,
-          lastSyncAt: Date.now(),
-        });
+          set({
+            player: merged,
+            isLoaded: true,
+            syncError: null,
+            lastSyncAt: Date.now(),
+          });
+        } catch (parseError) {
+          console.error('Erro ao parsear playerData armazenado:', parseError);
+          removeStorage(STORAGE_KEY);
+          set({
+            player: initialPlayer,
+            isLoaded: true,
+            syncError: null,
+            lastSyncAt: Date.now(),
+          });
+        }
       } else {
         set({
           player: initialPlayer,
@@ -761,6 +788,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       try {
         const serverEnvelope = await fetchCurrentPlayerWithFaction();
         if (!serverEnvelope?.player) return;
+
+        // Validate server player data
+        if (typeof serverEnvelope.player !== 'object' || serverEnvelope.player === null) {
+          console.error('Invalid player data from server');
+          return;
+        }
 
         const mergedServer = persistMergedPlayer(serverEnvelope.player);
 
@@ -812,26 +845,48 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   hydratePlayerFromServer: (playerData) => {
-    const merged = persistMergedPlayer(playerData);
-
-    set({
-      player: merged,
-      isLoaded: true,
-      syncError: null,
-      lastSyncAt: Date.now(),
-      lastServerHydrationAt: Date.now(),
-      pollingAttempts: 0,
-      pendingLocalChanges: false,
-    });
-
-    // Sync faction store synchronously without blocking
     try {
-      syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
-        allowClear: (playerData as any)?.factionId == null,
+      // Validate incoming data is an object
+      if (!playerData || typeof playerData !== 'object') {
+        console.error('Invalid playerData received:', playerData);
+        set({
+          player: initialPlayer,
+          isLoaded: true,
+          syncError: 'Dados de jogador inválidos',
+          lastSyncAt: Date.now(),
+        });
+        return;
+      }
+
+      const merged = persistMergedPlayer(playerData);
+
+      set({
+        player: merged,
+        isLoaded: true,
+        syncError: null,
+        lastSyncAt: Date.now(),
+        lastServerHydrationAt: Date.now(),
+        pollingAttempts: 0,
+        pendingLocalChanges: false,
       });
+
+      // Sync faction store synchronously without blocking
+      try {
+        syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
+          allowClear: (playerData as any)?.factionId == null,
+        });
+      } catch (error) {
+        console.warn('Erro ao sincronizar factionStore:', error);
+        // Don't throw - allow the app to continue
+      }
     } catch (error) {
-      console.warn('Erro ao sincronizar factionStore:', error);
-      // Don't throw - allow the app to continue
+      console.error('Erro ao hidratar playerData:', error);
+      set({
+        player: initialPlayer,
+        isLoaded: true,
+        syncError: 'Erro ao processar dados do servidor',
+        lastSyncAt: Date.now(),
+      });
     }
   },
 
