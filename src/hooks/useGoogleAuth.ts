@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 
 export interface PlayerData {
@@ -60,9 +60,7 @@ function removeStorage(key: string) {
 function normalizePlayer(rawPlayer: any): PlayerData {
   return {
     ...(rawPlayer || {}),
-    _id: String(
-      rawPlayer?._id ?? rawPlayer?.id ?? rawPlayer?.googleId ?? ''
-    ),
+    _id: String(rawPlayer?._id ?? rawPlayer?.id ?? rawPlayer?.googleId ?? ''),
   };
 }
 
@@ -81,7 +79,7 @@ export function useGoogleAuth() {
   const startPolling = usePlayerStore((state) => state.startPolling);
   const stopPolling = usePlayerStore((state) => state.stopPolling);
 
-  useEffect(() => {
+  const restoreSession = useCallback(() => {
     const token = readStorage(STORAGE_KEY_TOKEN);
     const playerJson = readStorage(STORAGE_KEY_PLAYER);
 
@@ -123,78 +121,85 @@ export function useGoogleAuth() {
     }
   }, [hydratePlayerFromServer, startPolling]);
 
-  const handleGoogleResponse = async (response: any) => {
-    try {
-      setAuthState((prev) => ({
-        ...prev,
-        isLoading: true,
-        error: null,
-      }));
+  useEffect(() => {
+    restoreSession();
+  }, [restoreSession]);
 
-      const credential = response?.credential;
+  const handleGoogleResponse = useCallback(
+    async (response: any) => {
+      try {
+        setAuthState((prev) => ({
+          ...prev,
+          isLoading: true,
+          error: null,
+        }));
 
-      if (!credential || typeof credential !== 'string') {
-        throw new Error('Sem credencial do Google');
+        const credential = response?.credential;
+
+        if (!credential || typeof credential !== 'string') {
+          throw new Error('Sem credencial do Google');
+        }
+
+        const backendResponse = await fetch(`${BACKEND_URL}/auth/google`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({ token: credential }),
+        });
+
+        const data = await backendResponse.json().catch(() => null);
+
+        if (!backendResponse.ok) {
+          throw new Error(
+            data?.error || data?.message || 'Falha na autenticação'
+          );
+        }
+
+        if (!data?.token || !data?.player) {
+          throw new Error('Resposta inválida do backend');
+        }
+
+        const normalizedPlayer = normalizePlayer(data.player);
+
+        writeStorage(STORAGE_KEY_TOKEN, data.token);
+        writeStorage(STORAGE_KEY_PLAYER, JSON.stringify(normalizedPlayer));
+
+        hydratePlayerFromServer(normalizedPlayer);
+        startPolling();
+
+        setAuthState({
+          authToken: data.token,
+          playerData: normalizedPlayer,
+          isLoading: false,
+          error: null,
+        });
+
+        return {
+          ok: true,
+          token: data.token,
+          player: normalizedPlayer,
+        };
+      } catch (error) {
+        console.error('Erro login Google:', error);
+
+        setAuthState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: error instanceof Error ? error.message : 'Erro no login',
+        }));
+
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : 'Erro no login',
+        };
       }
+    },
+    [hydratePlayerFromServer, startPolling]
+  );
 
-      const backendResponse = await fetch(`${BACKEND_URL}/auth/google`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ token: credential }),
-      });
-
-      const data = await backendResponse.json().catch(() => null);
-
-      if (!backendResponse.ok) {
-        throw new Error(
-          data?.error || data?.message || 'Falha na autenticação'
-        );
-      }
-
-      if (!data?.token || !data?.player) {
-        throw new Error('Resposta inválida do backend');
-      }
-
-      const normalizedPlayer = normalizePlayer(data.player);
-
-      writeStorage(STORAGE_KEY_TOKEN, data.token);
-      writeStorage(STORAGE_KEY_PLAYER, JSON.stringify(normalizedPlayer));
-
-      hydratePlayerFromServer(normalizedPlayer);
-      startPolling();
-
-      setAuthState({
-        authToken: data.token,
-        playerData: normalizedPlayer,
-        isLoading: false,
-        error: null,
-      });
-
-      return {
-        ok: true,
-        token: data.token,
-        player: normalizedPlayer,
-      };
-    } catch (error) {
-      console.error('Erro login Google:', error);
-
-      setAuthState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Erro no login',
-      }));
-
-      return {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Erro no login',
-      };
-    }
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
     removeStorage(STORAGE_KEY_TOKEN);
     removeStorage(STORAGE_KEY_PLAYER);
 
@@ -207,7 +212,7 @@ export function useGoogleAuth() {
       isLoading: false,
       error: null,
     });
-  };
+  }, [clearPlayer, stopPolling]);
 
   const isAuthenticated = Boolean(authState.authToken && authState.playerData);
 
