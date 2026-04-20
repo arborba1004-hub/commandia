@@ -73,9 +73,20 @@ export default function HomePage() {
 
   // Load achievements from localStorage and check for new unlocks
   useEffect(() => {
-    const stored = localStorage.getItem('unlockedAchievements');
-    if (stored) {
-      loadAchievements(JSON.parse(stored));
+    try {
+      const stored = localStorage.getItem('unlockedAchievements');
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored);
+
+      if (Array.isArray(parsed)) {
+        loadAchievements(parsed);
+      } else {
+        localStorage.removeItem('unlockedAchievements');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar achievements do localStorage:', error);
+      localStorage.removeItem('unlockedAchievements');
     }
   }, [loadAchievements]);
 
