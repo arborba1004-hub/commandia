@@ -1029,6 +1029,9 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
       clearInterval(pollingInterval);
       pollingInterval = null;
     }
+
+    pollingRequestInFlight = false;
+
     set({ isPolling: false });
   },
 
@@ -1036,6 +1039,14 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
     const token = getStoredAuthToken();
     if (!token) {
       get().stopPolling();
+      return;
+    }
+
+    if (document.visibilityState === 'hidden') {
+      return;
+    }
+
+    if (pollingRequestInFlight) {
       return;
     }
 
@@ -1049,6 +1060,8 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
     if (get().pendingLocalChanges && now - get().lastLocalMutationAt < 8000) {
       return;
     }
+
+    pollingRequestInFlight = true;
 
     try {
       const serverEnvelope = await fetchCurrentPlayerWithFaction();
@@ -1085,6 +1098,8 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
           removeStorage('authToken');
         }
       }
+    } finally {
+      pollingRequestInFlight = false;
     }
   },
 
