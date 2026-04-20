@@ -159,14 +159,6 @@ function getBarracoModelUrl(level: number) {
   );
 }
 
-// Helper to get current map position and barraco level from refs
-function getCurrentMapState(playerState: any) {
-  return {
-    mapPosition: playerState?.mapPosition,
-    barracoLevel: playerState?.niveis?.barracoLevel,
-  };
-}
-
 function createTextLabel(text: string, rank?: string): THREE.Sprite | THREE.Group {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -211,7 +203,6 @@ function setMeshQuality(child: any, buildingKey?: string) {
     child.castShadow = true;
     child.receiveShadow = true;
 
-    // Aplica emissive/roughness em todos os prédios, incluindo CT
     if (child.material) {
       child.material.metalness = 0;
       child.material.roughness = 0.8;
@@ -265,8 +256,8 @@ export default function GamePage() {
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
   const animationFrameRef = useRef<number>(0);
+  
   const previousLevelRef = useRef<number | null>(null);
-  const mapPositionRef = useRef<any>(null);
   const barracoLevelRef = useRef<number | null>(null);
 
   const navigate = useNavigate();
@@ -431,7 +422,7 @@ export default function GamePage() {
                 createdAt: new Date().toISOString(),
               });
 
-              addNotification({
+addNotification({
                 id: `battle_${report.battleId}`,
                 type: report.resolution.success ? 'attack_success' : 'attack_failed',
                 attackerId: report.attacker.playerId,
@@ -510,12 +501,6 @@ export default function GamePage() {
     }
   }, [isLoaded, loadPlayer]);
 
-  // Synchronize refs with player state
-  useEffect(() => {
-    mapPositionRef.current = playerState?.mapPosition;
-    barracoLevelRef.current = playerState?.niveis?.barracoLevel;
-  }, [playerState?.mapPosition, playerState?.niveis?.barracoLevel]);
-
   useEffect(() => {
     const currentLevel = playerState?.niveis?.barracoLevel;
     if (!currentLevel) return;
@@ -547,7 +532,6 @@ export default function GamePage() {
     };
   }, [isLoaded, startPolling, stopPolling]);
 
-  // Memoize currentPlayerId to prevent unnecessary recalculations
   const currentPlayerId = useMemo(() => {
     return (
       (playerState as any)?._id ||
@@ -555,16 +539,14 @@ export default function GamePage() {
       playerState?.googleId ||
       null
     );
-  }, [playerState?._id, playerState?.googleId]);
+  }, [playerState]);
 
   const fetchOtherPlayers = useCallback(async () => {
     try {
       const data = await fetchOtherPlayersMap();
-
       const filtered = data.filter(
         (p) => String(p.id || p._id) !== String(currentPlayerId)
       );
-
       setOtherPlayers(filtered);
     } catch (error) {
       console.error('Erro no polling de players:', error);
@@ -585,17 +567,10 @@ export default function GamePage() {
     };
   }, [currentPlayerId, fetchOtherPlayers]);
 
+  // ========== INICIALIZAÇÃO DA CENA (executa apenas uma vez) ==========
   useEffect(() => {
     if (!containerRef.current || !isLoaded || !playerId || !playerState) return;
 
-    // Validate playerState structure
-    if (typeof playerState !== 'object' || playerState === null) {
-      console.error('Invalid playerState:', playerState);
-      setMapBootError('Dados do jogador inválidos');
-      return;
-    }
-
-    let isMounted = true;
     const container = containerRef.current;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -606,7 +581,6 @@ export default function GamePage() {
     enemyBarracoLoadingRef.current = {};
 
     let renderer: THREE.WebGLRenderer;
-
     try {
       renderer = new THREE.WebGLRenderer({
         antialias: false,
@@ -630,7 +604,6 @@ export default function GamePage() {
     if (!isMobile) {
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
-
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -644,21 +617,24 @@ export default function GamePage() {
       opacity: 0.4,
       side: THREE.DoubleSide,
     });
-
     const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
     highlight.rotation.x = -Math.PI / 2;
     highlight.position.y = 0.05;
     highlight.visible = false;
     scene.add(highlight);
+    highlightRef.current = highlight;
 
     const playerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
     const playerModel = new THREE.Mesh(playerGeometry, playerMaterial);
     playerModel.position.set(0, 0.3, 0);
     scene.add(playerModel);
+    playerMarkerRef.current = playerModel;
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+    raycasterRef.current = raycaster;
+    mouseRef.current = mouse;
 
     const myTileX = playerState?.mapPosition?.tileX ?? 60;
     const myTileY = playerState?.mapPosition?.tileY ?? 60;
@@ -672,6 +648,7 @@ export default function GamePage() {
       0.1,
       1000
     );
+    cameraRef.current = camera;
 
     const cameraTarget = new THREE.Vector3(playerWorldX, 1.2, playerWorldZ);
     camera.position.set(playerWorldX + 10, 11, playerWorldZ + 12);
@@ -685,8 +662,9 @@ export default function GamePage() {
     controls.minDistance = 10;
     controls.maxDistance = 70;
     controls.update();
+    controlsRef.current = controls;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
+const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
     scene.add(ambientLight);
 
     const dirLight = new THREE.DirectionalLight(0xffffff, isMobile ? 1.35 : 2.2);
@@ -701,64 +679,57 @@ export default function GamePage() {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    const loadedObjects: THREE.Object3D[] = [];
+    // Função para atualizar o barraco do jogador
+    const updatePlayerBarraco = (newLevel: number, newTileX: number, newTileY: number) => {
+      if (!sceneRef.current) return;
+      const worldX = (newTileX - GRID_WIDTH / 2) * TILE_SIZE;
+      const worldZ = (newTileY - GRID_HEIGHT / 2) * TILE_SIZE;
 
-    loader.load(
-      getBarracoModelUrl(level),
-      (gltf) => {
-        if (!isMounted) return;
+      if (playerBarracoRef.current) {
+        scene.remove(playerBarracoRef.current);
+      }
+      if (playerLabelRef.current) {
+        scene.remove(playerLabelRef.current);
+      }
 
-        const barraco = gltf.scene;
-        const { labelY } = fitModelToFootprint(barraco, getBarracoSize(barracoLevelRef.current || level));
+      loader.load(
+        getBarracoModelUrl(newLevel),
+        (gltf) => {
+          const barraco = gltf.scene;
+          const { labelY } = fitModelToFootprint(barraco, getBarracoSize(newLevel));
+          barraco.position.set(worldX, 0, worldZ);
+          barraco.traverse((child) => setMeshQuality(child, 'barraco'));
+          barraco.userData.route = '/barraco';
+          barraco.userData.type = 'player_barraco';
+          playerBarracoRef.current = barraco;
+          scene.add(barraco);
 
-        barraco.position.x = playerWorldX;
-        barraco.position.z = playerWorldZ;
-        barraco.traverse((child) => setMeshQuality(child, 'barraco'));
+          const playerRank = getPlayerRank(newLevel);
+          const label = createTextLabel(displayName, playerRank.title);
+          label.position.set(worldX, labelY, worldZ);
+          playerLabelRef.current = label;
+          scene.add(label);
+        },
+        undefined,
+        (error) => console.error('❌ Erro crítico ao carregar o barraco:', error)
+      );
+    };
 
-        barraco.userData.route = '/barraco';
-        barraco.userData.type = 'player_barraco';
-        playerBarracoRef.current = barraco;
+    // Inicializa o barraco
+    const initialLevel = playerState?.niveis?.barracoLevel || 1;
+    const initialTileX = playerState?.mapPosition?.tileX ?? 60;
+    const initialTileY = playerState?.mapPosition?.tileY ?? 60;
+    updatePlayerBarraco(initialLevel, initialTileX, initialTileY);
 
-        scene.add(barraco);
-        loadedObjects.push(barraco);
-
-        const playerRank = getPlayerRank(level);
-        const label = createTextLabel(displayName, playerRank.title);
-        label.position.set(playerWorldX, labelY, playerWorldZ);
-        scene.add(label);
-        loadedObjects.push(label);
-
-        const reservedArea = new THREE.Mesh(
-          new THREE.PlaneGeometry(4, 4),
-          new THREE.MeshBasicMaterial({
-            color: 0xffaa00,
-            transparent: true,
-            opacity: 0.22,
-            side: THREE.DoubleSide,
-          })
-        );
-        reservedArea.rotation.x = -Math.PI / 2;
-        reservedArea.position.set(playerWorldX, 0.06, playerWorldZ);
-        scene.add(reservedArea);
-        loadedObjects.push(reservedArea);
-      },
-      undefined,
-      (error) => console.error('❌ Erro crítico ao carregar o barraco:', error)
-    );
-
+    // Carrega prédios do complexo
     COMPLEXO_BUILDINGS.forEach((building) => {
       loader.load(
         building.url,
         (gltf) => {
-          if (!isMounted) return;
-
           const model = gltf.scene;
           const { labelY } = fitModelToFootprint(model, building.footprint);
-
-          model.position.x = building.x;
-          model.position.z = building.z;
+          model.position.set(building.x, 0, building.z);
           model.traverse((child) => setMeshQuality(child, building.key));
-
           model.userData.route = building.path;
           model.userData.type = 'public_building';
           model.userData.name = building.name;
@@ -769,10 +740,7 @@ export default function GamePage() {
 
           scene.add(model);
           scene.add(label);
-
           publicBuildingsRef.current.push(model);
-          loadedObjects.push(model);
-          loadedObjects.push(label);
         },
         undefined,
         (error) => console.error(`❌ Erro ao carregar prédio ${building.name}:`, error)
@@ -850,7 +818,7 @@ export default function GamePage() {
         Math.abs(event.clientY - pointerDownPos.y);
       if (moveDistance > 5) return;
 
-const rect = containerRef.current.getBoundingClientRect();
+      const rect = containerRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -880,9 +848,6 @@ const rect = containerRef.current.getBoundingClientRect();
       const target = pickEnemyBarracoFromIntersections(enemyHits);
 
       if (target && playerState) {
-        // Abre o preview imediatamente com dados básicos do alvo
-        // A estimativa é carregada em background — se falhar, o modal
-        // ainda abre com estimativas zeradas em vez de não abrir nada.
         useMapAttackStore.getState().openPreview({
           origin: {
             playerId,
@@ -895,7 +860,6 @@ const rect = containerRef.current.getBoundingClientRect();
           estimatedChance: 0,
         });
 
-        // Carrega a estimativa real e atualiza o preview
         (async () => {
           try {
             const estimate = await getAttackEstimate({ targetId: target.playerId });
@@ -909,8 +873,7 @@ const rect = containerRef.current.getBoundingClientRect();
         })();
         return;
       }
-
-      const intersects = raycaster.intersectObject(platform);
+const intersects = raycaster.intersectObject(platform);
       if (intersects.length > 0) {
         const point = intersects[0].point;
         const tileX = Math.floor(point.x + GRID_WIDTH / 2);
@@ -939,6 +902,7 @@ const rect = containerRef.current.getBoundingClientRect();
       animationId = requestAnimationFrame(animate);
     };
     animate();
+    animationFrameRef.current = animationId;
 
     const handleResize = () => {
       if (!containerRef.current) return;
@@ -952,13 +916,10 @@ const rect = containerRef.current.getBoundingClientRect();
     container.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      isMounted = false;
-      cancelAnimationFrame(animationId);
-
+      cancelAnimationFrame(animationFrameRef.current);
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('pointerdown', handlePointerDown);
       container.removeEventListener('pointerup', handlePointerUp);
-
       controls.dispose();
 
       if (activeAnimationRef.current?.stop) {
@@ -976,21 +937,7 @@ const rect = containerRef.current.getBoundingClientRect();
       enemyBarracoMapRef.current = {};
       enemyBarracoLoadingRef.current = {};
 
-      loadedObjects.forEach((obj) => {
-        scene.remove(obj);
-        obj.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            mesh.geometry.dispose();
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach((mat) => mat.dispose());
-            } else if (mesh.material) {
-              mesh.material.dispose();
-            }
-          }
-        });
-      });
-
+      // Dispose de recursos
       highlightGeometry.dispose();
       highlightMaterial.dispose();
       playerGeometry.dispose();
@@ -1003,17 +950,82 @@ const rect = containerRef.current.getBoundingClientRect();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
-
       renderer.dispose();
       sceneRef.current = null;
       rendererRef.current = null;
     };
-  }, [
-    isLoaded,
-    playerId,
-    playerState,
-  ]);
+  }, [isLoaded, playerId]); // Dependências mínimas
 
+  // ========== ATUALIZAÇÃO GRANULAR: BARRACO DO JOGADOR ==========
+  useEffect(() => {
+    if (!sceneRef.current || !playerState) return;
+
+    const newLevel = playerState?.niveis?.barracoLevel;
+    const newTileX = playerState?.mapPosition?.tileX;
+    const newTileY = playerState?.mapPosition?.tileY;
+
+    if (!newLevel || newTileX === undefined || newTileY === undefined) return;
+
+    const worldX = (newTileX - GRID_WIDTH / 2) * TILE_SIZE;
+    const worldZ = (newTileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+    // Se o nível mudou, recarregar o modelo
+    if (barracoLevelRef.current !== newLevel) {
+      const loader = new GLTFLoader();
+      loader.setDRACOLoader(dracoLoader);
+
+      if (playerBarracoRef.current) {
+        sceneRef.current.remove(playerBarracoRef.current);
+      }
+      if (playerLabelRef.current) {
+        sceneRef.current.remove(playerLabelRef.current);
+      }
+
+      loader.load(
+        getBarracoModelUrl(newLevel),
+        (gltf) => {
+          const barraco = gltf.scene;
+          const { labelY } = fitModelToFootprint(barraco, getBarracoSize(newLevel));
+          barraco.position.set(worldX, 0, worldZ);
+          barraco.traverse((child) => setMeshQuality(child, 'barraco'));
+          barraco.userData.route = '/barraco';
+          barraco.userData.type = 'player_barraco';
+          playerBarracoRef.current = barraco;
+          sceneRef.current?.add(barraco);
+
+          const playerRank = getPlayerRank(newLevel);
+          const label = createTextLabel(displayName, playerRank.title);
+          label.position.set(worldX, labelY, worldZ);
+          playerLabelRef.current = label;
+          sceneRef.current?.add(label);
+        },
+        undefined,
+        (error) => console.error('Erro ao recarregar barraco:', error)
+      );
+
+      barracoLevelRef.current = newLevel;
+    } else {
+      // Apenas move o modelo existente
+      if (playerBarracoRef.current) {
+        playerBarracoRef.current.position.set(worldX, playerBarracoRef.current.position.y, worldZ);
+      }
+      if (playerLabelRef.current) {
+        playerLabelRef.current.position.set(worldX, playerLabelRef.current.position.y, worldZ);
+      }
+    }
+
+    // Atualiza posição do marcador
+    if (playerMarkerRef.current) {
+      playerMarkerRef.current.position.set(worldX + 0.5, 0.3, worldZ + 0.5);
+    }
+
+    // Atualiza target da câmera
+    if (controlsRef.current) {
+      controlsRef.current.target.set(worldX, 1.2, worldZ);
+    }
+  }, [playerState?.niveis?.barracoLevel, playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, displayName]);
+
+  // ========== ATUALIZAÇÃO DOS BARRACOS INIMIGOS ==========
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
@@ -1071,7 +1083,7 @@ const rect = containerRef.current.getBoundingClientRect();
         return;
       }
 
-      enemyBarracoLoadingRef.current[playerId] = true;
+enemyBarracoLoadingRef.current[playerId] = true;
 
       loader.load(
         getBarracoModelUrl(pLevel),
