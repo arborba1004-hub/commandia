@@ -1040,6 +1040,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       const serverEnvelope = await fetchCurrentPlayerWithFaction();
       if (!serverEnvelope?.player) return;
 
+      // Validate server player data is an object
+      if (typeof serverEnvelope.player !== 'object' || serverEnvelope.player === null) {
+        console.error('Invalid player data from server polling');
+        return;
+      }
+
       const merged = persistMergedPlayer(serverEnvelope.player);
 
       set({
@@ -1052,9 +1058,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       });
 
       // Sync faction store synchronously without blocking
-      syncFactionStoreFromEnvelope(serverEnvelope.faction, {
-        allowClear: serverEnvelope.player?.factionId == null,
-      });
+      try {
+        syncFactionStoreFromEnvelope(serverEnvelope.faction, {
+          allowClear: serverEnvelope.player?.factionId == null,
+        });
+      } catch (factionError) {
+        console.warn('Erro ao sincronizar factionStore durante polling:', factionError);
+        // Don't throw - allow polling to continue
+      }
     } catch (error: any) {
       console.error('Erro ao fazer polling do player:', error);
 

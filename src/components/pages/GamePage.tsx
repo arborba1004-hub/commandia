@@ -539,11 +539,15 @@ export default function GamePage() {
     };
   }, [isLoaded, startPolling, stopPolling]);
 
-  const currentPlayerId =
-    (playerState as any)?._id ||
-    (playerState as any)?.id ||
-    playerState?.googleId ||
-    null;
+  // Memoize currentPlayerId to prevent unnecessary recalculations
+  const currentPlayerId = useMemo(() => {
+    return (
+      (playerState as any)?._id ||
+      (playerState as any)?.id ||
+      playerState?.googleId ||
+      null
+    );
+  }, [playerState?._id, playerState?.googleId]);
 
   const fetchOtherPlayers = useCallback(async () => {
     try {
@@ -560,6 +564,8 @@ export default function GamePage() {
   }, [currentPlayerId]);
 
   useEffect(() => {
+    if (!currentPlayerId) return;
+
     void fetchOtherPlayers();
 
     const playersInterval = setInterval(() => {
@@ -569,7 +575,7 @@ export default function GamePage() {
     return () => {
       clearInterval(playersInterval);
     };
-  }, [fetchOtherPlayers]);
+  }, [currentPlayerId, fetchOtherPlayers]);
 
   useEffect(() => {
     if (!containerRef.current || !isLoaded || !playerId || !playerState) return;
