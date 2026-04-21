@@ -1,6 +1,59 @@
 import * as THREE from 'three';
 import { FIXED_BUILDINGS } from '@/components/game/fixedMapBuildings';
 
+const BARRACO_MODELS = [
+  {
+    min: 1,
+    max: 9,
+    url: 'https://static.wixstatic.com/3d/50f4bf_0a763db5131547a588ce702d6de0a388.glb',
+  },
+  {
+    min: 10,
+    max: 19,
+    url: 'https://static.wixstatic.com/3d/50f4bf_134ce80560954ebb890dd74baed878e0.glb',
+  },
+  {
+    min: 20,
+    max: 29,
+    url: 'https://static.wixstatic.com/3d/50f4bf_a089f0d52f38465f8db77877509f12d6.glb',
+  },
+  {
+    min: 30,
+    max: 39,
+    url: 'https://static.wixstatic.com/3d/50f4bf_f78d5d13df3d4a9e9b62061425cc4f30.glb',
+  },
+  {
+    min: 40,
+    max: 49,
+    url: 'https://static.wixstatic.com/3d/50f4bf_fcfd85e45b61474eab924ba144e1b256.glb',
+  },
+  {
+    min: 50,
+    max: 59,
+    url: 'https://static.wixstatic.com/3d/50f4bf_8ddf8382a1d24e1d8003a7d851132a11.glb',
+  },
+  {
+    min: 60,
+    max: 69,
+    url: 'https://static.wixstatic.com/3d/50f4bf_97904fbc3ca74bb094a29e7052c79fb4.glb',
+  },
+  {
+    min: 70,
+    max: 79,
+    url: 'https://static.wixstatic.com/3d/50f4bf_5e9f2aa54cf041b29f49258cc63eb746.glb',
+  },
+  {
+    min: 80,
+    max: 89,
+    url: 'https://static.wixstatic.com/3d/50f4bf_ac1c5e207bbc425f80619a581e2e2cba.glb',
+  },
+  {
+    min: 90,
+    max: 100,
+    url: 'https://static.wixstatic.com/3d/50f4bf_a8dd587eba644115b376b9a0b0dc67d5.glb',
+  },
+];
+
 export const PLAYER_SPACE_WIDTH = 6;
 export const PLAYER_SPACE_HEIGHT = 6;
 
@@ -30,7 +83,6 @@ export type PlayerMapSpaceOptions = {
 export type MountedPlayerMapSpace = {
   group: THREE.Group;
   spaceMesh: THREE.Mesh;
-  playerMarkerMesh: THREE.Mesh;
   tileX: number;
   tileY: number;
   worldX: number;
@@ -63,6 +115,14 @@ function distanceSq(ax: number, ay: number, bx: number, by: number): number {
   const dx = ax - bx;
   const dy = ay - by;
   return dx * dx + dy * dy;
+}
+
+function getBarracoTileFootprint(level: number) {
+  if (level >= 70) return 6;
+  if (level >= 50) return 5;
+  if (level >= 40) return 4;
+  if (level >= 20) return 3;
+  return 2;
 }
 
 export function getPlayerSpaceRect(tileX: number, tileY: number): PlayerSpaceRect {
@@ -298,23 +358,6 @@ export function mountPlayerMapSpace({
   spaceMesh.rotation.x = -Math.PI / 2;
   group.add(spaceMesh);
 
-  const markerGeometry = new THREE.BoxGeometry(
-    2 * tileSize,
-    2 * tileSize,
-    2 * tileSize
-  );
-
-  const markerMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    roughness: 0.9,
-    metalness: 0,
-  });
-
-  const playerMarkerMesh = new THREE.Mesh(markerGeometry, markerMaterial);
-  playerMarkerMesh.castShadow = true;
-  playerMarkerMesh.receiveShadow = true;
-  group.add(playerMarkerMesh);
-
   function applyPosition(nextTileX: number, nextTileY: number, nextOccupiedOrigins: TileOrigin[] = []) {
     const resolved = resolvePlayerSpawnSpace(
       nextTileX,
@@ -326,7 +369,6 @@ export function mountPlayerMapSpace({
 
     group.position.set(resolved.worldX, 0, resolved.worldZ);
     spaceMesh.position.set(0, baseY, 0);
-    playerMarkerMesh.position.set(0, tileSize, 0);
 
     mounted.tileX = resolved.tileX;
     mounted.tileY = resolved.tileY;
@@ -337,7 +379,6 @@ export function mountPlayerMapSpace({
   const mounted: MountedPlayerMapSpace = {
     group,
     spaceMesh,
-    playerMarkerMesh,
     tileX: 0,
     tileY: 0,
     worldX: 0,
@@ -351,8 +392,6 @@ export function mountPlayerMapSpace({
       scene.remove(group);
       spaceGeometry.dispose();
       spaceMaterial.dispose();
-      markerGeometry.dispose();
-      markerMaterial.dispose();
     },
   };
 
