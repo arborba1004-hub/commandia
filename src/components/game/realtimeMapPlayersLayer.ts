@@ -192,24 +192,29 @@ export function mountRealtimeMapPlayersLayer({
       const level = player.barracoLevel || 1;
       const scale = getHouseScale(level);
 
-      const worldX = (player.tileX - gridWidth / 2) * tileSize + 0.5;
-      const worldZ = (player.tileY - gridHeight / 2) * tileSize + 0.5;
+      const { worldX, worldZ } = getLotWorldCenter(
+        player.tileX,
+        player.tileY,
+        gridWidth,
+        gridHeight,
+        tileSize
+      );
 
-      bodyDummy.position.set(worldX, 0.52 * scale, worldZ);
+      bodyDummy.position.set(worldX, FOUNDATION_HEIGHT + 0.52 * scale, worldZ);
       bodyDummy.rotation.set(0, 0, 0);
       bodyDummy.scale.setScalar(scale);
       bodyDummy.updateMatrix();
       bodyMesh.setMatrixAt(i, bodyDummy.matrix);
       bodyMesh.setColorAt(i, getWallColor(level));
 
-      roofDummy.position.set(worldX, 1.42 * scale, worldZ);
+      roofDummy.position.set(worldX, FOUNDATION_HEIGHT + 1.42 * scale, worldZ);
       roofDummy.rotation.set(0, 0, 0);
       roofDummy.scale.setScalar(scale);
       roofDummy.updateMatrix();
       roofMesh.setMatrixAt(i, roofDummy.matrix);
       roofMesh.setColorAt(i, getRoofColor(level));
 
-      lotDummy.position.set(worldX, 0.03, worldZ);
+      lotDummy.position.set(worldX, FOUNDATION_HEIGHT / 2, worldZ);
       lotDummy.rotation.set(0, 0, 0);
       lotDummy.scale.setScalar(scale);
       lotDummy.updateMatrix();
