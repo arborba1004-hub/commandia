@@ -181,6 +181,8 @@ function fitModelToFootprint(model: THREE.Object3D, footprint: number) {
 
   const groundedBox = new THREE.Box3().setFromObject(model);
   model.position.y -= groundedBox.min.y;
+  
+  return { labelY: groundedBox.max.y };
 }
 
 function createLabelSprite(text: string): THREE.Sprite {
@@ -325,16 +327,32 @@ async function loadBarracoTemplate(
   return promise;
 }
 
+function getBarracoConfig(level: number) {
+  return (
+    BARRACO_MODELS.find((item) => level >= item.min && level <= item.max) ??
+    BARRACO_MODELS[0]
+  );
+}
+
+function getBarracoTileFootprint(level: number) {
+  if (level >= 70) return 6;
+  if (level >= 50) return 5;
+  if (level >= 40) return 4;
+  if (level >= 20) return 3;
+  return 2;
+}
+
 async function buildBarracoModel(
   loader: GLTFLoader,
-  barracoLevel: number
+  barracoLevel: number,
+  tileSize: number
 ): Promise<THREE.Object3D> {
   const modelUrl = getBarracoModelUrl(barracoLevel);
   const template = await loadBarracoTemplate(loader, modelUrl);
   const clone = template.clone(true);
 
   clone.traverse((child) => setMeshQuality(child));
-  fitModelToFootprint(clone, getBarracoFootprint(barracoLevel));
+  fitModelToFootprint(clone, getBarracoTileFootprint(barracoLevel) * tileSize);
 
   return clone;
 }
@@ -428,7 +446,7 @@ export function mountRealtimeMapPlayersLayer({
       return;
     }
 
-    const model = await buildBarracoModel(loader, nextLevel);
+    const model = await buildBarracoModel(loader, nextLevel, tileSize);
 
     if (disposed) {
       disposeObject(model);
