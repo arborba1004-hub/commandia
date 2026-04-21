@@ -338,6 +338,42 @@ export default function GamePage() {
 
     scene.add(gridGroup);
 
+    const lotBaseGeometry = new THREE.BoxGeometry(
+      LOT_SIZE_TILES * TILE_SIZE,
+      FOUNDATION_HEIGHT,
+      LOT_SIZE_TILES * TILE_SIZE
+    );
+
+    const lotBaseMaterial = new THREE.MeshStandardMaterial({
+      color: '#4b3a2b',
+      roughness: 1,
+      metalness: 0,
+    });
+
+    const lotBase = new THREE.Mesh(lotBaseGeometry, lotBaseMaterial);
+    lotBase.position.set(worldX, FOUNDATION_HEIGHT / 2, worldZ);
+    lotBase.receiveShadow = true;
+    lotBase.castShadow = true;
+    scene.add(lotBase);
+
+    const footprintGeometry = new THREE.PlaneGeometry(
+      barracoFootprintTiles * TILE_SIZE,
+      barracoFootprintTiles * TILE_SIZE
+    );
+
+    const footprintMaterial = new THREE.MeshBasicMaterial({
+      color: 0xd9b764,
+      transparent: true,
+      opacity: 0.18,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
+    const footprint = new THREE.Mesh(footprintGeometry, footprintMaterial);
+    footprint.rotation.x = -Math.PI / 2;
+    footprint.position.set(worldX, FOUNDATION_HEIGHT + 0.02, worldZ);
+    scene.add(footprint);
+
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
@@ -359,10 +395,10 @@ export default function GamePage() {
         const barraco = gltf.scene;
         const { labelY } = fitModelToFootprint(
           barraco,
-          getBarracoSize(barracoLevel)
+          barracoFootprintTiles
         );
 
-        barraco.position.set(worldX, 0, worldZ);
+        barraco.position.set(worldX, FOUNDATION_HEIGHT, worldZ);
         barraco.traverse((child) => setMeshQuality(child));
         barraco.userData.isPlayerBarraco = true;
         barraco.userData.route = '/barraco';
@@ -372,7 +408,7 @@ export default function GamePage() {
 
         const playerRank = getPlayerRank(barracoLevel);
         const label = createTextLabel(displayName, playerRank.title);
-        label.position.set(worldX, labelY, worldZ);
+        label.position.set(worldX, FOUNDATION_HEIGHT + labelY, worldZ);
         playerLabelRef.current = label;
         scene.add(label);
       },
@@ -507,6 +543,10 @@ export default function GamePage() {
       topMaterial.dispose();
       sideMaterial.dispose();
       lineMaterial.dispose();
+      lotBaseGeometry.dispose();
+      lotBaseMaterial.dispose();
+      footprintGeometry.dispose();
+      footprintMaterial.dispose();
 
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
