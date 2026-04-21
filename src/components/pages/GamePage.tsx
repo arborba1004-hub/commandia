@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { mountFixedMapBuildings } from '@/components/game/fixedMapBuildings';
+import { mountPlayerMapSpace } from '@/components/game/playerMapSpace';
+import { usePlayerStore } from '@/store/playerStore';
 import Header from '@/components/Header';
 
 const GRID_WIDTH = 120;
@@ -23,6 +25,7 @@ dracoLoader.setDecoderPath(
 export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const player = usePlayerStore((state) => state.player);
 
   useEffect(() => {
     const mountEl = mountRef.current;
@@ -122,7 +125,14 @@ export default function GamePage() {
       onMessage: () => {},
     });
 
-    {/* ... keep existing code (clickPlane and selection mesh setup) */}
+    const playerMapSpace = mountPlayerMapSpace({
+      scene,
+      tileX: Number(player?.mapPosition?.tileX ?? 0),
+      tileY: Number(player?.mapPosition?.tileY ?? 0),
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      tileSize: TILE_SIZE,
+    });
 
     const clickPlaneGeometry = new THREE.PlaneGeometry(
       GRID_WIDTH * TILE_SIZE,
@@ -221,6 +231,7 @@ export default function GamePage() {
       controls.dispose();
 
       fixedBuildingsLayer.cleanup();
+      playerMapSpace.cleanup();
 
       platformGeometry.dispose();
       platformMaterial.dispose();
