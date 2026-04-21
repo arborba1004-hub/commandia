@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export const PLAYER_SPACE_WIDTH = 6;
 export const PLAYER_SPACE_HEIGHT = 6;
 
@@ -13,8 +15,33 @@ export type PlayerSpaceRect = {
   height: number;
 };
 
+export type PlayerMapSpaceOptions = {
+  scene: THREE.Scene;
+  tileX: number;
+  tileY: number;
+  gridWidth: number;
+  gridHeight: number;
+  tileSize?: number;
+  baseY?: number;
+};
+
+export type MountedPlayerMapSpace = {
+  group: THREE.Group;
+  spaceMesh: THREE.Mesh;
+  playerMarkerMesh: THREE.Mesh;
+  tileX: number;
+  tileY: number;
+  worldX: number;
+  worldZ: number;
+  widthTiles: number;
+  heightTiles: number;
+  updatePosition: (tileX: number, tileY: number) => void;
+  cleanup: () => void;
+};
+
 function toInt(value: number, fallback = 0): number {
-  return Number.isFinite(Number(value)) ? Math.floor(Number(value)) : fallback;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.floor(numeric) : fallback;
 }
 
 function rectanglesOverlap(a: PlayerSpaceRect, b: PlayerSpaceRect): boolean {
@@ -157,3 +184,91 @@ export function generateRandomPlayerSpace(
 
   throw new Error('Nenhum espaço 6x6 disponível no mapa');
 }
+
+export function mountPlayerMapSpace({
+  scene,
+  tileX,
+  tileY,
+  gridWidth,
+  gridHeight,
+  tileSize = 1,
+  baseY = 0.06,
+}: PlayerMapSpaceOptions): MountedPlayerMapSpace {
+  const group = new THREE.Group();
+
+  const spaceGeometry = new THREE.PlaneGeometry(
+    PLAYER_SPACE_WIDTH * tileSize,
+    PLAYER_SPACE_HEIGHT * tileSize
+  );
+
+  const spaceMaterial = new THREE.MeshBasicMaterial({
+    color: 0x22c55e,
+    transparent: true,
+    opacity: 0.22,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+
+  const spaceMesh = new THREE.Mesh(spaceGeometry, spaceMaterial);
+  spaceMesh.rotation.x = -Math.PI / 2;
+  group.add(spaceMesh);
+
+  const markerGeometry = new THREE.BoxGeometry(2 * tileSize, 2 * tileSize, 2 * tileSize);
+
+  const markerMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.9,
+    metalness: 0,
+  });
+
+  const playerMarkerMesh = new THREE.Mesh(markerGeometry, markerMaterial);
+  playerMarkerMesh.castShadow = true;
+  playerMarkerMesh.receiveShadow = true;
+  group.add(playerMarkerMesh);
+
+  function applyPosition(nextTileX: number, nextTileY: number) {
+    const { worldX, worldZ } = tileToWorldCenter(
+      nextTileX,
+      nextTileY,
+      gridWidth,
+      gridHeight
+    );
+
+    group.position.set(worldX, 0, worldZ);
+    spaceMesh.position.set(0, baseY, 0);
+    playerMarkerMesh.position.set(0, tileSize, 0);
+
+    mounted.tileX = nextTileX;
+    mounted.tileY = nextTileY;
+    mounted.worldX = worldX;
+    mounted.worldZ = worldZ;
+  }
+
+  const mounted: MountedPlayerMapSpace = {
+    group,
+    spaceMesh,
+    playerMarkerMesh,
+    tileX: toInt(tileX),
+    tileY: toInt(tileY),
+    worldX: 0,
+    worldZ: 0,
+    widthTiles: PLAYER_SPACE_WIDTH,
+    heightTiles: PLAYER_SPACE_HEIGHT,
+    updatePosition(nextTileX: number, nextTileY: number) {
+      applyPosition(nextTileX, nextTileY);
+    },
+    cleanup() {
+      scene.remove(group);
+      spaceGeometry.dispose();
+      spaceMaterial.dispose();
+      markerGeometry.dispose();
+      markerMaterial.dispose();
+    },
+  };
+
+  applyPosition(mounted.tileX, mounted.tileY);
+  scene.add(group);
+
+  return mounted;
+}
+
