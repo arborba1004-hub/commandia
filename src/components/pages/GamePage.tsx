@@ -233,8 +233,8 @@ export default function GamePage() {
       1000
     );
 
-    const cameraTarget = new THREE.Vector3(worldX, 1.2, worldZ);
-    camera.position.set(worldX + 16, 18, worldZ + 18);
+    const cameraTarget = new THREE.Vector3(worldX, 0.8, worldZ);
+    camera.position.set(worldX + 34, 42, worldZ + 34);
     camera.lookAt(cameraTarget);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -242,8 +242,8 @@ export default function GamePage() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.maxPolarAngle = Math.PI / 2 - 0.05;
-    controls.minDistance = 12;
-    controls.maxDistance = 90;
+    controls.minDistance = 18;
+    controls.maxDistance = 150;
     controls.update();
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
