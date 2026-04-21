@@ -24,7 +24,7 @@ const BARRACO_MODELS = [
   {
     min: 20,
     max: 29,
-    url: 'https://static.wixstatic.com/3d/50f4bf_a089f0d5131547a588ce702d6de0a388.glb',
+    url: 'https://static.wixstatic.com/3d/50f4bf_a089f0d52f38465f8db77877509f12d6.glb',
   },
   {
     min: 30,
@@ -95,11 +95,11 @@ type PlayerVisualEntry = {
   id: string;
   group: THREE.Group;
   spaceMesh: THREE.Mesh | null;
-  markerMesh: THREE.Mesh;
   modelContainer: THREE.Group;
   label: THREE.Sprite | null;
   modelUrl: string | null;
   barracoLevel: number;
+  labelY: number;
 };
 
 const modelPromiseCache = new Map<string, Promise<THREE.Object3D>>();
@@ -115,11 +115,12 @@ function getBarracoModelUrl(level: number): string {
   );
 }
 
-function getBarracoFootprint(level: number): number {
-  if (level >= 80) return 5.2;
-  if (level >= 50) return 4.4;
-  if (level >= 20) return 3.4;
-  return 2.4;
+function getBarracoTileFootprint(level: number) {
+  if (level >= 70) return 6;
+  if (level >= 50) return 5;
+  if (level >= 40) return 4;
+  if (level >= 20) return 3;
+  return 2;
 }
 
 function disposeMaterial(material: THREE.Material | THREE.Material[]) {
@@ -153,6 +154,7 @@ function disposeObject(object: THREE.Object3D) {
     if (child.geometry) {
       child.geometry.dispose();
     }
+
     if (child.material) {
       disposeMaterial(child.material);
     }
@@ -176,10 +178,12 @@ function setMeshQuality(child: any) {
     materials.forEach((mat: any) => {
       mat.metalness = 0;
       mat.roughness = 0.82;
+
       if ('emissive' in mat) {
         mat.emissive = new THREE.Color(0x3a220f);
         mat.emissiveIntensity = 0.12;
       }
+
       mat.needsUpdate = true;
     });
   }
@@ -201,8 +205,12 @@ function fitModelToFootprint(model: THREE.Object3D, footprint: number) {
 
   const groundedBox = new THREE.Box3().setFromObject(model);
   model.position.y -= groundedBox.min.y;
-  
-  return { labelY: groundedBox.max.y };
+
+  const finalBox = new THREE.Box3().setFromObject(model);
+
+  return {
+    labelY: finalBox.max.y + 1.2,
+  };
 }
 
 function createLabelSprite(text: string): THREE.Sprite {
@@ -220,8 +228,8 @@ function createLabelSprite(text: string): THREE.Sprite {
   context.fillStyle = 'rgba(0, 0, 0, 0.58)';
   context.beginPath();
 
-  if (typeof context.roundRect === 'function') {
-    context.roundRect(0, 0, canvas.width, canvas.height, 26);
+  if (typeof (context as any).roundRect === 'function') {
+    (context as any).roundRect(0, 0, canvas.width, canvas.height, 26);
   } else {
     context.rect(0, 0, canvas.width, canvas.height);
   }
@@ -254,20 +262,6 @@ function disposeLabel(label: THREE.Sprite | null) {
   const material = label.material as THREE.SpriteMaterial | undefined;
   material?.map?.dispose();
   material?.dispose();
-}
-
-function createMarkerMesh(tileSize: number): THREE.Mesh {
-  const geometry = new THREE.BoxGeometry(1.6 * tileSize, 1.6 * tileSize, 1.6 * tileSize);
-  const material = new THREE.MeshStandardMaterial({
-    color: 0xf5f5f5,
-    roughness: 0.9,
-    metalness: 0,
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
 }
 
 function createSpaceMesh(tileSize: number): THREE.Mesh {
@@ -304,7 +298,7 @@ async function fetchMapPlayersSnapshot(limit = DEFAULT_LIMIT): Promise<MapPlayer
       },
     });
 
-    let data: any = null;
+    let data: unknown = null;
 
     try {
       data = await response.json();
@@ -313,14 +307,20 @@ async function fetchMapPlayersSnapshot(limit = DEFAULT_LIMIT): Promise<MapPlayer
     }
 
     if (!response.ok) {
-      throw new Error(data?.error || 'Erro ao buscar snapshot do mapa');
+      const errorMessage =
+        typeof data === 'object' && data && 'error' in data
+          ? String((data as any).error)
+          : 'Erro ao buscar snapshot do mapa';
+
+      throw new Error(errorMessage);
     }
 
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data) ? (data as MapPlayerSnapshot[]) : [];
   } catch (error: any) {
     if (error?.name === 'AbortError') {
       throw new Error('Timeout ao buscar snapshot do mapa');
     }
+
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
@@ -347,34 +347,26 @@ async function loadBarracoTemplate(
   return promise;
 }
 
-function getBarracoConfig(level: number) {
-  return (
-    BARRACO_MODELS.find((item) => level >= item.min && level <= item.max) ??
-    BARRACO_MODELS[0]
-  );
-}
-
-function getBarracoTileFootprint(level: number) {
-  if (level >= 70) return 6;
-  if (level >= 50) return 5;
-  if (level >= 40) return 4;
-  if (level >= 20) return 3;
-  return 2;
-}
-
 async function buildBarracoModel(
   loader: GLTFLoader,
   barracoLevel: number,
   tileSize: number
-): Promise<THREE.Object3D> {
+): Promise<{ model: THREE.Object3D; labelY: number }> {
   const modelUrl = getBarracoModelUrl(barracoLevel);
   const template = await loadBarracoTemplate(loader, modelUrl);
   const clone = template.clone(true);
 
   clone.traverse((child) => setMeshQuality(child));
-  fitModelToFootprint(clone, getBarracoTileFootprint(barracoLevel) * tileSize);
 
-  return clone;
+  const { labelY } = fitModelToFootprint(
+    clone,
+    getBarracoTileFootprint(barracoLevel) * tileSize
+  );
+
+  return {
+    model: clone,
+    labelY,
+  };
 }
 
 function setEntryWorldPosition(
@@ -382,8 +374,7 @@ function setEntryWorldPosition(
   tileX: number,
   tileY: number,
   gridWidth: number,
-  gridHeight: number,
-  tileSize: number
+  gridHeight: number
 ) {
   const { worldX, worldZ } = tileToWorldCenter(tileX, tileY, gridWidth, gridHeight);
 
@@ -393,11 +384,10 @@ function setEntryWorldPosition(
     entry.spaceMesh.position.set(0, 0.06, 0);
   }
 
-  entry.markerMesh.position.set(0, tileSize * 0.8, 0);
   entry.modelContainer.position.set(0, 0, 0);
 
   if (entry.label) {
-    entry.label.position.set(0, 4.8, 0);
+    entry.label.position.set(0, entry.labelY, 0);
   }
 }
 
@@ -412,18 +402,15 @@ function createVisualEntry(tileSize: number, showSpaces: boolean): PlayerVisualE
   const modelContainer = new THREE.Group();
   group.add(modelContainer);
 
-  const markerMesh = createMarkerMesh(tileSize);
-  group.add(markerMesh);
-
   return {
     id: '',
     group,
     spaceMesh,
-    markerMesh,
     modelContainer,
     label: null,
     modelUrl: null,
     barracoLevel: 1,
+    labelY: 3.5,
   };
 }
 
@@ -466,7 +453,7 @@ export function mountRealtimeMapPlayersLayer({
       return;
     }
 
-    const model = await buildBarracoModel(loader, nextLevel, tileSize);
+    const { model, labelY } = await buildBarracoModel(loader, nextLevel, tileSize);
 
     if (disposed) {
       disposeObject(model);
@@ -478,7 +465,11 @@ export function mountRealtimeMapPlayersLayer({
 
     entry.modelUrl = nextUrl;
     entry.barracoLevel = nextLevel;
-    entry.markerMesh.visible = false;
+    entry.labelY = labelY;
+
+    if (entry.label) {
+      entry.label.position.set(0, entry.labelY, 0);
+    }
   }
 
   function updateEntryLabel(entry: PlayerVisualEntry, snapshot: MapPlayerSnapshot) {
@@ -489,6 +480,8 @@ export function mountRealtimeMapPlayersLayer({
     }
 
     const label = createLabelSprite(snapshot.name || 'Jogador');
+    label.userData.playerName = snapshot.name || 'Jogador';
+    label.position.set(0, entry.labelY, 0);
     entry.label = label;
     entry.group.add(label);
   }
@@ -515,15 +508,11 @@ export function mountRealtimeMapPlayersLayer({
         Number(snapshot.tileX || 0),
         Number(snapshot.tileY || 0),
         gridWidth,
-        gridHeight,
-        tileSize
+        gridHeight
       );
 
-      if (!entry.label || entry.label.userData?.playerName !== snapshot.name) {
+      if (!entry.label || entry.label.userData?.playerName !== (snapshot.name || 'Jogador')) {
         updateEntryLabel(entry, snapshot);
-        if (entry.label) {
-          entry.label.userData.playerName = snapshot.name || 'Jogador';
-        }
       }
 
       await ensureEntryVisual(entry, snapshot);
@@ -538,9 +527,6 @@ export function mountRealtimeMapPlayersLayer({
         entry.spaceMesh.geometry.dispose();
         disposeMaterial(entry.spaceMesh.material);
       }
-
-      entry.markerMesh.geometry.dispose();
-      disposeMaterial(entry.markerMesh.material);
 
       clearModelContainer(entry.modelContainer);
       disposeLabel(entry.label);
@@ -576,6 +562,7 @@ export function mountRealtimeMapPlayersLayer({
 
   function stop() {
     if (!pollingHandle) return;
+
     clearInterval(pollingHandle);
     pollingHandle = null;
   }
@@ -591,9 +578,6 @@ export function mountRealtimeMapPlayersLayer({
         entry.spaceMesh.geometry.dispose();
         disposeMaterial(entry.spaceMesh.material);
       }
-
-      entry.markerMesh.geometry.dispose();
-      disposeMaterial(entry.markerMesh.material);
 
       clearModelContainer(entry.modelContainer);
       disposeLabel(entry.label);
