@@ -14,32 +14,52 @@ const BARRACO_MODELS = [
   {
     min: 1,
     max: 9,
-    url: 'https://static.wixstatic.com/3d/50f4bf_78d8f707f621482698830308447c3ff2.glb',
+    url: 'https://static.wixstatic.com/3d/50f4bf_0a763db5131547a588ce702d6de0a388.glb',
   },
   {
     min: 10,
     max: 19,
-    url: 'https://static.wixstatic.com/3d/50f4bf_e10d19cfeff147ce95eee1d04a31b04a.glb',
+    url: 'https://static.wixstatic.com/3d/50f4bf_134ce80560954ebb890dd74baed878e0.glb',
   },
   {
     min: 20,
     max: 29,
-    url: 'https://static.wixstatic.com/3d/50f4bf_ad7304550b404996b3b82c425be28df8.glb',
+    url: 'https://static.wixstatic.com/3d/50f4bf_a089f0d5131547a588ce702d6de0a388.glb',
   },
   {
     min: 30,
     max: 39,
-    url: 'https://static.wixstatic.com/3d/50f4bf_d2c8efd640c24cabb3bda73016b7a6b7.glb',
+    url: 'https://static.wixstatic.com/3d/50f4bf_f78d5d13df3d4a9e9b62061425cc4f30.glb',
   },
   {
     min: 40,
     max: 49,
-    url: 'https://static.wixstatic.com/3d/50f4bf_0d7791cd61534906a7658b0599f1fcdd.glb',
+    url: 'https://static.wixstatic.com/3d/50f4bf_fcfd85e45b61474eab924ba144e1b256.glb',
   },
   {
     min: 50,
-    max: 999,
-    url: 'https://static.wixstatic.com/3d/50f4bf_efa8cf1ef0574d1a8fc0c80a894d4669.glb',
+    max: 59,
+    url: 'https://static.wixstatic.com/3d/50f4bf_8ddf8382a1d24e1d8003a7d851132a11.glb',
+  },
+  {
+    min: 60,
+    max: 69,
+    url: 'https://static.wixstatic.com/3d/50f4bf_97904fbc3ca74bb094a29e7052c79fb4.glb',
+  },
+  {
+    min: 70,
+    max: 79,
+    url: 'https://static.wixstatic.com/3d/50f4bf_5e9f2aa54cf041b29f49258cc63eb746.glb',
+  },
+  {
+    min: 80,
+    max: 89,
+    url: 'https://static.wixstatic.com/3d/50f4bf_ac1c5e207bbc425f80619a581e2e2cba.glb',
+  },
+  {
+    min: 90,
+    max: 100,
+    url: 'https://static.wixstatic.com/3d/50f4bf_a8dd587eba644115b376b9a0b0dc67d5.glb',
   },
 ];
 
