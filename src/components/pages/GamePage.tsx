@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { useNavigate } from 'react-router-dom';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+import { mountFixedMapBuildings } from '@/components/game/fixedMapBuildings';
 import Header from '@/components/Header';
 
 const GRID_WIDTH = 120;
@@ -11,8 +15,14 @@ const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath(
+  'https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
+);
+
 export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const mountEl = mountRef.current;
@@ -99,6 +109,20 @@ export default function GamePage() {
     gridMaterial.transparent = true;
     gridMaterial.opacity = 0.55;
     scene.add(gridHelper);
+
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+
+    const fixedBuildingsLayer = mountFixedMapBuildings({
+      scene,
+      loader,
+      camera,
+      container: mountEl,
+      onNavigate: (path) => navigate(path),
+      onMessage: () => {},
+    });
+
+    {/* ... keep existing code (clickPlane and selection mesh setup) */}
 
     const clickPlaneGeometry = new THREE.PlaneGeometry(
       GRID_WIDTH * TILE_SIZE,
@@ -195,6 +219,8 @@ export default function GamePage() {
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('click', handleClick);
       controls.dispose();
+
+      fixedBuildingsLayer.cleanup();
 
       platformGeometry.dispose();
       platformMaterial.dispose();
