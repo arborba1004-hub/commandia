@@ -82,8 +82,10 @@ export default function GamePage() {
     const floorTexture = textureLoader.load(FLOOR_TEXTURE);
     floorTexture.wrapS = THREE.RepeatWrapping;
     floorTexture.wrapT = THREE.RepeatWrapping;
-    floorTexture.repeat.set(24, 24);
+    floorTexture.repeat.set(12, 12);
     floorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    floorTexture.magFilter = THREE.LinearFilter;
+    floorTexture.minFilter = THREE.LinearMipmapLinearFilter;
 
     const platformGeometry = new THREE.BoxGeometry(
       GRID_WIDTH * TILE_SIZE,
@@ -112,7 +114,8 @@ export default function GamePage() {
     const gridMaterial = gridHelper.material as THREE.Material;
     gridMaterial.transparent = true;
     gridMaterial.opacity = 0.55;
-    scene.add(gridHelper);
+    // Grid removed - commented out to clean up scene
+    // scene.add(gridHelper);
 
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
@@ -255,9 +258,9 @@ export default function GamePage() {
       selectionGeometry.dispose();
       selectionMaterial.dispose();
       floorTexture.dispose();
+      gridMaterial.dispose();
 
       scene.remove(platform);
-      scene.remove(gridHelper);
       scene.remove(clickPlane);
       scene.remove(selectionMesh);
 
