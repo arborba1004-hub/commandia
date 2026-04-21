@@ -505,7 +505,14 @@ export function mountPlayerMapSpace({
       if (disposed) return;
 
       const model = template.clone(true);
-      model.traverse((child) => setMeshQuality(child));
+      model.traverse((child: any) => {
+        setMeshQuality(child);
+
+        if (child?.isMesh) {
+          child.userData.isOwnBarraco = true;
+        }
+      });
+
       fitModelToFootprint(model, getBarracoTileFootprint(level) * tileSize);
 
       clearGroup(modelContainer);
