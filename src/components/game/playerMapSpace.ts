@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { FIXED_BUILDINGS } from '@/components/game/fixedMapBuildings';
 
 const BARRACO_MODELS = [
@@ -54,6 +56,11 @@ const BARRACO_MODELS = [
   },
 ];
 
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+
+const modelPromiseCache = new Map<string, Promise<THREE.Object3D>>();
+
 export const PLAYER_SPACE_WIDTH = 6;
 export const PLAYER_SPACE_HEIGHT = 6;
 
@@ -75,6 +82,7 @@ export type PlayerMapSpaceOptions = {
   tileY: number;
   gridWidth: number;
   gridHeight: number;
+  barracoLevel?: number;
   tileSize?: number;
   baseY?: number;
   occupiedOrigins?: TileOrigin[];
@@ -83,6 +91,7 @@ export type PlayerMapSpaceOptions = {
 export type MountedPlayerMapSpace = {
   group: THREE.Group;
   spaceMesh: THREE.Mesh;
+  modelContainer: THREE.Group;
   tileX: number;
   tileY: number;
   worldX: number;
@@ -329,17 +338,135 @@ export function resolvePlayerSpawnSpace(
   };
 }
 
+function disposeMaterial(material: THREE.Material | THREE.Material[]) {
+  if (Array.isArray(material)) {
+    material.forEach((item) => disposeMaterial(item));
+    return;
+  }
+
+  const mat = material as THREE.Material & {
+    map?: THREE.Texture | null;
+    alphaMap?: THREE.Texture | null;
+    normalMap?: THREE.Texture | null;
+    roughnessMap?: THREE.Texture | null;
+    metalnessMap?: THREE.Texture | null;
+    emissiveMap?: THREE.Texture | null;
+    aoMap?: THREE.Texture | null;
+  };
+
+  mat.map?.dispose();
+  mat.alphaMap?.dispose();
+  mat.normalMap?.dispose();
+  mat.roughnessMap?.dispose();
+  mat.metalnessMap?.dispose();
+  mat.emissiveMap?.dispose();
+  mat.aoMap?.dispose();
+  mat.dispose();
+}
+
+function disposeObject(object: THREE.Object3D) {
+  object.traverse((child: any) => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) disposeMaterial(child.material);
+  });
+}
+
+function clearGroup(group: THREE.Group) {
+  while (group.children.length > 0) {
+    const child = group.children[0];
+    group.remove(child);
+    disposeObject(child);
+  }
+}
+
+function setMeshQuality(child: any) {
+  if (!child?.isMesh) return;
+
+  child.castShadow = true;
+  child.receiveShadow = true;
+
+  if (child.material) {
+    const material = Array.isArray(child.material)
+      ? child.material.map((item: THREE.Material) => item.clone())
+      : child.material.clone();
+
+    child.material = material;
+
+    const materials = Array.isArray(material) ? material : [material];
+    materials.forEach((mat: any) => {
+      mat.metalness = 0;
+      mat.roughness = 0.82;
+      if ('emissive' in mat) {
+        mat.emissive = new THREE.Color(0x3a220f);
+        mat.emissiveIntensity = 0.12;
+      }
+      mat.needsUpdate = true;
+    });
+  }
+}
+
+function fitModelToFootprint(model: THREE.Object3D, footprint: number) {
+  const initialBox = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  initialBox.getSize(size);
+
+  const maxDimension = Math.max(size.x, size.z) || 1;
+  const scale = footprint / maxDimension;
+  model.scale.setScalar(scale);
+
+  const scaledBox = new THREE.Box3().setFromObject(model);
+  const center = new THREE.Vector3();
+  scaledBox.getCenter(center);
+  model.position.sub(center);
+
+  const groundedBox = new THREE.Box3().setFromObject(model);
+  model.position.y -= groundedBox.min.y;
+}
+
+function getBarracoConfig(level: number) {
+  return (
+    BARRACO_MODELS.find((item) => level >= item.min && level <= item.max) ??
+    BARRACO_MODELS[0]
+  );
+}
+
+async function loadBarracoTemplate(loader: GLTFLoader, modelUrl: string) {
+  const cached = modelPromiseCache.get(modelUrl);
+  if (cached) return cached;
+
+  const promise = new Promise<THREE.Object3D>((resolve, reject) => {
+    loader.load(
+      modelUrl,
+      (gltf) => resolve(gltf.scene),
+      undefined,
+      (error) => reject(error)
+    );
+  });
+
+  modelPromiseCache.set(modelUrl, promise);
+  return promise;
+}
+
 export function mountPlayerMapSpace({
   scene,
   tileX,
   tileY,
   gridWidth,
   gridHeight,
+  barracoLevel = 1,
   tileSize = 1,
   baseY = 0.06,
   occupiedOrigins = [],
 }: PlayerMapSpaceOptions): MountedPlayerMapSpace {
   const group = new THREE.Group();
+
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+
+  const modelContainer = new THREE.Group();
+  group.add(modelContainer);
+
+  let disposed = false;
 
   const spaceGeometry = new THREE.PlaneGeometry(
     PLAYER_SPACE_WIDTH * tileSize,
@@ -358,6 +485,24 @@ export function mountPlayerMapSpace({
   spaceMesh.rotation.x = -Math.PI / 2;
   group.add(spaceMesh);
 
+  async function applyBarraco(level: number) {
+    const config = getBarracoConfig(level);
+
+    try {
+      const template = await loadBarracoTemplate(loader, config.url);
+      if (disposed) return;
+
+      const model = template.clone(true);
+      model.traverse((child) => setMeshQuality(child));
+      fitModelToFootprint(model, getBarracoTileFootprint(level) * tileSize);
+
+      clearGroup(modelContainer);
+      modelContainer.add(model);
+    } catch (error) {
+      console.error('Erro ao carregar barraco do jogador:', error);
+    }
+  }
+
   function applyPosition(nextTileX: number, nextTileY: number, nextOccupiedOrigins: TileOrigin[] = []) {
     const resolved = resolvePlayerSpawnSpace(
       nextTileX,
@@ -369,6 +514,7 @@ export function mountPlayerMapSpace({
 
     group.position.set(resolved.worldX, 0, resolved.worldZ);
     spaceMesh.position.set(0, baseY, 0);
+    modelContainer.position.set(0, 0, 0);
 
     mounted.tileX = resolved.tileX;
     mounted.tileY = resolved.tileY;
@@ -379,6 +525,7 @@ export function mountPlayerMapSpace({
   const mounted: MountedPlayerMapSpace = {
     group,
     spaceMesh,
+    modelContainer,
     tileX: 0,
     tileY: 0,
     worldX: 0,
@@ -389,13 +536,16 @@ export function mountPlayerMapSpace({
       applyPosition(nextTileX, nextTileY, nextOccupiedOrigins);
     },
     cleanup() {
+      disposed = true;
       scene.remove(group);
+      clearGroup(modelContainer);
       spaceGeometry.dispose();
       spaceMaterial.dispose();
     },
   };
 
   applyPosition(tileX, tileY, occupiedOrigins);
+  void applyBarraco(barracoLevel);
   scene.add(group);
 
   return mounted;
