@@ -130,6 +130,7 @@ export default function GamePage() {
       scene,
       tileX: Number(player?.mapPosition?.tileX ?? 0),
       tileY: Number(player?.mapPosition?.tileY ?? 0),
+      barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
       gridWidth: GRID_WIDTH,
       gridHeight: GRID_HEIGHT,
       tileSize: TILE_SIZE,
