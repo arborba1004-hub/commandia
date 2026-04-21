@@ -267,7 +267,7 @@ export default function GamePage() {
         mountEl.removeChild(renderer.domElement);
       }
     };
-  }, []);
+  }, [navigate, player]);
 
   return (
     <div className="min-h-screen bg-black">
