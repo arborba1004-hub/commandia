@@ -88,8 +88,8 @@ export default function BarracoDetailPage() {
       50: 'Um triplex alto padrão. Você é alguém importante.',
       60: 'Um triplex com piscina. A vida é boa.',
       70: 'Uma mansão do complexo. Você é um chefe.',
-      80: 'Uma mansão blindada. Segurança em primeiro lugar.',
-      90: 'Uma mansão com heliporto. Você é praticamente um rei.',
+      80: 'Uma mansão.',
+      90: 'Uma mansão . Você é praticamente um rei.',
       100: 'Um castelo do comando. Você é o topo da hierarquia.',
     };
 
@@ -105,8 +105,8 @@ export default function BarracoDetailPage() {
   const getNextLevelName = () => {
     const nextLevel = level + 1;
     if (nextLevel >= 100) return 'Castelo do Comando';
-    if (nextLevel >= 90) return 'Mansão com Heliporto';
-    if (nextLevel >= 80) return 'Mansão Blindada';
+    if (nextLevel >= 90) return 'Mansão';
+    if (nextLevel >= 80) return 'Mansão';
     if (nextLevel >= 70) return 'Mansão do Complexo';
     if (nextLevel >= 60) return 'Triplex com Piscina';
     if (nextLevel >= 50) return 'Triplex Alto Padrão';
