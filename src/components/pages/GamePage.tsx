@@ -201,9 +201,10 @@ export default function GamePage() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    function handleClick(event: MouseEvent) {
+    async function handleClick(event: MouseEvent) {
       const currentPlayerMapSpace = playerMapSpaceRef.current;
-      if (!currentPlayerMapSpace) return;
+      const currentRealtimeLayer = realtimePlayersLayerRef.current;
+      if (!currentPlayerMapSpace || !currentRealtimeLayer) return;
 
       const rect = renderer.domElement.getBoundingClientRect();
 
@@ -245,16 +246,24 @@ export default function GamePage() {
       );
       selectionMesh.visible = true;
 
+      await currentRealtimeLayer.refreshNow();
+
+      const currentPlayerId = String(usePlayerStore.getState().player?.id || '');
+      const occupiedOriginsBeforeConfirm =
+        currentRealtimeLayer.getOccupiedOrigins(currentPlayerId);
+
+      const currentOrigin = {
+        tileX: currentPlayerMapSpace.tileX,
+        tileY: currentPlayerMapSpace.tileY,
+      };
+
       const preview = createTeleportPreview({
         clickedTileX: tileX,
         clickedTileY: tileY,
-        occupiedOrigins: [],
+        occupiedOrigins: occupiedOriginsBeforeConfirm,
         gridWidth: GRID_WIDTH,
         gridHeight: GRID_HEIGHT,
-        ignoreOrigin: {
-          tileX: currentPlayerMapSpace.tileX,
-          tileY: currentPlayerMapSpace.tileY,
-        },
+        ignoreOrigin: currentOrigin,
       });
 
       if (!preview.ok) {
@@ -266,16 +275,18 @@ export default function GamePage() {
         return;
       }
 
+      await currentRealtimeLayer.refreshNow();
+
+      const occupiedOriginsAtConfirm =
+        currentRealtimeLayer.getOccupiedOrigins(currentPlayerId);
+
       const teleported = confirmPlayerTeleport(
         currentPlayerMapSpace,
         preview,
-        [],
+        occupiedOriginsAtConfirm,
         GRID_WIDTH,
         GRID_HEIGHT,
-        {
-          tileX: currentPlayerMapSpace.tileX,
-          tileY: currentPlayerMapSpace.tileY,
-        }
+        currentOrigin
       );
 
       if (!teleported.ok) {
