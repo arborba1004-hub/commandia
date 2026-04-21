@@ -31,18 +31,40 @@ export type RealtimeMapPlayersLayer = {
   tryPickPlayer: (clientX: number, clientY: number) => MapRemotePlayer | null;
 };
 
-function getMarkerScale(level: number) {
-  if (level >= 60) return 1.6;
-  if (level >= 40) return 1.35;
-  if (level >= 20) return 1.1;
-  return 0.9;
+function getHouseScale(level: number) {
+  if (level >= 90) return 2.2;
+  if (level >= 70) return 2.0;
+  if (level >= 50) return 1.8;
+  if (level >= 30) return 1.5;
+  if (level >= 10) return 1.2;
+  return 1.0;
 }
 
-function getLevelColor(level: number) {
-  if (level >= 60) return new THREE.Color('#ffd700');
-  if (level >= 40) return new THREE.Color('#ff9f43');
-  if (level >= 20) return new THREE.Color('#7bed9f');
-  return new THREE.Color('#70a1ff');
+function getWallColor(level: number) {
+  if (level >= 90) return new THREE.Color('#d4af37');
+  if (level >= 70) return new THREE.Color('#d98c2b');
+  if (level >= 50) return new THREE.Color('#b86bff');
+  if (level >= 30) return new THREE.Color('#44c0ff');
+  if (level >= 10) return new THREE.Color('#5fbf72');
+  return new THREE.Color('#7aa2ff');
+}
+
+function getRoofColor(level: number) {
+  if (level >= 90) return new THREE.Color('#fff0a8');
+  if (level >= 70) return new THREE.Color('#ffb347');
+  if (level >= 50) return new THREE.Color('#d59cff');
+  if (level >= 30) return new THREE.Color('#8ddcff');
+  if (level >= 10) return new THREE.Color('#9be29f');
+  return new THREE.Color('#c9825f');
+}
+
+function getLotColor(level: number) {
+  if (level >= 90) return new THREE.Color('#ffe27a');
+  if (level >= 70) return new THREE.Color('#ffb86c');
+  if (level >= 50) return new THREE.Color('#caa6ff');
+  if (level >= 30) return new THREE.Color('#93d9ff');
+  if (level >= 10) return new THREE.Color('#88d89a');
+  return new THREE.Color('#8ea4ff');
 }
 
 export function mountRealtimeMapPlayersLayer({
@@ -60,40 +82,62 @@ export function mountRealtimeMapPlayersLayer({
   root.name = 'realtime-map-players-layer';
   scene.add(root);
 
-  const markerGeometry = new THREE.CylinderGeometry(0.35, 0.55, 1.2, 8, 1);
-  const markerMaterial = new THREE.MeshStandardMaterial({
-    color: '#70a1ff',
-    roughness: 0.9,
+  const bodyGeometry = new THREE.BoxGeometry(1.8, 1.0, 1.6);
+  const roofGeometry = new THREE.ConeGeometry(1.35, 0.95, 4);
+  const lotGeometry = new THREE.CircleGeometry(1.45, 18);
+
+  roofGeometry.rotateY(Math.PI / 4);
+  lotGeometry.rotateX(-Math.PI / 2);
+
+  const bodyMaterial = new THREE.MeshStandardMaterial({
+    color: '#7aa2ff',
+    roughness: 0.95,
     metalness: 0,
     emissive: new THREE.Color('#101010'),
-    emissiveIntensity: 0.1,
+    emissiveIntensity: 0.08,
   });
 
-  const markersMesh = new THREE.InstancedMesh(
-    markerGeometry,
-    markerMaterial,
-    maxPlayers
-  );
-  markersMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  markersMesh.castShadow = false;
-  markersMesh.receiveShadow = false;
-  root.add(markersMesh);
+  const roofMaterial = new THREE.MeshStandardMaterial({
+    color: '#c9825f',
+    roughness: 0.95,
+    metalness: 0,
+    emissive: new THREE.Color('#120808'),
+    emissiveIntensity: 0.08,
+  });
 
-  const haloGeometry = new THREE.RingGeometry(0.42, 0.62, 18);
-  const haloMaterial = new THREE.MeshBasicMaterial({
-    color: '#ffffff',
+  const lotMaterial = new THREE.MeshBasicMaterial({
+    color: '#8ea4ff',
     transparent: true,
-    opacity: 0.42,
+    opacity: 0.45,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
 
-  const haloMesh = new THREE.InstancedMesh(haloGeometry, haloMaterial, maxPlayers);
-  haloMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  root.add(haloMesh);
+  const bodyMesh = new THREE.InstancedMesh(bodyGeometry, bodyMaterial, maxPlayers);
+  const roofMesh = new THREE.InstancedMesh(roofGeometry, roofMaterial, maxPlayers);
+  const lotMesh = new THREE.InstancedMesh(lotGeometry, lotMaterial, maxPlayers);
 
-  const dummy = new THREE.Object3D();
-  const haloDummy = new THREE.Object3D();
+  bodyMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  roofMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  lotMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  bodyMesh.frustumCulled = false;
+  roofMesh.frustumCulled = false;
+  lotMesh.frustumCulled = false;
+
+  bodyMesh.castShadow = false;
+  bodyMesh.receiveShadow = false;
+  roofMesh.castShadow = false;
+  roofMesh.receiveShadow = false;
+
+  root.add(lotMesh);
+  root.add(bodyMesh);
+  root.add(roofMesh);
+
+  const bodyDummy = new THREE.Object3D();
+  const roofDummy = new THREE.Object3D();
+  const lotDummy = new THREE.Object3D();
+
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
 
@@ -101,57 +145,55 @@ export function mountRealtimeMapPlayersLayer({
   let requestInFlight = false;
   let players: MapRemotePlayer[] = [];
 
-  const idToIndex = new Map<string, number>();
   const indexToPlayer = new Map<number, MapRemotePlayer>();
 
   function applyPlayersToScene(nextPlayers: MapRemotePlayer[]) {
     players = nextPlayers.slice(0, maxPlayers);
-    idToIndex.clear();
     indexToPlayer.clear();
 
-    markersMesh.count = players.length;
-    haloMesh.count = players.length;
+    bodyMesh.count = players.length;
+    roofMesh.count = players.length;
+    lotMesh.count = players.length;
 
     for (let i = 0; i < players.length; i += 1) {
       const player = players[i];
       const level = player.barracoLevel || 1;
-      const scale = getMarkerScale(level);
-      const color = getLevelColor(level);
+      const scale = getHouseScale(level);
 
       const worldX = (player.tileX - gridWidth / 2) * tileSize + 0.5;
       const worldZ = (player.tileY - gridHeight / 2) * tileSize + 0.5;
 
-      dummy.position.set(worldX, 0.6 * scale, worldZ);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.setScalar(scale);
-      dummy.updateMatrix();
+      bodyDummy.position.set(worldX, 0.52 * scale, worldZ);
+      bodyDummy.rotation.set(0, 0, 0);
+      bodyDummy.scale.setScalar(scale);
+      bodyDummy.updateMatrix();
+      bodyMesh.setMatrixAt(i, bodyDummy.matrix);
+      bodyMesh.setColorAt(i, getWallColor(level));
 
-      markersMesh.setMatrixAt(i, dummy.matrix);
-      markersMesh.setColorAt(i, color);
+      roofDummy.position.set(worldX, 1.42 * scale, worldZ);
+      roofDummy.rotation.set(0, 0, 0);
+      roofDummy.scale.setScalar(scale);
+      roofDummy.updateMatrix();
+      roofMesh.setMatrixAt(i, roofDummy.matrix);
+      roofMesh.setColorAt(i, getRoofColor(level));
 
-      haloDummy.position.set(worldX, 0.04, worldZ);
-      haloDummy.rotation.set(-Math.PI / 2, 0, 0);
-      haloDummy.scale.setScalar(scale);
-      haloDummy.updateMatrix();
-      haloMesh.setMatrixAt(i, haloDummy.matrix);
+      lotDummy.position.set(worldX, 0.03, worldZ);
+      lotDummy.rotation.set(0, 0, 0);
+      lotDummy.scale.setScalar(scale);
+      lotDummy.updateMatrix();
+      lotMesh.setMatrixAt(i, lotDummy.matrix);
+      lotMesh.setColorAt(i, getLotColor(level));
 
-      const haloColor = color.clone().lerp(new THREE.Color('#ffffff'), 0.35);
-      haloMesh.setColorAt(i, haloColor);
-
-      idToIndex.set(player.id, i);
       indexToPlayer.set(i, player);
     }
 
-    markersMesh.instanceMatrix.needsUpdate = true;
-    haloMesh.instanceMatrix.needsUpdate = true;
+    bodyMesh.instanceMatrix.needsUpdate = true;
+    roofMesh.instanceMatrix.needsUpdate = true;
+    lotMesh.instanceMatrix.needsUpdate = true;
 
-    if (markersMesh.instanceColor) {
-      markersMesh.instanceColor.needsUpdate = true;
-    }
-
-    if (haloMesh.instanceColor) {
-      haloMesh.instanceColor.needsUpdate = true;
-    }
+    if (bodyMesh.instanceColor) bodyMesh.instanceColor.needsUpdate = true;
+    if (roofMesh.instanceColor) roofMesh.instanceColor.needsUpdate = true;
+    if (lotMesh.instanceColor) lotMesh.instanceColor.needsUpdate = true;
   }
 
   async function refreshNow() {
@@ -164,7 +206,7 @@ export function mountRealtimeMapPlayersLayer({
       const nextPlayers = await fetchPlayers();
       applyPlayersToScene(Array.isArray(nextPlayers) ? nextPlayers : []);
     } catch (error) {
-      console.error('Erro ao atualizar layer de players do mapa:', error);
+      console.error('Erro ao atualizar barracos remotos do mapa:', error);
     } finally {
       requestInFlight = false;
     }
@@ -195,13 +237,23 @@ export function mountRealtimeMapPlayersLayer({
 
     raycaster.setFromCamera(pointer, camera);
 
-    const hits = raycaster.intersectObject(markersMesh, true);
-    if (!hits.length) return null;
+    const roofHits = raycaster.intersectObject(roofMesh, true);
+    if (roofHits.length > 0) {
+      const instanceId = roofHits[0].instanceId;
+      if (instanceId !== undefined && instanceId !== null) {
+        return indexToPlayer.get(instanceId) || null;
+      }
+    }
 
-    const instanceId = hits[0].instanceId;
-    if (instanceId === undefined || instanceId === null) return null;
+    const bodyHits = raycaster.intersectObject(bodyMesh, true);
+    if (bodyHits.length > 0) {
+      const instanceId = bodyHits[0].instanceId;
+      if (instanceId !== undefined && instanceId !== null) {
+        return indexToPlayer.get(instanceId) || null;
+      }
+    }
 
-    return indexToPlayer.get(instanceId) || null;
+    return null;
   }
 
   function cleanup() {
@@ -209,12 +261,13 @@ export function mountRealtimeMapPlayersLayer({
 
     scene.remove(root);
 
-    markerGeometry.dispose();
-    haloGeometry.dispose();
-    markerMaterial.dispose();
-    haloMaterial.dispose();
+    bodyGeometry.dispose();
+    roofGeometry.dispose();
+    lotGeometry.dispose();
+    bodyMaterial.dispose();
+    roofMaterial.dispose();
+    lotMaterial.dispose();
 
-    idToIndex.clear();
     indexToPlayer.clear();
     players = [];
   }
