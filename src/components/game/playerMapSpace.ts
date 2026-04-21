@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { FIXED_BUILDINGS } from '@/components/game/fixedMapBuildings';
 
 export const PLAYER_SPACE_WIDTH = 6;
 export const PLAYER_SPACE_HEIGHT = 6;
@@ -23,6 +24,7 @@ export type PlayerMapSpaceOptions = {
   gridHeight: number;
   tileSize?: number;
   baseY?: number;
+  occupiedOrigins?: TileOrigin[];
 };
 
 export type MountedPlayerMapSpace = {
@@ -35,13 +37,17 @@ export type MountedPlayerMapSpace = {
   worldZ: number;
   widthTiles: number;
   heightTiles: number;
-  updatePosition: (tileX: number, tileY: number) => void;
+  updatePosition: (tileX: number, tileY: number, occupiedOrigins?: TileOrigin[]) => void;
   cleanup: () => void;
 };
 
 function toInt(value: number, fallback = 0): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.floor(numeric) : fallback;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function rectanglesOverlap(a: PlayerSpaceRect, b: PlayerSpaceRect): boolean {
@@ -51,6 +57,12 @@ function rectanglesOverlap(a: PlayerSpaceRect, b: PlayerSpaceRect): boolean {
     a.y < b.y + b.height &&
     a.y + a.height > b.y
   );
+}
+
+function distanceSq(ax: number, ay: number, bx: number, by: number): number {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy;
 }
 
 export function getPlayerSpaceRect(tileX: number, tileY: number): PlayerSpaceRect {
@@ -79,36 +91,6 @@ export function isPlayerSpaceInsideMap(
   );
 }
 
-export function isPlayerSpaceAvailable(
-  tileX: number,
-  tileY: number,
-  occupiedOrigins: TileOrigin[],
-  gridWidth: number,
-  gridHeight: number,
-  ignoreIndex: number | null = null
-): boolean {
-  if (!isPlayerSpaceInsideMap(tileX, tileY, gridWidth, gridHeight)) {
-    return false;
-  }
-
-  const candidate = getPlayerSpaceRect(tileX, tileY);
-
-  for (let i = 0; i < occupiedOrigins.length; i += 1) {
-    if (ignoreIndex !== null && i === ignoreIndex) continue;
-
-    const occupied = getPlayerSpaceRect(
-      occupiedOrigins[i].tileX,
-      occupiedOrigins[i].tileY
-    );
-
-    if (rectanglesOverlap(candidate, occupied)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 export function tileToWorldCenter(
   tileX: number,
   tileY: number,
@@ -124,6 +106,83 @@ export function tileToWorldCenter(
   };
 }
 
+function worldToTileOriginFromCenter(
+  worldX: number,
+  worldZ: number,
+  footprint: number,
+  gridWidth: number,
+  gridHeight: number
+) {
+  const centerTileX = worldX + gridWidth / 2;
+  const centerTileY = worldZ + gridHeight / 2;
+
+  return {
+    tileX: Math.round(centerTileX - footprint / 2),
+    tileY: Math.round(centerTileY - footprint / 2),
+  };
+}
+
+export function getFixedBuildingBlockedRects(
+  gridWidth: number,
+  gridHeight: number,
+  paddingTiles = 1
+): PlayerSpaceRect[] {
+  return FIXED_BUILDINGS.map((building) => {
+    const origin = worldToTileOriginFromCenter(
+      building.x,
+      building.z,
+      building.footprint,
+      gridWidth,
+      gridHeight
+    );
+
+    const x = clamp(origin.tileX - paddingTiles, 0, gridWidth - 1);
+    const y = clamp(origin.tileY - paddingTiles, 0, gridHeight - 1);
+
+    const maxWidth = gridWidth - x;
+    const maxHeight = gridHeight - y;
+
+    return {
+      x,
+      y,
+      width: Math.min(building.footprint + paddingTiles * 2, maxWidth),
+      height: Math.min(building.footprint + paddingTiles * 2, maxHeight),
+    };
+  });
+}
+
+export function isPlayerSpaceAvailable(
+  tileX: number,
+  tileY: number,
+  occupiedOrigins: TileOrigin[],
+  gridWidth: number,
+  gridHeight: number
+): boolean {
+  if (!isPlayerSpaceInsideMap(tileX, tileY, gridWidth, gridHeight)) {
+    return false;
+  }
+
+  const candidate = getPlayerSpaceRect(tileX, tileY);
+
+  const blockedRects = getFixedBuildingBlockedRects(gridWidth, gridHeight, 1);
+
+  for (const blocked of blockedRects) {
+    if (rectanglesOverlap(candidate, blocked)) {
+      return false;
+    }
+  }
+
+  for (const occupiedOrigin of occupiedOrigins) {
+    const occupied = getPlayerSpaceRect(occupiedOrigin.tileX, occupiedOrigin.tileY);
+
+    if (rectanglesOverlap(candidate, occupied)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function buildCandidateOrigins(gridWidth: number, gridHeight: number): TileOrigin[] {
   const origins: TileOrigin[] = [];
 
@@ -136,45 +195,35 @@ function buildCandidateOrigins(gridWidth: number, gridHeight: number): TileOrigi
   return origins;
 }
 
-function shuffle<T>(list: T[]): T[] {
-  const array = [...list];
-
-  for (let i = array.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-
-  return array;
-}
-
-export function generateRandomPlayerSpace(
+export function resolvePlayerSpawnSpace(
+  tileX: number,
+  tileY: number,
   occupiedOrigins: TileOrigin[],
   gridWidth: number,
   gridHeight: number
 ) {
-  const candidates = shuffle(buildCandidateOrigins(gridWidth, gridHeight));
+  const desiredTileX = clamp(toInt(tileX), 0, Math.max(0, gridWidth - PLAYER_SPACE_WIDTH));
+  const desiredTileY = clamp(toInt(tileY), 0, Math.max(0, gridHeight - PLAYER_SPACE_HEIGHT));
 
-  for (const candidate of candidates) {
-    const available = isPlayerSpaceAvailable(
-      candidate.tileX,
-      candidate.tileY,
+  if (
+    isPlayerSpaceAvailable(
+      desiredTileX,
+      desiredTileY,
       occupiedOrigins,
       gridWidth,
       gridHeight
-    );
-
-    if (!available) continue;
-
+    )
+  ) {
     const { worldX, worldZ } = tileToWorldCenter(
-      candidate.tileX,
-      candidate.tileY,
+      desiredTileX,
+      desiredTileY,
       gridWidth,
       gridHeight
     );
 
     return {
-      tileX: candidate.tileX,
-      tileY: candidate.tileY,
+      tileX: desiredTileX,
+      tileY: desiredTileY,
       worldX,
       worldZ,
       widthTiles: PLAYER_SPACE_WIDTH,
@@ -182,7 +231,42 @@ export function generateRandomPlayerSpace(
     };
   }
 
-  throw new Error('Nenhum espaço 6x6 disponível no mapa');
+  const allCandidates = buildCandidateOrigins(gridWidth, gridHeight)
+    .filter((candidate) =>
+      isPlayerSpaceAvailable(
+        candidate.tileX,
+        candidate.tileY,
+        occupiedOrigins,
+        gridWidth,
+        gridHeight
+      )
+    )
+    .sort(
+      (a, b) =>
+        distanceSq(a.tileX, a.tileY, desiredTileX, desiredTileY) -
+        distanceSq(b.tileX, b.tileY, desiredTileX, desiredTileY)
+    );
+
+  if (allCandidates.length === 0) {
+    throw new Error('Nenhum espaço 6x6 livre no mapa');
+  }
+
+  const best = allCandidates[0];
+  const { worldX, worldZ } = tileToWorldCenter(
+    best.tileX,
+    best.tileY,
+    gridWidth,
+    gridHeight
+  );
+
+  return {
+    tileX: best.tileX,
+    tileY: best.tileY,
+    worldX,
+    worldZ,
+    widthTiles: PLAYER_SPACE_WIDTH,
+    heightTiles: PLAYER_SPACE_HEIGHT,
+  };
 }
 
 export function mountPlayerMapSpace({
@@ -193,6 +277,7 @@ export function mountPlayerMapSpace({
   gridHeight,
   tileSize = 1,
   baseY = 0.06,
+  occupiedOrigins = [],
 }: PlayerMapSpaceOptions): MountedPlayerMapSpace {
   const group = new THREE.Group();
 
@@ -213,7 +298,11 @@ export function mountPlayerMapSpace({
   spaceMesh.rotation.x = -Math.PI / 2;
   group.add(spaceMesh);
 
-  const markerGeometry = new THREE.BoxGeometry(2 * tileSize, 2 * tileSize, 2 * tileSize);
+  const markerGeometry = new THREE.BoxGeometry(
+    2 * tileSize,
+    2 * tileSize,
+    2 * tileSize
+  );
 
   const markerMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -226,36 +315,37 @@ export function mountPlayerMapSpace({
   playerMarkerMesh.receiveShadow = true;
   group.add(playerMarkerMesh);
 
-  function applyPosition(nextTileX: number, nextTileY: number) {
-    const { worldX, worldZ } = tileToWorldCenter(
+  function applyPosition(nextTileX: number, nextTileY: number, nextOccupiedOrigins: TileOrigin[] = []) {
+    const resolved = resolvePlayerSpawnSpace(
       nextTileX,
       nextTileY,
+      nextOccupiedOrigins,
       gridWidth,
       gridHeight
     );
 
-    group.position.set(worldX, 0, worldZ);
+    group.position.set(resolved.worldX, 0, resolved.worldZ);
     spaceMesh.position.set(0, baseY, 0);
     playerMarkerMesh.position.set(0, tileSize, 0);
 
-    mounted.tileX = nextTileX;
-    mounted.tileY = nextTileY;
-    mounted.worldX = worldX;
-    mounted.worldZ = worldZ;
+    mounted.tileX = resolved.tileX;
+    mounted.tileY = resolved.tileY;
+    mounted.worldX = resolved.worldX;
+    mounted.worldZ = resolved.worldZ;
   }
 
   const mounted: MountedPlayerMapSpace = {
     group,
     spaceMesh,
     playerMarkerMesh,
-    tileX: toInt(tileX),
-    tileY: toInt(tileY),
+    tileX: 0,
+    tileY: 0,
     worldX: 0,
     worldZ: 0,
     widthTiles: PLAYER_SPACE_WIDTH,
     heightTiles: PLAYER_SPACE_HEIGHT,
-    updatePosition(nextTileX: number, nextTileY: number) {
-      applyPosition(nextTileX, nextTileY);
+    updatePosition(nextTileX: number, nextTileY: number, nextOccupiedOrigins: TileOrigin[] = []) {
+      applyPosition(nextTileX, nextTileY, nextOccupiedOrigins);
     },
     cleanup() {
       scene.remove(group);
@@ -266,9 +356,8 @@ export function mountPlayerMapSpace({
     },
   };
 
-  applyPosition(mounted.tileX, mounted.tileY);
+  applyPosition(tileX, tileY, occupiedOrigins);
   scene.add(group);
 
   return mounted;
 }
-
