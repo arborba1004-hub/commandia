@@ -41,7 +41,6 @@ export default function GamePage() {
       0.1,
       1000
     );
-    camera.position.set(0, 80, 80);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -56,11 +55,9 @@ export default function GamePage() {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.target.set(0, 0, 0);
-    controls.minDistance = 20;
-    controls.maxDistance = 220;
+    controls.minDistance = 10;
+    controls.maxDistance = 70;
     controls.maxPolarAngle = Math.PI / 2.05;
-    controls.update();
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
     scene.add(ambientLight);
@@ -80,18 +77,20 @@ export default function GamePage() {
 
     const textureLoader = new THREE.TextureLoader();
     const floorTexture = textureLoader.load(FLOOR_TEXTURE);
-    floorTexture.wrapS = THREE.RepeatWrapping;
-    floorTexture.wrapT = THREE.RepeatWrapping;
-    floorTexture.repeat.set(12, 12);
+    floorTexture.wrapS = THREE.ClampToEdgeWrapping;
+    floorTexture.wrapT = THREE.ClampToEdgeWrapping;
+    floorTexture.repeat.set(1, 1);
     floorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
     floorTexture.magFilter = THREE.LinearFilter;
     floorTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    floorTexture.needsUpdate = true;
 
     const platformGeometry = new THREE.BoxGeometry(
       GRID_WIDTH * TILE_SIZE,
       PLATFORM_HEIGHT,
       GRID_HEIGHT * TILE_SIZE
     );
+
     const platformMaterial = new THREE.MeshStandardMaterial({
       map: floorTexture,
       roughness: 1,
@@ -103,19 +102,6 @@ export default function GamePage() {
     platform.receiveShadow = true;
     platform.castShadow = false;
     scene.add(platform);
-
-    const gridHelper = new THREE.GridHelper(
-      GRID_WIDTH * TILE_SIZE,
-      GRID_WIDTH,
-      0x2f2f2f,
-      0x2f2f2f
-    );
-    gridHelper.position.y = 0.03;
-    const gridMaterial = gridHelper.material as THREE.Material;
-    gridMaterial.transparent = true;
-    gridMaterial.opacity = 0.55;
-    // Grid removed - commented out to clean up scene
-    // scene.add(gridHelper);
 
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
@@ -139,16 +125,26 @@ export default function GamePage() {
       tileSize: TILE_SIZE,
     });
 
+    controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
+    camera.position.set(
+      playerMapSpace.worldX + 12,
+      10,
+      playerMapSpace.worldZ + 12
+    );
+    controls.update();
+
     const clickPlaneGeometry = new THREE.PlaneGeometry(
       GRID_WIDTH * TILE_SIZE,
       GRID_HEIGHT * TILE_SIZE
     );
+
     const clickPlaneMaterial = new THREE.MeshBasicMaterial({
       transparent: true,
       opacity: 0,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
+
     const clickPlane = new THREE.Mesh(clickPlaneGeometry, clickPlaneMaterial);
     clickPlane.rotation.x = -Math.PI / 2;
     clickPlane.position.y = 0.05;
@@ -162,9 +158,14 @@ export default function GamePage() {
       side: THREE.DoubleSide,
       depthWrite: false,
     });
+
     const selectionMesh = new THREE.Mesh(selectionGeometry, selectionMaterial);
     selectionMesh.rotation.x = -Math.PI / 2;
-    selectionMesh.position.set(0.5 - GRID_WIDTH / 2, 0.06, 0.5 - GRID_HEIGHT / 2);
+    selectionMesh.position.set(
+      0.5 - GRID_WIDTH / 2,
+      0.06,
+      0.5 - GRID_HEIGHT / 2
+    );
     selectionMesh.visible = false;
     scene.add(selectionMesh);
 
@@ -189,6 +190,17 @@ export default function GamePage() {
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
+
+      const ownBarracoHits = raycaster.intersectObjects(
+        playerMapSpace.modelContainer.children,
+        true
+      );
+
+      if (ownBarracoHits.length > 0) {
+        navigate('/barraco');
+        return;
+      }
+
       const intersections = raycaster.intersectObject(clickPlane, false);
 
       if (!intersections.length) return;
@@ -217,8 +229,6 @@ export default function GamePage() {
     renderer.domElement.addEventListener('click', handleClick);
 
     function handleResize() {
-      if (!mountEl) return;
-
       const width = mountEl.clientWidth;
       const height = Math.max(mountEl.clientHeight, 1);
 
@@ -247,7 +257,6 @@ export default function GamePage() {
       controls.dispose();
 
       realtimePlayersLayer.cleanup();
-
       fixedBuildingsLayer.cleanup();
       playerMapSpace.cleanup();
 
@@ -258,7 +267,6 @@ export default function GamePage() {
       selectionGeometry.dispose();
       selectionMaterial.dispose();
       floorTexture.dispose();
-      gridMaterial.dispose();
 
       scene.remove(platform);
       scene.remove(clickPlane);
