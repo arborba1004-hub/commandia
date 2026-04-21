@@ -4,12 +4,15 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { useNavigate } from 'react-router-dom';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+import Header from '@/components/Header';
+import { usePlayerStore } from '@/store/playerStore';
 import { mountFixedMapBuildings } from '@/components/game/fixedMapBuildings';
 import { mountPlayerMapSpace } from '@/components/game/playerMapSpace';
 import { mountRealtimeMapPlayersLayer } from '@/components/game/realtimeMapPlayersLayer';
-import { teleportPlayerMapSpace } from '@/components/game/playerTeleport';
-import { usePlayerStore } from '@/store/playerStore';
-import Header from '@/components/Header';
+import {
+  createTeleportPreview,
+  confirmPlayerTeleport,
+} from '@/components/game/playerTeleport';
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -26,8 +29,27 @@ dracoLoader.setDecoderPath(
 
 export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
+  const playerMapSpaceRef = useRef<ReturnType<typeof mountPlayerMapSpace> | null>(null);
+  const fixedBuildingsLayerRef =
+    useRef<ReturnType<typeof mountFixedMapBuildings> | null>(null);
+  const realtimePlayersLayerRef =
+    useRef<ReturnType<typeof mountRealtimeMapPlayersLayer> | null>(null);
+
   const navigate = useNavigate();
   const player = usePlayerStore((state) => state.player);
+
+  function focusCameraOn(worldX: number, worldZ: number) {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+
+    if (!camera || !controls) return;
+
+    controls.target.set(worldX, 0, worldZ);
+    camera.position.set(worldX + 12, 10, worldZ + 12);
+    controls.update();
+  }
 
   useEffect(() => {
     const mountEl = mountRef.current;
@@ -42,6 +64,7 @@ export default function GamePage() {
       0.1,
       1000
     );
+    cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -59,6 +82,7 @@ export default function GamePage() {
     controls.minDistance = 10;
     controls.maxDistance = 70;
     controls.maxPolarAngle = Math.PI / 2.05;
+    controlsRef.current = controls;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
     scene.add(ambientLight);
@@ -115,24 +139,22 @@ export default function GamePage() {
       onNavigate: (path) => navigate(path),
       onMessage: () => {},
     });
+    fixedBuildingsLayerRef.current = fixedBuildingsLayer;
+
+    const initialPlayer = usePlayerStore.getState().player;
 
     const playerMapSpace = mountPlayerMapSpace({
       scene,
-      tileX: Number(player?.mapPosition?.tileX ?? 0),
-      tileY: Number(player?.mapPosition?.tileY ?? 0),
-      barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
+      tileX: Number(initialPlayer?.mapPosition?.tileX ?? 0),
+      tileY: Number(initialPlayer?.mapPosition?.tileY ?? 0),
+      barracoLevel: Number(initialPlayer?.niveis?.barracoLevel ?? 1),
       gridWidth: GRID_WIDTH,
       gridHeight: GRID_HEIGHT,
       tileSize: TILE_SIZE,
     });
+    playerMapSpaceRef.current = playerMapSpace;
 
-    controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
-    camera.position.set(
-      playerMapSpace.worldX + 12,
-      10,
-      playerMapSpace.worldZ + 12
-    );
-    controls.update();
+    focusCameraOn(playerMapSpace.worldX, playerMapSpace.worldZ);
 
     const clickPlaneGeometry = new THREE.PlaneGeometry(
       GRID_WIDTH * TILE_SIZE,
@@ -162,11 +184,6 @@ export default function GamePage() {
 
     const selectionMesh = new THREE.Mesh(selectionGeometry, selectionMaterial);
     selectionMesh.rotation.x = -Math.PI / 2;
-    selectionMesh.position.set(
-      0.5 - GRID_WIDTH / 2,
-      0.06,
-      0.5 - GRID_HEIGHT / 2
-    );
     selectionMesh.visible = false;
     scene.add(selectionMesh);
 
@@ -178,13 +195,16 @@ export default function GamePage() {
       pollingMs: 3000,
       showSpaces: true,
     });
-
+    realtimePlayersLayerRef.current = realtimePlayersLayer;
     realtimePlayersLayer.start();
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
     function handleClick(event: MouseEvent) {
+      const currentPlayerMapSpace = playerMapSpaceRef.current;
+      if (!currentPlayerMapSpace) return;
+
       const rect = renderer.domElement.getBoundingClientRect();
 
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -193,7 +213,7 @@ export default function GamePage() {
       raycaster.setFromCamera(mouse, camera);
 
       const ownBarracoHits = raycaster.intersectObjects(
-        playerMapSpace.modelContainer.children,
+        currentPlayerMapSpace.modelContainer.children,
         true
       );
 
@@ -203,7 +223,6 @@ export default function GamePage() {
       }
 
       const intersections = raycaster.intersectObject(clickPlane, false);
-
       if (!intersections.length) return;
 
       const point = intersections[0].point;
@@ -226,13 +245,44 @@ export default function GamePage() {
       );
       selectionMesh.visible = true;
 
-      const teleported = teleportPlayerMapSpace(playerMapSpace, {
+      const preview = createTeleportPreview({
         clickedTileX: tileX,
         clickedTileY: tileY,
         occupiedOrigins: [],
         gridWidth: GRID_WIDTH,
         gridHeight: GRID_HEIGHT,
+        ignoreOrigin: {
+          tileX: currentPlayerMapSpace.tileX,
+          tileY: currentPlayerMapSpace.tileY,
+        },
       });
+
+      if (!preview.ok) {
+        return;
+      }
+
+      const confirmed = window.confirm(preview.confirmationMessage);
+      if (!confirmed) {
+        return;
+      }
+
+      const teleported = confirmPlayerTeleport(
+        currentPlayerMapSpace,
+        preview,
+        [],
+        GRID_WIDTH,
+        GRID_HEIGHT,
+        {
+          tileX: currentPlayerMapSpace.tileX,
+          tileY: currentPlayerMapSpace.tileY,
+        }
+      );
+
+      if (!teleported.ok) {
+        return;
+      }
+
+      focusCameraOn(teleported.worldX, teleported.worldZ);
     }
 
     renderer.domElement.addEventListener('click', handleClick);
@@ -283,11 +333,35 @@ export default function GamePage() {
 
       renderer.dispose();
 
+      cameraRef.current = null;
+      controlsRef.current = null;
+      playerMapSpaceRef.current = null;
+      fixedBuildingsLayerRef.current = null;
+      realtimePlayersLayerRef.current = null;
+
       if (mountEl.contains(renderer.domElement)) {
         mountEl.removeChild(renderer.domElement);
       }
     };
-  }, [navigate, player]);
+  }, [navigate]);
+
+  useEffect(() => {
+    const currentPlayerMapSpace = playerMapSpaceRef.current;
+    if (!currentPlayerMapSpace) return;
+
+    const nextTileX = Number(player?.mapPosition?.tileX ?? 0);
+    const nextTileY = Number(player?.mapPosition?.tileY ?? 0);
+    const nextBarracoLevel = Number(player?.niveis?.barracoLevel ?? 1);
+
+    currentPlayerMapSpace.updatePosition(nextTileX, nextTileY, []);
+    void currentPlayerMapSpace.updateBarracoLevel(nextBarracoLevel);
+
+    focusCameraOn(currentPlayerMapSpace.worldX, currentPlayerMapSpace.worldZ);
+  }, [
+    player?.mapPosition?.tileX,
+    player?.mapPosition?.tileY,
+    player?.niveis?.barracoLevel,
+  ]);
 
   return (
     <div className="min-h-screen bg-black">
