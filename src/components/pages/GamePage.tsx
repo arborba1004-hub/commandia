@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { mountFixedMapBuildings } from '@/components/game/fixedMapBuildings';
 import { mountPlayerMapSpace } from '@/components/game/playerMapSpace';
+import { mountRealtimeMapPlayersLayer } from '@/components/game/realtimeMapPlayersLayer';
 import { usePlayerStore } from '@/store/playerStore';
 import Header from '@/components/Header';
 
@@ -163,6 +164,17 @@ export default function GamePage() {
     selectionMesh.visible = false;
     scene.add(selectionMesh);
 
+    const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
+      scene,
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      tileSize: TILE_SIZE,
+      pollingMs: 3000,
+      showSpaces: true,
+    });
+
+    realtimePlayersLayer.start();
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -229,6 +241,8 @@ export default function GamePage() {
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('click', handleClick);
       controls.dispose();
+
+      realtimePlayersLayer.cleanup();
 
       fixedBuildingsLayer.cleanup();
       playerMapSpace.cleanup();
