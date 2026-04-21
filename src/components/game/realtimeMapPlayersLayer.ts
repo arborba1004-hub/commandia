@@ -1,5 +1,34 @@
 import * as THREE from 'three';
 
+const LOT_SIZE_TILES = 8;
+const FOUNDATION_HEIGHT = 0.18;
+
+function snapTileToLotOrigin(tile: number, maxTiles: number) {
+  const numericTile = Number.isFinite(Number(tile)) ? Math.floor(Number(tile)) : 0;
+  const snapped = Math.floor(numericTile / LOT_SIZE_TILES) * LOT_SIZE_TILES;
+  return Math.max(0, Math.min(maxTiles - LOT_SIZE_TILES, snapped));
+}
+
+function getLotWorldCenter(
+  tileX: number,
+  tileY: number,
+  gridWidth: number,
+  gridHeight: number,
+  tileSize: number
+) {
+  const originTileX = snapTileToLotOrigin(tileX, gridWidth);
+  const originTileY = snapTileToLotOrigin(tileY, gridHeight);
+
+  return {
+    worldX:
+      (originTileX - gridWidth / 2) * tileSize +
+      (LOT_SIZE_TILES * tileSize) / 2,
+    worldZ:
+      (originTileY - gridHeight / 2) * tileSize +
+      (LOT_SIZE_TILES * tileSize) / 2,
+  };
+}
+
 export type MapRemotePlayer = {
   id: string;
   name?: string;
@@ -84,10 +113,13 @@ export function mountRealtimeMapPlayersLayer({
 
   const bodyGeometry = new THREE.BoxGeometry(1.8, 1.0, 1.6);
   const roofGeometry = new THREE.ConeGeometry(1.35, 0.95, 4);
-  const lotGeometry = new THREE.CircleGeometry(1.45, 18);
+  const lotGeometry = new THREE.BoxGeometry(
+    LOT_SIZE_TILES * tileSize,
+    FOUNDATION_HEIGHT,
+    LOT_SIZE_TILES * tileSize
+  );
 
   roofGeometry.rotateY(Math.PI / 4);
-  lotGeometry.rotateX(-Math.PI / 2);
 
   const bodyMaterial = new THREE.MeshStandardMaterial({
     color: '#7aa2ff',
