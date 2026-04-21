@@ -7,6 +7,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { mountFixedMapBuildings } from '@/components/game/fixedMapBuildings';
 import { mountPlayerMapSpace } from '@/components/game/playerMapSpace';
 import { mountRealtimeMapPlayersLayer } from '@/components/game/realtimeMapPlayersLayer';
+import { teleportPlayerMapSpace } from '@/components/game/playerTeleport';
 import { usePlayerStore } from '@/store/playerStore';
 import Header from '@/components/Header';
 
@@ -224,6 +225,14 @@ export default function GamePage() {
         tileY - GRID_HEIGHT / 2 + 0.5
       );
       selectionMesh.visible = true;
+
+      const teleported = teleportPlayerMapSpace(playerMapSpace, {
+        clickedTileX: tileX,
+        clickedTileY: tileY,
+        occupiedOrigins: [],
+        gridWidth: GRID_WIDTH,
+        gridHeight: GRID_HEIGHT,
+      });
     }
 
     renderer.domElement.addEventListener('click', handleClick);
