@@ -61,10 +61,33 @@ function getBarracoModelUrl(level: number) {
   );
 }
 
-function getBarracoSize(barracoLevel: number) {
+const LOT_SIZE_TILES = 8;
+const FOUNDATION_HEIGHT = 0.18;
+
+function getBarracoFootprintTiles(barracoLevel: number) {
   if (barracoLevel >= 60) return 4;
   if (barracoLevel >= 30) return 3;
   return 2;
+}
+
+function snapTileToLotOrigin(tile: number, maxTiles: number) {
+  const numericTile = Number.isFinite(Number(tile)) ? Math.floor(Number(tile)) : 0;
+  const snapped = Math.floor(numericTile / LOT_SIZE_TILES) * LOT_SIZE_TILES;
+  return THREE.MathUtils.clamp(snapped, 0, maxTiles - LOT_SIZE_TILES);
+}
+
+function getLotCenterWorldPosition(tileX: number, tileY: number) {
+  const originTileX = snapTileToLotOrigin(tileX, GRID_WIDTH);
+  const originTileY = snapTileToLotOrigin(tileY, GRID_HEIGHT);
+
+  return {
+    worldX:
+      (originTileX - GRID_WIDTH / 2) * TILE_SIZE +
+      (LOT_SIZE_TILES * TILE_SIZE) / 2,
+    worldZ:
+      (originTileY - GRID_HEIGHT / 2) * TILE_SIZE +
+      (LOT_SIZE_TILES * TILE_SIZE) / 2,
+  };
 }
 
 function createTextLabel(text: string, rank?: string): THREE.Sprite | THREE.Group {
@@ -223,8 +246,8 @@ export default function GamePage() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
 
-    const worldX = (tileX - GRID_WIDTH / 2) * TILE_SIZE;
-    const worldZ = (tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+    const { worldX, worldZ } = getLotCenterWorldPosition(tileX, tileY);
+    const barracoFootprintTiles = getBarracoFootprintTiles(barracoLevel);
 
     const camera = new THREE.PerspectiveCamera(
       45,
