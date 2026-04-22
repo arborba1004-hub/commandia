@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,11 @@ import {
   createTeleportPreview,
   confirmPlayerTeleport,
 } from '@/components/game/playerTeleport';
+import OtherPlayerBarracoModal, {
+  createOtherPlayerBarracoModalState,
+  openOtherPlayerBarracoModal,
+  closeOtherPlayerBarracoModal,
+} from '@/components/game/OtherPlayerBarracoModal';
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -37,8 +42,26 @@ export default function GamePage() {
   const realtimePlayersLayerRef =
     useRef<ReturnType<typeof mountRealtimeMapPlayersLayer> | null>(null);
 
+  const [otherPlayerBarracoModal, setOtherPlayerBarracoModal] = useState(
+    createOtherPlayerBarracoModalState()
+  );
+
   const navigate = useNavigate();
   const player = usePlayerStore((state) => state.player);
+
+  function getClickedRemotePlayerId(object: THREE.Object3D | null): string | null {
+    let current: THREE.Object3D | null = object;
+
+    while (current) {
+      const playerId = current.userData?.playerId;
+      if (playerId) {
+        return String(playerId);
+      }
+      current = current.parent ?? null;
+    }
+
+    return null;
+  }
 
   function focusCameraOn(worldX: number, worldZ: number) {
     const camera = cameraRef.current;
@@ -223,6 +246,46 @@ export default function GamePage() {
         return;
       }
 
+      const currentPlayerId = String(
+        (usePlayerStore.getState().player as any)?.id ||
+          usePlayerStore.getState().player?._id ||
+          ''
+      );
+
+      const enemyBarracoHits = raycaster.intersectObjects(
+        currentRealtimeLayer.group.children,
+        true
+      );
+
+      if (enemyBarracoHits.length > 0) {
+        const clickedEnemyHit = enemyBarracoHits.find((hit) => {
+          const playerId = getClickedRemotePlayerId(hit.object);
+          return !!playerId && playerId !== currentPlayerId;
+        });
+
+        if (clickedEnemyHit) {
+          const clickedPlayerId = getClickedRemotePlayerId(clickedEnemyHit.object);
+
+          const targetSnapshot = currentRealtimeLayer
+            .getSnapshots()
+            .find((item) => String(item.id) === String(clickedPlayerId));
+
+          if (targetSnapshot) {
+            setOtherPlayerBarracoModal(
+              openOtherPlayerBarracoModal({
+                id: String(targetSnapshot.id),
+                name: targetSnapshot.name || 'Jogador',
+                factionId: targetSnapshot.factionId || null,
+                barracoLevel: targetSnapshot.barracoLevel,
+                avatarUrl: null,
+                factionName: null,
+              })
+            );
+            return;
+          }
+        }
+      }
+
       const intersections = raycaster.intersectObject(clickPlane, false);
       if (!intersections.length) return;
 
@@ -248,7 +311,6 @@ export default function GamePage() {
 
       await currentRealtimeLayer.refreshNow();
 
-      const currentPlayerId = String(usePlayerStore.getState().player?.id || '');
       const occupiedOriginsBeforeConfirm =
         currentRealtimeLayer.getOccupiedOrigins(currentPlayerId);
 
@@ -380,6 +442,22 @@ export default function GamePage() {
       <div
         ref={mountRef}
         className="w-full h-[calc(100vh-104px)] min-h-[500px]"
+      />
+      <OtherPlayerBarracoModal
+        state={otherPlayerBarracoModal}
+        onClose={() => setOtherPlayerBarracoModal(closeOtherPlayerBarracoModal())}
+        onSendPrivateMessage={(target) => {
+          // TODO: Implement private message
+          console.log('Send message to:', target);
+        }}
+        onInviteToFaction={(target) => {
+          // TODO: Implement faction invite
+          console.log('Invite to faction:', target);
+        }}
+        onAttack={(target) => {
+          // TODO: Implement attack
+          console.log('Attack:', target);
+        }}
       />
     </div>
   );
