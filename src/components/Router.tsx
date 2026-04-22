@@ -15,10 +15,8 @@ import LuxoItemPage from '@/components/pages/LuxoItemPage';
 import BarracoPage from '@/components/pages/BarracoPage';
 import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
 import ChatPage from '@/components/pages/ChatPage';
-import TalentsPage from '@/components/pages/TalentsPage';
 import FactionPage from '@/components/pages/FactionPage';
 import RankingPage from '@/components/pages/RankingPage';
-import GangPage from '@/components/gang/GangPage';
 import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
 import ProtectedRoute from '@/components/routes/ProtectedRoute';
 
@@ -114,20 +112,8 @@ const router = createBrowserRouter(
           ),
         },
 
-        {
-          path: 'talentos',
-          element: (
-            <ProtectedRoute>
-              <FeatureGateRoute branch="talents">
-                <TalentsPage />
-              </FeatureGateRoute>
-            </ProtectedRoute>
-          ),
-        },
-
         { path: 'faccao',  element: <ProtectedRoute><FactionPage /></ProtectedRoute> },
         { path: 'ranking', element: <ProtectedRoute><RankingPage /></ProtectedRoute> },
-        { path: 'gang',    element: <ProtectedRoute><GangPage /></ProtectedRoute> },
         { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
         { path: 'lavagemdedinheiro', element: <Navigate to="/lavagem-de-dinheiro" replace /> },
         { path: 'subornoilustrado', element: <Navigate to="/suborno-ilustrado" replace /> },
