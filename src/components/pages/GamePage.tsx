@@ -20,8 +20,11 @@ import OtherPlayerBarracoModal, {
   type OtherPlayerBarracoTarget,
 } from '@/components/game/OtherPlayerBarracoModal';
 import GangAttackMembersModal, {
+  ATTACK_MEMBER_TYPES,
   getGangAttackMaxMembers,
+  type GangAttackAvailableCounts,
 } from '@/components/gang/GangAttackMembersModal';
+import { readGangTrainingEnvelopeForPlayer } from '@/components/gang/GangTrainingPersistence';
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -35,6 +38,38 @@ const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath(
   'https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
 );
+
+function buildRealGangAttackAvailableCounts(
+  player: Record<string, any> | null | undefined
+): GangAttackAvailableCounts {
+  const counts: GangAttackAvailableCounts = {
+    capanga: 0,
+    frente: 0,
+    executor: 0,
+    assassino: 0,
+    muralha: 0,
+    certeiro: 0,
+    motorista: 0,
+    nitro: 0,
+  };
+
+  if (!player) {
+    return counts;
+  }
+
+  const envelope = readGangTrainingEnvelopeForPlayer(player);
+  const members = Array.isArray(envelope?.gangMembers) ? envelope.gangMembers : [];
+
+  for (const member of members) {
+    if (!member) continue;
+    if (member.status !== 'ativo') continue;
+    if (!ATTACK_MEMBER_TYPES.includes(member.type)) continue;
+
+    counts[member.type] = Number(counts[member.type] || 0) + 1;
+  }
+
+  return counts;
+}
 
 export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -62,17 +97,8 @@ export default function GamePage() {
   );
 
   const gangAttackAvailableCounts = useMemo(
-    () => ({
-      capanga: attackMaxMembers,
-      frente: attackMaxMembers,
-      executor: attackMaxMembers,
-      assassino: attackMaxMembers,
-      muralha: attackMaxMembers,
-      certeiro: attackMaxMembers,
-      motorista: attackMaxMembers,
-      nitro: attackMaxMembers,
-    }),
-    [attackMaxMembers]
+    () => buildRealGangAttackAvailableCounts(player as any),
+    [player, isAttackMembersModalOpen]
   );
 
   function getClickedRemotePlayerId(object: THREE.Object3D | null): string | null {
@@ -108,6 +134,7 @@ export default function GamePage() {
 
   function closeAttackMembersModal() {
     setIsAttackMembersModalOpen(false);
+    setAttackTarget(null);
   }
 
   useEffect(() => {
@@ -509,6 +536,8 @@ export default function GamePage() {
           console.log('Confirm attack', {
             target: attackTarget,
             selection,
+            maxMembers: attackMaxMembers,
+            availableCounts: gangAttackAvailableCounts,
           });
           closeAttackMembersModal();
         }}
