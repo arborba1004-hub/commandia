@@ -1,8 +1,6 @@
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mail, ShieldPlus, Swords, X } from 'lucide-react';
-import { useMemo } from 'react';
-import { Image } from '@/components/ui/image';
 
 export type OtherPlayerBarracoTarget = {
   id: string;
@@ -62,7 +60,11 @@ function getFactionLabel(target: OtherPlayerBarracoTarget | null) {
 }
 
 function getInitials(name?: string | null) {
-  const parts = String(name || 'J').trim().split(/\s+/).slice(0, 2);
+  const parts = String(name || 'J')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2);
+
   return parts.map((item) => item.charAt(0).toUpperCase()).join('') || 'J';
 }
 
@@ -144,12 +146,7 @@ export default function OtherPlayerBarracoModal({
   isAttacking = false,
 }: OtherPlayerBarracoModalProps) {
   const target = state.target;
-
-  const inviteEnabled = useMemo(() => {
-    if (!target) return false;
-    return canInviteToFaction(target, myFactionId);
-  }, [target, myFactionId]);
-
+  const inviteEnabled = target ? canInviteToFaction(target, myFactionId) : false;
   const attackEnabled = !!target && typeof onAttack === 'function';
   const relationship = getRelationshipStyles(target, myFactionId);
   const inviteBlockMessage = getInviteBlockMessage(target, myFactionId);
@@ -173,7 +170,11 @@ export default function OtherPlayerBarracoModal({
 
               <div className="flex items-center gap-4">
                 {target.avatarUrl ? (
-                  <Image src={target.avatarUrl} alt={target.name} className="h-20 w-20 rounded-2xl border border-white/10 object-cover" />
+                  <img
+                    src={target.avatarUrl}
+                    alt={target.name}
+                    className="h-20 w-20 rounded-2xl border border-white/10 object-cover"
+                  />
                 ) : (
                   <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl font-black text-red-300">
                     {getInitials(target.name)}
@@ -187,9 +188,7 @@ export default function OtherPlayerBarracoModal({
                     {getRelationshipLabel(target, myFactionId)}
                   </div>
 
-                  <h2 className="mt-3 truncate text-2xl font-black">
-                    {target.name}
-                  </h2>
+                  <h2 className="mt-3 truncate text-2xl font-black">{target.name}</h2>
 
                   <p className="mt-1 text-sm text-zinc-400">
                     Escolha uma ação para interagir com esse barraco.
