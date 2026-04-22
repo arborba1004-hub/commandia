@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +17,11 @@ import OtherPlayerBarracoModal, {
   createOtherPlayerBarracoModalState,
   openOtherPlayerBarracoModal,
   closeOtherPlayerBarracoModal,
+  type OtherPlayerBarracoTarget,
 } from '@/components/game/OtherPlayerBarracoModal';
+import GangAttackMembersModal, {
+  getGangAttackMaxMembers,
+} from '@/components/gang/GangAttackMembersModal';
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -45,9 +49,31 @@ export default function GamePage() {
   const [otherPlayerBarracoModal, setOtherPlayerBarracoModal] = useState(
     createOtherPlayerBarracoModalState()
   );
+  const [attackTarget, setAttackTarget] = useState<OtherPlayerBarracoTarget | null>(null);
+  const [isAttackMembersModalOpen, setIsAttackMembersModalOpen] = useState(false);
 
   const navigate = useNavigate();
   const player = usePlayerStore((state) => state.player);
+
+  const barracoLevel = Number(player?.niveis?.barracoLevel ?? 1);
+  const attackMaxMembers = useMemo(
+    () => getGangAttackMaxMembers(barracoLevel),
+    [barracoLevel]
+  );
+
+  const gangAttackAvailableCounts = useMemo(
+    () => ({
+      capanga: attackMaxMembers,
+      frente: attackMaxMembers,
+      executor: attackMaxMembers,
+      assassino: attackMaxMembers,
+      muralha: attackMaxMembers,
+      certeiro: attackMaxMembers,
+      motorista: attackMaxMembers,
+      nitro: attackMaxMembers,
+    }),
+    [attackMaxMembers]
+  );
 
   function getClickedRemotePlayerId(object: THREE.Object3D | null): string | null {
     let current: THREE.Object3D | null = object;
@@ -72,6 +98,16 @@ export default function GamePage() {
     controls.target.set(worldX, 0, worldZ);
     camera.position.set(worldX + 12, 10, worldZ + 12);
     controls.update();
+  }
+
+  function openAttackMembersModal(target: OtherPlayerBarracoTarget) {
+    setAttackTarget(target);
+    setOtherPlayerBarracoModal(closeOtherPlayerBarracoModal());
+    setIsAttackMembersModalOpen(true);
+  }
+
+  function closeAttackMembersModal() {
+    setIsAttackMembersModalOpen(false);
   }
 
   useEffect(() => {
@@ -439,10 +475,12 @@ export default function GamePage() {
   return (
     <div className="min-h-screen bg-black">
       <Header />
+
       <div
         ref={mountRef}
         className="w-full h-[calc(100vh-104px)] min-h-[500px]"
       />
+
       <OtherPlayerBarracoModal
         state={otherPlayerBarracoModal}
         myFactionId={player?.factionId ?? null}
@@ -454,11 +492,27 @@ export default function GamePage() {
           console.log('Invite to faction:', target);
         }}
         onAttack={(target) => {
-          console.log('Attack:', target);
+          openAttackMembersModal(target);
         }}
         isSendingMessage={false}
         isInviting={false}
         isAttacking={false}
+      />
+
+      <GangAttackMembersModal
+        isOpen={isAttackMembersModalOpen}
+        barracoLevel={barracoLevel}
+        availableCounts={gangAttackAvailableCounts}
+        initialSelection={null}
+        onClose={closeAttackMembersModal}
+        onConfirm={(selection) => {
+          console.log('Confirm attack', {
+            target: attackTarget,
+            selection,
+          });
+          closeAttackMembersModal();
+        }}
+        isSubmitting={false}
       />
     </div>
   );
