@@ -22,9 +22,12 @@ import OtherPlayerBarracoModal, {
 import GangAttackMembersModal, {
   ATTACK_MEMBER_TYPES,
   getGangAttackMaxMembers,
+  getGangAttackTotalSelected,
   type GangAttackAvailableCounts,
+  type GangAttackSelection,
 } from '@/components/gang/GangAttackMembersModal';
 import { readGangTrainingEnvelopeForPlayer } from '@/components/gang/GangTrainingPersistence';
+import { mountGangAttackAnimation } from '@/components/game/gangAttackAnimation';
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -38,6 +41,12 @@ const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath(
   'https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
 );
+
+type AttackLaunchTarget = {
+  target: OtherPlayerBarracoTarget;
+  tileX: number;
+  tileY: number;
+};
 
 function buildRealGangAttackAvailableCounts(
   player: Record<string, any> | null | undefined
@@ -73,6 +82,7 @@ function buildRealGangAttackAvailableCounts(
 
 export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const playerMapSpaceRef = useRef<ReturnType<typeof mountPlayerMapSpace> | null>(null);
@@ -80,11 +90,13 @@ export default function GamePage() {
     useRef<ReturnType<typeof mountFixedMapBuildings> | null>(null);
   const realtimePlayersLayerRef =
     useRef<ReturnType<typeof mountRealtimeMapPlayersLayer> | null>(null);
+  const activeGangAttackAnimationRef =
+    useRef<ReturnType<typeof mountGangAttackAnimation> | null>(null);
 
   const [otherPlayerBarracoModal, setOtherPlayerBarracoModal] = useState(
     createOtherPlayerBarracoModalState()
   );
-  const [attackTarget, setAttackTarget] = useState<OtherPlayerBarracoTarget | null>(null);
+  const [attackTarget, setAttackTarget] = useState<AttackLaunchTarget | null>(null);
   const [isAttackMembersModalOpen, setIsAttackMembersModalOpen] = useState(false);
 
   const navigate = useNavigate();
@@ -127,7 +139,21 @@ export default function GamePage() {
   }
 
   function openAttackMembersModal(target: OtherPlayerBarracoTarget) {
-    setAttackTarget(target);
+    const snapshots = realtimePlayersLayerRef.current?.getSnapshots() ?? [];
+    const matchedSnapshot = snapshots.find(
+      (item) => String(item.id) === String(target.id)
+    );
+
+    if (!matchedSnapshot) {
+      console.error('Alvo do ataque não encontrado no mapa em tempo real.');
+      return;
+    }
+
+    setAttackTarget({
+      target,
+      tileX: Number(matchedSnapshot.tileX || 0),
+      tileY: Number(matchedSnapshot.tileY || 0),
+    });
     setOtherPlayerBarracoModal(closeOtherPlayerBarracoModal());
     setIsAttackMembersModalOpen(true);
   }
@@ -137,12 +163,61 @@ export default function GamePage() {
     setAttackTarget(null);
   }
 
+  async function launchGangAttackAnimation(selection: GangAttackSelection) {
+    const scene = sceneRef.current;
+    const playerMapSpace = playerMapSpaceRef.current;
+    const target = attackTarget;
+
+    if (!scene || !playerMapSpace || !target) {
+      closeAttackMembersModal();
+      return;
+    }
+
+    const totalSelected = getGangAttackTotalSelected(selection);
+
+    if (totalSelected <= 0) {
+      return;
+    }
+
+    if (activeGangAttackAnimationRef.current) {
+      activeGangAttackAnimationRef.current.cancel();
+      activeGangAttackAnimationRef.current = null;
+    }
+
+    const animation = mountGangAttackAnimation({
+      scene,
+      originTileX: playerMapSpace.tileX,
+      originTileY: playerMapSpace.tileY,
+      targetTileX: target.tileX,
+      targetTileY: target.tileY,
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      tileSize: TILE_SIZE,
+      barracoLevel,
+      quantity: totalSelected,
+      color: '#ff3b30',
+    });
+
+    activeGangAttackAnimationRef.current = animation;
+    closeAttackMembersModal();
+
+    try {
+      await animation.start();
+    } finally {
+      if (activeGangAttackAnimationRef.current === animation) {
+        animation.cleanup();
+        activeGangAttackAnimationRef.current = null;
+      }
+    }
+  }
+
   useEffect(() => {
     const mountEl = mountRef.current;
     if (!mountEl) return;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#050505');
+    sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
       50,
@@ -451,6 +526,11 @@ export default function GamePage() {
       renderer.domElement.removeEventListener('click', handleClick);
       controls.dispose();
 
+      if (activeGangAttackAnimationRef.current) {
+        activeGangAttackAnimationRef.current.cancel();
+        activeGangAttackAnimationRef.current = null;
+      }
+
       realtimePlayersLayer.cleanup();
       fixedBuildingsLayer.cleanup();
       playerMapSpace.cleanup();
@@ -469,6 +549,7 @@ export default function GamePage() {
 
       renderer.dispose();
 
+      sceneRef.current = null;
       cameraRef.current = null;
       controlsRef.current = null;
       playerMapSpaceRef.current = null;
@@ -479,7 +560,7 @@ export default function GamePage() {
         mountEl.removeChild(renderer.domElement);
       }
     };
-  }, [navigate]);
+  }, [navigate, barracoLevel]);
 
   useEffect(() => {
     const currentPlayerMapSpace = playerMapSpaceRef.current;
@@ -533,13 +614,7 @@ export default function GamePage() {
         initialSelection={null}
         onClose={closeAttackMembersModal}
         onConfirm={(selection) => {
-          console.log('Confirm attack', {
-            target: attackTarget,
-            selection,
-            maxMembers: attackMaxMembers,
-            availableCounts: gangAttackAvailableCounts,
-          });
-          closeAttackMembersModal();
+          void launchGangAttackAnimation(selection);
         }}
         isSubmitting={false}
       />
