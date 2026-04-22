@@ -234,6 +234,24 @@ function createSpaceMesh(tileSize: number): THREE.Mesh {
   return mesh;
 }
 
+function syncEntryPlayerId(entry: PlayerVisualEntry, playerId: string) {
+  entry.id = playerId;
+  entry.group.userData.playerId = playerId;
+  entry.modelContainer.userData.playerId = playerId;
+
+  if (entry.spaceMesh) {
+    entry.spaceMesh.userData.playerId = playerId;
+  }
+
+  if (entry.label) {
+    entry.label.userData.playerId = playerId;
+  }
+
+  entry.modelContainer.traverse((child: any) => {
+    child.userData.playerId = playerId;
+  });
+}
+
 async function fetchMapPlayersSnapshot(limit = DEFAULT_LIMIT): Promise<MapPlayerSnapshot[]> {
   const token = getAuthToken();
 
@@ -410,10 +428,6 @@ export function mountRealtimeMapPlayersLayer({
     clearModelContainer(entry.modelContainer);
     entry.modelContainer.add(model);
 
-    model.traverse((child: any) => {
-      child.userData.playerId = entry.id;
-    });
-
     entry.modelUrl = nextUrl;
     entry.barracoLevel = nextLevel;
     entry.labelY = labelY;
@@ -432,7 +446,6 @@ export function mountRealtimeMapPlayersLayer({
 
     const label = createLabelSprite(snapshot.name || 'Jogador');
     label.userData.playerName = snapshot.name || 'Jogador';
-    label.userData.playerId = snapshot.id;
     label.position.set(0, entry.labelY, 0);
     entry.label = label;
     entry.group.add(label);
@@ -451,23 +464,11 @@ export function mountRealtimeMapPlayersLayer({
 
       if (!entry) {
         entry = createVisualEntry(tileSize, showSpaces);
-        entry.id = playerId;
-        entry.group.userData.playerId = playerId;
-        if (entry.spaceMesh) {
-          entry.spaceMesh.userData.playerId = playerId;
-        }
-        entry.modelContainer.userData.playerId = playerId;
         entries.set(playerId, entry);
         group.add(entry.group);
-        updateEntryLabel(entry, snapshot);
-      } else {
-        entry.id = playerId;
-        entry.group.userData.playerId = playerId;
-        if (entry.spaceMesh) {
-          entry.spaceMesh.userData.playerId = playerId;
-        }
-        entry.modelContainer.userData.playerId = playerId;
       }
+
+      syncEntryPlayerId(entry, playerId);
 
       setEntryWorldPosition(
         entry,
@@ -479,9 +480,11 @@ export function mountRealtimeMapPlayersLayer({
 
       if (!entry.label || entry.label.userData?.playerName !== (snapshot.name || 'Jogador')) {
         updateEntryLabel(entry, snapshot);
+        syncEntryPlayerId(entry, playerId);
       }
 
       await ensureEntryVisual(entry, snapshot);
+      syncEntryPlayerId(entry, playerId);
     }
 
     for (const [playerId, entry] of entries.entries()) {
