@@ -445,19 +445,20 @@ export default function GamePage() {
       />
       <OtherPlayerBarracoModal
         state={otherPlayerBarracoModal}
+        myFactionId={player?.factionId ?? null}
         onClose={() => setOtherPlayerBarracoModal(closeOtherPlayerBarracoModal())}
         onSendPrivateMessage={(target) => {
-          // TODO: Implement private message
           console.log('Send message to:', target);
         }}
         onInviteToFaction={(target) => {
-          // TODO: Implement faction invite
           console.log('Invite to faction:', target);
         }}
         onAttack={(target) => {
-          // TODO: Implement attack
           console.log('Attack:', target);
         }}
+        isSendingMessage={false}
+        isInviting={false}
+        isAttacking={false}
       />
     </div>
   );
