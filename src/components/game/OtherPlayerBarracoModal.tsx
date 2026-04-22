@@ -23,7 +23,7 @@ export type OtherPlayerBarracoModalProps = {
   onClose: () => void;
   onSendPrivateMessage: (target: OtherPlayerBarracoTarget) => void;
   onInviteToFaction: (target: OtherPlayerBarracoTarget) => void;
-  onAttack: (target: OtherPlayerBarracoTarget) => void;
+  onAttack?: (target: OtherPlayerBarracoTarget) => void;
   isSendingMessage?: boolean;
   isInviting?: boolean;
   isAttacking?: boolean;
@@ -76,6 +76,61 @@ function canInviteToFaction(
   return true;
 }
 
+function getRelationshipLabel(
+  target: OtherPlayerBarracoTarget | null,
+  myFactionId?: string | null
+) {
+  if (!target) return 'Barraco';
+  if (!target.factionId) return 'Barraco neutro';
+  if (myFactionId && target.factionId === myFactionId) return 'Barraco aliado';
+  return 'Barraco inimigo';
+}
+
+function getRelationshipStyles(
+  target: OtherPlayerBarracoTarget | null,
+  myFactionId?: string | null
+) {
+  if (!target?.factionId) {
+    return {
+      badge: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-200',
+      glow: 'from-zinc-950 via-zinc-900 to-zinc-800/60',
+    };
+  }
+
+  if (myFactionId && target.factionId === myFactionId) {
+    return {
+      badge: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+      glow: 'from-zinc-950 via-zinc-900 to-emerald-950/40',
+    };
+  }
+
+  return {
+    badge: 'border-red-500/30 bg-red-500/10 text-red-300',
+    glow: 'from-zinc-950 via-zinc-900 to-red-950/40',
+  };
+}
+
+function getInviteBlockMessage(
+  target: OtherPlayerBarracoTarget | null,
+  myFactionId?: string | null
+) {
+  if (!myFactionId) {
+    return 'Você precisa estar em uma facção para convidar alguém.';
+  }
+
+  if (!target) return null;
+
+  if (target.factionId && target.factionId === myFactionId) {
+    return 'Esse jogador já está na sua facção.';
+  }
+
+  if (target.factionId && target.factionId !== myFactionId) {
+    return 'Esse jogador já pertence a outra facção.';
+  }
+
+  return null;
+}
+
 export default function OtherPlayerBarracoModal({
   state,
   myFactionId = null,
@@ -94,12 +149,18 @@ export default function OtherPlayerBarracoModal({
     return canInviteToFaction(target, myFactionId);
   }, [target, myFactionId]);
 
+  const attackEnabled = !!target && typeof onAttack === 'function';
+  const relationship = getRelationshipStyles(target, myFactionId);
+  const inviteBlockMessage = getInviteBlockMessage(target, myFactionId);
+
   return (
     <Dialog open={state.isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
       <DialogContent className="max-w-md border-white/10 bg-[#090909] p-0 text-white">
         {!target ? null : (
           <div className="overflow-hidden rounded-3xl">
-            <div className="relative border-b border-white/10 bg-gradient-to-br from-zinc-950 via-zinc-900 to-red-950/30 px-6 pb-5 pt-6">
+            <div
+              className={`relative border-b border-white/10 bg-gradient-to-br ${relationship.glow} px-6 pb-5 pt-6`}
+            >
               <button
                 type="button"
                 onClick={onClose}
@@ -122,25 +183,41 @@ export default function OtherPlayerBarracoModal({
                   </div>
                 )}
 
-                <div className="min-w-0">
-                  <div className="text-xs font-bold uppercase tracking-[0.18em] text-red-300/80">
-                    Barraco inimigo
+                <div className="min-w-0 flex-1">
+                  <div
+                    className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${relationship.badge}`}
+                  >
+                    {getRelationshipLabel(target, myFactionId)}
                   </div>
 
-                  <h2 className="mt-1 truncate text-2xl font-black">
+                  <h2 className="mt-3 truncate text-2xl font-black">
                     {target.name}
                   </h2>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-300">
-                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                      Facção: {getFactionLabel(target)}
-                    </span>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Escolha uma ação para interagir com esse barraco.
+                  </p>
+                </div>
+              </div>
 
-                    {typeof target.barracoLevel === 'number' ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                        Barraco {target.barracoLevel}
-                      </span>
-                    ) : null}
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">
+                    Facção
+                  </div>
+                  <div className="mt-2 truncate text-sm font-semibold text-white">
+                    {getFactionLabel(target)}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">
+                    Nível do barraco
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-white">
+                    {typeof target.barracoLevel === 'number'
+                      ? `Barraco ${target.barracoLevel}`
+                      : 'Não informado'}
                   </div>
                 </div>
               </div>
@@ -169,29 +246,27 @@ export default function OtherPlayerBarracoModal({
 
               <Button
                 type="button"
-                onClick={() => onAttack(target)}
-                disabled={isAttacking}
+                onClick={() => {
+                  if (attackEnabled) {
+                    onAttack?.(target);
+                  }
+                }}
+                disabled={!attackEnabled || isAttacking}
                 className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-red-600 text-base font-black text-white hover:bg-red-500 disabled:opacity-50"
               >
                 <Swords size={18} />
-                Atacar
+                {attackEnabled ? 'Atacar' : 'Atacar (em breve)'}
               </Button>
 
-              {!myFactionId ? (
+              {inviteBlockMessage ? (
                 <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-                  Você precisa estar em uma facção para convidar alguém.
+                  {inviteBlockMessage}
                 </div>
               ) : null}
 
-              {target.factionId && target.factionId === myFactionId ? (
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
-                  Esse jogador já está na sua facção.
-                </div>
-              ) : null}
-
-              {target.factionId && target.factionId !== myFactionId ? (
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
-                  Esse jogador já pertence a outra facção.
+              {!attackEnabled ? (
+                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  O sistema de ataque ainda não está conectado nesse modal.
                 </div>
               ) : null}
             </div>
