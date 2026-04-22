@@ -2,6 +2,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mail, ShieldPlus, Swords, X } from 'lucide-react';
 import { useMemo } from 'react';
+import { Image } from '@/components/ui/image';
 
 export type OtherPlayerBarracoTarget = {
   id: string;
@@ -172,11 +173,7 @@ export default function OtherPlayerBarracoModal({
 
               <div className="flex items-center gap-4">
                 {target.avatarUrl ? (
-                  <img
-                    src={target.avatarUrl}
-                    alt={target.name}
-                    className="h-20 w-20 rounded-2xl border border-white/10 object-cover"
-                  />
+                  <Image src={target.avatarUrl} alt={target.name} className="h-20 w-20 rounded-2xl border border-white/10 object-cover" />
                 ) : (
                   <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl font-black text-red-300">
                     {getInitials(target.name)}
