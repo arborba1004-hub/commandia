@@ -16,6 +16,7 @@ export type OtherPlayerBarracoModalState = {
   target: OtherPlayerBarracoTarget | null;
 };
 
+
 export type OtherPlayerBarracoModalProps = {
   state: OtherPlayerBarracoModalState;
   myFactionId?: string | null;
