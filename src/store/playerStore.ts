@@ -1008,9 +1008,9 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
     const token = getStoredAuthToken();
     if (!token) return;
 
+    // CRITICAL: Prevent multiple polling intervals from being created
     if (pollingInterval) {
-      clearInterval(pollingInterval);
-      pollingInterval = null;
+      return; // Already polling, don't create another interval
     }
 
     set({ isPolling: true });

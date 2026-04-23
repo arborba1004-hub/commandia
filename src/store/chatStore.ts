@@ -296,8 +296,9 @@ await Promise.all([
   },
 
   startChatPolling: () => {
+    // CRITICAL: Prevent multiple polling intervals from being created
     if (chatPollingInterval) {
-      clearInterval(chatPollingInterval);
+      return; // Already polling, don't create another interval
     }
 
     chatPollingInterval = setInterval(() => {
