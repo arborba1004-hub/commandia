@@ -6,6 +6,9 @@ import HomePage from '@/components/pages/HomePage';
 import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
 import ProtectedRoute from '@/components/routes/ProtectedRoute';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import AchievementNotification from '@/components/AchievementNotification';
 
 // Lazy load heavy pages to prevent module fetch errors
 const GaleriaPage = lazy(() => import('@/components/pages/GaleriaPage'));
@@ -27,12 +30,17 @@ const TreinamentoGangPage = lazy(() => import('@/components/pages/TreinamentoGan
 
 function Layout() {
   return (
-    <>
+    <div className="min-h-screen bg-background flex flex-col">
       <ScrollToTop />
-      <Suspense fallback={<LoadingSpinner />}>
-        <Outlet />
-      </Suspense>
-    </>
+      <Header />
+      <AchievementNotification />
+      <main className="flex-1 pt-[120px] md:pt-[140px]">
+        <Suspense fallback={<LoadingSpinner />}>
+          <Outlet />
+        </Suspense>
+      </main>
+      <Footer />
+    </div>
   );
 }
 
