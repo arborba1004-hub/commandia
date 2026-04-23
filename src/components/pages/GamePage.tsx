@@ -708,12 +708,15 @@ export default function GamePage() {
         myFactionId={player?.factionId ?? null}
         onClose={() => setOtherPlayerBarracoModal(closeOtherPlayerBarracoModal())}
         onSendPrivateMessage={(target) => {
+          // TODO: Implementar envio de mensagem privada
           console.log('Send message to:', target);
         }}
         onInviteToFaction={(target) => {
+          // TODO: Implementar convite para facção
           console.log('Invite to faction:', target);
         }}
         onAttack={(target) => {
+          // ✅ CONECTADO CORRETAMENTE
           openAttackMembersModal(target);
         }}
         isSendingMessage={false}
