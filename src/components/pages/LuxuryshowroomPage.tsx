@@ -3,37 +3,13 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { usePlayerStore } from '@/store/playerStore';
-import FeatureLevelLock from '@/components/FeatureLevelLock';
-import { canAccessFeature } from '@/utils/levelRequirements';
 
 export default function LuxuryshowroomPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const navigate = useNavigate();
-  const player = usePlayerStore((state) => state.player);
 
   const [showDialog, setShowDialog] = useState(false);
   const [showButton, setShowButton] = useState(false);
-
-  const playerLevel = player.niveis.playerLevel || 1;
-  const isFeatureUnlocked = canAccessFeature(playerLevel, 'luxo');
-
-  // Se a funcionalidade não está desbloqueada, mostrar lock screen
-  if (!isFeatureUnlocked) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
-          <FeatureLevelLock
-            playerLevel={playerLevel}
-            featureName="Loja de Luxo"
-            onNavigateToBarraco={() => navigate('/barraco')}
-          />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   const line1 = 'Boa noite, Comandante.';
   const line2 = 'Sua coleção está pronta para você.';

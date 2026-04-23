@@ -6,9 +6,7 @@ import { Image } from '@/components/ui/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { usePlayerStore } from '@/store/playerStore';
-import { useNavigate } from 'react-router-dom';
 import SoapBubbleAnimation from '@/components/SoapBubbleAnimation';
-import FeatureLevelLock from '@/components/FeatureLevelLock';
 
 interface Business {
   id: number;
@@ -91,8 +89,6 @@ const BUSINESSES: Business[] = [
 ];
 
 export default function LavagemDeDinheiroPage() {
-  const navigate = useNavigate();
-
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [animatingBusinessId, setAnimatingBusinessId] = useState<number | null>(null);
   const [timerStates, setTimerStates] = useState<Record<number, number>>({});
