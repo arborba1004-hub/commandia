@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Shield, Flame, Play, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { useAchievementStore } from '@/store/achievementStore';
 import { Image } from '@/components/ui/image';
