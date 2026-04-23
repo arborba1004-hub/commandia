@@ -30,6 +30,7 @@ import { readGangTrainingEnvelopeForPlayer } from '@/components/gang/GangTrainin
 import { mountGangAttackAnimation } from '@/components/game/gangAttackAnimation';
 import { mountGangBattleEffects } from '@/components/game/gangBattleEffects';
 import { startAttack, resolveAttackWhenReady } from '@/api/attack';
+import { getGangStatus } from '@/api/playerApi';
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -68,17 +69,64 @@ function buildRealGangAttackAvailableCounts(
     return counts;
   }
 
-  const envelope = readGangTrainingEnvelopeForPlayer(player);
-  const members = Array.isArray(envelope?.gangMembers) ? envelope.gangMembers : [];
+  // ✅ NOVO: Tentar dados do backend primeiro (prioridade)
+  const backendMembers = Array.isArray(player?.gang?.members) 
+    ? player.gang.members 
+    : [];
 
-  for (const member of members) {
+  // ✅ NOVO: Fallback para localStorage se backend vazio
+  let allMembers = backendMembers;
+  
+  if (allMembers.length === 0) {
+    const envelope = readGangTrainingEnvelopeForPlayer(player);
+    allMembers = Array.isArray(envelope?.gangMembers) 
+      ? envelope.gangMembers 
+      : [];
+  } else {
+    // Mesclar dados (priorizar backend, complementar com localStorage)
+    const envelope = readGangTrainingEnvelopeForPlayer(player);
+    const localMembers = Array.isArray(envelope?.gangMembers) 
+      ? envelope.gangMembers 
+      : [];
+
+    const backendIds = new Set(backendMembers.map(m => m.id));
+    const newLocal = localMembers.filter(m => !backendIds.has(m.id));
+    
+    allMembers = [...backendMembers, ...newLocal];
+  }
+
+  // Contar membros ativos por tipo
+  for (const member of allMembers) {
     if (!member) continue;
     if (member.status !== 'ativo') continue;
     if (!ATTACK_MEMBER_TYPES.includes(member.type)) continue;
+    
     counts[member.type] = Number(counts[member.type] || 0) + 1;
   }
 
   return counts;
+}
+
+// ===== ADICIONAR SINCRONIZAÇÃO APÓS COLETAR TREINAMENTO =====
+
+async function syncGangWithBackend() {
+  try {
+    const response = await getGangStatus();
+    
+    if (response?.members && usePlayerStore.getState().player) {
+      // Atualizar store com dados do backend
+      const player = usePlayerStore.getState().player as any;
+      player.gang = {
+        members: response.members,
+        updatedAtIso: new Date().toISOString(),
+      };
+      
+      // Force re-render para atualizar modal
+      usePlayerStore.setState({ player: { ...player } });
+    }
+  } catch (error) {
+    console.error('Erro ao sincronizar gang:', error);
+  }
 }
 
 export default function GamePage() {
@@ -143,6 +191,9 @@ export default function GamePage() {
   }
 
   function openAttackMembersModal(target: OtherPlayerBarracoTarget) {
+    // ✅ NOVO: Sincronizar gang antes de abrir modal
+    void syncGangWithBackend();
+
     const snapshots = realtimePlayersLayerRef.current?.getSnapshots() ?? [];
     const matchedSnapshot = snapshots.find(
       (item) => String(item.id) === String(target.id)
