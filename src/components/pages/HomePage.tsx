@@ -84,10 +84,8 @@ export default function HomePage() {
 
       const parsed = JSON.parse(stored);
 
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         loadAchievements(parsed);
-      } else if (Array.isArray(parsed)) {
-        loadAchievements([]);
       } else {
         localStorage.removeItem('unlockedAchievements');
         loadAchievements([]);
