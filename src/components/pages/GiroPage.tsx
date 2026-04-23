@@ -14,7 +14,7 @@ import {
   BadgeAlert,
 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
-import { spinSlot } from '@/api/gameApi';
+import { gameActionWithFaction } from '@/api/playerApi';
 
 type SymbolKey = 'money' | 'diamond' | 'gun' | 'police';
 
@@ -165,8 +165,12 @@ export default function GiroPage() {
     setMessage(`Rodando x${multiplier}... segura o coração.`);
 
     try {
-      const response = await spinSlot(multiplier);
-      const result: SpinResult = response.result;
+      const response = await gameActionWithFaction({
+        action: 'spin_slot',
+        data: { multiplier },
+      });
+
+      const result: SpinResult = response.result as SpinResult;
 
       if (response.player) {
         hydratePlayerFromServer(response.player);
