@@ -1062,6 +1062,7 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
     }
 
     pollingRequestInFlight = true;
+    const pollStartTime = Date.now();
 
     try {
       const serverEnvelope = await fetchCurrentPlayerWithFaction();
@@ -1100,6 +1101,12 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
       }
     } finally {
       pollingRequestInFlight = false;
+      // Safety check: if poll took too long, stop polling to prevent infinite loops
+      const pollDuration = Date.now() - pollStartTime;
+      if (pollDuration > 30000) {
+        console.warn('Poll took too long (' + pollDuration + 'ms), stopping polling to prevent infinite loop');
+        get().stopPolling();
+      }
     }
   },
 
