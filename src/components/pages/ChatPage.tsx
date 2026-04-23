@@ -63,7 +63,6 @@ export default function ChatPage() {
   const [mailSubject, setMailSubject] = useState('');
   const [hasBootstrapped, setHasBootstrapped] = useState(false);
 
-  // Redireciona se não autenticado
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       navigate('/');
@@ -85,7 +84,7 @@ export default function ChatPage() {
     }
 
     setHasBootstrapped(true);
-  }, []); // Only run once on mount
+  }, []);
 
   useEffect(() => {
     if (!hasBootstrapped) return;
@@ -96,7 +95,7 @@ export default function ChatPage() {
     return () => {
       stopChatPolling();
     };
-  }, [hasBootstrapped]); // Only run when bootstrapped
+  }, [hasBootstrapped]);
 
   useEffect(() => {
     if (!hasBootstrapped) return;
@@ -109,25 +108,43 @@ export default function ChatPage() {
     if (activeChannel === 'faccao' && player?.factionId) {
       void fetchFactionHelpRequests(true);
     }
-  }, [activeChannel, hasBootstrapped, player?.factionId, setSearchParams, fetchMessages, fetchFactionHelpRequests]);
+  }, [
+    activeChannel,
+    hasBootstrapped,
+    player?.factionId,
+    setSearchParams,
+    fetchMessages,
+    fetchFactionHelpRequests,
+  ]);
 
   const currentUserId = String(player?._id || player?.googleId || '');
   const hasFaction = Boolean(player?.factionId);
 
-  const currentMessages = useMemo(() => {
-    if (activeChannel === 'complexo') return complexoMessages;
-    if (activeChannel === 'faccao') return faccaoMessages;
-    return mailMessages;
-  }, [activeChannel, complexoMessages, faccaoMessages, mailMessages]);
-
-  const unreadMailCount = useMemo(() => {
+  const receivedMailMessages = useMemo(() => {
     return mailMessages.filter(
       (message) =>
         message.channel === 'mail' &&
-        String(message.recipientId || '') === currentUserId &&
-        !message.read
-    ).length;
+        String(message.recipientId || '') === currentUserId
+    );
   }, [mailMessages, currentUserId]);
+
+  const sentMailMessages = useMemo(() => {
+    return mailMessages.filter(
+      (message) =>
+        message.channel === 'mail' &&
+        String(message.senderId || '') === currentUserId
+    );
+  }, [mailMessages, currentUserId]);
+
+  const currentMessages = useMemo(() => {
+    if (activeChannel === 'complexo') return complexoMessages;
+    if (activeChannel === 'faccao') return faccaoMessages;
+    return receivedMailMessages;
+  }, [activeChannel, complexoMessages, faccaoMessages, receivedMailMessages]);
+
+  const unreadMailCount = useMemo(() => {
+    return receivedMailMessages.filter((message) => !message.read).length;
+  }, [receivedMailMessages]);
 
   const currentUserRequestedToday = useMemo(() => {
     return factionHelpRequests.some(
@@ -138,29 +155,31 @@ export default function ChatPage() {
   const mailRecipientsPreview: MailRecipient[] = useMemo(() => {
     const map = new Map<string, MailRecipient>();
 
-    for (const message of mailMessages) {
-      const senderId = String(message.senderId || '');
+    for (const message of sentMailMessages) {
       const recipientId = String(message.recipientId || '');
+      if (!recipientId || recipientId === currentUserId) continue;
 
-      if (senderId && senderId !== currentUserId) {
+      map.set(recipientId, {
+        id: recipientId,
+        name: message.recipientName || 'Jogador',
+      });
+    }
+
+    for (const message of receivedMailMessages) {
+      const senderId = String(message.senderId || '');
+      if (!senderId || senderId === currentUserId) continue;
+
+      if (!map.has(senderId)) {
         map.set(senderId, {
           id: senderId,
           name: message.senderName || 'Jogador',
         });
       }
-
-      if (recipientId && recipientId !== currentUserId) {
-        map.set(recipientId, {
-          id: recipientId,
-          name: message.recipientName || 'Jogador',
-        });
-      }
     }
 
     return Array.from(map.values()).slice(0, 8);
-  }, [mailMessages, currentUserId]);
+  }, [sentMailMessages, receivedMailMessages, currentUserId]);
 
-  // Garante que o player está autenticado
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
@@ -257,6 +276,26 @@ export default function ChatPage() {
 
         {activeChannel === 'mail' && (
           <div className="mb-4 rounded-3xl border border-border bg-card p-4">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3">
+                <div className="text-xs uppercase tracking-wider text-yellow-300">
+                  Correios recebidos
+                </div>
+                <div className="mt-1 text-2xl font-black text-foreground">
+                  {receivedMailMessages.length.toLocaleString('pt-BR')}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
+                <div className="text-xs uppercase tracking-wider text-blue-300">
+                  Não lidos
+                </div>
+                <div className="mt-1 text-2xl font-black text-foreground">
+                  {unreadMailCount.toLocaleString('pt-BR')}
+                </div>
+              </div>
+            </div>
+
             <h2 className="mb-3 font-heading text-lg font-bold uppercase">
               Novo correio
             </h2>
@@ -311,53 +350,14 @@ export default function ChatPage() {
             )}
           </div>
         )}
-    <div className="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card">
+
+        <div className="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card">
           <div className="border-b border-border px-4 py-3">
             <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
               {activeChannel === 'complexo'
                 ? 'Chat do Complexo'
                 : activeChannel === 'faccao'
                   ? 'Chat da Facção'
-                  : 'Correio Pessoal'}
+                  : 'Caixa de Entrada'}
             </p>
-          </div>
-
-          <div className="flex-1 overflow-hidden">
-            <ChatMessageList
-              messages={currentMessages}
-              channel={activeChannel}
-              currentUserId={currentUserId}
-              isLoading={isLoading}
-              onOpenMail={handleMailOpen}
-              factionHelpRequests={activeChannel === 'faccao' ? factionHelpRequests : []}
-              onHelpFactionRequest={handleHelpRequest}
-              isHelpingRequest={isHelpingRequest}
-            />
-          </div>
-
-          <div className="border-t border-border p-4">
-            <ChatComposer
-              channel={activeChannel}
-              onSendMessage={handleSendMessage}
-              isSending={isSending}
-              mailReady={
-                activeChannel !== 'mail' ||
-                Boolean(mailRecipientId.trim() && mailRecipientName.trim())
-              }
-              disabled={activeChannel === 'faccao' && !hasFaction}
-              onRequestHelp={
-                activeChannel === 'faccao' && hasFaction ? handleCreateHelpRequest : undefined
-              }
-              requestHelpDisabled={
-                activeChannel === 'faccao' &&
-                (!hasFaction || currentUserRequestedToday || isHelpingRequest)
-              }
-            />
-          </div>
-        </div>
-      </main>
-
-      <Footer />
-    </div>
-  );
-}
+          </div
