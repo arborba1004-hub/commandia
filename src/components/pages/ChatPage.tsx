@@ -360,4 +360,44 @@ export default function ChatPage() {
                   ? 'Chat da Facção'
                   : 'Caixa de Entrada'}
             </p>
-          </div
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            <ChatMessageList
+              messages={currentMessages}
+              channel={activeChannel}
+              currentUserId={currentUserId}
+              isLoading={isLoading}
+              onOpenMail={handleMailOpen}
+              factionHelpRequests={activeChannel === 'faccao' ? factionHelpRequests : []}
+              onHelpFactionRequest={handleHelpRequest}
+              isHelpingRequest={isHelpingRequest}
+            />
+          </div>
+
+          <div className="border-t border-border p-4">
+            <ChatComposer
+              channel={activeChannel}
+              onSendMessage={handleSendMessage}
+              isSending={isSending}
+              mailReady={
+                activeChannel !== 'mail' ||
+                Boolean(mailRecipientId.trim() && mailRecipientName.trim())
+              }
+              disabled={activeChannel === 'faccao' && !hasFaction}
+              onRequestHelp={
+                activeChannel === 'faccao' && hasFaction ? handleCreateHelpRequest : undefined
+              }
+              requestHelpDisabled={
+                activeChannel === 'faccao' &&
+                (!hasFaction || currentUserRequestedToday || isHelpingRequest)
+              }
+            />
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
