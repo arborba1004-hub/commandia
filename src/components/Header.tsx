@@ -163,8 +163,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => openChatChannel('complexo')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 transition-colors md:w-[48px]"
                     aria-label="Abrir chat do complexo"
                   >
                     <Image
@@ -181,8 +180,8 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => openChatChannel('faccao')}
-                    disabled={disableQuickActions || !hasFaction}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                    disabled={!hasFaction}
+                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 transition-colors disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
                     aria-label="Abrir chat da facção"
                   >
                     <Image
@@ -199,8 +198,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => openChatChannel('mail')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 transition-colors md:w-[48px]"
                     aria-label="Abrir correio pessoal"
                   >
                     <Image
@@ -223,8 +221,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => navigate('/faccao')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 transition-colors md:w-[48px]"
                     aria-label="Abrir página da facção"
                   >
                     <Image
@@ -241,8 +238,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => navigate('/ranking')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 transition-colors md:w-[48px]"
                     aria-label="Abrir ranking"
                   >
                     <span className="text-lg">🏆</span>
