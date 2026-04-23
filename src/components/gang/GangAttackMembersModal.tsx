@@ -16,7 +16,6 @@ export const ATTACK_MEMBER_TYPES: GangMemberType[] = [
 ];
 
 export type GangAttackSelection = Record<GangMemberType, number>;
-
 export type GangAttackAvailableCounts = Partial<Record<GangMemberType, number>>;
 
 export type GangAttackMembersModalProps = {
