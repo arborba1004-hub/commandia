@@ -183,22 +183,7 @@ export async function getMatchState(matchId) {
   }
 }
 
-/**
- * ⚠️ DESABILITADO - Publicação em tempo real removida
- * Causava loop infinito durante a publicação do site no Wix
- * 
- * @param {string} matchId - ID da partida
- * @param {Object} data - Dados a publicar
- */
-async function publishMatchUpdate(matchId, data) {
-  // ⚠️ DESABILITADO - Publicação em tempo real removida
-  // try {
-  //   const channelName = `partida_${matchId}`;
-  //   await publish(channelName, data);
-  // } catch (error) {
-  //   console.error(`Erro ao publicar atualização no canal partida_${matchId}:`, error);
-  // }
-}
+
 
 /**
  * Gera um ID único para a partida
