@@ -36,7 +36,7 @@ type BodyPart =
   | { type: 'custom-emoji'; id: string; shortcode: string; imageUrl: string; label: string };
 
 function parseMessageBody(body: string): BodyPart[] {
-  const imageTokenRegex = /imgemoji:([^|]+)\|([^|\]]+)\|([^\]]+)\]/g;
+  const imageTokenRegex = /\[imgemoji:([^|\]]+)\|([^|\]]+)\|([^\]]+)\]/g;
   const customEmojiRegex = /:([a-z_]+):/g;
 
   const parts: BodyPart[] = [];
@@ -259,4 +259,184 @@ const FactionHelpCard = memo(function FactionHelpCard({
         <div className="flex shrink-0 items-center">
           <button
             type="button"
-            onClick={() => on
+            onClick={() => onHelp?.(request.id)}
+            disabled={buttonDisabled}
+            className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black uppercase tracking-wide text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {buttonLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const MessageItem = memo(function MessageItem({
+  message,
+  channel,
+  currentUserId,
+  onOpenMail,
+  factionHelpRequests = [],
+  onHelpFactionRequest,
+  isHelpingRequest = false,
+}: {
+  message: ChatMessage;
+  channel: 'complexo' | 'faccao' | 'mail';
+  currentUserId: string;
+  onOpenMail?: (messageId: string) => void;
+  factionHelpRequests?: FactionHelpRequest[];
+  onHelpFactionRequest?: (requestId: string) => void;
+  isHelpingRequest?: boolean;
+}) {
+  const isMine = String(message.senderId || '') === String(currentUserId || '');
+  const isMail = channel === 'mail';
+  const isUnreadMail =
+    isMail &&
+    String(message.recipientId || '') === String(currentUserId || '') &&
+    !message.read;
+
+  if (message.messageType === 'faction_help_request') {
+    const requestId = String(message.metadata?.requestId || '');
+    const request = factionHelpRequests.find((item) => String(item.id) === requestId);
+
+    if (request) {
+      return (
+        <FactionHelpCard
+          request={request}
+          currentUserId={currentUserId}
+          onHelp={onHelpFactionRequest}
+          isHelpingRequest={isHelpingRequest}
+        />
+      );
+    }
+  }
+
+  const WrapperTag = isMail ? 'button' : 'div';
+
+  return (
+    <WrapperTag
+      {...(isMail
+        ? {
+            type: 'button' as const,
+            onClick: () => {
+              onOpenMail?.(message.id);
+            },
+          }
+        : {})}
+      className={[
+        'w-full rounded-2xl border text-left transition-colors',
+        isMine
+          ? 'self-end border-red-500/30 bg-red-500/10'
+          : 'border-border bg-card',
+        isMail ? 'p-4 hover:bg-muted/60' : 'p-3',
+        isUnreadMail ? 'ring-1 ring-yellow-400/60' : '',
+      ].join(' ')}
+    >
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black uppercase tracking-wide">
+            {isMail ? `De: ${message.senderName || 'Remetente'}` : message.senderName || 'Jogador'}
+          </p>
+
+          {isMail && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {message.subject?.trim() ? `Assunto: ${message.subject}` : 'Sem assunto'}
+            </p>
+          )}
+        </div>
+
+        <div className="shrink-0 text-[11px] text-muted-foreground">
+          {formatDate(message.createdAt)}
+        </div>
+      </div>
+
+      <MessageBody body={message.body} />
+
+      <div className="mt-3 flex items-center gap-2">
+        {message.system && (
+          <span className="rounded-full bg-blue-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-300">
+            Sistema
+          </span>
+        )}
+
+        {message.messageType === 'faction_help_update' && (
+          <span className="rounded-full bg-yellow-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-yellow-300">
+            Ajuda registrada
+          </span>
+        )}
+
+        {isMail && isUnreadMail && (
+          <span className="rounded-full bg-yellow-400/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-yellow-300">
+            Não lida
+          </span>
+        )}
+
+        {isMail && !isUnreadMail && (
+          <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-300">
+            Lida
+          </span>
+        )}
+      </div>
+    </WrapperTag>
+  );
+});
+
+export default function ChatMessageList({
+  messages,
+  channel,
+  currentUserId,
+  isLoading = false,
+  onOpenMail,
+  factionHelpRequests = [],
+  onHelpFactionRequest,
+  isHelpingRequest = false,
+}: ChatMessageListProps) {
+  const orderedMessages = useMemo(() => {
+    const copied = [...messages];
+
+    if (channel === 'mail') {
+      return copied.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    }
+
+    return copied.sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }, [messages, channel]);
+
+  if (isLoading && orderedMessages.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center px-4 py-10 text-sm text-muted-foreground">
+        Carregando mensagens...
+      </div>
+    );
+  }
+
+  if (!orderedMessages.length) {
+    return (
+      <div className="flex h-full items-center justify-center px-4 py-10 text-sm text-muted-foreground">
+        {channel === 'mail' ? 'Nenhum correio recebido.' : 'Nenhuma mensagem ainda.'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-y-auto px-4 py-4">
+      <div className="flex flex-col gap-3">
+        {orderedMessages.map((message) => (
+          <MessageItem
+            key={message.id}
+            message={message}
+            channel={channel}
+            currentUserId={currentUserId}
+            onOpenMail={onOpenMail}
+            factionHelpRequests={factionHelpRequests}
+            onHelpFactionRequest={onHelpFactionRequest}
+            isHelpingRequest={isHelpingRequest}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
