@@ -29,6 +29,7 @@ import GangAttackMembersModal, {
 import { readGangTrainingEnvelopeForPlayer } from '@/components/gang/GangTrainingPersistence';
 import { mountGangAttackAnimation } from '@/components/game/gangAttackAnimation';
 import { mountGangBattleEffects } from '@/components/game/gangBattleEffects';
+import { startAttack, resolveAttackWhenReady } from '@/api/attack';
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -194,6 +195,17 @@ export default function GamePage() {
         activeGangBattleEffectsRef.current = null;
       }
 
+      const startResponse = await startAttack({
+        targetId: target.target.id,
+        targetName: target.target.name,
+        targetTileX: target.tileX,
+        targetTileY: target.tileY,
+        originTileX: playerMapSpace.tileX,
+        originTileY: playerMapSpace.tileY,
+        selection,
+        selectedMemberIds: [],
+      });
+
       const attackAnimation = mountGangAttackAnimation({
         scene,
         originTileX: playerMapSpace.tileX,
@@ -231,13 +243,18 @@ export default function GamePage() {
       battleEffects.cleanup();
       activeGangBattleEffectsRef.current = null;
 
-      console.log('Frontend do ataque executado. A resolução real do resultado entra no backend.', {
-        attackTarget: target,
-        selection,
-        totalSelected,
-        barracoLevel,
-        attackMaxMembers,
+      const resolved = await resolveAttackWhenReady(startResponse.battleId, {
+        maxAttempts: 10,
+        intervalMs: 1000,
       });
+
+      console.log('Ataque resolvido no backend:', resolved);
+
+      if (resolved?.report) {
+        console.log('Relatório enviado ao correio pessoal:', resolved.report);
+      }
+    } catch (error) {
+      console.error('Erro no fluxo real de ataque:', error);
     } finally {
       setIsRunningAttackFlow(false);
       setIsAttackMembersModalOpen(false);
