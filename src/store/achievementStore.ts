@@ -36,7 +36,13 @@ export const useAchievementStore = create<AchievementState>((set, get) => ({
     set((state) => {
       if (!state.unlockedAchievements.includes(id)) {
         const updated = [...state.unlockedAchievements, id];
-        localStorage.setItem('unlockedAchievements', JSON.stringify(updated));
+        try {
+          if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+            localStorage.setItem('unlockedAchievements', JSON.stringify(updated));
+          }
+        } catch (error) {
+          console.warn('Erro ao salvar achievements no localStorage:', error);
+        }
         return {
           unlockedAchievements: updated,
           newlyUnlocked: id,

@@ -80,6 +80,16 @@ export function useGoogleAuth() {
   const stopPolling = usePlayerStore((state) => state.stopPolling);
 
   const restoreSession = useCallback(() => {
+    if (typeof window === 'undefined') {
+      setAuthState({
+        authToken: null,
+        playerData: null,
+        isLoading: false,
+        error: null,
+      });
+      return;
+    }
+
     const token = readStorage(STORAGE_KEY_TOKEN);
     const playerJson = readStorage(STORAGE_KEY_PLAYER);
 
@@ -95,6 +105,10 @@ export function useGoogleAuth() {
 
     try {
       const parsedPlayer = JSON.parse(playerJson);
+      if (typeof parsedPlayer !== 'object' || parsedPlayer === null) {
+        throw new Error('Invalid player data format');
+      }
+
       const normalizedPlayer = normalizePlayer(parsedPlayer);
 
       hydratePlayerFromServer(normalizedPlayer);
@@ -152,13 +166,16 @@ export function useGoogleAuth() {
         const data = await backendResponse.json().catch(() => null);
 
         if (!backendResponse.ok) {
-          throw new Error(
-            data?.error || data?.message || 'Falha na autenticação'
-          );
+          const errorMsg = data?.error || data?.message || 'Falha na autenticação';
+          throw new Error(errorMsg);
         }
 
         if (!data?.token || !data?.player) {
           throw new Error('Resposta inválida do backend');
+        }
+
+        if (typeof data.player !== 'object' || data.player === null) {
+          throw new Error('Dados de jogador inválidos');
         }
 
         const normalizedPlayer = normalizePlayer(data.player);
@@ -184,15 +201,17 @@ export function useGoogleAuth() {
       } catch (error) {
         console.error('Erro login Google:', error);
 
+        const errorMsg = error instanceof Error ? error.message : 'Erro no login';
+
         setAuthState((prev) => ({
           ...prev,
           isLoading: false,
-          error: error instanceof Error ? error.message : 'Erro no login',
+          error: errorMsg,
         }));
 
         return {
           ok: false,
-          error: error instanceof Error ? error.message : 'Erro no login',
+          error: errorMsg,
         };
       }
     },
