@@ -28,6 +28,7 @@ import GangAttackMembersModal, {
 } from '@/components/gang/GangAttackMembersModal';
 import { readGangTrainingEnvelopeForPlayer } from '@/components/gang/GangTrainingPersistence';
 import { mountGangAttackAnimation } from '@/components/game/gangAttackAnimation';
+import { mountGangBattleEffects } from '@/components/game/gangBattleEffects';
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -73,7 +74,6 @@ function buildRealGangAttackAvailableCounts(
     if (!member) continue;
     if (member.status !== 'ativo') continue;
     if (!ATTACK_MEMBER_TYPES.includes(member.type)) continue;
-
     counts[member.type] = Number(counts[member.type] || 0) + 1;
   }
 
@@ -92,12 +92,15 @@ export default function GamePage() {
     useRef<ReturnType<typeof mountRealtimeMapPlayersLayer> | null>(null);
   const activeGangAttackAnimationRef =
     useRef<ReturnType<typeof mountGangAttackAnimation> | null>(null);
+  const activeGangBattleEffectsRef =
+    useRef<ReturnType<typeof mountGangBattleEffects> | null>(null);
 
   const [otherPlayerBarracoModal, setOtherPlayerBarracoModal] = useState(
     createOtherPlayerBarracoModalState()
   );
   const [attackTarget, setAttackTarget] = useState<AttackLaunchTarget | null>(null);
   const [isAttackMembersModalOpen, setIsAttackMembersModalOpen] = useState(false);
+  const [isRunningAttackFlow, setIsRunningAttackFlow] = useState(false);
 
   const navigate = useNavigate();
   const player = usePlayerStore((state) => state.player);
@@ -159,55 +162,86 @@ export default function GamePage() {
   }
 
   function closeAttackMembersModal() {
+    if (isRunningAttackFlow) return;
     setIsAttackMembersModalOpen(false);
     setAttackTarget(null);
   }
 
-  async function launchGangAttackAnimation(selection: GangAttackSelection) {
+  async function runAttackFrontendFlow(selection: GangAttackSelection) {
     const scene = sceneRef.current;
     const playerMapSpace = playerMapSpaceRef.current;
     const target = attackTarget;
 
     if (!scene || !playerMapSpace || !target) {
-      closeAttackMembersModal();
       return;
     }
 
     const totalSelected = getGangAttackTotalSelected(selection);
-
     if (totalSelected <= 0) {
       return;
     }
 
-    if (activeGangAttackAnimationRef.current) {
-      activeGangAttackAnimationRef.current.cancel();
-      activeGangAttackAnimationRef.current = null;
-    }
-
-    const animation = mountGangAttackAnimation({
-      scene,
-      originTileX: playerMapSpace.tileX,
-      originTileY: playerMapSpace.tileY,
-      targetTileX: target.tileX,
-      targetTileY: target.tileY,
-      gridWidth: GRID_WIDTH,
-      gridHeight: GRID_HEIGHT,
-      tileSize: TILE_SIZE,
-      barracoLevel,
-      quantity: totalSelected,
-      color: '#ff3b30',
-    });
-
-    activeGangAttackAnimationRef.current = animation;
-    closeAttackMembersModal();
+    setIsRunningAttackFlow(true);
 
     try {
-      await animation.start();
-    } finally {
-      if (activeGangAttackAnimationRef.current === animation) {
-        animation.cleanup();
+      if (activeGangAttackAnimationRef.current) {
+        activeGangAttackAnimationRef.current.cancel();
         activeGangAttackAnimationRef.current = null;
       }
+
+      if (activeGangBattleEffectsRef.current) {
+        activeGangBattleEffectsRef.current.cancel();
+        activeGangBattleEffectsRef.current = null;
+      }
+
+      const attackAnimation = mountGangAttackAnimation({
+        scene,
+        originTileX: playerMapSpace.tileX,
+        originTileY: playerMapSpace.tileY,
+        targetTileX: target.tileX,
+        targetTileY: target.tileY,
+        gridWidth: GRID_WIDTH,
+        gridHeight: GRID_HEIGHT,
+        tileSize: TILE_SIZE,
+        barracoLevel,
+        quantity: totalSelected,
+        color: '#ff3b30',
+      });
+
+      activeGangAttackAnimationRef.current = attackAnimation;
+
+      await attackAnimation.start();
+      attackAnimation.cleanup();
+      activeGangAttackAnimationRef.current = null;
+
+      const battleEffects = mountGangBattleEffects({
+        scene,
+        tileX: target.tileX,
+        tileY: target.tileY,
+        gridWidth: GRID_WIDTH,
+        gridHeight: GRID_HEIGHT,
+        tileSize: TILE_SIZE,
+        color: '#ff5a36',
+        durationMs: 1600,
+      });
+
+      activeGangBattleEffectsRef.current = battleEffects;
+
+      await battleEffects.play();
+      battleEffects.cleanup();
+      activeGangBattleEffectsRef.current = null;
+
+      console.log('Frontend do ataque executado. A resolução real do resultado entra no backend.', {
+        attackTarget: target,
+        selection,
+        totalSelected,
+        barracoLevel,
+        attackMaxMembers,
+      });
+    } finally {
+      setIsRunningAttackFlow(false);
+      setIsAttackMembersModalOpen(false);
+      setAttackTarget(null);
     }
   }
 
@@ -366,6 +400,7 @@ export default function GamePage() {
       const currentPlayerMapSpace = playerMapSpaceRef.current;
       const currentRealtimeLayer = realtimePlayersLayerRef.current;
       if (!currentPlayerMapSpace || !currentRealtimeLayer) return;
+      if (isRunningAttackFlow) return;
 
       const rect = renderer.domElement.getBoundingClientRect();
 
@@ -531,6 +566,11 @@ export default function GamePage() {
         activeGangAttackAnimationRef.current = null;
       }
 
+      if (activeGangBattleEffectsRef.current) {
+        activeGangBattleEffectsRef.current.cancel();
+        activeGangBattleEffectsRef.current = null;
+      }
+
       realtimePlayersLayer.cleanup();
       fixedBuildingsLayer.cleanup();
       playerMapSpace.cleanup();
@@ -560,7 +600,7 @@ export default function GamePage() {
         mountEl.removeChild(renderer.domElement);
       }
     };
-  }, [navigate, barracoLevel]);
+  }, [navigate, isRunningAttackFlow]);
 
   useEffect(() => {
     const currentPlayerMapSpace = playerMapSpaceRef.current;
@@ -604,7 +644,7 @@ export default function GamePage() {
         }}
         isSendingMessage={false}
         isInviting={false}
-        isAttacking={false}
+        isAttacking={isRunningAttackFlow}
       />
 
       <GangAttackMembersModal
@@ -614,9 +654,9 @@ export default function GamePage() {
         initialSelection={null}
         onClose={closeAttackMembersModal}
         onConfirm={(selection) => {
-          void launchGangAttackAnimation(selection);
+          void runAttackFrontendFlow(selection);
         }}
-        isSubmitting={false}
+        isSubmitting={isRunningAttackFlow}
       />
     </div>
   );
