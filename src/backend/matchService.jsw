@@ -29,11 +29,11 @@ export async function createMatch(matchData) {
 
     const result = await collection(MATCHES_COLLECTION).insert(newMatch);
     
-    // Publicar evento de criação da partida
-    await publishMatchUpdate(matchId, {
-      event: 'matchCreated',
-      match: newMatch
-    });
+    // ⚠️ DESABILITADO - Publicação em tempo real removida para evitar loop infinito
+    // await publishMatchUpdate(matchId, {
+    //   event: 'matchCreated',
+    //   match: newMatch
+    // });
 
     return result;
   } catch (error) {
@@ -76,12 +76,12 @@ export async function updateMatchState(matchId, updateData) {
     // Atualizar no banco de dados
     await collection(MATCHES_COLLECTION).update(match._id, updatedMatch);
 
-    // Publicar atualização em tempo real para todos os jogadores
-    await publishMatchUpdate(matchId, {
-      event: 'stateUpdated',
-      match: updatedMatch,
-      timestamp: new Date().toISOString()
-    });
+    // ⚠️ DESABILITADO - Publicação em tempo real removida para evitar loop infinito
+    // await publishMatchUpdate(matchId, {
+    //   event: 'stateUpdated',
+    //   match: updatedMatch,
+    //   timestamp: new Date().toISOString()
+    // });
 
     return updatedMatch;
   } catch (error) {
@@ -138,16 +138,16 @@ export async function makeMove(matchId, playerId, moveData) {
 
     const updatedMatch = await updateMatchState(matchId, updateData);
 
-    // Publicar evento de jogada
-    await publishMatchUpdate(matchId, {
-      event: 'moveMade',
-      playerId,
-      move: moveData,
-      nextTurn: nextPlayerId,
-      winner: winner || null,
-      gameState: updatedGameData,
-      timestamp: new Date().toISOString()
-    });
+    // ⚠️ DESABILITADO - Publicação em tempo real removida para evitar loop infinito
+    // await publishMatchUpdate(matchId, {
+    //   event: 'moveMade',
+    //   playerId,
+    //   move: moveData,
+    //   nextTurn: nextPlayerId,
+    //   winner: winner || null,
+    //   gameState: updatedGameData,
+    //   timestamp: new Date().toISOString()
+    // });
 
     return updatedMatch;
   } catch (error) {
