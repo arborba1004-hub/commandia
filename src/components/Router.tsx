@@ -23,6 +23,7 @@ const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPag
 const ChatPage = lazy(() => import('@/components/pages/ChatPage'));
 const FactionPage = lazy(() => import('@/components/pages/FactionPage'));
 const RankingPage = lazy(() => import('@/components/pages/RankingPage'));
+const TreinamentoGangPage = lazy(() => import('@/components/pages/TreinamentoGang'));
 
 function Layout() {
   return (
@@ -132,6 +133,16 @@ const router = createBrowserRouter(
 
         { path: 'faccao',  element: <ProtectedRoute><Suspense fallback={<LoadingSpinner />}><FactionPage /></Suspense></ProtectedRoute> },
         { path: 'ranking', element: <ProtectedRoute><Suspense fallback={<LoadingSpinner />}><RankingPage /></Suspense></ProtectedRoute> },
+        {
+          path: 'treinamento-gang',
+          element: (
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingSpinner />}>
+                <TreinamentoGangPage />
+              </Suspense>
+            </ProtectedRoute>
+          ),
+        },
         { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
         { path: 'lavagemdedinheiro', element: <Navigate to="/lavagem-de-dinheiro" replace /> },
         { path: 'subornoilustrado', element: <Navigate to="/suborno-ilustrado" replace /> },
