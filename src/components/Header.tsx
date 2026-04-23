@@ -251,18 +251,7 @@ export default function Header() {
                     </span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => navigate('/gang')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
-                    aria-label="Treinar tropas"
-                  >
-                    <span className="text-lg">⚔️</span>
-                    <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
-                      Treino
-                    </span>
-                  </button>
+
                 </div>
               </div>
 
