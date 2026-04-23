@@ -112,7 +112,10 @@ export function useGoogleAuth() {
       const normalizedPlayer = normalizePlayer(parsedPlayer);
 
       hydratePlayerFromServer(normalizedPlayer);
-      startPolling();
+      // CRITICAL FIX: Delay polling start to prevent infinite loops during initialization
+      setTimeout(() => {
+        startPolling();
+      }, 1000);
 
       setAuthState({
         authToken: token,
@@ -184,7 +187,10 @@ export function useGoogleAuth() {
         writeStorage(STORAGE_KEY_PLAYER, JSON.stringify(normalizedPlayer));
 
         hydratePlayerFromServer(normalizedPlayer);
-        startPolling();
+        // CRITICAL FIX: Delay polling start to prevent infinite loops during authentication
+        setTimeout(() => {
+          startPolling();
+        }, 1000);
 
         setAuthState({
           authToken: data.token,
