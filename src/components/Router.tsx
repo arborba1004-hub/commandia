@@ -26,7 +26,7 @@ const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPag
 const ChatPage = lazy(() => import('@/components/pages/ChatPage'));
 const FactionPage = lazy(() => import('@/components/pages/FactionPage'));
 const RankingPage = lazy(() => import('@/components/pages/RankingPage'));
-const TreinamentoGangPage = lazy(() => import('@/components/pages/TreinamentoGang'));
+const TreinamentoGangPage = lazy(() => import('@/components/pages/TreinamentoGangPage'));
 
 function Layout() {
   return (
