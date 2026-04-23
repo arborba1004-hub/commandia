@@ -2,7 +2,8 @@
 // Serviço para gerenciar partidas e sincronização em tempo real
 
 import { collection } from 'wix-data';
-import { publish } from 'wix-realtime';
+// ⚠️ DESABILITADO - Causava loop infinito na publicação do Wix
+// import { publish } from 'wix-realtime';
 
 const MATCHES_COLLECTION = 'partidas';
 
@@ -183,18 +184,20 @@ export async function getMatchState(matchId) {
 }
 
 /**
- * Publica atualização da partida para o canal em tempo real
+ * ⚠️ DESABILITADO - Publicação em tempo real removida
+ * Causava loop infinito durante a publicação do site no Wix
+ * 
  * @param {string} matchId - ID da partida
  * @param {Object} data - Dados a publicar
  */
 async function publishMatchUpdate(matchId, data) {
-  try {
-    const channelName = `partida_${matchId}`;
-    await publish(channelName, data);
-  } catch (error) {
-    console.error(`Erro ao publicar atualização no canal partida_${matchId}:`, error);
-    // Não lançar erro para não interromper o fluxo
-  }
+  // ⚠️ DESABILITADO - Publicação em tempo real removida
+  // try {
+  //   const channelName = `partida_${matchId}`;
+  //   await publish(channelName, data);
+  // } catch (error) {
+  //   console.error(`Erro ao publicar atualização no canal partida_${matchId}:`, error);
+  // }
 }
 
 /**

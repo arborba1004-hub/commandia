@@ -4,12 +4,17 @@
  * ⚠️ DEPRECATED - This hook is no longer used in the main application flow.
  * It was designed for real-time match synchronization but is not currently active.
  * 
+ * ⚠️ DESABILITADO - Causava loop infinito na publicação do Wix
+ * A funcionalidade de tempo real (wix-realtime) foi desabilitada para permitir
+ * a publicação do site sem erros de loop infinito.
+ * 
  * Kept for reference and potential future matchmaking implementation.
  * No new matchmaking features should use this hook.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { subscribe } from 'wix-realtime';
+// ⚠️ DESABILITADO - Causava loop infinito na publicação do Wix
+// import { subscribe } from 'wix-realtime';
 
 interface MatchState {
   _id: string;
@@ -72,55 +77,56 @@ export function useMatchSync(matchId: string) {
     loadInitialState();
   }, [matchId]);
 
-  // Subscrever a atualizações em tempo real
-  useEffect(() => {
-    const channelName = `partida_${matchId}`;
-    let unsubscribe: (() => void) | null = null;
+  // ⚠️ DESABILITADO - Subscrição em tempo real removida
+  // Causava loop infinito durante a publicação do Wix
+  // useEffect(() => {
+  //   const channelName = `partida_${matchId}`;
+  //   let unsubscribe: (() => void) | null = null;
 
-    const setupSubscription = async () => {
-      try {
-        unsubscribe = await subscribe(channelName, (message: MatchUpdate) => {
-          setLastUpdate(message);
+  //   const setupSubscription = async () => {
+  //     try {
+  //       unsubscribe = await subscribe(channelName, (message: MatchUpdate) => {
+  //         setLastUpdate(message);
 
-          // Atualizar estado baseado no tipo de evento
-          switch (message.event) {
-            case 'matchCreated':
-            case 'stateUpdated':
-              if (message.match) {
-                setMatchState(message.match);
-              }
-              break;
+  //         // Atualizar estado baseado no tipo de evento
+  //         switch (message.event) {
+  //           case 'matchCreated':
+  //           case 'stateUpdated':
+  //             if (message.match) {
+  //               setMatchState(message.match);
+  //             }
+  //             break;
 
-            case 'moveMade':
-              if (message.gameState) {
-                setMatchState(prev => prev ? {
-                  ...prev,
-                  gameData: message.gameState,
-                  currentTurnPlayerId: message.nextTurn || null,
-                  status: message.winner ? 'finished' : 'inProgress',
-                  winnerId: message.winner || null,
-                  updatedAt: new Date(message.timestamp || Date.now())
-                } : null);
-              }
-              break;
+  //           case 'moveMade':
+  //             if (message.gameState) {
+  //               setMatchState(prev => prev ? {
+  //                 ...prev,
+  //                 gameData: message.gameState,
+  //                 currentTurnPlayerId: message.nextTurn || null,
+  //                 status: message.winner ? 'finished' : 'inProgress',
+  //                 winnerId: message.winner || null,
+  //                 updatedAt: new Date(message.timestamp || Date.now())
+  //               } : null);
+  //             }
+  //             break;
 
-            default:
-              console.log('Evento desconhecido:', message.event);
-          }
-        });
-      } catch (err) {
-        console.error('Erro ao subscrever ao canal:', err);
-      }
-    };
+  //           default:
+  //             console.log('Evento desconhecido:', message.event);
+  //         }
+  //       });
+  //     } catch (err) {
+  //       console.error('Erro ao subscrever ao canal:', err);
+  //     }
+  //   };
 
-    setupSubscription();
+  //   setupSubscription();
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [matchId]);
+  //   return () => {
+  //     if (unsubscribe) {
+  //       unsubscribe();
+  //     }
+  //   };
+  // }, [matchId]);
 
   // Fazer uma jogada
   const makeMove = useCallback(async (playerId: string, moveData: any) => {
