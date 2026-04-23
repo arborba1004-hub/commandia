@@ -109,25 +109,9 @@ function buildRealGangAttackAvailableCounts(
 
 // ===== ADICIONAR SINCRONIZAÇÃO APÓS COLETAR TREINAMENTO =====
 
-async function syncGangWithBackend() {
-  try {
-    const response = await getGangStatus();
-    
-    if (response?.members && usePlayerStore.getState().player) {
-      // Atualizar store com dados do backend
-      const player = usePlayerStore.getState().player as any;
-      player.gang = {
-        members: response.members,
-        updatedAtIso: new Date().toISOString(),
-      };
-      
-      // Force re-render para atualizar modal
-      usePlayerStore.setState({ player: { ...player } });
-    }
-  } catch (error) {
-    console.error('Erro ao sincronizar gang:', error);
-  }
-}
+// async function syncGangWithBackend() {
+//   // DESABILITADO - causava looping no preview
+// }
 
 export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -192,7 +176,7 @@ export default function GamePage() {
 
   function openAttackMembersModal(target: OtherPlayerBarracoTarget) {
     // ✅ NOVO: Sincronizar gang antes de abrir modal
-    void syncGangWithBackend();
+    // void syncGangWithBackend(); // DESABILITADO - causava looping no preview
 
     const snapshots = realtimePlayersLayerRef.current?.getSnapshots() ?? [];
     const matchedSnapshot = snapshots.find(
