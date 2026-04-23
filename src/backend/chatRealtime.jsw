@@ -1,77 +1,36 @@
-import { publish } from 'wix-realtime-backend';
+/**
+ * ⚠️ ARQUIVO DESABILITADO - CAUSAVA LOOP INFINITO NA PUBLICAÇÃO
+ * 
+ * Este arquivo continha funções de publicação em tempo real que causavam
+ * um loop infinito durante a publicação do site no Wix.
+ * 
+ * Status: DESABILITADO
+ * Razão: Conflito com o sistema de publicação do Wix
+ * 
+ * As funções abaixo foram comentadas para permitir a publicação do site.
+ * Se precisar de funcionalidade de tempo real, use uma solução alternativa.
+ */
+
+// ⚠️ DESABILITADO - Causava loop infinito
+// import { publish } from 'wix-realtime-backend';
 
 /**
- * Publica uma mensagem do chat complexo (todos ouvem)
- * Função chamada pelo frontend após enviar mensagem via REST
- * @param {Object} message - Objeto da mensagem
- * @returns {Promise<void>}
+ * ⚠️ DESABILITADO - Publicação em tempo real removida
+ * 
+ * export async function publishComplexoMessage(message) { ... }
  */
-export async function publishComplexoMessage(message) {
-  try {
-    const channel = 'chat_complexo';
-    const payload = {
-      type: 'chat_message',
-      channel: 'complexo',
-      ...message,
-      timestamp: Date.now()
-    };
-
-    await publish(channel, payload);
-    console.log(`✅ Complexo message published to ${channel}:`, payload);
-  } catch (error) {
-    console.error('❌ Error publishing complexo message:', error);
-    throw error;
-  }
-}
 
 /**
- * Publica uma mensagem do chat de facção (apenas membros)
- * Função chamada pelo frontend após enviar mensagem via REST
- * @param {string} factionId - ID da facção
- * @param {Object} message - Objeto da mensagem
- * @returns {Promise<void>}
+ * ⚠️ DESABILITADO - Publicação em tempo real removida
+ * 
+ * export async function publishFaccaoMessage(factionId, message) { ... }
  */
-export async function publishFaccaoMessage(factionId, message) {
-  try {
-    const channel = `chat_faccao_${factionId}`;
-    const payload = {
-      type: 'chat_message',
-      channel: 'faccao',
-      factionId,
-      ...message,
-      timestamp: Date.now()
-    };
-
-    await publish(channel, payload);
-    console.log(`✅ Faction message published to ${channel}:`, payload);
-  } catch (error) {
-    console.error('❌ Error publishing faction message:', error);
-    throw error;
-  }
-}
 
 /**
- * Publica uma mensagem privada (mail)
- * Função chamada pelo frontend após enviar mensagem via REST
- * @param {string} recipientId - ID do destinatário
- * @param {Object} message - Objeto da mensagem
- * @returns {Promise<void>}
+ * ⚠️ DESABILITADO - Publicação em tempo real removida
+ * 
+ * export async function publishMailMessage(recipientId, message) { ... }
  */
-export async function publishMailMessage(recipientId, message) {
-  try {
-    const channel = `chat_mail_${recipientId}`;
-    const payload = {
-      type: 'chat_message',
-      channel: 'mail',
-      recipientId,
-      ...message,
-      timestamp: Date.now()
-    };
 
-    await publish(channel, payload);
-    console.log(`✅ Mail message published to ${channel}:`, payload);
-  } catch (error) {
-    console.error('❌ Error publishing mail message:', error);
-    throw error;
-  }
-}
+// Placeholder para evitar erros de importação
+export const chatRealtimeDisabled = true;
