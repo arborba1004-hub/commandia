@@ -436,6 +436,12 @@ export default function GamePage() {
         return;
       }
 
+      if (
+        fixedBuildingsLayerRef.current?.tryHandleBuildingClick(event.clientX, event.clientY)
+      ) {
+        return;
+      }
+
       const currentPlayerId = String(
         (usePlayerStore.getState().player as any)?.id ||
           usePlayerStore.getState().player?._id ||
