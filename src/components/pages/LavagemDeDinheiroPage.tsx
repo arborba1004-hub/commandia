@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -6,14 +6,9 @@ import { Image } from '@/components/ui/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { usePlayerStore } from '@/store/playerStore';
-import { useGangBonus } from '@/hooks/useGangBonus';
 import { useNavigate } from 'react-router-dom';
 import SoapBubbleAnimation from '@/components/SoapBubbleAnimation';
 import FeatureLevelLock from '@/components/FeatureLevelLock';
-import {
-  canAccessFeature,
-  getFeatureLevelRequirement,
-} from '@/utils/levelRequirements';
 
 interface Business {
   id: number;
@@ -118,15 +113,11 @@ export default function LavagemDeDinheiroPage() {
     clearFinishedLaundryOperations,
   } = usePlayerStore();
 
-  const { getLaundryTaxReduction } = useGangBonus();
-
   const playerLevel = player.niveis.playerLevel || 1;
-  const requiredLevel = getFeatureLevelRequirement('lavagem');
-  const isFeatureUnlocked = canAccessFeature(playerLevel, 'lavagem');
   const levelMultiplier = Math.pow(1.1, playerLevel - 1);
   const dirtyMoney = player.balances.dirtyMoney;
   const activeOperations = player?.laundryProgress?.activeOperations || [];
-  const taxReduction = getLaundryTaxReduction();
+  const taxReduction = 0;
 
   useEffect(() => {
     if (!isLoaded) {
@@ -333,23 +324,6 @@ export default function LavagemDeDinheiroPage() {
         </div>
         <Footer />
       </>
-    );
-  }
-
-  if (!isFeatureUnlocked) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center px-4 pt-[140px] md:pt-[160px]">
-          <FeatureLevelLock
-            playerLevel={playerLevel}
-            requiredLevel={requiredLevel}
-            featureName="Lavagem de Dinheiro"
-            onNavigateToBarraco={() => navigate('/barraco')}
-          />
-        </main>
-        <Footer />
-      </div>
     );
   }
 
