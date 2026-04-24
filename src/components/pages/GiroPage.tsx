@@ -105,22 +105,34 @@ export default function GiroPage() {
   };
 
   const flashPolice = () => {
+    // CRITICAL: Only run in browser environment, never during build/SSR
+    if (typeof window === 'undefined') return;
+
     setPoliceFlash(true);
     window.setTimeout(() => setPoliceFlash(false), 2600);
   };
 
   const triggerPrison = () => {
+    // CRITICAL: Only run in browser environment, never during build/SSR
+    if (typeof window === 'undefined') return;
+
     flashPolice();
     setPrisonOpen(true);
     window.setTimeout(() => setPrisonOpen(false), 3200);
   };
 
   const triggerDoublePolice = () => {
+    // CRITICAL: Only run in browser environment, never during build/SSR
+    if (typeof window === 'undefined') return;
+
     setDoublePoliceOpen(true);
     window.setTimeout(() => setDoublePoliceOpen(false), 1400);
   };
 
   const triggerJackpot = () => {
+    // CRITICAL: Only run in browser environment, never during build/SSR
+    if (typeof window === 'undefined') return;
+
     setJackpotOpen(true);
     window.setTimeout(() => setJackpotOpen(false), 2200);
   };
