@@ -184,21 +184,16 @@ const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
 
 realtimePlayersLayer.start();  
 
-useEffect(() => {
-  
+// 🔥 SOCKET (correto)
 let socket: any = null;
-
 try {
   const { io } = require('socket.io-client');
-
   socket = io('https://comando-backend.onrender.com', {
     transports: ['websocket'],
   });
-
   socket.on('connect', () => {
     console.log('✅ Conectado no tempo real');
   });
-
   socket.on('playerMoved', (data: any) => {
     console.log('👀 Outro jogador moveu:', data);
   });
@@ -258,10 +253,10 @@ function handleClick(event: MouseEvent) {
     gridWidth: GRID_WIDTH,  
     gridHeight: GRID_HEIGHT,  
   });  
-socket?.emit('move', {
-  tileX,
-  tileY,
-});
+  socket?.emit('move', {
+    tileX,
+    tileY,
+  });
 }  
 
 renderer.domElement.addEventListener('click', handleClick);  
@@ -295,7 +290,7 @@ return () => {
   controls.dispose();  
 
   realtimePlayersLayer.cleanup();  
-socket?.disconnect();
+  socket?.disconnect();
   fixedBuildingsLayer.cleanup();  
   playerMapSpace.cleanup();  
 
