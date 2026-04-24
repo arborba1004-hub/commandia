@@ -1,21 +1,108 @@
 // Dummy class to avoid type errors
-class BaseClass {}
-
+class BaseClass { }
 export class ErrorOverlay extends BaseClass {
   static MESSAGE_TITLE = `We're having trouble displaying this page`;
   static MESSAGE_DESCRIPTION = `Something didn't load correctly on our end.`;
 
   static getOverlayHTML() {
     return `
-<img alt="Error illustration" style="max-width:240px;margin:32px auto 16px;display:block;" />
-<div style="padding:24px;text-align:center;font-family:Arial,sans-serif;">
-  <h1 style="font-size:28px;margin:0 0 12px;">${ErrorOverlay.MESSAGE_TITLE}</h1>
-  <p style="font-size:16px;color:#555;margin:0;">${ErrorOverlay.MESSAGE_DESCRIPTION}</p>
-</div>
-`;
+      <link rel="stylesheet" href="https://static.parastorage.com/services/picasso-editor-page/f8267b91c2f1bf1ea5fa81a2788ab7b0acb2e6663c71a4cf74417530/569.chunk.min.css">
+      <style>
+        .error-overlay {
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          background: white;
+          z-index: 99999;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .error-image-container {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          margin-top: 90px;
+        }
+
+        .error-image {
+          width: 180px;
+          height: 126px;
+          user-select: none;
+          pointer-events: none;
+        }
+
+        .error-content {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 0 32px;
+          padding-top: 8px;
+          padding-bottom: 32px;
+          margin-top: 36px;
+        }
+
+        .error-title {
+          color: var(--wds-color-text-standard-primary, #131720);
+          text-align: center;
+          margin-bottom: 8px;
+
+          /* Text - Medium/Normal */
+          font-family: var(--wds-font-family-default, "Wix Madefor Text");
+          font-size: var(--wds-font-size-body-medium, 16px);
+          font-style: normal;
+          font-weight: 500;
+          line-height: var(--wds-font-line-height-body-medium, 24px); /* 150% */
+          letter-spacing: var(--wds-font-letter-spacing-0, 0px);
+        }
+
+        .error-description {
+          color: var(--wds-color-text-standard-secondary, #42454C);
+          text-align: center;
+
+          /* Text - Small/Thin */
+          font-family: var(--wds-font-family-default, "Wix Madefor Text");
+          font-size: var(--wds-font-size-body-small, 14px);
+          font-style: normal;
+          font-weight: 400;
+          line-height: var(--wds-font-line-height-body-small, 20px); /* 142.857% */
+          letter-spacing: var(--wds-font-letter-spacing-0, 0px);
+          margin: 0;
+        }
+      </style>
+
+      <div class="error-overlay">
+        <!-- Image container (centered, with top margin like ErrorPage) -->
+        <div class="error-image-container">
+          <img
+            src="/error.svg"
+            alt="Error illustration"
+            class="error-image"
+            loading="lazy"
+          />
+        </div>
+
+        <!-- Content container (matching ErrorPage styling) -->
+        <div class="error-content">
+          <!-- Main title (matching ErrorPage) -->
+          <h1 class="error-title">
+            ${ErrorOverlay.MESSAGE_TITLE}
+          </h1>
+
+          <!-- Description paragraphs (matching ErrorPage) -->
+          <p class="error-description error-description-1">
+            ${ErrorOverlay.MESSAGE_DESCRIPTION}
+          </p>
+
+        </div>
+      </div>
+    `;
   }
 
   static async sendErrorToParent(err, type) {
+    // Send error to parent using framewire
     const isDev = import.meta.env?.DEV ?? false;
     const isIframe = window.self !== window.top;
 
@@ -23,132 +110,60 @@ export class ErrorOverlay extends BaseClass {
       return;
     }
 
-    const payload = {
-      type: "preview-error",
-      errorType: type || "build",
-      message: err?.message || "Unknown error",
-      stack: err?.stack || "No stack trace available",
-      timestamp: new Date().toISOString(),
-    };
-
-    try {
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage(payload, "*");
-        console.log("[overlay] Sent preview-error via postMessage");
-      }
-    } catch (postMessageError) {
-      console.warn("[overlay] Failed to postMessage to parent:", postMessageError);
-    }
-
     try {
       const loadFramewire = (await import("framewire.js")).default;
-      await loadFramewire(false);
-
-      const sendMessageToParent = globalThis.framewire?.sendMessageToParent;
-      const EditorEventMessages = globalThis.framewire?.EditorEventMessages;
-
-      if (sendMessageToParent && EditorEventMessages?.CLIENT_ERROR) {
-        sendMessageToParent({
-          type: EditorEventMessages.CLIENT_ERROR,
-          clientErrorData: {
-            errorType: payload.errorType,
-            message: payload.message,
-            stack: payload.stack,
-          },
-        });
-        console.log("[overlay] Sent CLIENT_ERROR via Framewire");
-      } else {
-        console.warn("[overlay] Framewire CLIENT_ERROR channel unavailable");
-      }
-    } catch (framewireError) {
-      console.warn(
-        "[overlay] Failed to send error to parent via framewire:",
-        framewireError?.message || framewireError
-      );
+      await loadFramewire();
+      const { sendMessageToParent, EditorEventMessages } = globalThis.framewire;
+      sendMessageToParent({
+        type: EditorEventMessages.CLIENT_ERROR,
+        clientErrorData: {
+          errorType: type,
+          message: err?.message || 'Unknown error',
+          stack: err?.stack || 'No stack trace available',
+        }
+      });
+    } catch (error) {
+      console.warn('Failed to send error to parent via framewire:', error?.message);
     }
   }
 
   connectedCallback() {
-    this.style.position = "fixed";
-    this.style.top = "0";
-    this.style.left = "0";
-    this.style.width = "100%";
-    this.style.height = "100%";
-    this.style.zIndex = "99999";
-    this.style.backgroundColor = "white";
-    this.style.display = "flex";
-    this.style.flexDirection = "column";
+    this.style.position = 'fixed';
+    this.style.top = '0';
+    this.style.left = '0';
+    this.style.width = '100%';
+    this.style.height = '100%';
+    this.style.zIndex = '99999';
+    this.style.backgroundColor = 'white';
+    this.style.display = 'flex';
+    this.style.flexDirection = 'column';
     this.innerHTML = ErrorOverlay.getOverlayHTML();
   }
 
   constructor(err, type) {
     super();
-    console.log("[overlay] ErrorOverlay constructor called with:", err);
-    ErrorOverlay.sendErrorToParent(err, type || "build");
+    console.log('ErrorPage overlay constructor called with:', err);
+
+    // Call editor frame with the error (via post message)
+    ErrorOverlay.sendErrorToParent(err, type || 'build');
   }
 }
 
 // See https://github.com/withastro/astro/blob/main/packages/astro/src/vite-plugin-astro-server/plugin.ts#L157
 const customErrorOverlayPlugin = () => {
   return {
-    name: "custom-error-overlay",
-    apply: "serve",
+    name: 'custom-error-overlay',
     transform(code, id, opts = {}) {
-      if (!id.includes("vite/dist/client/client.mjs") || opts?.ssr) {
+      if (!id.includes('vite/dist/client/client.mjs') || opts?.ssr) {
         return;
       }
 
-      const errorOverlayCustomElement = ErrorOverlay.toString().replace(
-        "extends BaseClass",
-        "extends HTMLElement"
-      );
-
-      return code.replace(
-        "class ErrorOverlay",
-        `${errorOverlayCustomElement} class OldErrorOverlay`
-      );
-    },
-
-    transformIndexHtml(html) {
-      const errorScript = `
-<script>
-  window.addEventListener("error", function (event) {
-    try {
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          type: "preview-error",
-          errorType: "runtime",
-          message: event?.message || "Unknown runtime error",
-          stack: event?.error?.stack || "No stack trace available",
-          timestamp: new Date().toISOString(),
-        }, "*");
-      }
-    } catch (e) {
-      console.warn("[overlay] Failed to relay runtime error:", e);
-    }
-  });
-
-  window.addEventListener("unhandledrejection", function (event) {
-    try {
-      const reason = event?.reason;
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          type: "preview-error",
-          errorType: "unhandledrejection",
-          message: reason?.message || String(reason || "Unhandled promise rejection"),
-          stack: reason?.stack || "No stack trace available",
-          timestamp: new Date().toISOString(),
-        }, "*");
-      }
-    } catch (e) {
-      console.warn("[overlay] Failed to relay unhandled rejection:", e);
-    }
-  });
-</script>
-`;
-      return html.replace("</head>", `${errorScript}</head>`);
+      const errorOverlayCustomElement = ErrorOverlay.toString().replace('extends BaseClass', 'extends HTMLElement');
+      // Replace the Vite overlay with ours
+      return code.replace('class ErrorOverlay', `${errorOverlayCustomElement}
+      class OldErrorOverlay`);
     },
   };
-};
+}
 
 export default customErrorOverlayPlugin;
