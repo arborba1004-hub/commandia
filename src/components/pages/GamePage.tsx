@@ -11,13 +11,18 @@ import { teleportPlayerMapSpace } from '@/components/game/playerTeleport';
 import { usePlayerStore } from '@/store/playerStore';
 import Header from '@/components/Header';
 
-// 🔥 IMPORTANTE
-import socket from '@/socket';
-
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
+
+const FLOOR_TEXTURE =
+  'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
+
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath(
+  'https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
+);
 
 export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -42,19 +47,64 @@ export default function GamePage() {
       antialias: true,
       alpha: false,
     });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mountEl.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 10;
+    controls.maxDistance = 70;
+    controls.maxPolarAngle = Math.PI / 2.05;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
     scene.add(ambientLight);
 
-    const loader = new GLTFLoader();
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath(
-      'https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.35);
+    directionalLight.position.set(40, 90, 30);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    directionalLight.shadow.camera.near = 1;
+    directionalLight.shadow.camera.far = 300;
+    directionalLight.shadow.camera.left = -90;
+    directionalLight.shadow.camera.right = 90;
+    directionalLight.shadow.camera.top = 90;
+    directionalLight.shadow.camera.bottom = -90;
+    scene.add(directionalLight);
+
+    const textureLoader = new THREE.TextureLoader();
+    const floorTexture = textureLoader.load(FLOOR_TEXTURE);
+    floorTexture.wrapS = THREE.ClampToEdgeWrapping;
+    floorTexture.wrapT = THREE.ClampToEdgeWrapping;
+    floorTexture.repeat.set(1, 1);
+    floorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    floorTexture.magFilter = THREE.LinearFilter;
+    floorTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    floorTexture.needsUpdate = true;
+
+    const platformGeometry = new THREE.BoxGeometry(
+      GRID_WIDTH * TILE_SIZE,
+      PLATFORM_HEIGHT,
+      GRID_HEIGHT * TILE_SIZE
     );
+
+    const platformMaterial = new THREE.MeshStandardMaterial({
+      map: floorTexture,
+      roughness: 1,
+      metalness: 0,
+    });
+
+    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+    platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
+    platform.receiveShadow = true;
+    platform.castShadow = false;
+    scene.add(platform);
+
+    const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
     const fixedBuildingsLayer = mountFixedMapBuildings({
@@ -76,6 +126,50 @@ export default function GamePage() {
       tileSize: TILE_SIZE,
     });
 
+    controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
+    camera.position.set(
+      playerMapSpace.worldX + 12,
+      10,
+      playerMapSpace.worldZ + 12
+    );
+    controls.update();
+
+    const clickPlaneGeometry = new THREE.PlaneGeometry(
+      GRID_WIDTH * TILE_SIZE,
+      GRID_HEIGHT * TILE_SIZE
+    );
+
+    const clickPlaneMaterial = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
+    const clickPlane = new THREE.Mesh(clickPlaneGeometry, clickPlaneMaterial);
+    clickPlane.rotation.x = -Math.PI / 2;
+    clickPlane.position.y = 0.05;
+    scene.add(clickPlane);
+
+    const selectionGeometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+    const selectionMaterial = new THREE.MeshBasicMaterial({
+      color: 0xd9b764,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
+    const selectionMesh = new THREE.Mesh(selectionGeometry, selectionMaterial);
+    selectionMesh.rotation.x = -Math.PI / 2;
+    selectionMesh.position.set(
+      0.5 - GRID_WIDTH / 2,
+      0.06,
+      0.5 - GRID_HEIGHT / 2
+    );
+    selectionMesh.visible = false;
+    scene.add(selectionMesh);
+
     const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
       scene,
       gridWidth: GRID_WIDTH,
@@ -86,15 +180,6 @@ export default function GamePage() {
     });
 
     realtimePlayersLayer.start();
-
-    // 🔥 SOCKET CONECTADO
-    socket.on('connect', () => {
-      console.log('✅ Conectado no tempo real');
-    });
-
-    socket.on('playerMoved', (data) => {
-      console.log('👀 Outro jogador moveu:', data);
-    });
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -107,13 +192,39 @@ export default function GamePage() {
 
       raycaster.setFromCamera(mouse, camera);
 
-      const intersections = raycaster.intersectObjects(scene.children, true);
+      const ownBarracoHits = raycaster.intersectObjects(
+        playerMapSpace.modelContainer.children,
+        true
+      );
+
+      if (ownBarracoHits.length > 0) {
+        navigate('/barraco');
+        return;
+      }
+
+      const intersections = raycaster.intersectObject(clickPlane, false);
+
       if (!intersections.length) return;
 
       const point = intersections[0].point;
-
       const tileX = Math.floor(point.x + GRID_WIDTH / 2);
       const tileY = Math.floor(point.z + GRID_HEIGHT / 2);
+
+      if (
+        tileX < 0 ||
+        tileX >= GRID_WIDTH ||
+        tileY < 0 ||
+        tileY >= GRID_HEIGHT
+      ) {
+        return;
+      }
+
+      selectionMesh.position.set(
+        tileX - GRID_WIDTH / 2 + 0.5,
+        0.06,
+        tileY - GRID_HEIGHT / 2 + 0.5
+      );
+      selectionMesh.visible = true;
 
       const teleported = teleportPlayerMapSpace(playerMapSpace, {
         clickedTileX: tileX,
@@ -122,18 +233,26 @@ export default function GamePage() {
         gridWidth: GRID_WIDTH,
         gridHeight: GRID_HEIGHT,
       });
-
-      // 🔥 ENVIA MOVIMENTO
-      socket.emit('move', {
-        tileX,
-        tileY,
-      });
     }
 
     renderer.domElement.addEventListener('click', handleClick);
 
+    function handleResize() {
+      const width = mountEl.clientWidth;
+      const height = Math.max(mountEl.clientHeight, 1);
+
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(mountEl);
+
+    let animationFrameId = 0;
+
     function animate() {
-      requestAnimationFrame(animate);
+      animationFrameId = window.requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     }
@@ -141,8 +260,8 @@ export default function GamePage() {
     animate();
 
     return () => {
-      socket.off('playerMoved');
-
+      window.cancelAnimationFrame(animationFrameId);
+      resizeObserver.disconnect();
       renderer.domElement.removeEventListener('click', handleClick);
       controls.dispose();
 
@@ -150,7 +269,23 @@ export default function GamePage() {
       fixedBuildingsLayer.cleanup();
       playerMapSpace.cleanup();
 
+      platformGeometry.dispose();
+      platformMaterial.dispose();
+      clickPlaneGeometry.dispose();
+      clickPlaneMaterial.dispose();
+      selectionGeometry.dispose();
+      selectionMaterial.dispose();
+      floorTexture.dispose();
+
+      scene.remove(platform);
+      scene.remove(clickPlane);
+      scene.remove(selectionMesh);
+
       renderer.dispose();
+
+      if (mountEl.contains(renderer.domElement)) {
+        mountEl.removeChild(renderer.domElement);
+      }
     };
   }, [navigate, player]);
 

@@ -13,7 +13,6 @@ import {
   isDirtyMoneyBlocked,
   isMoneyLaunderingBlocked,
 } from '@/services/punishmentService';
-import { useFactionStore } from '@/store/factionStore';
 import { create } from 'zustand';
 
 const STORAGE_KEY = 'playerData';
@@ -671,12 +670,14 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   };
 }
 
-// Syncs faction data from envelope to faction store
-function syncFactionStoreFromEnvelope(
+// Corrigido: usa import dinâmico em vez de require
+async function syncFactionStoreFromEnvelope(
   faction: any | null,
   options?: { allowClear?: boolean }
 ) {
   try {
+    const { useFactionStore } = await import('@/store/factionStore');
+    
     if (faction) {
       if (typeof faction === 'object' && faction !== null) {
         useFactionStore.getState().setFaction(faction);
