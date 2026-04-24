@@ -24,7 +24,7 @@
  * DO NOT import this file in active components or stores.
  */
 
-// ⚠️ DISABLED: import { subscribe } from 'wix-realtime'; - Causes infinite loop during Wix publish
+import { subscribe } from 'wix-realtime';
 import { BaseCrudService } from '@/integrations';
 import { generateUUID } from '@/lib/uuid';
 

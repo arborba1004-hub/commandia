@@ -1005,17 +1005,12 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
   },
 
   startPolling: () => {
-    // CRITICAL: Only start polling in browser environment, never during build/SSR
-    if (typeof window === 'undefined' || typeof document === 'undefined') {
-      return;
-    }
-
     const token = getStoredAuthToken();
     if (!token) return;
 
-    // CRITICAL: Prevent multiple polling intervals from being created
     if (pollingInterval) {
-      return; // Already polling, don't create another interval
+      clearInterval(pollingInterval);
+      pollingInterval = null;
     }
 
     set({ isPolling: true });
@@ -1024,16 +1019,7 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
       void get().pollPlayerFromBackend();
     }
 
-    // Set a maximum polling duration to prevent infinite loops
-    const maxPollingDuration = 30 * 60 * 1000; // 30 minutes
-    let pollingStartTime = Date.now();
-
     pollingInterval = setInterval(() => {
-      // Stop polling if it's been running too long
-      if (Date.now() - pollingStartTime > maxPollingDuration) {
-        get().stopPolling();
-        return;
-      }
       void get().pollPlayerFromBackend();
     }, POLLING_INTERVAL);
   },
@@ -1076,7 +1062,6 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
     }
 
     pollingRequestInFlight = true;
-    const pollStartTime = Date.now();
 
     try {
       const serverEnvelope = await fetchCurrentPlayerWithFaction();
@@ -1115,12 +1100,6 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
       }
     } finally {
       pollingRequestInFlight = false;
-      // Safety check: if poll took too long, stop polling to prevent infinite loops
-      const pollDuration = Date.now() - pollStartTime;
-      if (pollDuration > 30000) {
-        console.warn('Poll took too long (' + pollDuration + 'ms), stopping polling to prevent infinite loop');
-        get().stopPolling();
-      }
     }
   },
 

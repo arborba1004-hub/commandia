@@ -3,7 +3,7 @@ import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { getBarracoName, getBarracoUpgradeCost } from '@/services/barracoProgressionService';
+import { getBarracoName, getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
 
 export default function BarracoPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -36,9 +36,9 @@ export default function BarracoPage() {
   // ÚNICA FONTE: playerStore
   const level = player.niveis.barracoLevel;
 
-  const upgradeCost = getBarracoUpgradeCost(level);
-  const cleanMoney = player?.balances?.cleanMoney ?? 0;
-  const canUpgrade = cleanMoney >= upgradeCost;
+  const requirements = getBarracoUpgradeRequirements(player);
+  const upgradeCost = requirements.cost;
+  const canUpgrade = requirements.allowed;
 
   const handleUpgrade = () => {
     if (isUpgrading) return;
@@ -119,9 +119,9 @@ export default function BarracoPage() {
             </p>
           )}
 
-          {!canUpgrade && !upgradeError && (
+          {!canUpgrade && requirements.reason && !upgradeError && (
             <p className="mt-3 text-center text-sm text-yellow-400">
-              Você precisa de {upgradeCost.toLocaleString('pt-BR')} de dinheiro limpo.
+              {requirements.reason}
             </p>
           )}
         </motion.div>

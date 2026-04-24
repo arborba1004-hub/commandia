@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import type { ChatMessage, FactionHelpRequest } from '@/store/chatStore';
 import { Image } from '@/components/ui/image';
 import { CUSTOM_EMOJIS } from '@/data/customEmojis';
@@ -38,12 +38,15 @@ type BodyPart =
 function parseMessageBody(body: string): BodyPart[] {
   const imageTokenRegex = /\[imgemoji:([^|\]]+)\|([^|\]]+)\|([^\]]+)\]/g;
   const customEmojiRegex = /:([a-z_]+):/g;
-
+  
   const parts: BodyPart[] = [];
+  let lastIndex = 0;
   let match: RegExpExecArray | null;
 
+  // First pass: find all image tokens and custom emojis
   const tokens: Array<{ type: 'image' | 'custom-emoji'; index: number; length: number; data: any }> = [];
 
+  // Find image tokens
   while ((match = imageTokenRegex.exec(body)) !== null) {
     tokens.push({
       type: 'image',
@@ -57,8 +60,9 @@ function parseMessageBody(body: string): BodyPart[] {
     });
   }
 
+  // Find custom emojis
   while ((match = customEmojiRegex.exec(body)) !== null) {
-    const shortcode = match[0];
+    const shortcode = match[0]; // e.g., ":comando_hostil:"
     const emoji = CUSTOM_EMOJIS.find((e) => e.shortcode === shortcode);
     if (emoji) {
       tokens.push({
@@ -75,11 +79,13 @@ function parseMessageBody(body: string): BodyPart[] {
     }
   }
 
+  // Sort tokens by index
   tokens.sort((a, b) => a.index - b.index);
 
-  let lastIndex = 0;
-
+  // Build parts array
+  lastIndex = 0;
   for (const token of tokens) {
+    // Add text before token
     if (token.index > lastIndex) {
       parts.push({
         type: 'text',
@@ -87,6 +93,7 @@ function parseMessageBody(body: string): BodyPart[] {
       });
     }
 
+    // Add token
     if (token.type === 'image') {
       parts.push({
         type: 'image',
@@ -94,7 +101,7 @@ function parseMessageBody(body: string): BodyPart[] {
         src: token.data.src,
         alt: token.data.alt,
       });
-    } else {
+    } else if (token.type === 'custom-emoji') {
       parts.push({
         type: 'custom-emoji',
         id: token.data.id,
@@ -107,6 +114,7 @@ function parseMessageBody(body: string): BodyPart[] {
     lastIndex = token.index + token.length;
   }
 
+  // Add remaining text
   if (lastIndex < body.length) {
     parts.push({
       type: 'text',
@@ -114,6 +122,7 @@ function parseMessageBody(body: string): BodyPart[] {
     });
   }
 
+  // If no parts were added, return the whole body as text
   if (!parts.length) {
     parts.push({
       type: 'text',
@@ -199,11 +208,7 @@ const FactionHelpCard = memo(function FactionHelpCard({
     <div className="rounded-3xl border border-red-500/30 bg-black/70 p-4 shadow-[0_0_25px_rgba(255,0,0,0.18)]">
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
         <div className="flex shrink-0 items-center justify-center">
-          <Image
-            src={HELP_ICON_URL}
-            alt="Ajuda no corre"
-            className="h-28 w-28 object-contain md:h-32 md:w-32"
-          />
+          <Image src={HELP_ICON_URL} alt="Ajuda no corre" className="h-28 w-28 object-contain md:h-32 md:w-32" />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -319,7 +324,7 @@ const MessageItem = memo(function MessageItem({
         ? {
             type: 'button' as const,
             onClick: () => {
-              onOpenMail?.(message.id);
+              if (onOpenMail) onOpenMail(message.id);
             },
           }
         : {})}
@@ -335,12 +340,14 @@ const MessageItem = memo(function MessageItem({
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-black uppercase tracking-wide">
-            {isMail ? `De: ${message.senderName || 'Remetente'}` : message.senderName || 'Jogador'}
+            {message.senderName || 'Jogador'}
           </p>
 
           {isMail && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {message.subject?.trim() ? `Assunto: ${message.subject}` : 'Sem assunto'}
+              {isMine
+                ? `Para: ${message.recipientName || 'Destinatário'}`
+                : `De: ${message.senderName || 'Remetente'}`}
             </p>
           )}
         </div>
@@ -349,6 +356,12 @@ const MessageItem = memo(function MessageItem({
           {formatDate(message.createdAt)}
         </div>
       </div>
+
+      {isMail && message.subject && (
+        <p className="mb-2 text-sm font-bold text-foreground">
+          Assunto: {message.subject}
+        </p>
+      )}
 
       <MessageBody body={message.body} />
 
@@ -373,7 +386,7 @@ const MessageItem = memo(function MessageItem({
 
         {isMail && !isUnreadMail && (
           <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-300">
-            Lida
+            {message.read ? 'Lida' : 'Enviada'}
           </span>
         )}
       </div>
@@ -391,19 +404,26 @@ export default function ChatMessageList({
   onHelpFactionRequest,
   isHelpingRequest = false,
 }: ChatMessageListProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const previousLastMessageIdRef = useRef<string | null>(null);
+
   const orderedMessages = useMemo(() => {
-    const copied = [...messages];
-
-    if (channel === 'mail') {
-      return copied.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-    }
-
-    return copied.sort(
+    return [...messages].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
-  }, [messages, channel]);
+  }, [messages]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const lastMessageId =
+      orderedMessages.length > 0 ? orderedMessages[orderedMessages.length - 1].id : null;
+
+    if (lastMessageId && previousLastMessageIdRef.current !== lastMessageId) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      previousLastMessageIdRef.current = lastMessageId;
+    }
+  }, [orderedMessages]);
 
   if (isLoading && orderedMessages.length === 0) {
     return (
@@ -416,13 +436,16 @@ export default function ChatMessageList({
   if (!orderedMessages.length) {
     return (
       <div className="flex h-full items-center justify-center px-4 py-10 text-sm text-muted-foreground">
-        {channel === 'mail' ? 'Nenhum correio recebido.' : 'Nenhuma mensagem ainda.'}
+        {channel === 'mail' ? 'Nenhum correio encontrado.' : 'Nenhuma mensagem ainda.'}
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-4">
+    <div
+      ref={containerRef}
+      className="h-full overflow-y-auto px-4 py-4 will-change-transform"
+    >
       <div className="flex flex-col gap-3">
         {orderedMessages.map((message) => (
           <MessageItem

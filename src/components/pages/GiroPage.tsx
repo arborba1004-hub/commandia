@@ -14,7 +14,7 @@ import {
   BadgeAlert,
 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
-import { gameActionWithFaction } from '@/api/playerApi';
+import { spinSlot } from '@/api/gameApi';
 
 type SymbolKey = 'money' | 'diamond' | 'gun' | 'police';
 
@@ -105,34 +105,22 @@ export default function GiroPage() {
   };
 
   const flashPolice = () => {
-    // CRITICAL: Only run in browser environment, never during build/SSR
-    if (typeof window === 'undefined') return;
-
     setPoliceFlash(true);
     window.setTimeout(() => setPoliceFlash(false), 2600);
   };
 
   const triggerPrison = () => {
-    // CRITICAL: Only run in browser environment, never during build/SSR
-    if (typeof window === 'undefined') return;
-
     flashPolice();
     setPrisonOpen(true);
     window.setTimeout(() => setPrisonOpen(false), 3200);
   };
 
   const triggerDoublePolice = () => {
-    // CRITICAL: Only run in browser environment, never during build/SSR
-    if (typeof window === 'undefined') return;
-
     setDoublePoliceOpen(true);
     window.setTimeout(() => setDoublePoliceOpen(false), 1400);
   };
 
   const triggerJackpot = () => {
-    // CRITICAL: Only run in browser environment, never during build/SSR
-    if (typeof window === 'undefined') return;
-
     setJackpotOpen(true);
     window.setTimeout(() => setJackpotOpen(false), 2200);
   };
@@ -177,21 +165,14 @@ export default function GiroPage() {
     setMessage(`Rodando x${multiplier}... segura o coração.`);
 
     try {
-      const response = await gameActionWithFaction({
-        action: 'spin_slot',
-        data: { multiplier },
-      });
-
-      const result: SpinResult = response.result as SpinResult;
+      const response = await spinSlot(multiplier);
+      const result: SpinResult = response.result;
 
       if (response.player) {
         hydratePlayerFromServer(response.player);
       }
 
       for (let i = 0; i < 3; i += 1) {
-        // CRITICAL: Only run in browser environment, never during build/SSR
-        if (typeof window === 'undefined') return;
-
         const interval = window.setInterval(() => {
           setDisplayedReels((prev) => {
             const clone = [...prev];

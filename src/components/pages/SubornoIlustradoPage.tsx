@@ -1,4 +1,5 @@
-// ... keep existing code (imports)
+import Footer from '@/components/Footer';
+import Header from '@/components/Header';
 import SafeVaultModal from '@/components/SafeVaultModal';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -162,9 +163,13 @@ export default function SubornoIlustradoPage() {
 
   if (!isLoaded || !player?._id) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
-        Carregando suborno...
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando suborno...
+        </div>
+        <Footer />
+      </>
     );
   }
 
@@ -278,6 +283,8 @@ setResultMessage(
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
+      <Header />
+
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.7)_0%,rgba(20,20,20,0.95)_100%)]" />
       <div className="absolute inset-0 z-0 opacity-10 bg-[repeating-linear-gradient(45deg,#111_0px,#111_4px,transparent_4px,transparent_12px)]" />
 
@@ -386,6 +393,8 @@ setResultMessage(
           </div>
         </div>
       </main>
+
+      <Footer />
 
       <SafeVaultModal
         open={showVaultModal}

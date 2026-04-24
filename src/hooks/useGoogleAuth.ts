@@ -80,16 +80,6 @@ export function useGoogleAuth() {
   const stopPolling = usePlayerStore((state) => state.stopPolling);
 
   const restoreSession = useCallback(() => {
-    if (typeof window === 'undefined') {
-      setAuthState({
-        authToken: null,
-        playerData: null,
-        isLoading: false,
-        error: null,
-      });
-      return;
-    }
-
     const token = readStorage(STORAGE_KEY_TOKEN);
     const playerJson = readStorage(STORAGE_KEY_PLAYER);
 
@@ -105,17 +95,10 @@ export function useGoogleAuth() {
 
     try {
       const parsedPlayer = JSON.parse(playerJson);
-      if (typeof parsedPlayer !== 'object' || parsedPlayer === null) {
-        throw new Error('Invalid player data format');
-      }
-
       const normalizedPlayer = normalizePlayer(parsedPlayer);
 
       hydratePlayerFromServer(normalizedPlayer);
-      // CRITICAL FIX: Delay polling start to prevent infinite loops during initialization
-      setTimeout(() => {
-        startPolling();
-      }, 1000);
+      startPolling();
 
       setAuthState({
         authToken: token,
@@ -169,16 +152,13 @@ export function useGoogleAuth() {
         const data = await backendResponse.json().catch(() => null);
 
         if (!backendResponse.ok) {
-          const errorMsg = data?.error || data?.message || 'Falha na autenticação';
-          throw new Error(errorMsg);
+          throw new Error(
+            data?.error || data?.message || 'Falha na autenticação'
+          );
         }
 
         if (!data?.token || !data?.player) {
           throw new Error('Resposta inválida do backend');
-        }
-
-        if (typeof data.player !== 'object' || data.player === null) {
-          throw new Error('Dados de jogador inválidos');
         }
 
         const normalizedPlayer = normalizePlayer(data.player);
@@ -187,10 +167,7 @@ export function useGoogleAuth() {
         writeStorage(STORAGE_KEY_PLAYER, JSON.stringify(normalizedPlayer));
 
         hydratePlayerFromServer(normalizedPlayer);
-        // CRITICAL FIX: Delay polling start to prevent infinite loops during authentication
-        setTimeout(() => {
-          startPolling();
-        }, 1000);
+        startPolling();
 
         setAuthState({
           authToken: data.token,
@@ -207,17 +184,15 @@ export function useGoogleAuth() {
       } catch (error) {
         console.error('Erro login Google:', error);
 
-        const errorMsg = error instanceof Error ? error.message : 'Erro no login';
-
         setAuthState((prev) => ({
           ...prev,
           isLoading: false,
-          error: errorMsg,
+          error: error instanceof Error ? error.message : 'Erro no login',
         }));
 
         return {
           ok: false,
-          error: errorMsg,
+          error: error instanceof Error ? error.message : 'Erro no login',
         };
       }
     },

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-import { tileToWorldCenter, type TileOrigin } from '@/components/game/playerMapSpace';
+import { tileToWorldCenter } from '@/components/game/playerMapSpace';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
 const DEFAULT_POLLING_MS = 3000;
@@ -11,16 +11,56 @@ const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
 const BARRACO_MODELS = [
-  { min: 1, max: 9, url: 'https://static.wixstatic.com/3d/50f4bf_0a763db5131547a588ce702d6de0a388.glb' },
-  { min: 10, max: 19, url: 'https://static.wixstatic.com/3d/50f4bf_134ce80560954ebb890dd74baed878e0.glb' },
-  { min: 20, max: 29, url: 'https://static.wixstatic.com/3d/50f4bf_a089f0d52f38465f8db77877509f12d6.glb' },
-  { min: 30, max: 39, url: 'https://static.wixstatic.com/3d/50f4bf_f78d5d13df3d4a9e9b62061425cc4f30.glb' },
-  { min: 40, max: 49, url: 'https://static.wixstatic.com/3d/50f4bf_fcfd85e45b61474eab924ba144e1b256.glb' },
-  { min: 50, max: 59, url: 'https://static.wixstatic.com/3d/50f4bf_8ddf8382a1d24e1d8003a7d851132a11.glb' },
-  { min: 60, max: 69, url: 'https://static.wixstatic.com/3d/50f4bf_97904fbc3ca74bb094a29e7052c79fb4.glb' },
-  { min: 70, max: 79, url: 'https://static.wixstatic.com/3d/50f4bf_5e9f2aa54cf041b29f49258cc63eb746.glb' },
-  { min: 80, max: 89, url: 'https://static.wixstatic.com/3d/50f4bf_ac1c5e207bbc425f80619a581e2e2cba.glb' },
-  { min: 90, max: 100, url: 'https://static.wixstatic.com/3d/50f4bf_a8dd587eba644115b376b9a0b0dc67d5.glb' },
+  {
+    min: 1,
+    max: 9,
+    url: 'https://static.wixstatic.com/3d/50f4bf_0a763db5131547a588ce702d6de0a388.glb',
+  },
+  {
+    min: 10,
+    max: 19,
+    url: 'https://static.wixstatic.com/3d/50f4bf_134ce80560954ebb890dd74baed878e0.glb',
+  },
+  {
+    min: 20,
+    max: 29,
+    url: 'https://static.wixstatic.com/3d/50f4bf_a089f0d52f38465f8db77877509f12d6.glb',
+  },
+  {
+    min: 30,
+    max: 39,
+    url: 'https://static.wixstatic.com/3d/50f4bf_f78d5d13df3d4a9e9b62061425cc4f30.glb',
+  },
+  {
+    min: 40,
+    max: 49,
+    url: 'https://static.wixstatic.com/3d/50f4bf_fcfd85e45b61474eab924ba144e1b256.glb',
+  },
+  {
+    min: 50,
+    max: 59,
+    url: 'https://static.wixstatic.com/3d/50f4bf_8ddf8382a1d24e1d8003a7d851132a11.glb',
+  },
+  {
+    min: 60,
+    max: 69,
+    url: 'https://static.wixstatic.com/3d/50f4bf_97904fbc3ca74bb094a29e7052c79fb4.glb',
+  },
+  {
+    min: 70,
+    max: 79,
+    url: 'https://static.wixstatic.com/3d/50f4bf_5e9f2aa54cf041b29f49258cc63eb746.glb',
+  },
+  {
+    min: 80,
+    max: 89,
+    url: 'https://static.wixstatic.com/3d/50f4bf_ac1c5e207bbc425f80619a581e2e2cba.glb',
+  },
+  {
+    min: 90,
+    max: 100,
+    url: 'https://static.wixstatic.com/3d/50f4bf_a8dd587eba644115b376b9a0b0dc67d5.glb',
+  },
 ];
 
 export type MapPlayerSnapshot = {
@@ -46,9 +86,6 @@ export type RealtimeMapPlayersLayerOptions = {
 export type RealtimeMapPlayersLayer = {
   group: THREE.Group;
   refresh: () => Promise<void>;
-  refreshNow: () => Promise<MapPlayerSnapshot[]>;
-  getSnapshots: () => MapPlayerSnapshot[];
-  getOccupiedOrigins: (excludePlayerId?: string | null) => TileOrigin[];
   start: () => void;
   stop: () => void;
   cleanup: () => void;
@@ -189,7 +226,15 @@ function createLabelSprite(text: string): THREE.Sprite {
 
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = 'rgba(0, 0, 0, 0.58)';
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.beginPath();
+
+  if (typeof (context as any).roundRect === 'function') {
+    (context as any).roundRect(0, 0, canvas.width, canvas.height, 26);
+  } else {
+    context.rect(0, 0, canvas.width, canvas.height);
+  }
+
+  context.fill();
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.font = 'bold 44px Oswald, Impact, Arial';
@@ -234,24 +279,6 @@ function createSpaceMesh(tileSize: number): THREE.Mesh {
   return mesh;
 }
 
-function syncEntryPlayerId(entry: PlayerVisualEntry, playerId: string) {
-  entry.id = playerId;
-  entry.group.userData.playerId = playerId;
-  entry.modelContainer.userData.playerId = playerId;
-
-  if (entry.spaceMesh) {
-    entry.spaceMesh.userData.playerId = playerId;
-  }
-
-  if (entry.label) {
-    entry.label.userData.playerId = playerId;
-  }
-
-  entry.modelContainer.traverse((child: any) => {
-    child.userData.playerId = playerId;
-  });
-}
-
 async function fetchMapPlayersSnapshot(limit = DEFAULT_LIMIT): Promise<MapPlayerSnapshot[]> {
   const token = getAuthToken();
 
@@ -289,6 +316,12 @@ async function fetchMapPlayersSnapshot(limit = DEFAULT_LIMIT): Promise<MapPlayer
     }
 
     return Array.isArray(data) ? (data as MapPlayerSnapshot[]) : [];
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Timeout ao buscar snapshot do mapa');
+    }
+
+    throw error;
   } finally {
     window.clearTimeout(timeoutId);
   }
@@ -408,9 +441,11 @@ export function mountRealtimeMapPlayersLayer({
   let pollingHandle: ReturnType<typeof setInterval> | null = null;
   let disposed = false;
   let refreshInFlight = false;
-  let latestSnapshots: MapPlayerSnapshot[] = [];
 
-  async function ensureEntryVisual(entry: PlayerVisualEntry, snapshot: MapPlayerSnapshot) {
+  async function ensureEntryVisual(
+    entry: PlayerVisualEntry,
+    snapshot: MapPlayerSnapshot
+  ) {
     const nextLevel = Number(snapshot.barracoLevel || 1);
     const nextUrl = getBarracoModelUrl(nextLevel);
 
@@ -452,8 +487,6 @@ export function mountRealtimeMapPlayersLayer({
   }
 
   async function syncSnapshot(players: MapPlayerSnapshot[]) {
-    latestSnapshots = players.map((item) => ({ ...item }));
-
     const nextIds = new Set<string>();
 
     for (const snapshot of players) {
@@ -464,11 +497,11 @@ export function mountRealtimeMapPlayersLayer({
 
       if (!entry) {
         entry = createVisualEntry(tileSize, showSpaces);
+        entry.id = playerId;
         entries.set(playerId, entry);
         group.add(entry.group);
+        updateEntryLabel(entry, snapshot);
       }
-
-      syncEntryPlayerId(entry, playerId);
 
       setEntryWorldPosition(
         entry,
@@ -480,11 +513,9 @@ export function mountRealtimeMapPlayersLayer({
 
       if (!entry.label || entry.label.userData?.playerName !== (snapshot.name || 'Jogador')) {
         updateEntryLabel(entry, snapshot);
-        syncEntryPlayerId(entry, playerId);
       }
 
       await ensureEntryVisual(entry, snapshot);
-      syncEntryPlayerId(entry, playerId);
     }
 
     for (const [playerId, entry] of entries.entries()) {
@@ -504,19 +535,15 @@ export function mountRealtimeMapPlayersLayer({
     }
   }
 
-  async function refreshNow() {
-    const players = await fetchMapPlayersSnapshot(limit);
-    if (disposed) return latestSnapshots;
-    await syncSnapshot(players);
-    return latestSnapshots;
-  }
-
   async function refresh() {
     if (disposed || refreshInFlight) return;
 
     refreshInFlight = true;
+
     try {
-      await refreshNow();
+      const players = await fetchMapPlayersSnapshot(limit);
+      if (disposed) return;
+      await syncSnapshot(players);
     } catch (error) {
       console.error('Erro ao atualizar players em tempo real no mapa:', error);
     } finally {
@@ -524,28 +551,7 @@ export function mountRealtimeMapPlayersLayer({
     }
   }
 
-  function getSnapshots() {
-    return latestSnapshots.map((item) => ({ ...item }));
-  }
-
-  function getOccupiedOrigins(excludePlayerId?: string | null): TileOrigin[] {
-    return latestSnapshots
-      .filter((item) => {
-        if (!excludePlayerId) return true;
-        return String(item.id) !== String(excludePlayerId);
-      })
-      .map((item) => ({
-        tileX: Number(item.tileX || 0),
-        tileY: Number(item.tileY || 0),
-      }));
-  }
-
   function start() {
-    // CRITICAL: Only start polling in browser environment, never during build/SSR
-    if (typeof window === 'undefined' || typeof document === 'undefined') {
-      return;
-    }
-
     if (pollingHandle || disposed) return;
 
     void refresh();
@@ -556,6 +562,7 @@ export function mountRealtimeMapPlayersLayer({
 
   function stop() {
     if (!pollingHandle) return;
+
     clearInterval(pollingHandle);
     pollingHandle = null;
   }
@@ -577,16 +584,12 @@ export function mountRealtimeMapPlayersLayer({
     }
 
     entries.clear();
-    latestSnapshots = [];
     scene.remove(group);
   }
 
   return {
     group,
     refresh,
-    refreshNow,
-    getSnapshots,
-    getOccupiedOrigins,
     start,
     stop,
     cleanup,

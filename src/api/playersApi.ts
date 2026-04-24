@@ -6,19 +6,25 @@ export type OtherPlayerMapItem = {
   name?: string;
   tileX: number;
   tileY: number;
-  worldX?: number;
-  worldY?: number;
   barracoLevel?: number;
   power?: number;
-  dirtyMoney?: number;
   factionId?: string | null;
+};
+
+export type FetchOtherPlayersMapParams = {
+  centerTileX: number;
+  centerTileY: number;
+  radius?: number;
+  limit?: number;
 };
 
 function getAuthToken(): string | null {
   return localStorage.getItem('authToken');
 }
 
-export async function fetchOtherPlayersMap(): Promise<OtherPlayerMapItem[]> {
+export async function fetchOtherPlayersMap(
+  params: FetchOtherPlayersMapParams
+): Promise<OtherPlayerMapItem[]> {
   const token = getAuthToken();
 
   if (!token) {
@@ -28,8 +34,15 @@ export async function fetchOtherPlayersMap(): Promise<OtherPlayerMapItem[]> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 8000);
 
+  const searchParams = new URLSearchParams({
+    centerTileX: String(params.centerTileX),
+    centerTileY: String(params.centerTileY),
+    radius: String(params.radius ?? 12),
+    limit: String(params.limit ?? 18),
+  });
+
   try {
-    const response = await fetch(`${BACKEND_URL}/players`, {
+    const response = await fetch(`${BACKEND_URL}/players?${searchParams.toString()}`, {
       method: 'GET',
       signal: controller.signal,
       headers: {

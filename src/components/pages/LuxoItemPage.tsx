@@ -177,9 +177,6 @@ export default function LuxoItemPage() {
   };
 
   const handleSimulateCard = () => {
-    // CRITICAL: Only run in browser environment, never during build/SSR
-    if (typeof window === 'undefined') return;
-
     setTransactionStage('approach');
 
     window.setTimeout(() => {

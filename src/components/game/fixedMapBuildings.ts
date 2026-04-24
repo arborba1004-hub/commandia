@@ -23,7 +23,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: 0,
     z: 0,
     footprint: 10,
-    route: '/treinamento-gang',
+    comingSoon: true,
   },
 
   {
@@ -33,7 +33,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: -52,
     z: -52,
     footprint: 7,
-    route: '/treinamento-gang',
+    route: '/gang',
   },
   {
     key: 'ct_ne',
@@ -42,7 +42,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: 52,
     z: -52,
     footprint: 7,
-    route: '/treinamento-gang',
+    route: '/gang',
   },
   {
     key: 'ct_sw',
@@ -51,7 +51,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: -52,
     z: 52,
     footprint: 7,
-    route: '/treinamento-gang',
+    route: '/gang',
   },
   {
     key: 'ct_se',
@@ -60,7 +60,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: 52,
     z: 52,
     footprint: 7,
-    route: '/treinamento-gang',
+    route: '/gang',
   },
 
   {
