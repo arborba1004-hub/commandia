@@ -107,6 +107,9 @@ export default function HomePage() {
   }, [player, checkAndUnlockAchievements]);
 
   useEffect(() => {
+    // CRITICAL: Only run in browser environment, never during build/SSR
+    if (typeof window === 'undefined') return;
+
     // GSI já está no <head> da página Astro — apenas aguarda estar disponível
     if (window.google) {
       setGoogleReady(true);

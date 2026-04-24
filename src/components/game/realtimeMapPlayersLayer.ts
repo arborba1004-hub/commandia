@@ -541,6 +541,11 @@ export function mountRealtimeMapPlayersLayer({
   }
 
   function start() {
+    // CRITICAL: Only start polling in browser environment, never during build/SSR
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
     if (pollingHandle || disposed) return;
 
     void refresh();

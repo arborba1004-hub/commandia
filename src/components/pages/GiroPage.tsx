@@ -177,6 +177,9 @@ export default function GiroPage() {
       }
 
       for (let i = 0; i < 3; i += 1) {
+        // CRITICAL: Only run in browser environment, never during build/SSR
+        if (typeof window === 'undefined') return;
+
         const interval = window.setInterval(() => {
           setDisplayedReels((prev) => {
             const clone = [...prev];

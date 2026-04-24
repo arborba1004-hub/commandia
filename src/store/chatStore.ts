@@ -296,6 +296,11 @@ await Promise.all([
   },
 
   startChatPolling: () => {
+    // CRITICAL: Only start polling in browser environment, never during build/SSR
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
     // CRITICAL: Prevent multiple polling intervals from being created
     if (chatPollingInterval) {
       return; // Already polling, don't create another interval

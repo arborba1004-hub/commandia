@@ -135,6 +135,9 @@ export default function LavagemDeDinheiroPage() {
   }, []);
 
   useEffect(() => {
+    // CRITICAL: Only run in browser environment, never during build/SSR
+    if (typeof window === 'undefined') return;
+
     if (activeOperations.length === 0) {
       setTimerStates({});
       completingOperationsRef.current.clear();

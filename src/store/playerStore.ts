@@ -1005,6 +1005,11 @@ await syncFactionStoreFromEnvelope(data.faction ?? null, {
   },
 
   startPolling: () => {
+    // CRITICAL: Only start polling in browser environment, never during build/SSR
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
     const token = getStoredAuthToken();
     if (!token) return;
 

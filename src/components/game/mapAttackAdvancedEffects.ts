@@ -49,6 +49,9 @@ export function createExplosion(scene: THREE.Scene, position: THREE.Vector3) {
 }
 
 export function createPoliceLight(scene: THREE.Scene, position: THREE.Vector3) {
+  // CRITICAL: Only run in browser environment, never during build/SSR
+  if (typeof window === 'undefined') return;
+
   const light = new THREE.PointLight(0xff0000, 3, 5);
   light.position.copy(position);
   scene.add(light);

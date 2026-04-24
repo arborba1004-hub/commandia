@@ -86,6 +86,9 @@ class EnergyService {
    * Start energy regeneration
    */
   startRegen(): void {
+    // CRITICAL: Only start regen in browser environment, never during build/SSR
+    if (typeof window === 'undefined') return;
+    
     if (this.regenTimer) return;
 
     this.lastRegenTime = Date.now();

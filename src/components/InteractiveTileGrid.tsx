@@ -96,6 +96,9 @@ export default function InteractiveTileGrid() {
   }, []);
 
   useEffect(() => {
+    // CRITICAL: Only start polling in browser environment, never during build/SSR
+    if (typeof window === 'undefined') return;
+
     const interval = setInterval(async () => {
       try {
         const playersData = await fetchAllPlayers();
