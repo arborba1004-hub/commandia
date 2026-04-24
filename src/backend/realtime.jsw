@@ -1,1 +1,129 @@
+import { publish } from 'wix-realtime-backend';
 
+/**
+ * Publica um evento de movimento em tempo real para o canal movement_updates
+ * @param {string} playerId - ID do jogador que se moveu
+ * @param {number} tileX - Coordenada X do novo tile
+ * @param {number} tileY - Coordenada Y do novo tile
+ * @returns {Promise<void>}
+ */
+export async function publishMovement(playerId, tileX, tileY) {
+  try {
+    const channel = 'movement_updates';
+    const message = {
+      type: 'movement',
+      playerId,
+      tileX,
+      tileY,
+      timestamp: Date.now()
+    };
+
+    await publish(channel, message);
+    console.log(`Movement published to ${channel}:`, message);
+  } catch (error) {
+    console.error('Error publishing movement:', error);
+    throw error;
+  }
+}
+
+/**
+ * Publica um evento de ataque em tempo real para o jogador alvo
+ * @param {string} targetPlayerId - ID do jogador que está sendo atacado
+ * @param {string} attackerName - Nome do atacante
+ * @param {number} loot - Quantidade de loot/dinheiro roubado
+ * @param {boolean} success - Se o ataque foi bem-sucedido
+ * @returns {Promise<void>}
+ */
+export async function publishAttack(targetPlayerId, attackerName, loot, success) {
+  try {
+    const channel = `attack_${targetPlayerId}`;
+    const message = {
+      type: 'attack',
+      attackerName,
+      loot,
+      success,
+      timestamp: Date.now()
+    };
+
+    await publish(channel, message);
+    console.log(`Attack published to ${channel}:`, message);
+  } catch (error) {
+    console.error('Error publishing attack:', error);
+    throw error;
+  }
+}
+
+/**
+ * Publica uma mensagem do chat complexo (todos ouvem)
+ * @param {Object} message - Objeto da mensagem
+ * @returns {Promise<void>}
+ */
+export async function publishComplexoMessage(message) {
+  try {
+    const channel = 'chat_complexo';
+    const payload = {
+      type: 'chat_message',
+      channel: 'complexo',
+      ...message,
+      timestamp: Date.now()
+    };
+
+    await publish(channel, payload);
+    console.log(`Complexo message published to ${channel}:`, payload);
+  } catch (error) {
+    console.error('Error publishing complexo message:', error);
+    throw error;
+  }
+}
+
+/**
+ * Publica uma mensagem do chat de facção (apenas membros)
+ * @param {string} factionId - ID da facção
+ * @param {Object} message - Objeto da mensagem
+ * @returns {Promise<void>}
+ */
+export async function publishFaccaoMessage(factionId, message) {
+  try {
+    const channel = `chat_faccao_${factionId}`;
+    const payload = {
+      type: 'chat_message',
+      channel: 'faccao',
+      factionId,
+      ...message,
+      timestamp: Date.now()
+    };
+
+    await publish(channel, payload);
+    console.log(`Faction message published to ${channel}:`, payload);
+  } catch (error) {
+    console.error('Error publishing faction message:', error);
+    throw error;
+  }
+}
+
+/**
+ * Publica uma mensagem privada (mail)
+ * @param {string} recipientId - ID do destinatário
+ * @param {Object} message - Objeto da mensagem
+ * @returns {Promise<void>}
+ */
+export async function publishMailMessage(recipientId, message) {
+  try {
+    const channel = `chat_mail_${recipientId}`;
+    const payload = {
+      type: 'chat_message',
+      channel: 'mail',
+      recipientId,
+      ...message,
+      timestamp: Date.now()
+    };
+
+    await publish(channel, payload);
+    console.log(`Mail message published to ${channel}:`, payload);
+  } catch (error) {
+    console.error('Error publishing mail message:', error);
+    throw error;
+  }
+}
+
+// ... keep existing code (publishDefense and publishTerritoryInvasion functions) ...
