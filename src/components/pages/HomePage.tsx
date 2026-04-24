@@ -50,14 +50,24 @@ export default function HomePage() {
       return;
     }
 
-    const interval = window.setInterval(() => {
+    let interval: NodeJS.Timeout | null = null;
+    let attempts = 0;
+    const maxAttempts = 50; // Max 5 seconds (50 * 100ms)
+
+    interval = setInterval(() => {
+      attempts++;
       if (window.google) {
         setGoogleReady(true);
-        window.clearInterval(interval);
+        if (interval) clearInterval(interval);
+      } else if (attempts >= maxAttempts) {
+        // Stop trying after max attempts
+        if (interval) clearInterval(interval);
       }
     }, 100);
 
-    return () => window.clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {

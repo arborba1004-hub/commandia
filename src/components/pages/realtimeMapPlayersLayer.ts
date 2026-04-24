@@ -179,7 +179,16 @@ export function mountRealtimeMapPlayersLayer({
     stop();
     void refreshNow();
 
+    // Set a maximum polling duration to prevent infinite loops
+    const maxPollingDuration = 30 * 60 * 1000; // 30 minutes
+    let pollingStartTime = Date.now();
+
     pollingTimer = setInterval(() => {
+      // Stop polling if it's been running too long
+      if (Date.now() - pollingStartTime > maxPollingDuration) {
+        stop();
+        return;
+      }
       void refreshNow();
     }, pollingIntervalMs);
   }

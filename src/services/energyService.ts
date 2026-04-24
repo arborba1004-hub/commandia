@@ -92,7 +92,18 @@ class EnergyService {
     if (this.regenTimer) return;
 
     this.lastRegenTime = Date.now();
+    
+    // Set a maximum regen duration to prevent infinite loops
+    const maxRegenDuration = 30 * 60 * 1000; // 30 minutes
+    let regenStartTime = Date.now();
+
     this.regenTimer = setInterval(() => {
+      // Stop regen if it's been running too long
+      if (Date.now() - regenStartTime > maxRegenDuration) {
+        this.stopRegen();
+        return;
+      }
+
       const now = Date.now();
       const timePassed = (now - this.lastRegenTime) / 1000; // convert to seconds
       const energyToAdd = timePassed * this.regenRate;

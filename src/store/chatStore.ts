@@ -306,7 +306,16 @@ await Promise.all([
       return; // Already polling, don't create another interval
     }
 
+    // Set a maximum polling duration to prevent infinite loops
+    const maxPollingDuration = 30 * 60 * 1000; // 30 minutes
+    let pollingStartTime = Date.now();
+
     chatPollingInterval = setInterval(() => {
+      // Stop polling if it's been running too long
+      if (Date.now() - pollingStartTime > maxPollingDuration) {
+        get().stopChatPolling();
+        return;
+      }
       get().fetchMessages('complexo', true);
       get().fetchMessages('faccao', true);
       get().fetchMessages('mail', true);
