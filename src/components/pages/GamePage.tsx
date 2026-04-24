@@ -12,7 +12,7 @@ import { mountRealtimeMapPlayersLayer } from '@/components/game/realtimeMapPlaye
 import { teleportPlayerMapSpace } from '@/components/game/playerTeleport';
 import { usePlayerStore } from '@/store/playerStore';
 import Header from '@/components/Header';
-import socket from '@/socket';
+
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -185,18 +185,26 @@ const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
 realtimePlayersLayer.start();  
 
 useEffect(() => {
+  
+let socket: any = null;
+
+try {
+  const { io } = require('socket.io-client');
+
+  socket = io('https://comando-backend.onrender.com', {
+    transports: ['websocket'],
+  });
+
   socket.on('connect', () => {
-    console.log('Conectado no tempo real');
+    console.log('✅ Conectado no tempo real');
   });
 
-  socket.on('playerMoved', (data) => {
-    console.log('Outro jogador moveu:', data);
+  socket.on('playerMoved', (data: any) => {
+    console.log('👀 Outro jogador moveu:', data);
   });
-
-  return () => {
-    socket.off('playerMoved');
-  };
-}, []);
+} catch (err) {
+  console.log('Socket não carregou', err);
+}
 
 const raycaster = new THREE.Raycaster();  
 const mouse = new THREE.Vector2();  
@@ -250,6 +258,10 @@ function handleClick(event: MouseEvent) {
     gridWidth: GRID_WIDTH,  
     gridHeight: GRID_HEIGHT,  
   });  
+socket?.emit('move', {
+  tileX,
+  tileY,
+});
 }  
 
 renderer.domElement.addEventListener('click', handleClick);  
@@ -283,6 +295,7 @@ return () => {
   controls.dispose();  
 
   realtimePlayersLayer.cleanup();  
+socket?.disconnect();
   fixedBuildingsLayer.cleanup();  
   playerMapSpace.cleanup();  
 
