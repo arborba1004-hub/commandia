@@ -1,4 +1,4 @@
-import { uimporteState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
@@ -52,7 +52,7 @@ export default function HomePage() {
 
     let interval: NodeJS.Timeout | null = null;
     let attempts = 0;
-    const maxAttempts = 50;
+    const maxAttempts = 50; // Max 5 seconds (50 * 100ms)
 
     interval = setInterval(() => {
       attempts++;
@@ -60,6 +60,7 @@ export default function HomePage() {
         setGoogleReady(true);
         if (interval) clearInterval(interval);
       } else if (attempts >= maxAttempts) {
+        // Stop trying after max attempts
         if (interval) clearInterval(interval);
       }
     }, 100);
@@ -172,7 +173,7 @@ export default function HomePage() {
                 {player?.name || 'Jogador'}
               </h1>
 
-              <p className="mt-2 text-center text-sm text-zinc-400 break-words">
+              <p className="mt-2 text-center text-sm text-zinc-400 break-all">
                 {player?.email || ''}
               </p>
 
