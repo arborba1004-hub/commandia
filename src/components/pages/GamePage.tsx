@@ -12,6 +12,7 @@ import { teleportPlayerMapSpace } from '@/components/game/playerTeleport';
 import { usePlayerStore } from '@/store/playerStore';
 import { MMOWorldEngine } from '@/game/engine/MMOWorldEngine';
 import Header from '@/components/Header';
+import socket from '@/socket';
 
 
 const GRID_WIDTH = 120;
@@ -174,6 +175,15 @@ selectionMesh.visible = false;
 scene.add(selectionMesh);  
 
 const engine = new MMOWorldEngine();
+
+// Socket listener for player movements
+socket.on('playerMoved', (data: any) => {
+  engine.applySocketMove({
+    playerId: data.playerId,
+    tileX: data.tileX,
+    tileY: data.tileY,
+  });
+});
 
 const raycaster = new THREE.Raycaster();  
 const mouse = new THREE.Vector2();  
