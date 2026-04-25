@@ -14,7 +14,6 @@ import {
   isMoneyLaunderingBlocked,
 } from '@/services/punishmentService';
 import { create } from 'zustand';
-import { useFactionStore } from '@/store/factionStore';
 
 const STORAGE_KEY = 'playerData';
 const POLLING_INTERVAL = 15000; // 15 segundos
@@ -671,12 +670,14 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   };
 }
 
-// Sync faction store from envelope
-function syncFactionStoreFromEnvelope(
+// Corrigido: usa import dinâmico em vez de require
+async function syncFactionStoreFromEnvelope(
   faction: any | null,
   options?: { allowClear?: boolean }
 ) {
   try {
+    const { useFactionStore } = await import('@/store/factionStore');
+    
     if (faction) {
       if (typeof faction === 'object' && faction !== null) {
         useFactionStore.getState().setFaction(faction);
