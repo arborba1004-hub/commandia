@@ -46,7 +46,7 @@ const cards = [
   },
 ];
 
-export default function HomePage() {
+function HomePage() {
   const navigate = useNavigate();
   const manifestoRef = useRef<HTMLElement | null>(null);
 
@@ -544,3 +544,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+export default HomePage;
