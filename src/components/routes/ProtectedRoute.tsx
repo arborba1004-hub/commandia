@@ -1,43 +1,45 @@
-import { useEffect } from 'react';
-import type { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
-import { usePlayerStore } from '@/store/playerStore';
+/**
+ * ProtectedRoute.tsx
+ *
+ * MUDANÇAS:
+ *   - Remove chamada a loadPlayer() (hidratação agora vem do socket via useGameSocket)
+ *   - isLoaded torna-se true quando socket envia 'playerInit'
+ *   - Monta useGameSocket aqui para garantir que está ativo em todas as rotas protegidas
+ */
+
+import { type ReactNode }   from 'react';
+import { Navigate }         from 'react-router-dom';
+import { usePlayerStore }   from '@/store/playerStore';
+import { useGameSocket }    from '@/hooks/useGameSocket';
 
 interface ProtectedRouteProps {
   children: ReactNode;
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const isLoaded = usePlayerStore((s) => s.isLoaded);
-  const player = usePlayerStore((s) => s.player);
-  const loadPlayer = usePlayerStore((s) => s.loadPlayer);
+  // Monta o socket UMA VEZ para toda a sessão autenticada
+  useGameSocket();
 
-  useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-  }, [isLoaded, loadPlayer]);
+  const isLoaded = usePlayerStore((s) => s.isLoaded);
+  const player   = usePlayerStore((s) => s.player);
 
   const hasToken =
     typeof window !== 'undefined' &&
     Boolean(localStorage.getItem('authToken'));
 
-  const isValidPlayer = Boolean(player && typeof player === 'object');
+  // Sem token → redireciona imediatamente
+  if (!hasToken) {
+    return <Navigate to="/" replace />;
+  }
 
-  const playerId = isValidPlayer
-    ? String(
-        (player as any)?._id ||
-          (player as any)?.id ||
-          player?.googleId ||
-          ''
-      )
-    : '';
-
+  // Aguarda playerInit do socket
   if (!isLoaded) {
     return <div className="min-h-screen bg-black" />;
   }
 
-  if (!hasToken || !playerId) {
+  // Player carregado mas sem _id → estado corrompido → volta para home
+  const playerId = String((player as any)?._id || (player as any)?.id || player?.googleId || '');
+  if (!playerId) {
     return <Navigate to="/" replace />;
   }
 
