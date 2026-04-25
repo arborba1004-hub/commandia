@@ -113,250 +113,266 @@ export default function Header() {
               {/* TOPO */}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
-                  <div className="relative shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (showPlayerState) setIsCustomizationOpen(true);
-                      }}
-                      className="relative group"
-                      aria-label="Personalizar avatar"
-                    >
-                      {avatarUrl ? (
-                        <Image
-                          src={avatarUrl}
-                          alt={gamerName}
-                          className="h-9 w-9 rounded-full border-[2px] border-[#d7a84a] object-cover shadow-[0_0_8px_rgba(215,168,74,0.4)] md:h-11 md:w-11"
-                          draggable={false}
-                        />
-                      ) : (
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full border-[2px] border-[#d7a84a] bg-[radial-gradient(circle_at_30%_30%,#3f2a14_0%,#1b1008_65%,#0d0d0d_100%)] shadow-[0_0_8px_rgba(215,168,74,0.4)] md:h-11 md:w-11">
-                          <User className="h-4 w-4 text-[#f4cb70] md:h-5 md:w-5" />
-                        </div>
-                      )}
+                  {showPlayerState ? (
+                    <>
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (showPlayerState) setIsCustomizationOpen(true);
+                          }}
+                          className="relative group"
+                          aria-label="Personalizar avatar"
+                        >
+                          {avatarUrl ? (
+                            <Image
+                              src={avatarUrl}
+                              alt={gamerName}
+                              className="h-9 w-9 rounded-full border-[2px] border-[#d7a84a] object-cover shadow-[0_0_8px_rgba(215,168,74,0.4)] md:h-11 md:w-11"
+                              draggable={false}
+                            />
+                          ) : (
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full border-[2px] border-[#d7a84a] bg-[radial-gradient(circle_at_30%_30%,#3f2a14_0%,#1b1008_65%,#0d0d0d_100%)] shadow-[0_0_8px_rgba(215,168,74,0.4)] md:h-11 md:w-11">
+                              <User className="h-4 w-4 text-[#f4cb70] md:h-5 md:w-5" />
+                            </div>
+                          )}
 
-                      <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                        <Edit2 className="h-3.5 w-3.5 text-white" />
+                          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Edit2 className="h-3.5 w-3.5 text-white" />
+                          </div>
+                        </button>
                       </div>
-                    </button>
-                  </div>
 
-                  <div className="min-w-0">
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (showPlayerState) setIsCustomizationOpen(true);
+                          }}
+                          className="block max-w-full truncate text-left font-heading text-[13px] font-black uppercase leading-none tracking-wide text-[#f6d27b] transition-colors hover:text-[#ffe8a3] md:text-[20px]"
+                        >
+                          {gamerName}
+                        </button>
+
+                        <div className="mt-1 inline-flex rounded-full bg-[linear-gradient(90deg,#7e0000_0%,#d11515_50%,#7e0000_100%)] px-2 py-[2px] text-[7px] font-black uppercase tracking-[0.12em] text-white md:px-2.5 md:py-[3px] md:text-[8px]">
+                          {hierarchyTitle}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-[13px] font-black uppercase tracking-wide text-[#f6d27b] md:text-[16px]">
+                      Não autenticado
+                    </div>
+                  )}
+                </div>
+
+                {showPlayerState ? (
+                  <div className="flex shrink-0 items-start gap-1">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (showPlayerState) setIsCustomizationOpen(true);
-                      }}
-                      className="block max-w-full truncate text-left font-heading text-[13px] font-black uppercase leading-none tracking-wide text-[#f6d27b] transition-colors hover:text-[#ffe8a3] md:text-[20px]"
+                      onClick={() => openChatChannel('complexo')}
+                      disabled={disableQuickActions}
+                      className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                      aria-label="Abrir chat do complexo"
                     >
-                      {gamerName}
+                      <Image
+                        src={CHAT_COMPLEXO_ICON_URL}
+                        alt="Chat do Complexo"
+                        className="h-5 w-5 object-contain md:h-6 md:w-6"
+                        draggable={false}
+                      />
+                      <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
+                        Complexo
+                      </span>
                     </button>
 
-                    <div className="mt-1 inline-flex rounded-full bg-[linear-gradient(90deg,#7e0000_0%,#d11515_50%,#7e0000_100%)] px-2 py-[2px] text-[7px] font-black uppercase tracking-[0.12em] text-white md:px-2.5 md:py-[3px] md:text-[8px]">
-                      {hierarchyTitle}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 items-start gap-1">
-                  <button
-                    type="button"
-                    onClick={() => openChatChannel('complexo')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
-                    aria-label="Abrir chat do complexo"
-                  >
-                    <Image
-                      src={CHAT_COMPLEXO_ICON_URL}
-                      alt="Chat do Complexo"
-                      className="h-5 w-5 object-contain md:h-6 md:w-6"
-                      draggable={false}
-                    />
-                    <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
-                      Complexo
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => openChatChannel('faccao')}
-                    disabled={disableQuickActions || !hasFaction}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
-                    aria-label="Abrir chat da facção"
-                  >
-                    <Image
-                      src={CHAT_FACCAO_ICON_URL}
-                      alt="Chat da Facção"
-                      className="h-5 w-5 object-contain md:h-6 md:w-6"
-                      draggable={false}
-                    />
-                    <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
-                      Facção
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => openChatChannel('mail')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
-                    aria-label="Abrir correio pessoal"
-                  >
-                    <Image
-                      src={CHAT_MAIL_ICON_URL}
-                      alt="Correio Pessoal"
-                      className="h-5 w-5 object-contain md:h-6 md:w-6"
-                      draggable={false}
-                    />
-                    <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
-                      Correio
-                    </span>
-
-                    {showPlayerState && unreadMailCount > 0 && (
-                      <span className="absolute -right-1 -top-1 min-w-[15px] rounded-full bg-[#ffe25a] px-1 text-center text-[8px] font-black text-black md:min-w-[16px] md:text-[9px]">
-                        {unreadMailCount}
+                    <button
+                      type="button"
+                      onClick={() => openChatChannel('faccao')}
+                      disabled={disableQuickActions || !hasFaction}
+                      className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                      aria-label="Abrir chat da facção"
+                    >
+                      <Image
+                        src={CHAT_FACCAO_ICON_URL}
+                        alt="Chat da Facção"
+                        className="h-5 w-5 object-contain md:h-6 md:w-6"
+                        draggable={false}
+                      />
+                      <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
+                        Facção
                       </span>
-                    )}
-                  </button>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => navigate('/faccao')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
-                    aria-label="Abrir página da facção"
-                  >
-                    <Image
-                      src={FACTION_ICON_URL}
-                      alt="Facção"
-                      className="h-5 w-5 object-contain md:h-6 md:w-6"
-                      draggable={false}
-                    />
-                    <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
-                      Facção
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => openChatChannel('mail')}
+                      disabled={disableQuickActions}
+                      className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                      aria-label="Abrir correio pessoal"
+                    >
+                      <Image
+                        src={CHAT_MAIL_ICON_URL}
+                        alt="Correio Pessoal"
+                        className="h-5 w-5 object-contain md:h-6 md:w-6"
+                        draggable={false}
+                      />
+                      <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
+                        Correio
+                      </span>
 
-                  <button
-                    type="button"
-                    onClick={() => navigate('/ranking')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
-                    aria-label="Abrir ranking"
-                  >
-                    <span className="text-lg">🏆</span>
-                    <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
-                      Ranking
-                    </span>
-                  </button>
+                      {showPlayerState && unreadMailCount > 0 && (
+                        <span className="absolute -right-1 -top-1 min-w-[15px] rounded-full bg-[#ffe25a] px-1 text-center text-[8px] font-black text-black md:min-w-[16px] md:text-[9px]">
+                          {unreadMailCount}
+                        </span>
+                      )}
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => navigate('/gang')}
-                    disabled={disableQuickActions}
-                    className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
-                    aria-label="Treinar tropas"
-                  >
-                    <span className="text-lg">⚔️</span>
-                    <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
-                      Treino
-                    </span>
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/faccao')}
+                      disabled={disableQuickActions}
+                      className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                      aria-label="Abrir página da facção"
+                    >
+                      <Image
+                        src={FACTION_ICON_URL}
+                        alt="Facção"
+                        className="h-5 w-5 object-contain md:h-6 md:w-6"
+                        draggable={false}
+                      />
+                      <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
+                        Facção
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => navigate('/ranking')}
+                      disabled={disableQuickActions}
+                      className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                      aria-label="Abrir ranking"
+                    >
+                      <span className="text-lg">🏆</span>
+                      <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
+                        Ranking
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => navigate('/gang')}
+                      disabled={disableQuickActions}
+                      className="relative flex w-[40px] flex-col items-center justify-center rounded-lg border border-[#6f3d08] bg-black/35 px-1 py-1 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45 md:w-[48px]"
+                      aria-label="Treinar tropas"
+                    >
+                      <span className="text-lg">⚔️</span>
+                      <span className="mt-1 text-[7px] font-black uppercase leading-none text-white md:text-[8px]">
+                        Treino
+                      </span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      onClick={() => navigate('/')}
+                      className="rounded-lg border border-white/20 bg-black/30 px-3 py-1.5 text-[9px] font-black uppercase tracking-wide text-white hover:bg-white/10 md:text-[10px]"
+                    >
+                      Entrar
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* STATS */}
-              <div className="mt-1.5 grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-[64px_84px_1fr_1fr_74px_auto] md:gap-1.5">
-                <div className="rounded-lg bg-black/42 px-1.5 py-1">
-                  <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
-                    Nível
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
-                    <span>⭐</span>
-                    <span>{playerLevel}</span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg bg-black/42 px-1.5 py-1">
-                  <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
-                    Poder
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
-                    <span>⚡</span>
-                    <span>{formatCompact(power)}</span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg bg-black/42 px-1.5 py-1">
-                  <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
-                    Dinheiro Sujo
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
-                    <Image
-                      src={COMMANDS_ICON_URL}
-                      alt="Commands"
-                      className="h-3.5 w-3.5 object-contain md:h-4 md:w-4"
-                      draggable={false}
-                    />
-                    <span>{formatCompact(dirtyMoney)}</span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg bg-black/42 px-1.5 py-1">
-                  <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
-                    Dinheiro Limpo
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
-                    <Image
-                      src={COMMANDS_ICON_URL}
-                      alt="Commands"
-                      className="h-3.5 w-3.5 object-contain md:h-4 md:w-4"
-                      draggable={false}
-                    />
-                    <span>{formatCompact(cleanMoney)}</span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg bg-black/42 px-1.5 py-1">
-                  <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
-                    Giros
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
-                    <span>🌀</span>
-                    <span>{formatCompact(corre)}</span>
-                  </div>
-                </div>
-
-                <div className="col-span-2 flex items-end justify-end sm:col-span-1">
-                  {!isLoadedReady ? (
-                    <div className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white/60 md:text-[10px]">
-                      Carregando...
+              {showPlayerState && (
+                <div className="mt-1.5 grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-[64px_84px_1fr_1fr_74px_auto] md:gap-1.5">
+                  <div className="rounded-lg bg-black/42 px-1.5 py-1">
+                    <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
+                      Nível
                     </div>
-                  ) : showPlayerState ? (
+                    <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
+                      <span>⭐</span>
+                      <span>{playerLevel}</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-black/42 px-1.5 py-1">
+                    <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
+                      Poder
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
+                      <span>⚡</span>
+                      <span>{formatCompact(power)}</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-black/42 px-1.5 py-1">
+                    <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
+                      Dinheiro Sujo
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
+                      <Image
+                        src={COMMANDS_ICON_URL}
+                        alt="Commands"
+                        className="h-3.5 w-3.5 object-contain md:h-4 md:w-4"
+                        draggable={false}
+                      />
+                      <span>{formatCompact(dirtyMoney)}</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-black/42 px-1.5 py-1">
+                    <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
+                      Dinheiro Limpo
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
+                      <Image
+                        src={COMMANDS_ICON_URL}
+                        alt="Commands"
+                        className="h-3.5 w-3.5 object-contain md:h-4 md:w-4"
+                        draggable={false}
+                      />
+                      <span>{formatCompact(cleanMoney)}</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-black/42 px-1.5 py-1">
+                    <div className="mb-0.5 text-[7px] font-black uppercase tracking-wide text-[#f2ca57] md:text-[8px]">
+                      Giros
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] font-black text-white md:text-[15px]">
+                      <span>🌀</span>
+                      <span>{formatCompact(corre)}</span>
+                    </div>
+                  </div>
+
+                  <div className="col-span-2 flex items-end justify-end sm:col-span-1">
                     <button
                       onClick={handleLogout}
                       className="rounded-lg border border-[#6f3d08] bg-black/35 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white hover:bg-white/10 md:text-[10px]"
                     >
                       Sair
                     </button>
-                  ) : (
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => navigate('/')}
-                        className="rounded-lg border border-white/20 bg-black/30 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white md:text-[10px]"
-                      >
-                        Entrar
-                      </button>
-                      <button
-                        onClick={() => navigate('/')}
-                        className="rounded-lg bg-[#ff0050] px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white md:text-[10px]"
-                      >
-                        Jogar
-                      </button>
+                  </div>
+                </div>
+              )}
+              {!showPlayerState && (
+                <div className="mt-1.5 flex items-center justify-end">
+                  {!isLoadedReady ? (
+                    <div className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white/60 md:text-[10px]">
+                      Carregando...
                     </div>
+                  ) : (
+                    <button
+                      onClick={() => navigate('/')}
+                      className="rounded-lg bg-[#ff0050] px-3 py-1.5 text-[9px] font-black uppercase tracking-wide text-white hover:bg-[#ff1a66] md:text-[10px]"
+                    >
+                      Jogar Agora
+                    </button>
                   )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

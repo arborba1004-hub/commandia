@@ -7,6 +7,7 @@
  *   - Adiciona reconnectSocket() após login para autenticar o socket com o novo token
  *   - restoreSession() apenas verifica se existe token; estado do player vem do socket
  *   - useSocketLogout() do useGameSocket é o ponto correto para desconectar socket
+ *   - Adiciona console.log para debug do fluxo de login
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -84,12 +85,15 @@ export function useGoogleAuth() {
   // ── Login com Google ────────────────────────────────────────────────────────
   const handleGoogleResponse = useCallback(async (response: any) => {
     try {
+      console.log('🔵 handleGoogleResponse iniciado');
       setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       const credential = response?.credential;
       if (!credential || typeof credential !== 'string') {
         throw new Error('Sem credencial do Google');
       }
+
+      console.log('🔵 Credencial recebida, enviando para backend...');
 
       // Backend REQUIRED - no fallback
       const controller = new AbortController();
@@ -109,6 +113,7 @@ export function useGoogleAuth() {
       }
 
       const data = await backendResponse.json();
+      console.log('🔵 Resposta do backend recebida:', { hasToken: !!data?.token, hasPlayer: !!data?.player });
 
       if (!data?.token || !data?.player) {
         throw new Error('Resposta inválida do backend: token ou player ausente');
@@ -118,9 +123,11 @@ export function useGoogleAuth() {
 
       // Persiste APENAS o token (playerData vai embora)
       writeStorage('authToken', data.token);
+      console.log('🔵 Token salvo no localStorage');
 
       // Conecta socket com o novo token → backend enviará playerInit
       reconnectSocket();
+      console.log('🔵 Socket reconectado');
 
       setAuthState({
         authToken:  data.token,
@@ -129,25 +136,31 @@ export function useGoogleAuth() {
         error:      null,
       });
 
+      console.log('🟢 Login bem-sucedido!');
       return { ok: true, token: data.token, player: normalizedPlayer };
     } catch (error) {
-      console.error('Erro login Google:', error);
-      setAuthState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Erro no login',
-      }));
-      return { ok: false, error: error instanceof Error ? error.message : 'Erro no login' };
+      console.error('🔴 Erro login Google:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Erro no login';
+      setAuthState((prev) => (
+        {
+          ...prev,
+          isLoading: false,
+          error: errorMsg,
+        }
+      ));
+      return { ok: false, error: errorMsg };
     }
   }, []);
 
   // ── Logout ──────────────────────────────────────────────────────────────────
   const logout = useCallback(() => {
+    console.log('🔵 Logout iniciado');
     removeStorage('authToken');
     // NÃO remove playerData pois não existe mais no localStorage
     disconnectSocket();
     clearPlayer();
     setAuthState({ authToken: null, playerData: null, isLoading: false, error: null });
+    console.log('🟢 Logout completo');
   }, [clearPlayer]);
 
   const isAuthenticated = Boolean(authState.authToken);
