@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Shield, Flame, Play, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -58,11 +58,21 @@ function HomePage() {
     isAuthenticated,
     isLoading: authLoading,
     error: authError,
-    handleGoogleResponse,
+    handleGoogleResponse: originalHandleGoogleResponse,
     logout,
   } = useGoogleAuth();
 
-  // ... keep existing code (achievements loading, google ready check, etc)
+  const hydratePlayerFromServer = usePlayerStore((state) => state.hydratePlayerFromServer);
+
+  // Wrapper que popula playerStore após Google auth
+  const handleGoogleResponse = useCallback(async (response: any) => {
+    const result = await originalHandleGoogleResponse(response);
+    if (result?.ok && result?.player) {
+      // Popula playerStore com dados do Google auth
+      hydratePlayerFromServer(result.player);
+    }
+    return result;
+  }, [originalHandleGoogleResponse, hydratePlayerFromServer]);
 
   // Load achievements from localStorage and check for new unlocks
   useEffect(() => {

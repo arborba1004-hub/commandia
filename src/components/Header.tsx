@@ -29,13 +29,9 @@ export default function Header() {
   const { player, clearPlayer, isLoaded } = usePlayerStore();
   const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
 
+  // Header usa APENAS playerStore — sem auth próprio
   const isLoadedReady = Boolean(isLoaded);
-  const playerId =
-    (player as any)?._id ||
-    (player as any)?.id ||
-    player?.googleId ||
-    '';
-
+  const playerId = (player as any)?._id || (player as any)?.id || player?.googleId || '';
   const isPlayerReady = Boolean(playerId);
   const showPlayerState = isLoadedReady && isPlayerReady;
   const disableQuickActions = !isLoadedReady || !isPlayerReady;
