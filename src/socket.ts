@@ -20,6 +20,7 @@ type EventListeners = Map<string, Set<EventListener>>;
 // ─── Socket Interface ─────────────────────────────────────────────────────
 export interface Socket {
   on: (event: string, callback: EventListener) => void;
+  once: (event: string, callback: EventListener) => void;
   off: (event: string, callback?: EventListener) => void;
   emit: (event: string, ...args: any[]) => void;
   disconnect: () => void;
@@ -154,6 +155,14 @@ class RealSocket implements Socket {
     if (event === 'mapSnapshot' || event === 'playerMoved' || event === 'playerJoined' || event === 'connect') {
       console.log(`📌 Listener registrado para evento: ${event}`);
     }
+  }
+
+  once(event: string, callback: EventListener): void {
+    const wrappedCallback = (...args: any[]) => {
+      callback(...args);
+      this.off(event, wrappedCallback);
+    };
+    this.on(event, wrappedCallback);
   }
 
   off(event: string, callback?: EventListener): void {
