@@ -1,46 +1,32 @@
-import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-
-// Lazy load all pages to prevent module resolution issues
-const HomePage = lazy(() => import('@/components/pages/HomePage'));
-const GaleriaPage = lazy(() => import('@/components/pages/GaleriaPage'));
-const ProfilePage = lazy(() => import('@/components/pages/ProfilePage'));
-const GamePage = lazy(() => import('@/components/pages/GamePage'));
-const GiroPage = lazy(() => import('@/components/pages/GiroPage'));
-const LavagemDeDinheiroPage = lazy(() => import('@/components/pages/LavagemDeDinheiroPage'));
-const SubornoIlustradoPage = lazy(() => import('@/components/pages/SubornoIlustradoPage'));
-const DelacaoPremiadaPage = lazy(() => import('@/components/pages/DelacaoPremiadaPage'));
-const ArsenalPage = lazy(() => import('@/components/pages/ArsenalPage'));
-const ArmasPage = lazy(() => import('@/components/pages/ArmasPage'));
-const LuxoItemPage = lazy(() => import('@/components/pages/LuxoItemPage'));
-const BarracoPage = lazy(() => import('@/components/pages/BarracoPage'));
-const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPage'));
-const ChatPage = lazy(() => import('@/components/pages/ChatPage'));
-const TalentsPage = lazy(() => import('@/components/pages/TalentsPage'));
-const FactionPage = lazy(() => import('@/components/pages/FactionPage'));
-const RankingPage = lazy(() => import('@/components/pages/RankingPage'));
-const GangPage = lazy(() => import('@/components/gang/GangPage'));
+import HomePage from '@/components/pages/HomePage';
+import GaleriaPage from '@/components/pages/GaleriaPage';
+import ProfilePage from '@/components/pages/ProfilePage';
+import GamePage from '@/components/pages/GamePage';
+import GiroPage from '@/components/pages/GiroPage';
+import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
+import SubornoIlustradoPage from '@/components/pages/SubornoIlustradoPage';
+import DelacaoPremiadaPage from '@/components/pages/DelacaoPremiadaPage';
+import ArsenalPage from '@/components/pages/ArsenalPage';
+import ArmasPage from '@/components/pages/ArmasPage';
+import LuxoItemPage from '@/components/pages/LuxoItemPage';
+import BarracoPage from '@/components/pages/BarracoPage';
+import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
+import ChatPage from '@/components/pages/ChatPage';
+import TalentsPage from '@/components/pages/TalentsPage';
+import FactionPage from '@/components/pages/FactionPage';
+import RankingPage from '@/components/pages/RankingPage';
+import GangPage from '@/components/gang/GangPage';
 import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
 import ProtectedRoute from '@/components/routes/ProtectedRoute';
-
-function PageWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <Suspense fallback={<LoadingSpinner />}>
-      {children}
-    </Suspense>
-  );
-}
 
 function Layout() {
   return (
     <>
       <ScrollToTop />
-      <Suspense fallback={<LoadingSpinner />}>
-        <Outlet />
-      </Suspense>
+      <Outlet />
     </>
   );
 }
@@ -52,110 +38,96 @@ const router = createBrowserRouter(
       element: <Layout />,
       errorElement: <ErrorPage />,
       children: [
-        { index: true, element: <PageWrapper><HomePage /></PageWrapper> },
+        { index: true, element: <HomePage /> },
 
         {
           path: 'galeria',
           element: (
-            <PageWrapper>
-              <FeatureGateRoute branch="luxury">
-                <GaleriaPage />
-              </FeatureGateRoute>
-            </PageWrapper>
+            <FeatureGateRoute branch="luxury">
+              <GaleriaPage />
+            </FeatureGateRoute>
           ),
         },
 
-        { path: 'profile', element: <PageWrapper><ProtectedRoute><ProfilePage /></ProtectedRoute></PageWrapper> },
-        { path: 'game',    element: <PageWrapper><ProtectedRoute><GamePage /></ProtectedRoute></PageWrapper> },
-        { path: 'chat',    element: <PageWrapper><ProtectedRoute><ChatPage /></ProtectedRoute></PageWrapper> },
+        { path: 'profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
+        { path: 'game',    element: <ProtectedRoute><GamePage /></ProtectedRoute> },
+        { path: 'chat',    element: <ProtectedRoute><ChatPage /></ProtectedRoute> },
 
         {
           path: 'giro',
           element: (
-            <PageWrapper>
-              <ProtectedRoute>
-                <FeatureGateRoute branch="giro">
-                  <GiroPage />
-                </FeatureGateRoute>
-              </ProtectedRoute>
-            </PageWrapper>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="giro">
+                <GiroPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
         {
           path: 'lavagem-de-dinheiro',
           element: (
-            <PageWrapper>
-              <ProtectedRoute>
-                <FeatureGateRoute branch="lavagem">
-                  <LavagemDeDinheiroPage />
-                </FeatureGateRoute>
-              </ProtectedRoute>
-            </PageWrapper>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="lavagem">
+                <LavagemDeDinheiroPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
         {
           path: 'suborno-ilustrado',
           element: (
-            <PageWrapper>
-              <ProtectedRoute>
-                <FeatureGateRoute branch="bribery">
-                  <SubornoIlustradoPage />
-                </FeatureGateRoute>
-              </ProtectedRoute>
-            </PageWrapper>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="bribery">
+                <SubornoIlustradoPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
-        { path: 'delacao-premiada', element: <PageWrapper><ProtectedRoute><DelacaoPremiadaPage /></ProtectedRoute></PageWrapper> },
+        { path: 'delacao-premiada', element: <ProtectedRoute><DelacaoPremiadaPage /></ProtectedRoute> },
 
         {
           path: 'arsenal',
           element: (
-            <PageWrapper>
-              <ProtectedRoute>
-                <FeatureGateRoute branch="arsenal">
-                  <ArsenalPage />
-                </FeatureGateRoute>
-              </ProtectedRoute>
-            </PageWrapper>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="arsenal">
+                <ArsenalPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
-        { path: 'armas',     element: <PageWrapper><ProtectedRoute><ArmasPage /></ProtectedRoute></PageWrapper> },
-        { path: 'luxo-item', element: <PageWrapper><ProtectedRoute><LuxoItemPage /></ProtectedRoute></PageWrapper> },
-        { path: 'barraco',   element: <PageWrapper><ProtectedRoute><BarracoPage /></ProtectedRoute></PageWrapper> },
+        { path: 'armas',     element: <ProtectedRoute><ArmasPage /></ProtectedRoute> },
+        { path: 'luxo-item', element: <ProtectedRoute><LuxoItemPage /></ProtectedRoute> },
+        { path: 'barraco',   element: <ProtectedRoute><BarracoPage /></ProtectedRoute> },
 
         {
           path: 'fuga-ilustrada',
           element: (
-            <PageWrapper>
-              <ProtectedRoute>
-                <FeatureGateRoute branch="fuga">
-                  <FugaIlustradaPage />
-                </FeatureGateRoute>
-              </ProtectedRoute>
-            </PageWrapper>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="fuga">
+                <FugaIlustradaPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
         {
           path: 'talentos',
           element: (
-            <PageWrapper>
-              <ProtectedRoute>
-                <FeatureGateRoute branch="talents">
-                  <TalentsPage />
-                </FeatureGateRoute>
-              </ProtectedRoute>
-            </PageWrapper>
+            <ProtectedRoute>
+              <FeatureGateRoute branch="talents">
+                <TalentsPage />
+              </FeatureGateRoute>
+            </ProtectedRoute>
           ),
         },
 
-        { path: 'faccao',  element: <PageWrapper><ProtectedRoute><FactionPage /></ProtectedRoute></PageWrapper> },
-        { path: 'ranking', element: <PageWrapper><ProtectedRoute><RankingPage /></ProtectedRoute></PageWrapper> },
-        { path: 'gang',    element: <PageWrapper><ProtectedRoute><GangPage /></ProtectedRoute></PageWrapper> },
+        { path: 'faccao',  element: <ProtectedRoute><FactionPage /></ProtectedRoute> },
+        { path: 'ranking', element: <ProtectedRoute><RankingPage /></ProtectedRoute> },
+        { path: 'gang',    element: <ProtectedRoute><GangPage /></ProtectedRoute> },
         { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
         { path: 'lavagemdedinheiro', element: <Navigate to="/lavagem-de-dinheiro" replace /> },
         { path: 'subornoilustrado', element: <Navigate to="/suborno-ilustrado" replace /> },
