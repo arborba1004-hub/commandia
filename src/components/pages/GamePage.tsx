@@ -194,6 +194,13 @@ try {
   });
   socket.on('playerMoved', (data: any) => {
     console.log('👀 Outro jogador moveu:', data);
+    if (data?.playerId && typeof data?.tileX === 'number' && typeof data?.tileY === 'number') {
+      realtimePlayersLayer.upsertPlayer({
+        id: data.playerId,
+        tileX: data.tileX,
+        tileY: data.tileY,
+      });
+    }
   });
 } catch (err) {
   console.log('Socket não carregou', err);
@@ -252,6 +259,7 @@ function handleClick(event: MouseEvent) {
     gridHeight: GRID_HEIGHT,  
   });  
   socket?.emit('move', {
+    playerId: player?._id,
     tileX,
     tileY,
   });
