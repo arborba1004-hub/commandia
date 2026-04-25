@@ -7,6 +7,7 @@
 
 export interface Socket {
   on: (event: string, callback: (...args: any[]) => void) => void;
+  off: (event: string, callback?: (...args: any[]) => void) => void;
   emit: (event: string, ...args: any[]) => void;
   disconnect: () => void;
   removeAllListeners: () => void;
@@ -20,6 +21,7 @@ function buildSocket(): Socket {
   // Retorna um socket stub que não faz nada
   return {
     on: () => {},
+    off: () => {},
     emit: () => {},
     disconnect: () => {},
     removeAllListeners: () => {},
