@@ -89,6 +89,9 @@ export type RealtimeMapPlayersLayer = {
   start: () => void;
   stop: () => void;
   cleanup: () => void;
+  players: () => MapPlayerSnapshot[];
+  tileToWorld: (tileX: number, tileY: number) => { worldX: number; worldZ: number };
+  upsertPlayer: (snapshot: MapPlayerSnapshot) => Promise<void>;
 };
 
 type PlayerVisualEntry = {
@@ -587,11 +590,55 @@ export function mountRealtimeMapPlayersLayer({
     scene.remove(group);
   }
 
+  function getPlayers(): MapPlayerSnapshot[] {
+    return Array.from(entries.values()).map((entry) => ({
+      id: entry.id,
+      tileX: 0,
+      tileY: 0,
+    }));
+  }
+
+  function tileToWorld(tileX: number, tileY: number) {
+    return tileToWorldCenter(tileX, tileY, gridWidth, gridHeight);
+  }
+
+  async function upsertPlayer(snapshot: MapPlayerSnapshot) {
+    if (disposed) return;
+
+    const playerId = String(snapshot.id);
+    let entry = entries.get(playerId);
+
+    if (!entry) {
+      entry = createVisualEntry(tileSize, showSpaces);
+      entry.id = playerId;
+      entries.set(playerId, entry);
+      group.add(entry.group);
+      updateEntryLabel(entry, snapshot);
+    }
+
+    setEntryWorldPosition(
+      entry,
+      Number(snapshot.tileX || 0),
+      Number(snapshot.tileY || 0),
+      gridWidth,
+      gridHeight
+    );
+
+    if (!entry.label || entry.label.userData?.playerName !== (snapshot.name || 'Jogador')) {
+      updateEntryLabel(entry, snapshot);
+    }
+
+    await ensureEntryVisual(entry, snapshot);
+  }
+
   return {
     group,
     refresh,
     start,
     stop,
     cleanup,
+    players: getPlayers,
+    tileToWorld,
+    upsertPlayer,
   };
 }

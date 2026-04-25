@@ -182,8 +182,6 @@ const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
   showSpaces: true,  
 });  
 
-// realtimePlayersLayer.start();  
-
 // 🔥 SOCKET (correto)
 let socket: any = null;
 try {
