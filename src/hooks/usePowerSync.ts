@@ -1,16 +1,13 @@
 /**
  * usePowerSync.ts
  *
- * Hook que mantém player.power sincronizado com todas as 8 fontes de stats.
- * Deve ser chamado uma vez no topo da árvore de componentes (ex: em GamePage ou Layout).
- *
- * Recalcula power automaticamente quando mudam:
- *  - Skills do jogador
- *  - Armas no inventário
- *  - Acessórios comprados
- *  - Gangue (membros + formação)
- *  - Facção (buffs de investimento)
+ * MUDANÇAS:
+ *   - Remove scheduleSync() — com a nova arquitetura, o servidor recalcula
+ *     power em cada playerUpdate e envia via socket. Não precisa de sync local.
+ *   - setPower() continua para atualização UI otimista local
+ *   - usePowerBreakdown() inalterado
  */
+
 import { useEffect, useRef } from 'react';
 import { usePlayerStore }    from '@/store/playerStore';
 import { useGangStore }      from '@/store/gangStore';
@@ -22,10 +19,6 @@ import {
 } from '@/services/powerSystem';
 import { buildGangBattleStatsWithFormation } from '@/services/gangWarCalculationService';
 
-/**
- * Retorna o breakdown completo de poder do jogador atual,
- * levando em conta skills, armas, acessórios, gangue e facção.
- */
 export function usePowerBreakdown() {
   const player  = usePlayerStore((s) => s.player);
   const gang    = useGangStore((s) => s.gang);
@@ -51,20 +44,18 @@ export function usePowerBreakdown() {
 }
 
 /**
- * Sincroniza player.power no store local quando as fontes mudam.
- * NÃO faz chamada ao backend — o backend recalcula na próxima sync.
+ * Atualiza player.power no store local quando as fontes mudam.
+ * O servidor também recalcula e envia via socket — isso é apenas para UI otimista.
  */
 export function usePowerSync() {
-  const player       = usePlayerStore((s) => s.player);
-  const setPower     = usePlayerStore((s) => s.setPower);
-  const scheduleSync = usePlayerStore((s) => s.scheduleSync);
-  const gang         = useGangStore((s) => s.gang);
+  const player   = usePlayerStore((s) => s.player);
+  const setPower = usePlayerStore((s) => s.setPower);
+  const gang     = useGangStore((s) => s.gang);
 
-  // Deps que afetam o poder — usamos JSON stringify para detectar mudanças profundas
   const skillsKey      = JSON.stringify(player.skills);
   const inventoryKey   = JSON.stringify(player.inventory?.items?.filter((i: any) => i.category === 'weapon'));
   const accessoriesKey = JSON.stringify(player.purchasedAccessories);
-  const gangKey        = gang ? `${gang.members.length}_${gang.formation}_${gang.members.map(m => m.level).join(',')}` : 'no-gang';
+  const gangKey        = gang ? `${gang.members.length}_${gang.formation}_${gang.members.map((m) => m.level).join(',')}` : 'no-gang';
 
   const prevPowerRef = useRef(player.power);
 
@@ -73,7 +64,8 @@ export function usePowerSync() {
     if (newPower !== prevPowerRef.current) {
       prevPowerRef.current = newPower;
       setPower(newPower);
-      scheduleSync();
+      // NÃO chama scheduleSync() — o servidor envia power correto via socket
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skillsKey, inventoryKey, accessoriesKey, gangKey]);
 }
