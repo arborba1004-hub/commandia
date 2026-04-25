@@ -152,8 +152,7 @@ export default function GamePage() {
       pollingMs:  10000,
       showSpaces: true,
     });
-    realtimePlayersLayer.start();
-
+    
     // ── ESPAÇO DO PRÓPRIO JOGADOR ─────────────────────────────────────────
     // Coleta posições de outros jogadores para evitar sobreposição
     const occupiedOrigins = Array.from(localPlayers.values()).map((p) => ({
