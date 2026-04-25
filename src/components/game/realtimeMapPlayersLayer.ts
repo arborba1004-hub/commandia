@@ -612,12 +612,18 @@ export function mountRealtimeMapPlayersLayer({
   }
 
   async function upsertPlayer(snapshot: MapPlayerSnapshot) {
-    if (disposed) return;
+    if (disposed) {
+      console.log('⚠️ upsertPlayer ignorado: layer foi descartado');
+      return;
+    }
 
     const playerId = String(snapshot.id);
+    console.log('🎮 upsertPlayer chamado para:', playerId, 'em', snapshot.tileX, snapshot.tileY);
+
     let entry = entries.get(playerId);
 
     if (!entry) {
+      console.log('✨ Criando nova entrada visual para:', playerId);
       entry = createVisualEntry(tileSize, showSpaces);
       entry.id = playerId;
       entries.set(playerId, entry);
@@ -646,6 +652,8 @@ export function mountRealtimeMapPlayersLayer({
         subChild.userData.playerId = playerId;
       });
     });
+
+    console.log('✅ upsertPlayer concluído para:', playerId, '| Total de jogadores:', entries.size);
   }
 
   return {

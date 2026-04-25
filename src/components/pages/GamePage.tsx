@@ -264,6 +264,7 @@ socket.on('playerInit', (data: { player: any; faction?: any }) => {
   const incomingId = String(data.player?._id || data.player?.id || '');
   if (incomingId) {
     myId = incomingId;
+    console.log('✅ playerInit recebido - myId definido:', myId);
   }
 
   // Hidrata o playerStore para outras páginas (Header, etc.)
@@ -277,7 +278,11 @@ socket.on('playerInit', (data: { player: any; faction?: any }) => {
 socket.on('mapSnapshot', async (players: any[]) => {
   if (!isMounted) return;
 
+  console.log('📍 mapSnapshot recebido com', players?.length || 0, 'jogadores. myId:', myId);
+  console.log('📍 Dados brutos:', players);
+
   const others = players.filter((p) => !isMe(String(p.id)));
+  console.log('📍 Após filtro (excluindo self):', others.length, 'jogadores');
 
   for (const p of others) {
     localPlayers.set(String(p.id), {
@@ -288,6 +293,7 @@ socket.on('mapSnapshot', async (players: any[]) => {
 
   for (const p of others) {
     if (!isMounted) break;
+    console.log('🎮 Adicionando jogador ao mapa:', p.id, 'em', p.tileX, p.tileY);
     await realtimePlayersLayer.upsertPlayer({
       id:           String(p.id),
       name:         p.name || 'Jogador',
@@ -298,6 +304,8 @@ socket.on('mapSnapshot', async (players: any[]) => {
       factionId:    p.factionId ?? null,
     });
   }
+  
+  console.log('✅ mapSnapshot processado com sucesso');
 });
 
 // ───────────────────────────────────────────────────────────────────────
@@ -333,13 +341,24 @@ socket.on('playerMoved', async (data: {
   tileX:    number;
   tileY:    number;
 }) => {
-  if (!isMounted || isMe(String(data.playerId))) return;
+  if (!isMounted) {
+    console.log('⚠️ playerMoved ignorado: componente não montado');
+    return;
+  }
+
+  console.log('🚀 playerMoved recebido:', data.playerId, 'em', data.tileX, data.tileY, '| myId:', myId, '| isMe:', isMe(String(data.playerId)));
+
+  if (isMe(String(data.playerId))) {
+    console.log('⏭️ playerMoved ignorado: é o próprio jogador');
+    return;
+  }
 
   localPlayers.set(String(data.playerId), {
     tileX: Number(data.tileX),
     tileY: Number(data.tileY),
   });
 
+  console.log('🎮 Atualizando posição do jogador:', data.playerId);
   await realtimePlayersLayer.upsertPlayer({
     id:    String(data.playerId),
     name:  data.name || 'Jogador',
@@ -386,7 +405,14 @@ socket.on('playerLeft', (data: { playerId: string }) => {
 // SOLICITA SNAPSHOT INICIAL SE O SOCKET JÁ ESTIVER CONECTADO
 // ═══════════════════════════════════════════════════════════════════════
 if (socket.connected) {
+  console.log('🔌 Socket já conectado - solicitando mapSnapshot');
   socket.emit('requestMapSnapshot');
+} else {
+  console.log('⏳ Socket ainda não conectado - aguardando conexão');
+  socket.once('connect', () => {
+    console.log('🔌 Socket conectado - solicitando mapSnapshot');
+    socket.emit('requestMapSnapshot');
+  });
 }
     // ═══════════════════════════════════════════════════════════════════════
     // CLICK HANDLER — Raycasting para interação com o mapa

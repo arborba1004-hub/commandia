@@ -25,6 +25,7 @@ export interface Socket {
   disconnect: () => void;
   removeAllListeners: () => void;
   isConnected: () => boolean;
+  connected?: boolean;
 }
 
 // ─── Implementação Real ────────────────────────────────────────────────────
@@ -64,6 +65,10 @@ class RealSocket implements Socket {
         try {
           const message = JSON.parse(event.data);
           const { event: eventName, data } = message;
+
+          if (eventName === 'mapSnapshot' || eventName === 'playerMoved' || eventName === 'playerJoined') {
+            console.log(`📨 Socket recebeu evento: ${eventName}`, data);
+          }
 
           if (eventName && this.listeners.has(eventName)) {
             const callbacks = this.listeners.get(eventName);
@@ -145,6 +150,10 @@ class RealSocket implements Socket {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event)?.add(callback);
+    
+    if (event === 'mapSnapshot' || event === 'playerMoved' || event === 'playerJoined' || event === 'connect') {
+      console.log(`📌 Listener registrado para evento: ${event}`);
+    }
   }
 
   off(event: string, callback?: EventListener): void {
@@ -163,6 +172,9 @@ class RealSocket implements Socket {
   }
 
   emit(event: string, ...args: any[]): void {
+    if (event === 'requestMapSnapshot') {
+      console.log('🔔 Emitindo requestMapSnapshot');
+    }
     this.sendMessage(event, args);
   }
 
@@ -187,7 +199,13 @@ class RealSocket implements Socket {
   }
 
   isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    const connected = this.ws?.readyState === WebSocket.OPEN;
+    console.log(`🔌 isConnected() chamado: ${connected}`);
+    return connected;
+  }
+
+  get connected(): boolean {
+    return this.isConnected();
   }
 }
 
