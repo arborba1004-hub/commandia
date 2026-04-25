@@ -11,6 +11,7 @@
  *   ✅ Movimento/teleporte acontece UMA única vez
  *   ✅ Clique em barraco de outro jogador abre modal
  *   ✅ Teleporte requer confirmação (dois cliques)
+ *   ✅ Teleporte verifica tiles livres e pede confirmação
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -20,9 +21,8 @@ import { useNavigate }        from 'react-router-dom';
 import { GLTFLoader }         from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader }        from 'three/examples/jsm/loaders/DRACOLoader';
 import { mountFixedMapBuildings }      from '@/components/game/fixedMapBuildings';
-import { mountPlayerMapSpace }         from '@/components/game/playerMapSpace';
+import { mountPlayerMapSpace, isPlayerSpaceAvailable, getPlayerSpaceRect, PLAYER_SPACE_WIDTH, PLAYER_SPACE_HEIGHT } from '@/components/game/playerMapSpace';
 import { mountRealtimeMapPlayersLayer } from '@/components/game/realtimeMapPlayersLayer';
-import { teleportPlayerMapSpace }      from '@/components/game/playerTeleport';
 import { usePlayerStore }              from '@/store/playerStore';
 import { getSocket }                   from '@/socket';
 import Header                          from '@/components/Header';
@@ -139,7 +139,28 @@ export default function GamePage() {
       onMessage:  () => {},
     });
 
+    // ── ESTADO LOCAL (cache de posições) ───────────────────────────────────
+    const localPlayers = new Map<string, { tileX: number; tileY: number }>();
+    let myId: string | null = player?._id ? String(player._id) : null;
+
+    // ── CAMADA DE JOGADORES EM TEMPO REAL ─────────────────────────────────
+    const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
+      scene,
+      gridWidth:  GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      tileSize:   TILE_SIZE,
+      pollingMs:  10000,
+      showSpaces: true,
+    });
+    realtimePlayersLayer.start();
+
     // ── ESPAÇO DO PRÓPRIO JOGADOR ─────────────────────────────────────────
+    // Coleta posições de outros jogadores para evitar sobreposição
+    const occupiedOrigins = Array.from(localPlayers.values()).map((p) => ({
+      tileX: p.tileX,
+      tileY: p.tileY,
+    }));
+
     const playerMapSpace = mountPlayerMapSpace({
       scene,
       tileX:        Number(player?.mapPosition?.tileX ?? 0),
@@ -148,6 +169,7 @@ export default function GamePage() {
       gridWidth:    GRID_WIDTH,
       gridHeight:   GRID_HEIGHT,
       tileSize:     TILE_SIZE,
+      occupiedOrigins,
     });
     playerMapSpaceRef.current = playerMapSpace;
 
@@ -180,21 +202,6 @@ export default function GamePage() {
     selectionMesh.position.set(0.5 - GRID_WIDTH / 2, 0.06, 0.5 - GRID_HEIGHT / 2);
     selectionMesh.visible = false;
     scene.add(selectionMesh);
-
-    // ── CAMADA DE JOGADORES EM TEMPO REAL ─────────────────────────────────
-    const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
-      scene,
-      gridWidth:  GRID_WIDTH,
-      gridHeight: GRID_HEIGHT,
-      tileSize:   TILE_SIZE,
-      pollingMs:  10000,
-      showSpaces: true,
-    });
-    realtimePlayersLayer.start();
-
-    // ── ESTADO LOCAL (cache de posições) ───────────────────────────────────
-    const localPlayers = new Map<string, { tileX: number; tileY: number }>();
-    let myId: string | null = player?._id ? String(player._id) : null;
 
     // ═══════════════════════════════════════════════════════════════════════
     // SOCKET.IO — FONTE PRIMÁRIA DE VERDADE
@@ -331,7 +338,7 @@ export default function GamePage() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // CLICK HANDLER
+    // CLICK HANDLER COM TELEPORTE REFATORADO
     // ═══════════════════════════════════════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     const mouse     = new THREE.Vector2();
@@ -400,18 +407,32 @@ export default function GamePage() {
         return;
       }
 
+      // Verifica se o tile é livre (não ocupado por outro jogador)
+      const occupiedOrigins = Array.from(localPlayers.values()).map((p) => ({
+        tileX: p.tileX,
+        tileY: p.tileY,
+      }));
+
+      const isTileFree = isPlayerSpaceAvailable(
+        clickedTileX,
+        clickedTileY,
+        occupiedOrigins,
+        GRID_WIDTH,
+        GRID_HEIGHT
+      );
+
+      if (!isTileFree) {
+        console.log('⚠️ Tile não está livre (construção ou outro jogador)');
+        return;
+      }
+
       // Se já há um teleporte pendente, confirma
       if (pendingTeleportTile && pendingTeleportTile.tileX === clickedTileX && pendingTeleportTile.tileY === clickedTileY) {
         console.log('✅ Confirmando teleporte para:', clickedTileX, clickedTileY);
         pendingTeleportTile = null;
 
-        teleportPlayerMapSpace(playerMapSpaceRef.current, {
-          clickedTileX,
-          clickedTileY,
-          occupiedOrigins: [],
-          gridWidth:  GRID_WIDTH,
-          gridHeight: GRID_HEIGHT,
-        });
+        // Atualiza posição do jogador
+        playerMapSpace.updatePosition(clickedTileX, clickedTileY, occupiedOrigins);
 
         usePlayerStore.getState().applyPlayerUpdate((p) => ({
           ...p,
