@@ -9,6 +9,8 @@
  *   ✅ playerMoved / playerTeleported ignorados se for o próprio jogador
  *   ✅ Um ÚNICO barraco por jogador, sem duplicação
  *   ✅ Movimento/teleporte acontece UMA única vez
+ *   ✅ Clique em barraco de outro jogador abre modal
+ *   ✅ Teleporte requer confirmação (dois cliques)
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -122,220 +124,218 @@ export default function GamePage() {
     platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
     platform.receiveShadow = true;
     scene.add(platform);
-// ── LOADER ─────────────────────────────────────────────────────────────
-const loader = new GLTFLoader();
-loader.setDRACOLoader(dracoLoader);
 
-// ── PRÉDIOS FIXOS ─────────────────────────────────────────────────────
-const fixedBuildingsLayer = mountFixedMapBuildings({
-  scene,
-  loader,
-  camera,
-  container: mountEl,
-  onNavigate: (path: string) => navigate(path),
-  onMessage:  () => {},
-});
+    // ── LOADER ─────────────────────────────────────────────────────────────
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
 
-// ── ESPAÇO DO PRÓPRIO JOGADOR ─────────────────────────────────────────
-const playerMapSpace = mountPlayerMapSpace({
-  scene,
-  tileX:        Number(player?.mapPosition?.tileX ?? 0),
-  tileY:        Number(player?.mapPosition?.tileY ?? 0),
-  barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
-  gridWidth:    GRID_WIDTH,
-  gridHeight:   GRID_HEIGHT,
-  tileSize:     TILE_SIZE,
-});
-playerMapSpaceRef.current = playerMapSpace;
-
-controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
-camera.position.set(
-  playerMapSpace.worldX + 12,
-  10,
-  playerMapSpace.worldZ + 12
-);
-controls.update();
-
-// ── PLANO DE CLIQUE ────────────────────────────────────────────────────
-const clickPlaneGeo = new THREE.PlaneGeometry(GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE);
-const clickPlaneMat = new THREE.MeshBasicMaterial({
-  transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
-});
-const clickPlane = new THREE.Mesh(clickPlaneGeo, clickPlaneMat);
-clickPlane.rotation.x = -Math.PI / 2;
-clickPlane.position.y = 0.05;
-scene.add(clickPlane);
-
-// ── SELETOR VISUAL ─────────────────────────────────────────────────────
-const selectionGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
-const selectionMat = new THREE.MeshBasicMaterial({
-  color: 0xd9b764, transparent: true, opacity: 0.4,
-  side: THREE.DoubleSide, depthWrite: false,
-});
-const selectionMesh = new THREE.Mesh(selectionGeo, selectionMat);
-selectionMesh.rotation.x = -Math.PI / 2;
-selectionMesh.position.set(0.5 - GRID_WIDTH / 2, 0.06, 0.5 - GRID_HEIGHT / 2);
-selectionMesh.visible = false;
-scene.add(selectionMesh);
-
-// ── CAMADA DE JOGADORES EM TEMPO REAL ─────────────────────────────────
-// Com pollingMs: 10000 e .start() para garantir inicialização do grupo 3D
-const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
-  scene,
-  gridWidth:  GRID_WIDTH,
-  gridHeight: GRID_HEIGHT,
-  tileSize:   TILE_SIZE,
-  pollingMs:  10000,   // fallback curto para renderização inicial
-  showSpaces: true,
-});
-realtimePlayersLayer.start();
-
-// ── ESTADO LOCAL (cache de posições) ───────────────────────────────────
-const localPlayers = new Map<string, { tileX: number; tileY: number }>();
-let myId: string | null = player?._id ? String(player._id) : null;
-const isMe = (id: string): boolean => {
-  if (!myId) return false;
-  return String(id) === myId;
-};
-// ═══════════════════════════════════════════════════════════════════════
-// SOCKET.IO — FONTE PRIMÁRIA DE VERDADE
-// ═══════════════════════════════════════════════════════════════════════
-const socket = getSocket();
-
-// ── playerInit: define myId ──────────────────────────────────────────
-socket.on('playerInit', (data: { player: any; faction?: any }) => {
-  if (!isMounted) return;
-  const incomingId = String(data.player?._id || data.player?.id || '');
-  if (incomingId) {
-    myId = incomingId;
-    console.log('✅ playerInit: myId =', myId);
-  }
-  usePlayerStore.getState().hydratePlayerFromServer(data.player);
-});
-
-// ── Função auxiliar para processar snapshot ──────────────────────────
-async function processSnapshot(players: any[]) {
-  if (!isMounted || !Array.isArray(players)) return;
-  console.log('📍 Processando snapshot com', players.length, 'jogadores');
-  
-  // Filtra o próprio jogador usando o ID do player store como fallback
-  const currentPlayerId = myId || (player?._id ? String(player._id) : null);
-  const others = players.filter((p) => {
-    const pId = String(p.id || p._id || '');
-    return pId && pId !== currentPlayerId;
-  });
-  
-  console.log('📍 Outros jogadores:', others.length, '| myId:', myId, '| currentPlayerId:', currentPlayerId);
-  localPlayers.clear();
-  for (const p of others) {
-    localPlayers.set(String(p.id), {
-      tileX: Number(p.tileX),
-      tileY: Number(p.tileY),
+    // ── PRÉDIOS FIXOS ─────────────────────────────────────────────────────
+    const fixedBuildingsLayer = mountFixedMapBuildings({
+      scene,
+      loader,
+      camera,
+      container: mountEl,
+      onNavigate: (path: string) => navigate(path),
+      onMessage:  () => {},
     });
-    await realtimePlayersLayer.upsertPlayer({
-      id:           String(p.id),
-      name:         p.name || 'Jogador',
-      tileX:        Number(p.tileX),
-      tileY:        Number(p.tileY),
-      barracoLevel: Number(p.barracoLevel ?? 1),
-      power:        Number(p.power ?? 0),
-      factionId:    p.factionId ?? null,
+
+    // ── ESPAÇO DO PRÓPRIO JOGADOR ─────────────────────────────────────────
+    const playerMapSpace = mountPlayerMapSpace({
+      scene,
+      tileX:        Number(player?.mapPosition?.tileX ?? 0),
+      tileY:        Number(player?.mapPosition?.tileY ?? 0),
+      barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
+      gridWidth:    GRID_WIDTH,
+      gridHeight:   GRID_HEIGHT,
+      tileSize:     TILE_SIZE,
     });
-  }
-  console.log('✅ Snapshot processado');
-}
+    playerMapSpaceRef.current = playerMapSpace;
 
-// ── mapSnapshot ──────────────────────────────────────────────────────
-socket.on('mapSnapshot', (players: any[]) => {
-  if (!isMounted) return;
-  console.log('🗺️ mapSnapshot recebido com', players?.length || 0, 'jogadores');
-  processSnapshot(players);
-});
+    controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
+    camera.position.set(
+      playerMapSpace.worldX + 12,
+      10,
+      playerMapSpace.worldZ + 12
+    );
+    controls.update();
 
-// ── playerJoined ─────────────────────────────────────────────────────
-socket.on('playerJoined', async (p: any) => {
-  if (!isMounted) return;
-  const pId = String(p.id || p._id || '');
-  const currentPlayerId = myId || (player?._id ? String(player._id) : null);
-  if (pId === currentPlayerId) {
-    console.log('⏭️ playerJoined ignorado (próprio jogador)');
-    return;
-  }
-  console.log('👤 playerJoined:', p.id || p.name);
-  localPlayers.set(String(p.id), { tileX: Number(p.tileX), tileY: Number(p.tileY) });
-  await realtimePlayersLayer.upsertPlayer({
-    id: String(p.id), name: p.name, tileX: Number(p.tileX), tileY: Number(p.tileY),
-    barracoLevel: Number(p.barracoLevel ?? 1), power: Number(p.power ?? 0),
-    factionId: p.factionId ?? null,
-  });
-});
+    // ── PLANO DE CLIQUE ────────────────────────────────────────────────────
+    const clickPlaneGeo = new THREE.PlaneGeometry(GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE);
+    const clickPlaneMat = new THREE.MeshBasicMaterial({
+      transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+    });
+    const clickPlane = new THREE.Mesh(clickPlaneGeo, clickPlaneMat);
+    clickPlane.rotation.x = -Math.PI / 2;
+    clickPlane.position.y = 0.05;
+    scene.add(clickPlane);
 
-// ── playerMoved ──────────────────────────────────────────────────────
-socket.on('playerMoved', async (data: any) => {
-  if (!isMounted) return;
-  const pId = String(data.playerId || data.id || '');
-  const currentPlayerId = myId || (player?._id ? String(player._id) : null);
-  console.log('🚀 playerMoved:', data.playerId, data.tileX, data.tileY);
-  if (pId === currentPlayerId) {
-    console.log('⏭️ Ignorado (próprio jogador)');
-    return;
-  }
-  localPlayers.set(String(data.playerId), {
-    tileX: Number(data.tileX), tileY: Number(data.tileY),
-  });
-  await realtimePlayersLayer.upsertPlayer({
-    id: String(data.playerId), name: data.name,
-    tileX: Number(data.tileX), tileY: Number(data.tileY),
-  });
-});
+    // ── SELETOR VISUAL ─────────────────────────────────────────────────────
+    const selectionGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+    const selectionMat = new THREE.MeshBasicMaterial({
+      color: 0xd9b764, transparent: true, opacity: 0.4,
+      side: THREE.DoubleSide, depthWrite: false,
+    });
+    const selectionMesh = new THREE.Mesh(selectionGeo, selectionMat);
+    selectionMesh.rotation.x = -Math.PI / 2;
+    selectionMesh.position.set(0.5 - GRID_WIDTH / 2, 0.06, 0.5 - GRID_HEIGHT / 2);
+    selectionMesh.visible = false;
+    scene.add(selectionMesh);
 
-// ── playerTeleported ─────────────────────────────────────────────────
-socket.on('playerTeleported', async (data: any) => {
-  if (!isMounted) return;
-  const pId = String(data.playerId || data.id || '');
-  const currentPlayerId = myId || (player?._id ? String(player._id) : null);
-  if (pId === currentPlayerId) {
-    console.log('⏭️ playerTeleported ignorado (próprio jogador)');
-    return;
-  }
-  console.log('🌀 playerTeleported:', data.playerId);
-  localPlayers.set(String(data.playerId), {
-    tileX: Number(data.newPosition.tileX),
-    tileY: Number(data.newPosition.tileY),
-  });
-  await realtimePlayersLayer.upsertPlayer({
-    id: String(data.playerId), name: data.name,
-    tileX: Number(data.newPosition.tileX),
-    tileY: Number(data.newPosition.tileY),
-  });
-});
+    // ── CAMADA DE JOGADORES EM TEMPO REAL ─────────────────────────────────
+    const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
+      scene,
+      gridWidth:  GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      tileSize:   TILE_SIZE,
+      pollingMs:  10000,
+      showSpaces: true,
+    });
+    realtimePlayersLayer.start();
 
-// ── playerLeft ───────────────────────────────────────────────────────
-socket.on('playerLeft', (data: { playerId: string }) => {
-  if (!isMounted) return;
-  console.log('👋 playerLeft:', data.playerId);
-  localPlayers.delete(String(data.playerId));
-  void realtimePlayersLayer.refresh();
-});
+    // ── ESTADO LOCAL (cache de posições) ───────────────────────────────────
+    const localPlayers = new Map<string, { tileX: number; tileY: number }>();
+    let myId: string | null = player?._id ? String(player._id) : null;
 
-// ── SOLICITAR SNAPSHOT INICIAL ───────────────────────────────────────
-if (socket.connected) {
-  console.log('🔌 Socket já conectado, solicitando mapSnapshot');
-  socket.emit('requestMapSnapshot');
-} else {
-  console.log('⏳ Aguardando conexão do socket...');
-  socket.once('connect', () => {
-    if (isMounted) {
-      console.log('🔌 Socket conectado, solicitando mapSnapshot');
-      socket.emit('requestMapSnapshot');
+    // ═══════════════════════════════════════════════════════════════════════
+    // SOCKET.IO — FONTE PRIMÁRIA DE VERDADE
+    // ═══════════════════════════════════════════════════════════════════════
+    const socket = getSocket();
+
+    // ── playerInit: define myId ──────────────────────────────────────────
+    socket.on('playerInit', (data: { player: any; faction?: any }) => {
+      if (!isMounted) return;
+      const incomingId = String(data.player?._id || data.player?.id || '');
+      if (incomingId) {
+        myId = incomingId;
+        console.log('✅ playerInit: myId =', myId);
+      }
+      usePlayerStore.getState().hydratePlayerFromServer(data.player);
+    });
+
+    // ── Função auxiliar para processar snapshot ──────────────────────────
+    async function processSnapshot(players: any[]) {
+      if (!isMounted || !Array.isArray(players)) return;
+      console.log('📍 Processando snapshot com', players.length, 'jogadores');
+      
+      const currentPlayerId = myId || (player?._id ? String(player._id) : null);
+      const others = players.filter((p) => {
+        const pId = String(p.id || p._id || '');
+        return pId && pId !== currentPlayerId;
+      });
+      
+      console.log('📍 Outros jogadores:', others.length, '| myId:', myId, '| currentPlayerId:', currentPlayerId);
+      localPlayers.clear();
+      for (const p of others) {
+        localPlayers.set(String(p.id), {
+          tileX: Number(p.tileX),
+          tileY: Number(p.tileY),
+        });
+        await realtimePlayersLayer.upsertPlayer({
+          id:           String(p.id),
+          name:         p.name || 'Jogador',
+          tileX:        Number(p.tileX),
+          tileY:        Number(p.tileY),
+          barracoLevel: Number(p.barracoLevel ?? 1),
+          power:        Number(p.power ?? 0),
+          factionId:    p.factionId ?? null,
+        });
+      }
+      console.log('✅ Snapshot processado');
     }
-  });
-}
+
+    // ── mapSnapshot ──────────────────────────────────────────────────────
+    socket.on('mapSnapshot', (players: any[]) => {
+      if (!isMounted) return;
+      console.log('🗺️ mapSnapshot recebido com', players?.length || 0, 'jogadores');
+      processSnapshot(players);
+    });
+
+    // ── playerJoined ─────────────────────────────────────────────────────
+    socket.on('playerJoined', async (p: any) => {
+      if (!isMounted) return;
+      const pId = String(p.id || p._id || '');
+      const currentPlayerId = myId || (player?._id ? String(player._id) : null);
+      if (pId === currentPlayerId) {
+        console.log('⏭️ playerJoined ignorado (próprio jogador)');
+        return;
+      }
+      console.log('👤 playerJoined:', p.id || p.name);
+      localPlayers.set(String(p.id), { tileX: Number(p.tileX), tileY: Number(p.tileY) });
+      await realtimePlayersLayer.upsertPlayer({
+        id: String(p.id), name: p.name, tileX: Number(p.tileX), tileY: Number(p.tileY),
+        barracoLevel: Number(p.barracoLevel ?? 1), power: Number(p.power ?? 0),
+        factionId: p.factionId ?? null,
+      });
+    });
+
+    // ── playerMoved ──────────────────────────────────────────────────────
+    socket.on('playerMoved', async (data: any) => {
+      if (!isMounted) return;
+      const pId = String(data.playerId || data.id || '');
+      const currentPlayerId = myId || (player?._id ? String(player._id) : null);
+      console.log('🚀 playerMoved:', data.playerId, data.tileX, data.tileY);
+      if (pId === currentPlayerId) {
+        console.log('⏭️ Ignorado (próprio jogador)');
+        return;
+      }
+      localPlayers.set(String(data.playerId), {
+        tileX: Number(data.tileX), tileY: Number(data.tileY),
+      });
+      await realtimePlayersLayer.upsertPlayer({
+        id: String(data.playerId), name: data.name,
+        tileX: Number(data.tileX), tileY: Number(data.tileY),
+      });
+    });
+
+    // ── playerTeleported ─────────────────────────────────────────────────
+    socket.on('playerTeleported', async (data: any) => {
+      if (!isMounted) return;
+      const pId = String(data.playerId || data.id || '');
+      const currentPlayerId = myId || (player?._id ? String(player._id) : null);
+      if (pId === currentPlayerId) {
+        console.log('⏭️ playerTeleported ignorado (próprio jogador)');
+        return;
+      }
+      console.log('🌀 playerTeleported:', data.playerId);
+      localPlayers.set(String(data.playerId), {
+        tileX: Number(data.newPosition.tileX),
+        tileY: Number(data.newPosition.tileY),
+      });
+      await realtimePlayersLayer.upsertPlayer({
+        id: String(data.playerId), name: data.name,
+        tileX: Number(data.newPosition.tileX),
+        tileY: Number(data.newPosition.tileY),
+      });
+    });
+
+    // ── playerLeft ───────────────────────────────────────────────────────
+    socket.on('playerLeft', (data: { playerId: string }) => {
+      if (!isMounted) return;
+      console.log('👋 playerLeft:', data.playerId);
+      localPlayers.delete(String(data.playerId));
+      void realtimePlayersLayer.refresh();
+    });
+
+    // ── SOLICITAR SNAPSHOT INICIAL ───────────────────────────────────────
+    if (socket.connected) {
+      console.log('🔌 Socket já conectado, solicitando mapSnapshot');
+      socket.emit('requestMapSnapshot');
+    } else {
+      console.log('⏳ Aguardando conexão do socket...');
+      socket.once('connect', () => {
+        if (isMounted) {
+          console.log('🔌 Socket conectado, solicitando mapSnapshot');
+          socket.emit('requestMapSnapshot');
+        }
+      });
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // CLICK HANDLER
     // ═══════════════════════════════════════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     const mouse     = new THREE.Vector2();
+    let pendingTeleportTile: { tileX: number; tileY: number } | null = null;
 
     function handleClick(event: MouseEvent) {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -366,6 +366,7 @@ if (socket.connected) {
               (p: any) => String(p.id) === playerId
             );
             if (playerData) {
+              console.log('🎯 Clique em barraco de outro jogador:', playerData.id, playerData.name);
               setModalState(openOtherPlayerBarracoModal({
                 id: playerData.id,
                 name: playerData.name || 'Jogador',
@@ -384,40 +385,54 @@ if (socket.connected) {
       if (!hits.length) return;
 
       const point = hits[0].point;
-      const tileX = Math.floor(point.x + GRID_WIDTH  / 2);
-      const tileY = Math.floor(point.z + GRID_HEIGHT / 2);
+      const clickedTileX = Math.floor(point.x + GRID_WIDTH  / 2);
+      const clickedTileY = Math.floor(point.z + GRID_HEIGHT / 2);
 
-      if (tileX < 0 || tileX >= GRID_WIDTH || tileY < 0 || tileY >= GRID_HEIGHT) return;
+      if (clickedTileX < 0 || clickedTileX >= GRID_WIDTH || clickedTileY < 0 || clickedTileY >= GRID_HEIGHT) return;
 
-      const tileKey = `${tileX},${tileY}`;
-      const occupied = Array.from(localPlayers.values()).some(
+      // Verifica se há barraco de outro jogador no tile
+      const tileKey = `${clickedTileX},${clickedTileY}`;
+      const occupiedByPlayer = Array.from(localPlayers.values()).find(
         (p) => `${p.tileX},${p.tileY}` === tileKey
       );
-      if (occupied) return; // futuramente abrir modal de ataque
+      if (occupiedByPlayer) {
+        console.log('⚠️ Tile ocupado por outro jogador');
+        return;
+      }
 
-      // Atualiza visual e store
-      selectionMesh.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.06, tileY - GRID_HEIGHT / 2 + 0.5);
+      // Se já há um teleporte pendente, confirma
+      if (pendingTeleportTile && pendingTeleportTile.tileX === clickedTileX && pendingTeleportTile.tileY === clickedTileY) {
+        console.log('✅ Confirmando teleporte para:', clickedTileX, clickedTileY);
+        pendingTeleportTile = null;
+
+        teleportPlayerMapSpace(playerMapSpaceRef.current, {
+          clickedTileX,
+          clickedTileY,
+          occupiedOrigins: [],
+          gridWidth:  GRID_WIDTH,
+          gridHeight: GRID_HEIGHT,
+        });
+
+        usePlayerStore.getState().applyPlayerUpdate((p) => ({
+          ...p,
+          mapPosition: {
+            tileX: clickedTileX,
+            tileY: clickedTileY,
+            worldX: (clickedTileX - GRID_WIDTH  / 2) * TILE_SIZE + TILE_SIZE / 2,
+            worldY: (clickedTileY - GRID_HEIGHT / 2) * TILE_SIZE + TILE_SIZE / 2,
+          },
+        }));
+
+        socket.emit('move', { tileX: clickedTileX, tileY: clickedTileY });
+        selectionMesh.visible = false;
+        return;
+      }
+
+      // Primeiro clique → mostra seleção e pede confirmação
+      console.log('🎯 Selecionando tile para teleporte:', clickedTileX, clickedTileY);
+      pendingTeleportTile = { tileX: clickedTileX, tileY: clickedTileY };
+      selectionMesh.position.set(clickedTileX - GRID_WIDTH / 2 + 0.5, 0.06, clickedTileY - GRID_HEIGHT / 2 + 0.5);
       selectionMesh.visible = true;
-
-      teleportPlayerMapSpace(playerMapSpaceRef.current, {
-        clickedTileX: tileX,
-        clickedTileY: tileY,
-        occupiedOrigins: [],
-        gridWidth:  GRID_WIDTH,
-        gridHeight: GRID_HEIGHT,
-      });
-
-      usePlayerStore.getState().applyPlayerUpdate((p) => ({
-        ...p,
-        mapPosition: {
-          tileX,
-          tileY,
-          worldX: (tileX - GRID_WIDTH  / 2) * TILE_SIZE + TILE_SIZE / 2,
-          worldY: (tileY - GRID_HEIGHT / 2) * TILE_SIZE + TILE_SIZE / 2,
-        },
-      }));
-
-      socket.emit('move', { tileX, tileY });
     }
 
     renderer.domElement.addEventListener('click', handleClick);
