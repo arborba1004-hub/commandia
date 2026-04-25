@@ -8,11 +8,10 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { mountFixedMapBuildings } from '@/components/game/fixedMapBuildings';
 import { mountPlayerMapSpace } from '@/components/game/playerMapSpace';
+import { mountRealtimeMapPlayersLayer } from '@/components/game/realtimeMapPlayersLayer';
 import { teleportPlayerMapSpace } from '@/components/game/playerTeleport';
 import { usePlayerStore } from '@/store/playerStore';
-import { MMOWorldEngine } from '@/game/engine/MMOWorldEngine';
 import Header from '@/components/Header';
-import socket from '@/socket';
 
 
 const GRID_WIDTH = 120;
@@ -174,16 +173,38 @@ selectionMesh.position.set(
 selectionMesh.visible = false;  
 scene.add(selectionMesh);  
 
-const engine = new MMOWorldEngine();
+const realtimePlayersLayer = mountRealtimeMapPlayersLayer({  
+  scene,  
+  gridWidth: GRID_WIDTH,  
+  gridHeight: GRID_HEIGHT,  
+  tileSize: TILE_SIZE,  
+  pollingMs: 3000,  
+  showSpaces: true,  
+});  
 
-// Socket listener for player movements
-socket.on('playerMoved', (data: any) => {
-  engine.applySocketMove({
-    playerId: data.playerId,
-    tileX: data.tileX,
-    tileY: data.tileY,
+// 🔥 SOCKET (correto)
+let socket: any = null;
+try {
+  const { io } = require('socket.io-client');
+  socket = io('https://comando-backend.onrender.com', {
+    transports: ['websocket'],
   });
-});
+  socket.on('connect', () => {
+    console.log('✅ Conectado no tempo real');
+  });
+  socket.on('playerMoved', (data: any) => {
+    console.log('👀 Outro jogador moveu:', data);
+    if (data?.playerId && typeof data?.tileX === 'number' && typeof data?.tileY === 'number') {
+      realtimePlayersLayer.upsertPlayer({
+        id: data.playerId,
+        tileX: data.tileX,
+        tileY: data.tileY,
+      });
+    }
+  });
+} catch (err) {
+  console.log('Socket não carregou', err);
+}
 
 const raycaster = new THREE.Raycaster();  
 const mouse = new THREE.Vector2();  
@@ -274,6 +295,7 @@ return () => {
   renderer.domElement.removeEventListener('click', handleClick);  
   controls.dispose();  
 
+  realtimePlayersLayer.cleanup();  
   socket?.disconnect();
   fixedBuildingsLayer.cleanup();  
   playerMapSpace.cleanup();  
