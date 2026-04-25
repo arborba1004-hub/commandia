@@ -30,6 +30,7 @@ import OtherPlayerBarracoModal, {
   openOtherPlayerBarracoModal,
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
+import { fetchAllRegisteredPlayers } from '@/api/mapPlayersApi';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTES DO MAPA
@@ -272,18 +273,21 @@ socket.on('playerInit', (data: { player: any; faction?: any }) => {
 });
 
 // ───────────────────────────────────────────────────────────────────────
-// mapSnapshot: Array com TODOS os jogadores do mapa.
+// mapSnapshot: Array com TODOS os jogadores cadastrados (online ou offline).
 // Filtra o PRÓPRIO jogador usando isMe() síncrono.
 // ───────────────────────────────────────────────────────────────────────
 socket.on('mapSnapshot', async (players: any[]) => {
   if (!isMounted) return;
 
-  console.log('📍 mapSnapshot recebido com', players?.length || 0, 'jogadores. myId:', myId);
+  console.log('📍 mapSnapshot recebido com', players?.length || 0, 'jogadores cadastrados. myId:', myId);
   console.log('📍 Dados brutos:', players);
 
   const others = players.filter((p) => !isMe(String(p.id)));
-  console.log('📍 Após filtro (excluindo self):', others.length, 'jogadores');
+  console.log('📍 Após filtro (excluindo self):', others.length, 'jogadores para renderizar');
 
+  // Limpa cache local e renderiza TODOS os jogadores cadastrados
+  localPlayers.clear();
+  
   for (const p of others) {
     localPlayers.set(String(p.id), {
       tileX: Number(p.tileX),
@@ -293,7 +297,7 @@ socket.on('mapSnapshot', async (players: any[]) => {
 
   for (const p of others) {
     if (!isMounted) break;
-    console.log('🎮 Adicionando jogador ao mapa:', p.id, 'em', p.tileX, p.tileY);
+    console.log('🎮 Adicionando barraco ao mapa:', p.id, 'em', p.tileX, p.tileY, '| Status:', p.status || 'unknown');
     await realtimePlayersLayer.upsertPlayer({
       id:           String(p.id),
       name:         p.name || 'Jogador',
@@ -305,7 +309,7 @@ socket.on('mapSnapshot', async (players: any[]) => {
     });
   }
   
-  console.log('✅ mapSnapshot processado com sucesso');
+  console.log('✅ mapSnapshot processado com sucesso - Total de barracos renderizados:', others.length);
 });
 
 // ───────────────────────────────────────────────────────────────────────

@@ -71,3 +71,64 @@ export async function fetchMapPlayersSnapshot(
     window.clearTimeout(timeoutId);
   }
 }
+
+/**
+ * Busca TODOS os jogadores cadastrados (online ou offline)
+ * Retorna array com posições de todos os barracos
+ */
+export async function fetchAllRegisteredPlayers(
+  limit = 1000
+): Promise<MapPlayerSnapshot[]> {
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new Error('Usuário não autenticado');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/players/all?limit=${encodeURIComponent(limit)}`,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        signal: controller.signal,
+        cache: 'no-store',
+      }
+    );
+
+    let data: unknown = null;
+
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      const message =
+        typeof data === 'object' &&
+        data !== null &&
+        'error' in data &&
+        typeof (data as any).error === 'string'
+          ? (data as any).error
+          : 'Erro ao buscar todos os jogadores cadastrados';
+
+      throw new Error(message);
+    }
+
+    return Array.isArray(data) ? (data as MapPlayerSnapshot[]) : [];
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Timeout ao buscar todos os jogadores');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
