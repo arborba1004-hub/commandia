@@ -1,14 +1,14 @@
 /**
- * GamePage.tsx — Mapa multiplayer em tempo real (FINAL 2026-04-25)
+ * GamePage.tsx — Mapa multiplayer em tempo real (FINAL CORRIGIDO)
  *
- * ARQUITETURA DEFINITIVA:
+ * ARQUITETURA:
  *   ✅ Socket é a ÚNICA fonte de verdade (sem polling REST)
  *   ✅ realtimeMapPlayersLayer APENAS renderiza barracos 3D + cache raycasting
  *   ✅ isMe() usa cache local `myId` (síncrono, sem depender do playerStore)
  *   ✅ myId é definido ANTES de processar mapSnapshot (sem race condition)
  *   ✅ playerMoved/playerTeleported do socket é IGNORADO se for o próprio jogador
  *   ✅ Um ÚNICO barraco por jogador, sem duplicação
- *   ✅ Movimento/teleporte acontece UMA única vez
+ *   ✅ Ao montar, se socket já conectado, solicita mapSnapshot via 'requestMapSnapshot'
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -133,7 +133,6 @@ export default function GamePage() {
     platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
     platform.receiveShadow = true;
     scene.add(platform);
-
 // ═══════════════════════════════════════════════════════════════════════
 // GLTF LOADER (modelos 3D)
 // ═══════════════════════════════════════════════════════════════════════
@@ -234,32 +233,17 @@ const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
   showSpaces: true,
 });
 // ⚠️ NÃO chamamos realtimePlayersLayer.start() — socket é a fonte única
+
 // ═══════════════════════════════════════════════════════════════════════
 // ESTADO LOCAL DOS JOGADORES (cache para verificação de tiles ocupados)
 // ═══════════════════════════════════════════════════════════════════════
-//
-// localPlayers: Map<playerId, {tileX, tileY}>
-// NUNCA contém o próprio jogador — apenas OUTROS jogadores.
-//
 const localPlayers = new Map<string, { tileX: number; tileY: number }>();
 
 // ═══════════════════════════════════════════════════════════════════════
 // myId: CACHE LOCAL SÍNCRONO do ID do próprio jogador
 // ═══════════════════════════════════════════════════════════════════════
-//
-// CRÍTICO: Usamos `let myId` (cache local) em vez de `player._id` do store
-// porque o playerStore pode estar undefined/null durante a montagem.
-// myId é definido pelo evento 'playerInit' ANTES de processar 'mapSnapshot'.
-//
 let myId: string | null = player?._id ? String(player._id) : null;
 
-// ═══════════════════════════════════════════════════════════════════════
-// isMe(): Verificação SÍNCRONA usando cache local
-// ═══════════════════════════════════════════════════════════════════════
-//
-// NÃO depende do playerStore (que pode estar desatualizado).
-// Retorna false se myId ainda não foi definido (evita falsos positivos).
-//
 const isMe = (id: string): boolean => {
   if (!myId) return false;
   return String(id) === myId;
@@ -293,10 +277,8 @@ socket.on('playerInit', (data: { player: any; faction?: any }) => {
 socket.on('mapSnapshot', async (players: any[]) => {
   if (!isMounted) return;
 
-  // Filtra usando cache local síncrono
   const others = players.filter((p) => !isMe(String(p.id)));
 
-  // Atualiza cache local (apenas OUTROS)
   for (const p of others) {
     localPlayers.set(String(p.id), {
       tileX: Number(p.tileX),
@@ -304,7 +286,6 @@ socket.on('mapSnapshot', async (players: any[]) => {
     });
   }
 
-  // Renderiza barracos 3D (apenas OUTROS)
   for (const p of others) {
     if (!isMounted) break;
     await realtimePlayersLayer.upsertPlayer({
@@ -401,6 +382,12 @@ socket.on('playerLeft', (data: { playerId: string }) => {
   void realtimePlayersLayer.refresh();
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+// SOLICITA SNAPSHOT INICIAL SE O SOCKET JÁ ESTIVER CONECTADO
+// ═══════════════════════════════════════════════════════════════════════
+if (socket.connected) {
+  socket.emit('requestMapSnapshot');
+}
     // ═══════════════════════════════════════════════════════════════════════
     // CLICK HANDLER — Raycasting para interação com o mapa
     // ═══════════════════════════════════════════════════════════════════════
@@ -463,13 +450,11 @@ socket.on('playerLeft', (data: { playerId: string }) => {
       const tileX = Math.floor(point.x + GRID_WIDTH  / 2);
       const tileY = Math.floor(point.z + GRID_HEIGHT / 2);
 
-      // Fora do grid
       if (
         tileX < 0 || tileX >= GRID_WIDTH ||
         tileY < 0 || tileY >= GRID_HEIGHT
       ) return;
 
-      // Verifica se tile está ocupado por OUTRO jogador
       const tileKey = `${tileX},${tileY}`;
       const occupied = Array.from(localPlayers.values()).some(
         (p) => `${p.tileX},${p.tileY}` === tileKey
@@ -481,7 +466,6 @@ socket.on('playerLeft', (data: { playerId: string }) => {
       }
 
       // ── Move o jogador (UMA ÚNICA VEZ) ─────────────────────────────────
-      // 1. Atualiza seletor visual
       selectionMesh.position.set(
         tileX - GRID_WIDTH / 2 + 0.5,
         0.06,
@@ -489,7 +473,6 @@ socket.on('playerLeft', (data: { playerId: string }) => {
       );
       selectionMesh.visible = true;
 
-      // 2. Move o barraco 3D do próprio jogador
       teleportPlayerMapSpace(playerMapSpaceRef.current, {
         clickedTileX: tileX,
         clickedTileY: tileY,
@@ -498,7 +481,6 @@ socket.on('playerLeft', (data: { playerId: string }) => {
         gridHeight: GRID_HEIGHT,
       });
 
-      // 3. Atualiza playerStore (otimista)
       usePlayerStore.getState().applyPlayerUpdate((p) => ({
         ...p,
         mapPosition: {
@@ -509,8 +491,6 @@ socket.on('playerLeft', (data: { playerId: string }) => {
         },
       }));
 
-      // 4. Emite movimento via socket → broadcast para outros jogadores
-      //    O playerMoved que voltar será IGNORADO pelo isMe()
       socket.emit('move', { tileX, tileY });
     }
 
@@ -591,7 +571,6 @@ socket.on('playerLeft', (data: { playerId: string }) => {
       }
     };
   }, [
-    // Dependências: re-monta apenas quando o ID ou posição inicial mudar
     navigate,
     player?.mapPosition?.tileX,
     player?.mapPosition?.tileY,
