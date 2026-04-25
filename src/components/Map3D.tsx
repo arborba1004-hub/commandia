@@ -658,7 +658,9 @@ export default function Map3D() {
       topMaterial.dispose();
       sideMaterial.dispose();
       lineMaterial.dispose();
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+      if (container && renderer.domElement && renderer.domElement.parentNode === container) {
+        container.removeChild(renderer.domElement);
+      }
       renderer.dispose();
     };
   }, [playerState?.mapPosition?.tileX, playerState?.mapPosition?.tileY, playerState?._id, displayName, level, navigate]);

@@ -350,7 +350,7 @@ export default function GamePage() {
       scene.remove(selectionMesh);
 
       renderer.dispose();
-      if (mountEl.contains(renderer.domElement)) {
+      if (mountEl && renderer.domElement && renderer.domElement.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }
     };
