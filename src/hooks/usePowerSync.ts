@@ -66,6 +66,5 @@ export function usePowerSync() {
       setPower(newPower);
       // NÃO chama scheduleSync() — o servidor envia power correto via socket
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skillsKey, inventoryKey, accessoriesKey, gangKey]);
 }
