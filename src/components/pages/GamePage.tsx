@@ -1,18 +1,17 @@
 /**
- * GamePage.tsx — Mapa multiplayer em tempo real
+ * GamePage.tsx — Mapa multiplayer em tempo real (FINAL 2026-04-25)
  *
- * ARQUITETURA:
- *   - Socket.io WebSocket conecta ao backend com JWT
- *   - Eventos em tempo real: mapSnapshot, playerJoined, playerMoved, playerLeft
- *   - Movimento do jogador:
- *       1. teleportPlayerMapSpace() — move visual imediatamente (otimista)
- *       2. applyPlayerUpdate() — atualiza store local
- *       3. socket.emit('move') — backend salva + broadcast
- *   - Sincronização de outros jogadores via socket + fallback REST
- *   - Clique em barraco abre modal com dados do jogador
+ * ARQUITETURA DEFINITIVA:
+ *   ✅ Socket é a ÚNICA fonte de verdade (sem polling REST)
+ *   ✅ realtimeMapPlayersLayer APENAS renderiza barracos 3D + cache raycasting
+ *   ✅ isMe() usa cache local `myId` (síncrono, sem depender do playerStore)
+ *   ✅ myId é definido ANTES de processar mapSnapshot (sem race condition)
+ *   ✅ playerMoved/playerTeleported do socket é IGNORADO se for o próprio jogador
+ *   ✅ Um ÚNICO barraco por jogador, sem duplicação
+ *   ✅ Movimento/teleporte acontece UMA única vez
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE             from 'three';
 import { OrbitControls }      from 'three/examples/jsm/controls/OrbitControls';
 import { useNavigate }        from 'react-router-dom';
@@ -31,8 +30,10 @@ import OtherPlayerBarracoModal, {
   openOtherPlayerBarracoModal,
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
-import { useState } from 'react';
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONSTANTES DO MAPA
+// ═══════════════════════════════════════════════════════════════════════════════
 const GRID_WIDTH   = 120;
 const GRID_HEIGHT  = 120;
 const TILE_SIZE    = 1;
@@ -41,13 +42,19 @@ const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// DRACO LOADER (descompressão de modelos GLB)
+// ═══════════════════════════════════════════════════════════════════════════════
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ═══════════════════════════════════════════════════════════════════════════════
 export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const navigate = useNavigate();
-  const player   = usePlayerStore((state) => state.player);
+  const navigate  = useNavigate();
+  const player    = usePlayerStore((state) => state.player);
   const [modalState, setModalState] = useState(createOtherPlayerBarracoModalState());
   const playerMapSpaceRef = useRef<any>(null);
 
@@ -57,10 +64,11 @@ export default function GamePage() {
 
     let isMounted = true;
 
-    // ── Scene ─────────────────────────────────────────────────────────────────
+    // ── SCENE ──────────────────────────────────────────────────────────────
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#050505');
 
+    // ── CAMERA ─────────────────────────────────────────────────────────────
     const camera = new THREE.PerspectiveCamera(
       50,
       mountEl.clientWidth / Math.max(mountEl.clientHeight, 1),
@@ -68,6 +76,7 @@ export default function GamePage() {
       1000
     );
 
+    // ── RENDERER ───────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
@@ -75,6 +84,7 @@ export default function GamePage() {
     renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
     mountEl.appendChild(renderer.domElement);
 
+    // ── CONTROLES DE CÂMERA ────────────────────────────────────────────────
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping  = true;
     controls.dampingFactor  = 0.06;
@@ -82,8 +92,10 @@ export default function GamePage() {
     controls.maxDistance    = 70;
     controls.maxPolarAngle  = Math.PI / 2.05;
 
-    // ── Luzes ─────────────────────────────────────────────────────────────────
+    // ── LUZ AMBIENTE ───────────────────────────────────────────────────────
     scene.add(new THREE.AmbientLight(0xffffff, 1.25));
+
+    // ── LUZ DIRECIONAL (SOL) ───────────────────────────────────────────────
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.35);
     dirLight.position.set(40, 90, 30);
     dirLight.castShadow = true;
@@ -91,11 +103,13 @@ export default function GamePage() {
     dirLight.shadow.mapSize.height = 2048;
     dirLight.shadow.camera.near   = 1;
     dirLight.shadow.camera.far    = 300;
-    dirLight.shadow.camera.left   = -90; dirLight.shadow.camera.right  = 90;
-    dirLight.shadow.camera.top    = 90;  dirLight.shadow.camera.bottom = -90;
+    dirLight.shadow.camera.left   = -90;
+    dirLight.shadow.camera.right  = 90;
+    dirLight.shadow.camera.top    = 90;
+    dirLight.shadow.camera.bottom = -90;
     scene.add(dirLight);
 
-    // ── Plataforma ────────────────────────────────────────────────────────────
+    // ── PLATAFORMA (CHÃO) ──────────────────────────────────────────────────
     const textureLoader = new THREE.TextureLoader();
     const floorTexture  = textureLoader.load(FLOOR_TEXTURE);
     floorTexture.wrapS  = THREE.ClampToEdgeWrapping;
@@ -105,143 +119,291 @@ export default function GamePage() {
     floorTexture.magFilter   = THREE.LinearFilter;
     floorTexture.minFilter   = THREE.LinearMipmapLinearFilter;
 
-    const platformGeometry = new THREE.BoxGeometry(GRID_WIDTH * TILE_SIZE, PLATFORM_HEIGHT, GRID_HEIGHT * TILE_SIZE);
-    const platformMaterial = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 1, metalness: 0 });
-    const platform         = new THREE.Mesh(platformGeometry, platformMaterial);
+    const platformGeometry = new THREE.BoxGeometry(
+      GRID_WIDTH * TILE_SIZE,
+      PLATFORM_HEIGHT,
+      GRID_HEIGHT * TILE_SIZE
+    );
+    const platformMaterial = new THREE.MeshStandardMaterial({
+      map:        floorTexture,
+      roughness:  1,
+      metalness:  0,
+    });
+    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
     platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
     platform.receiveShadow = true;
     scene.add(platform);
 
-    // ── Loader ────────────────────────────────────────────────────────────────
-    const loader = new GLTFLoader();
-    loader.setDRACOLoader(dracoLoader);
+// ═══════════════════════════════════════════════════════════════════════
+// GLTF LOADER (modelos 3D)
+// ═══════════════════════════════════════════════════════════════════════
+const loader = new GLTFLoader();
+loader.setDRACOLoader(dracoLoader);
 
-    // ── Prédios fixos ─────────────────────────────────────────────────────────
-    const fixedBuildingsLayer = mountFixedMapBuildings({
-      scene,
-      loader,
-      camera,
-      container: mountEl,
-      onNavigate: (path) => navigate(path),
-      onMessage:  () => {},
+// ═══════════════════════════════════════════════════════════════════════
+// PRÉDIOS FIXOS DO MAPA
+// ═══════════════════════════════════════════════════════════════════════
+const fixedBuildingsLayer = mountFixedMapBuildings({
+  scene,
+  loader,
+  camera,
+  container: mountEl,
+  onNavigate: (path: string) => navigate(path),
+  onMessage:  () => {},
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// ESPAÇO DO PRÓPRIO JOGADOR (BARRACO 3D + ÁREA 6x6)
+// ═══════════════════════════════════════════════════════════════════════
+const playerMapSpace = mountPlayerMapSpace({
+  scene,
+  tileX:        Number(player?.mapPosition?.tileX ?? 0),
+  tileY:        Number(player?.mapPosition?.tileY ?? 0),
+  barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
+  gridWidth:    GRID_WIDTH,
+  gridHeight:   GRID_HEIGHT,
+  tileSize:     TILE_SIZE,
+});
+
+playerMapSpaceRef.current = playerMapSpace;
+
+// ── Centraliza câmera no barraco do jogador ──────────────────────────
+controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
+camera.position.set(
+  playerMapSpace.worldX + 12,
+  10,
+  playerMapSpace.worldZ + 12
+);
+controls.update();
+
+// ═══════════════════════════════════════════════════════════════════════
+// PLANO DE CLIQUE INVISÍVEL (para detectar clique no chão)
+// ═══════════════════════════════════════════════════════════════════════
+const clickPlaneGeo = new THREE.PlaneGeometry(
+  GRID_WIDTH * TILE_SIZE,
+  GRID_HEIGHT * TILE_SIZE
+);
+const clickPlaneMat = new THREE.MeshBasicMaterial({
+  transparent: true,
+  opacity:     0,
+  side:        THREE.DoubleSide,
+  depthWrite:  false,
+});
+const clickPlane = new THREE.Mesh(clickPlaneGeo, clickPlaneMat);
+clickPlane.rotation.x = -Math.PI / 2;
+clickPlane.position.y = 0.05;
+scene.add(clickPlane);
+
+// ═══════════════════════════════════════════════════════════════════════
+// SELETOR VISUAL DE TILE (quadrado dourado ao clicar)
+// ═══════════════════════════════════════════════════════════════════════
+const selectionGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+const selectionMat = new THREE.MeshBasicMaterial({
+  color:       0xd9b764,
+  transparent: true,
+  opacity:     0.4,
+  side:        THREE.DoubleSide,
+  depthWrite:  false,
+});
+const selectionMesh = new THREE.Mesh(selectionGeo, selectionMat);
+selectionMesh.rotation.x = -Math.PI / 2;
+selectionMesh.position.set(
+  0.5 - GRID_WIDTH / 2,
+  0.06,
+  0.5 - GRID_HEIGHT / 2
+);
+selectionMesh.visible = false;
+scene.add(selectionMesh);
+
+// ═══════════════════════════════════════════════════════════════════════
+// CAMADA DE JOGADORES EM TEMPO REAL (SOMENTE RENDERIZAÇÃO 3D + CACHE)
+// ═══════════════════════════════════════════════════════════════════════
+//
+// IMPORTANTE: Esta camada NÃO faz polling REST.
+// O Socket é a ÚNICA fonte de verdade para posições.
+// O layer apenas:
+//   1. Cria/atualiza/remove meshes 3D dos barracos
+//   2. Mantém cache local para raycasting (clicar em barraco)
+//
+const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
+  scene,
+  gridWidth:  GRID_WIDTH,
+  gridHeight: GRID_HEIGHT,
+  tileSize:   TILE_SIZE,
+  pollingMs:  0,        // ← POLLING DESLIGADO
+  showSpaces: true,
+});
+// ⚠️ NÃO chamamos realtimePlayersLayer.start() — socket é a fonte única
+// ═══════════════════════════════════════════════════════════════════════
+// ESTADO LOCAL DOS JOGADORES (cache para verificação de tiles ocupados)
+// ═══════════════════════════════════════════════════════════════════════
+//
+// localPlayers: Map<playerId, {tileX, tileY}>
+// NUNCA contém o próprio jogador — apenas OUTROS jogadores.
+//
+const localPlayers = new Map<string, { tileX: number; tileY: number }>();
+
+// ═══════════════════════════════════════════════════════════════════════
+// myId: CACHE LOCAL SÍNCRONO do ID do próprio jogador
+// ═══════════════════════════════════════════════════════════════════════
+//
+// CRÍTICO: Usamos `let myId` (cache local) em vez de `player._id` do store
+// porque o playerStore pode estar undefined/null durante a montagem.
+// myId é definido pelo evento 'playerInit' ANTES de processar 'mapSnapshot'.
+//
+let myId: string | null = player?._id ? String(player._id) : null;
+
+// ═══════════════════════════════════════════════════════════════════════
+// isMe(): Verificação SÍNCRONA usando cache local
+// ═══════════════════════════════════════════════════════════════════════
+//
+// NÃO depende do playerStore (que pode estar desatualizado).
+// Retorna false se myId ainda não foi definido (evita falsos positivos).
+//
+const isMe = (id: string): boolean => {
+  if (!myId) return false;
+  return String(id) === myId;
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// SOCKET.IO — FONTE ÚNICA DE VERDADE
+// ═══════════════════════════════════════════════════════════════════════
+const socket = getSocket();
+
+// ───────────────────────────────────────────────────────────────────────
+// playerInit: PRIMEIRO evento ao conectar.
+// Define myId ANTES de qualquer outro evento ser processado.
+// ───────────────────────────────────────────────────────────────────────
+socket.on('playerInit', (data: { player: any; faction?: any }) => {
+  if (!isMounted) return;
+
+  const incomingId = String(data.player?._id || data.player?.id || '');
+  if (incomingId) {
+    myId = incomingId;
+  }
+
+  // Hidrata o playerStore para outras páginas (Header, etc.)
+  usePlayerStore.getState().hydratePlayerFromServer(data.player);
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// mapSnapshot: Array com TODOS os jogadores do mapa.
+// Filtra o PRÓPRIO jogador usando isMe() síncrono.
+// ───────────────────────────────────────────────────────────────────────
+socket.on('mapSnapshot', async (players: any[]) => {
+  if (!isMounted) return;
+
+  // Filtra usando cache local síncrono
+  const others = players.filter((p) => !isMe(String(p.id)));
+
+  // Atualiza cache local (apenas OUTROS)
+  for (const p of others) {
+    localPlayers.set(String(p.id), {
+      tileX: Number(p.tileX),
+      tileY: Number(p.tileY),
     });
+  }
 
-    // ── Espaço do próprio jogador ─────────────────────────────────────────────
-    const playerMapSpace = mountPlayerMapSpace({
-      scene,
-      tileX:        Number(player?.mapPosition?.tileX ?? 0),
-      tileY:        Number(player?.mapPosition?.tileY ?? 0),
-      barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
-      gridWidth:    GRID_WIDTH,
-      gridHeight:   GRID_HEIGHT,
-      tileSize:     TILE_SIZE,
+  // Renderiza barracos 3D (apenas OUTROS)
+  for (const p of others) {
+    if (!isMounted) break;
+    await realtimePlayersLayer.upsertPlayer({
+      id:           String(p.id),
+      name:         p.name || 'Jogador',
+      tileX:        Number(p.tileX),
+      tileY:        Number(p.tileY),
+      barracoLevel: Number(p.barracoLevel ?? 1),
+      power:        Number(p.power ?? 0),
+      factionId:    p.factionId ?? null,
     });
-    
-    playerMapSpaceRef.current = playerMapSpace;
+  }
+});
 
-    // Centraliza câmera no barraco do jogador
-    controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
-    camera.position.set(playerMapSpace.worldX + 12, 10, playerMapSpace.worldZ + 12);
-    controls.update();
+// ───────────────────────────────────────────────────────────────────────
+// playerJoined: Novo jogador entrou no mapa.
+// IGNORA se for o próprio jogador.
+// ───────────────────────────────────────────────────────────────────────
+socket.on('playerJoined', async (p: any) => {
+  if (!isMounted || isMe(String(p.id))) return;
 
-    // ── Plano de clique ───────────────────────────────────────────────────────
-    const clickPlaneGeo = new THREE.PlaneGeometry(GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE);
-    const clickPlaneMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
-    const clickPlane    = new THREE.Mesh(clickPlaneGeo, clickPlaneMat);
-    clickPlane.rotation.x = -Math.PI / 2;
-    clickPlane.position.y = 0.05;
-    scene.add(clickPlane);
+  localPlayers.set(String(p.id), {
+    tileX: Number(p.tileX),
+    tileY: Number(p.tileY),
+  });
 
-    // ── Seleção visual ────────────────────────────────────────────────────────
-    const selectionGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
-    const selectionMat = new THREE.MeshBasicMaterial({ color: 0xd9b764, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false });
-    const selectionMesh = new THREE.Mesh(selectionGeo, selectionMat);
-    selectionMesh.rotation.x = -Math.PI / 2;
-    selectionMesh.position.set(0.5 - GRID_WIDTH / 2, 0.06, 0.5 - GRID_HEIGHT / 2);
-    selectionMesh.visible = false;
-    scene.add(selectionMesh);
+  await realtimePlayersLayer.upsertPlayer({
+    id:           String(p.id),
+    name:         p.name || 'Jogador',
+    tileX:        Number(p.tileX),
+    tileY:        Number(p.tileY),
+    barracoLevel: Number(p.barracoLevel ?? 1),
+    power:        Number(p.power ?? 0),
+    factionId:    p.factionId ?? null,
+  });
+});
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // ── CAMADA MULTIPLAYER EM TEMPO REAL ─────────────────────────────────────
-    // ══════════════════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────────────
+// playerMoved: Jogador se moveu.
+// IGNORA se for o próprio jogador (evita teleporte duplo).
+// ───────────────────────────────────────────────────────────────────────
+socket.on('playerMoved', async (data: {
+  playerId: string;
+  name?:    string;
+  tileX:    number;
+  tileY:    number;
+}) => {
+  if (!isMounted || isMe(String(data.playerId))) return;
 
-    /**
-     * realtimePlayersLayer: renderiza barracos 3D de TODOS os outros jogadores.
-     * pollingMs: 10000 — fallback REST, caso socket perca eventos.
-     * showSpaces: true — mostra área do lote de cada jogador.
-     */
-    const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
-      scene,
-      gridWidth:  GRID_WIDTH,
-      gridHeight: GRID_HEIGHT,
-      tileSize:   TILE_SIZE,
-      pollingMs:  10000,
-      showSpaces: true,
-    });
+  localPlayers.set(String(data.playerId), {
+    tileX: Number(data.tileX),
+    tileY: Number(data.tileY),
+  });
 
-    /**
-     * localPlayers: posições atuais de todos os outros jogadores.
-     * Usado para verificar tiles ocupados sem depender do layer interno.
-     */
-    const localPlayers = new Map<string, { tileX: number; tileY: number }>();
-    const myId = player?._id ? String(player._id) : null;
-    const isMe = (id: string) => !!myId && String(id) === myId;
+  await realtimePlayersLayer.upsertPlayer({
+    id:    String(data.playerId),
+    name:  data.name || 'Jogador',
+    tileX: Number(data.tileX),
+    tileY: Number(data.tileY),
+  });
+});
 
-    // ── Socket.io ─────────────────────────────────────────────────────────────
-    const socket = getSocket();
+// ───────────────────────────────────────────────────────────────────────
+// playerTeleported: Jogador se teleportou.
+// IGNORA se for o próprio jogador (evita teleporte duplo).
+// ───────────────────────────────────────────────────────────────────────
+socket.on('playerTeleported', async (data: {
+  playerId:    string;
+  name?:       string;
+  oldPosition: { tileX: number; tileY: number };
+  newPosition: { tileX: number; tileY: number };
+}) => {
+  if (!isMounted || isMe(String(data.playerId))) return;
 
-    // Snapshot completo → popula todos os barracos ao conectar
-    socket.on('mapSnapshot', async (players: any[]) => {
-      if (!isMounted) return;
-      const others = players.filter((p) => !isMe(p.id));
-      others.forEach((p) => localPlayers.set(String(p.id), { tileX: Number(p.tileX), tileY: Number(p.tileY) }));
-      for (const p of others) {
-        if (!isMounted) break;
-        await realtimePlayersLayer.upsertPlayer({
-          id:           String(p.id),
-          name:         p.name,
-          tileX:        Number(p.tileX),
-          tileY:        Number(p.tileY),
-          barracoLevel: Number(p.barracoLevel ?? 1),
-          power:        Number(p.power ?? 0),
-          factionId:    p.factionId ?? null,
-        });
-      }
-    });
+  localPlayers.set(String(data.playerId), {
+    tileX: Number(data.newPosition.tileX),
+    tileY: Number(data.newPosition.tileY),
+  });
 
-    // Novo jogador entrou
-    socket.on('playerJoined', async (p: any) => {
-      if (!isMounted || isMe(p.id)) return;
-      localPlayers.set(String(p.id), { tileX: Number(p.tileX), tileY: Number(p.tileY) });
-      await realtimePlayersLayer.upsertPlayer({
-        id: String(p.id), name: p.name,
-        tileX: Number(p.tileX), tileY: Number(p.tileY),
-        barracoLevel: Number(p.barracoLevel ?? 1),
-        power: Number(p.power ?? 0), factionId: p.factionId ?? null,
-      });
-    });
+  await realtimePlayersLayer.upsertPlayer({
+    id:    String(data.playerId),
+    name:  data.name || 'Jogador',
+    tileX: Number(data.newPosition.tileX),
+    tileY: Number(data.newPosition.tileY),
+  });
+});
 
-    // Jogador se moveu → atualiza visual imediatamente (~10-50ms)
-    socket.on('playerMoved', async (data: { playerId: string; name?: string; tileX: number; tileY: number }) => {
-      if (!isMounted || isMe(data.playerId)) return;
-      localPlayers.set(String(data.playerId), { tileX: Number(data.tileX), tileY: Number(data.tileY) });
-      await realtimePlayersLayer.upsertPlayer({
-        id: String(data.playerId), name: data.name,
-        tileX: Number(data.tileX), tileY: Number(data.tileY),
-      });
-    });
+// ───────────────────────────────────────────────────────────────────────
+// playerLeft: Jogador desconectou.
+// ───────────────────────────────────────────────────────────────────────
+socket.on('playerLeft', (data: { playerId: string }) => {
+  if (!isMounted) return;
+  localPlayers.delete(String(data.playerId));
+  void realtimePlayersLayer.refresh();
+});
 
-    // Jogador saiu → remove do mapa
-    socket.on('playerLeft', (data: { playerId: string }) => {
-      if (!isMounted) return;
-      localPlayers.delete(String(data.playerId));
-      void realtimePlayersLayer.refresh();
-    });
-
-    // Inicia polling REST como fallback
-    realtimePlayersLayer.start();
-
-    // ── Click handler ─────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // CLICK HANDLER — Raycasting para interação com o mapa
+    // ═══════════════════════════════════════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     const mouse     = new THREE.Vector2();
 
@@ -251,28 +413,41 @@ export default function GamePage() {
       mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
 
-      // Clique no próprio barraco → navega para /barraco
-      const ownHits = raycaster.intersectObjects(playerMapSpaceRef.current?.modelContainer.children || [], true);
-      if (ownHits.length > 0) { navigate('/barraco'); return; }
+      // ── Clique no PRÓPRIO barraco → navega para /barraco ──────────────
+      const ownHits = raycaster.intersectObjects(
+        playerMapSpaceRef.current?.modelContainer?.children || [],
+        true
+      );
+      if (ownHits.length > 0) {
+        navigate('/barraco');
+        return;
+      }
 
-      // Clique em barraco de outro jogador → abre modal
-      const otherHits = raycaster.intersectObjects(realtimePlayersLayer.group.children, true);
+      // ── Clique em barraco de OUTRO jogador → abre modal ────────────────
+      const otherHits = raycaster.intersectObjects(
+        realtimePlayersLayer.group.children,
+        true
+      );
       if (otherHits.length > 0) {
         const hitObject = otherHits[0].object;
         let current: any = hitObject;
-        
+
         while (current) {
           if (current.userData?.playerId) {
-            const playerId = current.userData.playerId;
-            const playerData = realtimePlayersLayer.players().find(p => p.id === playerId);
-            
+            const playerId = String(current.userData.playerId);
+
+            // Busca no cache local do layer (100% síncrono)
+            const playerData = realtimePlayersLayer
+              .players()
+              .find((p: any) => String(p.id) === playerId);
+
             if (playerData) {
               setModalState(openOtherPlayerBarracoModal({
-                id: playerData.id,
-                name: playerData.name || 'Jogador',
+                id:           playerData.id,
+                name:         playerData.name || 'Jogador',
                 barracoLevel: playerData.barracoLevel,
-                factionId: playerData.factionId,
-              } as OtherPlayerBarracoTarget));
+                factionId:    playerData.factionId,
+              }));
             }
             return;
           }
@@ -280,7 +455,7 @@ export default function GamePage() {
         }
       }
 
-      // Clique no chão
+      // ── Clique no chão → move o jogador ────────────────────────────────
       const hits = raycaster.intersectObject(clickPlane, false);
       if (!hits.length) return;
 
@@ -288,25 +463,33 @@ export default function GamePage() {
       const tileX = Math.floor(point.x + GRID_WIDTH  / 2);
       const tileY = Math.floor(point.z + GRID_HEIGHT / 2);
 
-      if (tileX < 0 || tileX >= GRID_WIDTH || tileY < 0 || tileY >= GRID_HEIGHT) return;
+      // Fora do grid
+      if (
+        tileX < 0 || tileX >= GRID_WIDTH ||
+        tileY < 0 || tileY >= GRID_HEIGHT
+      ) return;
 
-      // Verifica se tile está ocupado (sem confirm — movimento fluido como Mafia City)
+      // Verifica se tile está ocupado por OUTRO jogador
       const tileKey = `${tileX},${tileY}`;
       const occupied = Array.from(localPlayers.values()).some(
         (p) => `${p.tileX},${p.tileY}` === tileKey
       );
 
       if (occupied) {
-        // Tile ocupado → poderia abrir modal de ataque/invasão
-        // TODO: useMapAttackStore.getState().openPreview(...)
+        // Tile ocupado — futuramente abrir modal de ataque/invasão
         return;
       }
 
-      // ── Move o jogador ────────────────────────────────────────────────────
-      // 1. Atualiza visual do próprio barraco imediatamente (otimista)
-      selectionMesh.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.06, tileY - GRID_HEIGHT / 2 + 0.5);
+      // ── Move o jogador (UMA ÚNICA VEZ) ─────────────────────────────────
+      // 1. Atualiza seletor visual
+      selectionMesh.position.set(
+        tileX - GRID_WIDTH / 2 + 0.5,
+        0.06,
+        tileY - GRID_HEIGHT / 2 + 0.5
+      );
       selectionMesh.visible = true;
 
+      // 2. Move o barraco 3D do próprio jogador
       teleportPlayerMapSpace(playerMapSpaceRef.current, {
         clickedTileX: tileX,
         clickedTileY: tileY,
@@ -315,7 +498,7 @@ export default function GamePage() {
         gridHeight: GRID_HEIGHT,
       });
 
-      // 2. Atualiza store local (sem sync — socket traz o estado de volta)
+      // 3. Atualiza playerStore (otimista)
       usePlayerStore.getState().applyPlayerUpdate((p) => ({
         ...p,
         mapPosition: {
@@ -326,14 +509,18 @@ export default function GamePage() {
         },
       }));
 
-      // 3. Broadcast via socket → backend salva no DB + emite playerMoved para todos
+      // 4. Emite movimento via socket → broadcast para outros jogadores
+      //    O playerMoved que voltar será IGNORADO pelo isMe()
       socket.emit('move', { tileX, tileY });
     }
 
     renderer.domElement.addEventListener('click', handleClick);
 
-    // ── Resize ────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // RESIZE — Redimensiona câmera e renderer quando a janela mudar
+    // ═══════════════════════════════════════════════════════════════════════
     function handleResize() {
+      if (!mountEl) return;
       const w = mountEl.clientWidth;
       const h = Math.max(mountEl.clientHeight, 1);
       camera.aspect = w / h;
@@ -344,7 +531,9 @@ export default function GamePage() {
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(mountEl);
 
-    // ── Animate ───────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // ANIMATION LOOP
+    // ═══════════════════════════════════════════════════════════════════════
     let animationFrameId = 0;
 
     function animate() {
@@ -354,24 +543,30 @@ export default function GamePage() {
     }
     animate();
 
-    // ── Cleanup ───────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // CLEANUP — Desmontagem completa ao sair da página
+    // ═══════════════════════════════════════════════════════════════════════
     return () => {
       isMounted = false;
       window.cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('click', handleClick);
 
-      // Remove listeners do socket (NÃO desconecta — singleton)
+      // Remove TODOS os listeners do socket
+      socket.off('playerInit');
       socket.off('mapSnapshot');
       socket.off('playerJoined');
       socket.off('playerMoved');
+      socket.off('playerTeleported');
       socket.off('playerLeft');
 
+      // Cleanup das camadas 3D
       controls.dispose();
       realtimePlayersLayer.cleanup();
       fixedBuildingsLayer.cleanup();
       playerMapSpaceRef.current?.cleanup();
 
+      // Dispose de geometrias e materiais
       platformGeometry.dispose();
       platformMaterial.dispose();
       clickPlaneGeo.dispose();
@@ -380,21 +575,39 @@ export default function GamePage() {
       selectionMat.dispose();
       floorTexture.dispose();
 
+      // Remove objetos da cena
       scene.remove(platform);
       scene.remove(clickPlane);
       scene.remove(selectionMesh);
 
+      // Remove o canvas do DOM
       renderer.dispose();
-      if (mountEl && renderer.domElement && renderer.domElement.parentNode === mountEl) {
+      if (
+        mountEl &&
+        renderer.domElement &&
+        renderer.domElement.parentNode === mountEl
+      ) {
         mountEl.removeChild(renderer.domElement);
       }
     };
-  }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
+  }, [
+    // Dependências: re-monta apenas quando o ID ou posição inicial mudar
+    navigate,
+    player?.mapPosition?.tileX,
+    player?.mapPosition?.tileY,
+    player?._id,
+  ]);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER — JSX
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-black">
       <Header />
-      <div ref={mountRef} className="w-full h-[calc(100vh-104px)] min-h-[500px]" />
+      <div
+        ref={mountRef}
+        className="w-full h-[calc(100vh-104px)] min-h-[500px]"
+      />
       <OtherPlayerBarracoModal
         state={modalState}
         onClose={() => setModalState(closeOtherPlayerBarracoModal())}
