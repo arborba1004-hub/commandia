@@ -31,6 +31,17 @@ function buildSocket(): Socket {
 
 /** Retorna o socket ativo. Cria um novo se necessário. */
 export function getSocket(): Socket {
+  const token = localStorage.getItem('authToken');
+  
+  // Não criar socket sem token
+  if (!token) {
+    if (_socket) {
+      _socket.disconnect();
+      _socket = null;
+    }
+    throw new Error('No authentication token available');
+  }
+  
   if (!_socket) {
     _socket = buildSocket();
   }
