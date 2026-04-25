@@ -16,4 +16,4 @@
 
 // This is a placeholder file that re-exports the actual service from the Wix platform
 // The real implementation is provided by @wix/codegen-framework-packages
-export { default as BaseCrudService } from '@wix/codegen-framework-packages';
+export { BaseCrudService } from '@wix/codegen-framework-packages';
