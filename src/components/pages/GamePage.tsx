@@ -8,9 +8,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { mountFixedMapBuildings } from '@/components/game/fixedMapBuildings';
 import { mountPlayerMapSpace } from '@/components/game/playerMapSpace';
-import { mountRealtimeMapPlayersLayer } from '@/components/game/realtimeMapPlayersLayer';
 import { teleportPlayerMapSpace } from '@/components/game/playerTeleport';
 import { usePlayerStore } from '@/store/playerStore';
+import { MMOWorldEngine } from '@/game/engine/MMOWorldEngine';
 import Header from '@/components/Header';
 
 
@@ -173,56 +173,7 @@ selectionMesh.position.set(
 selectionMesh.visible = false;  
 scene.add(selectionMesh);  
 
-const realtimePlayersLayer = mountRealtimeMapPlayersLayer({  
-  scene,  
-  gridWidth: GRID_WIDTH,  
-  gridHeight: GRID_HEIGHT,  
-  tileSize: TILE_SIZE,  
-  pollingMs: 3000,  
-  showSpaces: true,  
-});  
-
-// ✅ Carregar snapshot de players ao entrar
-fetch('https://comando-backend.onrender.com/players/snapshot', {
-  credentials: 'include',
-})
-  .then((res) => res.json())
-  .then((players) => {
-    console.log('📦 players carregados:', players);
-
-    players.forEach((p: any) => {
-      realtimePlayersLayer.upsertPlayer({
-        id: p.id || p._id,
-        tileX: p.tileX ?? p.mapPosition?.tileX ?? 0,
-        tileY: p.tileY ?? p.mapPosition?.tileY ?? 0,
-      });
-    });
-  })
-  .catch((err) => {
-    console.error('Erro ao carregar players:', err);
-  });
-
-// 🔥 SOCKET (correto)
-let socket: any = null;
-try {
-  const { io } = require('socket.io-client');
-  socket = io('https://comando-backend.onrender.com', {
-    transports: ['websocket'],
-  });
-  socket.on('connect', () => {
-    console.log('✅ Conectado no tempo real');
-  });
-  socket.on('playerMoved', (data: any) => {
-    console.log('👀 Outro jogador moveu:', data);
-    realtimePlayersLayer.upsertPlayer({
-      id: data.playerId,
-      tileX: data.tileX,
-      tileY: data.tileY,
-    });
-  });
-} catch (err) {
-  console.log('Socket não carregou', err);
-}
+const engine = new MMOWorldEngine();
 
 const raycaster = new THREE.Raycaster();  
 const mouse = new THREE.Vector2();  
@@ -313,7 +264,6 @@ return () => {
   renderer.domElement.removeEventListener('click', handleClick);  
   controls.dispose();  
 
-  realtimePlayersLayer.cleanup();  
   socket?.disconnect();
   fixedBuildingsLayer.cleanup();  
   playerMapSpace.cleanup();  
