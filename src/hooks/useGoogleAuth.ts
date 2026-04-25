@@ -68,14 +68,17 @@ export function useGoogleAuth() {
     const token = readStorage('authToken');
 
     if (!token) {
+      console.log('🔵 useGoogleAuth: Nenhum token encontrado, usuário não autenticado');
       setAuthState({ authToken: null, playerData: null, isLoading: false, error: null });
       return;
     }
 
+    console.log('🔵 useGoogleAuth: Token encontrado, conectando socket...');
     // Token existe → conecta socket (ele enviará playerInit automaticamente)
     reconnectSocket();
 
     setAuthState({ authToken: token, playerData: null, isLoading: false, error: null });
+    console.log('🟢 useGoogleAuth: Sessão restaurada');
   }, []);
 
   useEffect(() => {
@@ -85,15 +88,16 @@ export function useGoogleAuth() {
   // ── Login com Google ────────────────────────────────────────────────────────
   const handleGoogleResponse = useCallback(async (response: any) => {
     try {
-      console.log('🔵 handleGoogleResponse iniciado');
+      console.log('🔵 useGoogleAuth: handleGoogleResponse iniciado');
       setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       const credential = response?.credential;
       if (!credential || typeof credential !== 'string') {
+        console.error('🔴 useGoogleAuth: Sem credencial do Google');
         throw new Error('Sem credencial do Google');
       }
 
-      console.log('🔵 Credencial recebida, enviando para backend...');
+      console.log('🔵 useGoogleAuth: Credencial recebida, enviando para backend...');
 
       // Backend REQUIRED - no fallback
       const controller = new AbortController();
@@ -109,25 +113,29 @@ export function useGoogleAuth() {
       clearTimeout(timeoutId);
 
       if (!backendResponse.ok) {
+        const errorText = await backendResponse.text();
+        console.error('🔴 useGoogleAuth: Backend error:', errorText);
         throw new Error(`Backend error: ${backendResponse.status} ${backendResponse.statusText}`);
       }
 
       const data = await backendResponse.json();
-      console.log('🔵 Resposta do backend recebida:', { hasToken: !!data?.token, hasPlayer: !!data?.player });
+      console.log('🔵 useGoogleAuth: Resposta do backend recebida:', { hasToken: !!data?.token, hasPlayer: !!data?.player });
 
       if (!data?.token || !data?.player) {
+        console.error('🔴 useGoogleAuth: Resposta inválida do backend', data);
         throw new Error('Resposta inválida do backend: token ou player ausente');
       }
 
       const normalizedPlayer = normalizePlayer(data.player);
+      console.log('🔵 useGoogleAuth: Player normalizado:', { id: normalizedPlayer._id, name: normalizedPlayer.name });
 
       // Persiste APENAS o token (playerData vai embora)
       writeStorage('authToken', data.token);
-      console.log('🔵 Token salvo no localStorage');
+      console.log('🔵 useGoogleAuth: Token salvo no localStorage');
 
       // Conecta socket com o novo token → backend enviará playerInit
       reconnectSocket();
-      console.log('🔵 Socket reconectado');
+      console.log('🔵 useGoogleAuth: Socket reconectado');
 
       setAuthState({
         authToken:  data.token,
@@ -136,10 +144,10 @@ export function useGoogleAuth() {
         error:      null,
       });
 
-      console.log('🟢 Login bem-sucedido!');
+      console.log('🟢 useGoogleAuth: Login bem-sucedido!');
       return { ok: true, token: data.token, player: normalizedPlayer };
     } catch (error) {
-      console.error('🔴 Erro login Google:', error);
+      console.error('🔴 useGoogleAuth: Erro login Google:', error);
       const errorMsg = error instanceof Error ? error.message : 'Erro no login';
       setAuthState((prev) => (
         {
@@ -154,13 +162,13 @@ export function useGoogleAuth() {
 
   // ── Logout ──────────────────────────────────────────────────────────────────
   const logout = useCallback(() => {
-    console.log('🔵 Logout iniciado');
+    console.log('🔵 useGoogleAuth: Logout iniciado');
     removeStorage('authToken');
     // NÃO remove playerData pois não existe mais no localStorage
     disconnectSocket();
     clearPlayer();
     setAuthState({ authToken: null, playerData: null, isLoading: false, error: null });
-    console.log('🟢 Logout completo');
+    console.log('🟢 useGoogleAuth: Logout completo');
   }, [clearPlayer]);
 
   const isAuthenticated = Boolean(authState.authToken);

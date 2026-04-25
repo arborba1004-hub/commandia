@@ -66,12 +66,23 @@ function HomePage() {
 
   // Wrapper que popula playerStore após Google auth
   const handleGoogleResponse = useCallback(async (response: any) => {
-    const result = await originalHandleGoogleResponse(response);
-    if (result?.ok && result?.player) {
-      // Popula playerStore com dados do Google auth
-      hydratePlayerFromServer(result.player);
+    try {
+      console.log('🔵 HomePage: Iniciando handleGoogleResponse');
+      const result = await originalHandleGoogleResponse(response);
+      
+      if (result?.ok && result?.player) {
+        console.log('🟢 HomePage: Google auth bem-sucedido, hidratando playerStore');
+        // Popula playerStore com dados do Google auth
+        hydratePlayerFromServer(result.player);
+        return result;
+      }
+      
+      console.log('🔴 HomePage: Falha no Google auth:', result?.error);
+      return result;
+    } catch (error) {
+      console.error('🔴 HomePage: Erro ao processar resposta do Google:', error);
+      throw error;
     }
-    return result;
   }, [originalHandleGoogleResponse, hydratePlayerFromServer]);
 
   // Load achievements from localStorage and check for new unlocks
