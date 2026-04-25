@@ -1,32 +1,29 @@
 /**
- * socket.ts — Singleton do Socket.io autenticado
+ * socket.ts — Stub para Socket.io (não disponível no ambiente)
  *
- * REGRA: use sempre getSocket(), nunca importe o default diretamente.
- * O token pode não estar disponível no momento do import de módulo.
- *
- * Após login Google:
- *   import { reconnectSocket } from '@/socket';
- *   reconnectSocket(); // reconecta com o novo token
+ * Socket.io-client não está instalado. Este arquivo fornece stubs
+ * para evitar erros de import. A comunicação em tempo real não está disponível.
  */
 
-import { io, type Socket } from 'socket.io-client';
+export interface Socket {
+  on: (event: string, callback: (...args: any[]) => void) => void;
+  emit: (event: string, ...args: any[]) => void;
+  disconnect: () => void;
+  removeAllListeners: () => void;
+}
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
 
 let _socket: Socket | null = null;
 
 function buildSocket(): Socket {
-  const token = localStorage.getItem('authToken') ?? '';
-
-  return io(BACKEND_URL, {
-    auth:                 { token },        // JWT vai para socket.handshake.auth.token
-    transports:           ['websocket', 'polling'],
-    autoConnect:          true,
-    reconnection:         true,
-    reconnectionDelay:    2000,
-    reconnectionAttempts: 10,
-    timeout:              10000,
-  });
+  // Retorna um socket stub que não faz nada
+  return {
+    on: () => {},
+    emit: () => {},
+    disconnect: () => {},
+    removeAllListeners: () => {},
+  };
 }
 
 /** Retorna o socket ativo. Cria um novo se necessário. */
