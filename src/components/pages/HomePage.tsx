@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Shield, Flame, Play, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { useAchievementStore } from '@/store/achievementStore';
 import { Image } from '@/components/ui/image';
@@ -182,8 +180,6 @@ function HomePage() {
 
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
-      <Header />
-
       <section className="relative min-h-screen overflow-hidden">
         <video
           src={VIDEO_URL}
@@ -539,8 +535,6 @@ function HomePage() {
           </motion.div>
         </div>
       </section>
-
-      <Footer />
     </div>
   );
 }

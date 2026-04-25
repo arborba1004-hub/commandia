@@ -4,6 +4,7 @@ import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import Layout from '@/components/Layout';
+import { MemberProvider } from '@/integrations/members/providers/MemberProvider';
 
 // Lazy load all page components
 const HomePage = lazy(() => import('@/components/pages/HomePage'));
@@ -156,7 +157,11 @@ const router = createBrowserRouter(
 );
 
 function AppRouter() {
-  return <RouterProvider router={router} />;
+  return (
+    <MemberProvider>
+      <RouterProvider router={router} />
+    </MemberProvider>
+  );
 }
 
 export default AppRouter;
