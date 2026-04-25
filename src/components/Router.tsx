@@ -139,7 +139,7 @@ const router = createBrowserRouter(
     },
   ],
   {
-    basename: import.meta.env.BASE_NAME,
+    basename: import.meta.env.BASE_URL,
   }
 );
 
