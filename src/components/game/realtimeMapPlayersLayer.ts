@@ -591,11 +591,20 @@ export function mountRealtimeMapPlayersLayer({
   }
 
   function getPlayers(): MapPlayerSnapshot[] {
-    return Array.from(entries.values()).map((entry) => ({
-      id: entry.id,
-      tileX: 0,
-      tileY: 0,
-    }));
+    return Array.from(entries.values()).map((entry) => {
+      const group = entry.group;
+      const { worldX, worldZ } = group.position;
+      const tileX = Math.round(worldX + gridWidth / 2);
+      const tileY = Math.round(worldZ + gridHeight / 2);
+      
+      return {
+        id: entry.id,
+        name: entry.label?.userData?.playerName || 'Jogador',
+        tileX,
+        tileY,
+        barracoLevel: entry.barracoLevel,
+      };
+    });
   }
 
   function tileToWorld(tileX: number, tileY: number) {
@@ -629,6 +638,14 @@ export function mountRealtimeMapPlayersLayer({
     }
 
     await ensureEntryVisual(entry, snapshot);
+    
+    // Marca o modelo com ID do jogador para raycasting
+    entry.modelContainer.children.forEach((child: any) => {
+      child.userData.playerId = playerId;
+      child.traverse((subChild: any) => {
+        subChild.userData.playerId = playerId;
+      });
+    });
   }
 
   return {

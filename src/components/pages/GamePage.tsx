@@ -1,16 +1,15 @@
 /**
  * GamePage.tsx — Mapa multiplayer em tempo real
  *
- * MUDANÇAS vs. versão anterior:
- *   - Remove require('socket.io-client') — usava ESM incorretamente
- *   - Usa getSocket() com JWT auth automático
- *   - Trata mapSnapshot → popula todos os barracos ao conectar
- *   - Trata playerJoined / playerMoved / playerLeft em tempo real
- *   - Movimento no mapa:
- *       1. teleportPlayerMapSpace() — move o visual imediatamente (otimista)
- *       2. applyPlayerUpdate() — atualiza o store local (sem sync)
- *       3. socket.emit('move') — backend salva + broadcast para todos
- *   - Mantém todos os sistemas existentes intactos (fixedBuildings, playerMapSpace, etc.)
+ * ARQUITETURA:
+ *   - Socket.io WebSocket conecta ao backend com JWT
+ *   - Eventos em tempo real: mapSnapshot, playerJoined, playerMoved, playerLeft
+ *   - Movimento do jogador:
+ *       1. teleportPlayerMapSpace() — move visual imediatamente (otimista)
+ *       2. applyPlayerUpdate() — atualiza store local
+ *       3. socket.emit('move') — backend salva + broadcast
+ *   - Sincronização de outros jogadores via socket + fallback REST
+ *   - Clique em barraco abre modal com dados do jogador
  */
 
 import { useEffect, useRef } from 'react';
@@ -26,6 +25,13 @@ import { teleportPlayerMapSpace }      from '@/components/game/playerTeleport';
 import { usePlayerStore }              from '@/store/playerStore';
 import { getSocket }                   from '@/socket';
 import Header                          from '@/components/Header';
+import OtherPlayerBarracoModal, { 
+  type OtherPlayerBarracoTarget,
+  createOtherPlayerBarracoModalState,
+  openOtherPlayerBarracoModal,
+  closeOtherPlayerBarracoModal,
+} from '@/components/game/OtherPlayerBarracoModal';
+import { useState } from 'react';
 
 const GRID_WIDTH   = 120;
 const GRID_HEIGHT  = 120;
@@ -42,6 +48,8 @@ export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const player   = usePlayerStore((state) => state.player);
+  const [modalState, setModalState] = useState(createOtherPlayerBarracoModalState());
+  const playerMapSpaceRef = useRef<any>(null);
 
   useEffect(() => {
     const mountEl = mountRef.current;
@@ -128,6 +136,8 @@ export default function GamePage() {
       gridHeight:   GRID_HEIGHT,
       tileSize:     TILE_SIZE,
     });
+    
+    playerMapSpaceRef.current = playerMapSpace;
 
     // Centraliza câmera no barraco do jogador
     controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
@@ -242,8 +252,33 @@ export default function GamePage() {
       raycaster.setFromCamera(mouse, camera);
 
       // Clique no próprio barraco → navega para /barraco
-      const ownHits = raycaster.intersectObjects(playerMapSpace.modelContainer.children, true);
+      const ownHits = raycaster.intersectObjects(playerMapSpaceRef.current?.modelContainer.children || [], true);
       if (ownHits.length > 0) { navigate('/barraco'); return; }
+
+      // Clique em barraco de outro jogador → abre modal
+      const otherHits = raycaster.intersectObjects(realtimePlayersLayer.group.children, true);
+      if (otherHits.length > 0) {
+        const hitObject = otherHits[0].object;
+        let current: any = hitObject;
+        
+        while (current) {
+          if (current.userData?.playerId) {
+            const playerId = current.userData.playerId;
+            const playerData = realtimePlayersLayer.players().find(p => p.id === playerId);
+            
+            if (playerData) {
+              setModalState(openOtherPlayerBarracoModal({
+                id: playerData.id,
+                name: playerData.name || 'Jogador',
+                barracoLevel: playerData.barracoLevel,
+                factionId: playerData.factionId,
+              } as OtherPlayerBarracoTarget));
+            }
+            return;
+          }
+          current = current.parent;
+        }
+      }
 
       // Clique no chão
       const hits = raycaster.intersectObject(clickPlane, false);
@@ -272,7 +307,7 @@ export default function GamePage() {
       selectionMesh.position.set(tileX - GRID_WIDTH / 2 + 0.5, 0.06, tileY - GRID_HEIGHT / 2 + 0.5);
       selectionMesh.visible = true;
 
-      teleportPlayerMapSpace(playerMapSpace, {
+      teleportPlayerMapSpace(playerMapSpaceRef.current, {
         clickedTileX: tileX,
         clickedTileY: tileY,
         occupiedOrigins: [],
@@ -335,7 +370,7 @@ export default function GamePage() {
       controls.dispose();
       realtimePlayersLayer.cleanup();
       fixedBuildingsLayer.cleanup();
-      playerMapSpace.cleanup();
+      playerMapSpaceRef.current?.cleanup();
 
       platformGeometry.dispose();
       platformMaterial.dispose();
@@ -360,6 +395,22 @@ export default function GamePage() {
     <div className="min-h-screen bg-black">
       <Header />
       <div ref={mountRef} className="w-full h-[calc(100vh-104px)] min-h-[500px]" />
+      <OtherPlayerBarracoModal
+        state={modalState}
+        onClose={() => setModalState(closeOtherPlayerBarracoModal())}
+        onSendPrivateMessage={(target) => {
+          console.log('Enviar mensagem para:', target);
+          setModalState(closeOtherPlayerBarracoModal());
+        }}
+        onInviteToFaction={(target) => {
+          console.log('Convidar para facção:', target);
+          setModalState(closeOtherPlayerBarracoModal());
+        }}
+        onAttack={(target) => {
+          console.log('Atacar:', target);
+          setModalState(closeOtherPlayerBarracoModal());
+        }}
+      />
     </div>
   );
 }
