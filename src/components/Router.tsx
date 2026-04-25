@@ -1,5 +1,7 @@
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 import { ScrollToTop } from '@/lib/scroll-to-top';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import HomePage from '@/components/pages/HomePage';
 import GaleriaPage from '@/components/pages/GaleriaPage';
@@ -21,6 +23,12 @@ import RankingPage from '@/components/pages/RankingPage';
 import GangPage from '@/components/gang/GangPage';
 import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
 import ProtectedRoute from '@/components/routes/ProtectedRoute';
+
+const LoadingFallback = () => (
+  <div className="min-h-screen bg-black text-white flex items-center justify-center">
+    <LoadingSpinner />
+  </div>
+);
 
 function Layout() {
   return (
