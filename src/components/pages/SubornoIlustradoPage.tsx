@@ -147,19 +147,12 @@ export default function SubornoIlustradoPage() {
   const navigate = useNavigate();
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
-  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const applyPlayerUpdate = usePlayerStore((state) => state.applyPlayerUpdate);
 
   const [showVaultModal, setShowVaultModal] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultMessage, setResultMessage] = useState('');
-
-  useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-  }, [isLoaded, loadPlayer]);
 
   if (!isLoaded || !player?._id) {
     return (

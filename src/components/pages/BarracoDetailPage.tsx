@@ -133,8 +133,6 @@ export default function BarracoDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   if (!isLoaded) {
-    void loadPlayer();
-
     return (
       <div className="min-h-screen w-full bg-black text-white flex items-center justify-center">
         Carregando...

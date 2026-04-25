@@ -102,16 +102,12 @@ export default function GaleriaPage() {
   const processingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-
     return () => {
       if (processingTimeoutRef.current) {
         window.clearTimeout(processingTimeoutRef.current);
       }
     };
-  }, [isLoaded, loadPlayer]);
+  }, []);
 
   const selectedItemFinalPrice = useMemo(() => {
     if (!selectedItem) return 0;

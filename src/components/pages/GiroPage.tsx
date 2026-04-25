@@ -47,7 +47,7 @@ function randomAnimationSymbol(): SymbolKey {
 
 export default function GiroPage() {
   const navigate = useNavigate();
-  const { player, isLoaded, loadPlayer, hydratePlayerFromServer } = usePlayerStore();
+  const { player, isLoaded, hydratePlayerFromServer } = usePlayerStore();
 
   const [displayedReels, setDisplayedReels] = useState<SymbolKey[]>(DEFAULT_REELS);
   const [lockedReels, setLockedReels] = useState<boolean[]>([true, true, true]);
@@ -65,15 +65,11 @@ export default function GiroPage() {
   const reelIntervals = useRef<number[]>([]);
 
   useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-
     return () => {
       reelTimers.current.forEach((timer) => window.clearTimeout(timer));
       reelIntervals.current.forEach((timer) => window.clearInterval(timer));
     };
-  }, [isLoaded, loadPlayer]);
+  }, []);
 
   if (!isLoaded || !player?._id) {
     return (

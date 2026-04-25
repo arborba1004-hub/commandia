@@ -50,7 +50,6 @@ function HomePage() {
 
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
-  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const { checkAndUnlockAchievements, loadAchievements } = useAchievementStore();
 
   const [googleReady, setGoogleReady] = useState(false);
@@ -63,11 +62,7 @@ function HomePage() {
     logout,
   } = useGoogleAuth();
 
-  useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-  }, [isLoaded, loadPlayer]);
+  // ... keep existing code (achievements loading, google ready check, etc)
 
   // Load achievements from localStorage and check for new unlocks
   useEffect(() => {

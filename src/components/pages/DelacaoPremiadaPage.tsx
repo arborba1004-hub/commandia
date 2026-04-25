@@ -14,17 +14,10 @@ export default function DelacaoPremiadaPage() {
 
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
-  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
   const applyPlayerUpdate = usePlayerStore((state) => state.applyPlayerUpdate);
 
   const [step, setStep] = useState<'intro' | 'confirm' | 'done'>('intro');
   const [processing, setProcessing] = useState(false);
-
-  useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-  }, [isLoaded, loadPlayer]);
 
   if (!isLoaded || !player?._id) {
     return (

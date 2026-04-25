@@ -13,13 +13,6 @@ export default function BarracoPage() {
   const player = usePlayerStore((state) => state.player);
   const upgradeBarracoLocal = usePlayerStore((state) => state.upgradeBarracoLocal);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
-  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
-
-  useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-  }, [isLoaded, loadPlayer]);
 
   if (!isLoaded || !player?._id) {
     return (

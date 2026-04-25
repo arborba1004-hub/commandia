@@ -111,7 +111,6 @@ export default function LavagemDeDinheiroPage() {
   const {
     player,
     isLoaded,
-    loadPlayer,
     startLaundryOperation,
     completeLaundryOperation,
     canOperateLaundryToday,
@@ -129,13 +128,6 @@ export default function LavagemDeDinheiroPage() {
   const taxReduction = getLaundryTaxReduction();
 
   useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-  }, [isLoaded, loadPlayer]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
     clearFinishedLaundryOperations();
   }, [isLoaded, clearFinishedLaundryOperations]);
 

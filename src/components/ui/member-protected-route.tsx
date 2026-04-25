@@ -49,9 +49,8 @@ export function MemberProtectedRoute({
   useEffect(() => {
     const checkAuth = () => {
       const authToken = localStorage.getItem('authToken');
-      const playerData = localStorage.getItem('playerData');
       
-      setIsAuthenticated(!!(authToken && playerData));
+      setIsAuthenticated(!!authToken);
       setIsLoading(false);
     };
 

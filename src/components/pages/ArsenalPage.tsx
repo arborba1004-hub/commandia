@@ -85,12 +85,6 @@ export default function ArsenalPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-  }, [isLoaded, loadPlayer]);
-
-  useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoadingData(true);

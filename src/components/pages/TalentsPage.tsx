@@ -14,13 +14,6 @@ export default function TalentsPage() {
   const [activeTab, setActiveTab] = useState<TalentTab>('menu');
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
-  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
-
-  useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-  }, [isLoaded, loadPlayer]);
 
   if (!isLoaded || !player?._id) {
     return (

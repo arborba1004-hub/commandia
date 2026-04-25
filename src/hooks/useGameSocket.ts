@@ -54,17 +54,7 @@ export function useGameSocket() {
       // Fallback: se socket não conectar em 3 segundos, hydrate com dados locais
       const fallbackTimeout = setTimeout(() => {
         if (!mountedRef.current) return;
-        const storedPlayer = localStorage.getItem('playerData');
-        if (storedPlayer) {
-          try {
-            hydratePlayerFromServer(JSON.parse(storedPlayer));
-          } catch (e) {
-            console.warn('Erro ao fazer fallback de playerData:', e);
-            hydratePlayerFromServer({});
-          }
-        } else {
-          hydratePlayerFromServer({});
-        }
+        hydratePlayerFromServer({});
       }, 3000);
 
       // ── gangUpdate: quando gang muda (treinamento, recrutamento) ─────────────

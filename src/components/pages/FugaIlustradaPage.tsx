@@ -73,12 +73,6 @@ export default function FugaIlustradaPage() {
     useState<EscapeVehicles | null>(null);
 
   useEffect(() => {
-    if (!isLoaded) {
-      void loadPlayer();
-    }
-  }, [isLoaded, loadPlayer]);
-
-  useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoadingData(true);
