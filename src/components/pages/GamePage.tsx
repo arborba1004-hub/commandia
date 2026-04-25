@@ -217,8 +217,15 @@ socket.on('playerInit', (data: { player: any; faction?: any }) => {
 async function processSnapshot(players: any[]) {
   if (!isMounted || !Array.isArray(players)) return;
   console.log('📍 Processando snapshot com', players.length, 'jogadores');
-  const others = players.filter((p) => !isMe(String(p.id)));
-  console.log('📍 Outros jogadores:', others.length);
+  
+  // Filtra o próprio jogador usando o ID do player store como fallback
+  const currentPlayerId = myId || (player?._id ? String(player._id) : null);
+  const others = players.filter((p) => {
+    const pId = String(p.id || p._id || '');
+    return pId && pId !== currentPlayerId;
+  });
+  
+  console.log('📍 Outros jogadores:', others.length, '| myId:', myId, '| currentPlayerId:', currentPlayerId);
   localPlayers.clear();
   for (const p of others) {
     localPlayers.set(String(p.id), {
@@ -247,7 +254,13 @@ socket.on('mapSnapshot', (players: any[]) => {
 
 // ── playerJoined ─────────────────────────────────────────────────────
 socket.on('playerJoined', async (p: any) => {
-  if (!isMounted || isMe(String(p.id))) return;
+  if (!isMounted) return;
+  const pId = String(p.id || p._id || '');
+  const currentPlayerId = myId || (player?._id ? String(player._id) : null);
+  if (pId === currentPlayerId) {
+    console.log('⏭️ playerJoined ignorado (próprio jogador)');
+    return;
+  }
   console.log('👤 playerJoined:', p.id || p.name);
   localPlayers.set(String(p.id), { tileX: Number(p.tileX), tileY: Number(p.tileY) });
   await realtimePlayersLayer.upsertPlayer({
@@ -260,8 +273,10 @@ socket.on('playerJoined', async (p: any) => {
 // ── playerMoved ──────────────────────────────────────────────────────
 socket.on('playerMoved', async (data: any) => {
   if (!isMounted) return;
+  const pId = String(data.playerId || data.id || '');
+  const currentPlayerId = myId || (player?._id ? String(player._id) : null);
   console.log('🚀 playerMoved:', data.playerId, data.tileX, data.tileY);
-  if (isMe(String(data.playerId))) {
+  if (pId === currentPlayerId) {
     console.log('⏭️ Ignorado (próprio jogador)');
     return;
   }
@@ -276,7 +291,13 @@ socket.on('playerMoved', async (data: any) => {
 
 // ── playerTeleported ─────────────────────────────────────────────────
 socket.on('playerTeleported', async (data: any) => {
-  if (!isMounted || isMe(String(data.playerId))) return;
+  if (!isMounted) return;
+  const pId = String(data.playerId || data.id || '');
+  const currentPlayerId = myId || (player?._id ? String(player._id) : null);
+  if (pId === currentPlayerId) {
+    console.log('⏭️ playerTeleported ignorado (próprio jogador)');
+    return;
+  }
   console.log('🌀 playerTeleported:', data.playerId);
   localPlayers.set(String(data.playerId), {
     tileX: Number(data.newPosition.tileX),

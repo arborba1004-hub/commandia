@@ -149,9 +149,14 @@ export default function OtherPlayerBarracoModal({
 }: OtherPlayerBarracoModalProps) {
   const target = state.target;
   const inviteEnabled = target ? canInviteToFaction(target, myFactionId) : false;
-  const attackEnabled = !!target && typeof onAttack === 'function';
+  const attackEnabled = !!target && typeof onAttack === 'function' && !!onAttack;
   const relationship = getRelationshipStyles(target, myFactionId);
   const inviteBlockMessage = getInviteBlockMessage(target, myFactionId);
+
+  // Debug logging
+  if (state.isOpen && target) {
+    console.log('🎯 OtherPlayerBarracoModal aberto para:', target.name, '| attackEnabled:', attackEnabled, '| onAttack:', typeof onAttack);
+  }
 
   return (
     <Dialog open={state.isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
