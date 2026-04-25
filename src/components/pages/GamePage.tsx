@@ -230,7 +230,7 @@ const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
   gridWidth:  GRID_WIDTH,
   gridHeight: GRID_HEIGHT,
   tileSize:   TILE_SIZE,
-  pollingMs:  0,        // ← POLLING DESLIGADO
+  pollingMs:  300000,        // ← POLLING DESLIGADO
   showSpaces: true,
 });
 // ⚠️ NÃO chamamos realtimePlayersLayer.start() — socket é a fonte única
