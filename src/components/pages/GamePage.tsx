@@ -185,6 +185,22 @@ socket.on('playerMoved', (data: any) => {
   });
 });
 
+// Setup player markers mesh for instanced rendering
+const markerGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+const markerMaterial = new THREE.MeshStandardMaterial({
+  color: 0xff007f,
+  emissive: 0xff007f,
+  emissiveIntensity: 0.3,
+  roughness: 0.4,
+  metalness: 0.8,
+});
+const markersMesh = new THREE.InstancedMesh(markerGeometry, markerMaterial, 100);
+markersMesh.castShadow = true;
+markersMesh.receiveShadow = true;
+scene.add(markersMesh);
+
+const dummy = new THREE.Object3D();
+
 const raycaster = new THREE.Raycaster();  
 const mouse = new THREE.Vector2();  
 
@@ -262,6 +278,26 @@ let animationFrameId = 0;
 
 function animate() {  
   animationFrameId = window.requestAnimationFrame(animate);  
+  
+  // New render loop with engine tick and player markers
+  engine.tickLerp(0.18);
+
+  const players = engine.getPlayers();
+
+  for (let i = 0; i < players.length; i++) {
+    const p = players[i];
+
+    const worldX = (p.tileX - GRID_WIDTH / 2) * TILE_SIZE;
+    const worldZ = (p.tileY - GRID_HEIGHT / 2) * TILE_SIZE;
+
+    dummy.position.set(worldX, 0.6, worldZ);
+    dummy.updateMatrix();
+
+    markersMesh.setMatrixAt(i, dummy.matrix);
+  }
+
+  markersMesh.instanceMatrix.needsUpdate = true;
+  
   controls.update();  
   renderer.render(scene, camera);  
 }  
@@ -285,10 +321,13 @@ return () => {
   selectionGeometry.dispose();  
   selectionMaterial.dispose();  
   floorTexture.dispose();  
+  markerGeometry.dispose();
+  markerMaterial.dispose();
 
   scene.remove(platform);  
   scene.remove(clickPlane);  
   scene.remove(selectionMesh);  
+  scene.remove(markersMesh);
 
   renderer.dispose();  
 
