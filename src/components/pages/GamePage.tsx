@@ -182,7 +182,25 @@ const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
   showSpaces: true,  
 });  
 
-realtimePlayersLayer.start();
+// ✅ Carregar snapshot de players ao entrar
+fetch('https://comando-backend.onrender.com/players/snapshot', {
+  credentials: 'include',
+})
+  .then((res) => res.json())
+  .then((players) => {
+    console.log('📦 players carregados:', players);
+
+    players.forEach((p: any) => {
+      realtimePlayersLayer.upsertPlayer({
+        id: p.id || p._id,
+        tileX: p.tileX ?? p.mapPosition?.tileX ?? 0,
+        tileY: p.tileY ?? p.mapPosition?.tileY ?? 0,
+      });
+    });
+  })
+  .catch((err) => {
+    console.error('Erro ao carregar players:', err);
+  });
 
 // 🔥 SOCKET (correto)
 let socket: any = null;
@@ -196,13 +214,11 @@ try {
   });
   socket.on('playerMoved', (data: any) => {
     console.log('👀 Outro jogador moveu:', data);
-    if (data?.playerId && typeof data?.tileX === 'number' && typeof data?.tileY === 'number') {
-      realtimePlayersLayer.upsertPlayer({
-        id: data.playerId,
-        tileX: data.tileX,
-        tileY: data.tileY,
-      });
-    }
+    realtimePlayersLayer.upsertPlayer({
+      id: data.playerId,
+      tileX: data.tileX,
+      tileY: data.tileY,
+    });
   });
 } catch (err) {
   console.log('Socket não carregou', err);
