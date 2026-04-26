@@ -12,6 +12,7 @@ import { mountRealtimeMapPlayersLayer }                from '@/components/game/r
 import { teleportPlayerMapSpace }                      from '@/components/game/playerTeleport';
 
 import { usePlayerStore }        from '@/store/playerStore';
+import { useChatStore }          from '@/store/chatStore';
 import { getSocket }             from '@/socket';
 import { invitePlayerToFaction } from '@/services/factionInviteService';
 
@@ -31,6 +32,19 @@ const PLATFORM_HEIGHT = 1.2;
 const FLOOR_TEXTURE =
   'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
 
+const COMMANDS_ICON = 'https://static.wixstatic.com/media/50f4bf_9bda4af1a12b47679336479a80b16eb8~mv2.png';
+const ICON_COMPLEXO = 'https://static.wixstatic.com/media/50f4bf_af442ef88fac45288bc762a40c07c343~mv2.png';
+const ICON_FACCAO   = 'https://static.wixstatic.com/media/50f4bf_f00228a9eaa84c13ab83c4f3a6365649~mv2.png';
+const ICON_MAIL     = 'https://static.wixstatic.com/media/50f4bf_e602f889654541a9aa2dfd057dad00bc~mv2.png';
+
+function fmt(value: number) {
+  if (!Number.isFinite(value)) return '0';
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value >= 1_000_000)     return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000)         return `${(value / 1_000).toFixed(1)}K`;
+  return value.toLocaleString('pt-BR');
+}
+
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
@@ -39,6 +53,17 @@ export default function GamePage() {
   const navigate    = useNavigate();
   const player      = usePlayerStore((s) => s.player);
   const myFactionId = usePlayerStore((s) => s.player.factionId) ?? null;
+
+  const mailMessages    = useChatStore((s) => s.mailMessages);
+  const unreadMailCount = mailMessages.filter(
+    (m) => String(m.recipientId) === String((player as any)?._id) && !m.read
+  ).length;
+
+  const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
+  const cleanMoney = player?.balances?.cleanMoney ?? 0;
+  const avatarUrl  = (player as any)?.headerCustomization?.customAvatar || (player as any)?.avatar || '';
+  const playerName = (player as any)?.headerCustomization?.customName   || player?.name || '—';
+  const playerLevel = player?.niveis?.barracoLevel ?? 0;
 
   const playerMapSpaceRef = useRef<any>(null);
 
