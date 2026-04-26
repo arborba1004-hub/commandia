@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Send, Smile } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ChatTabs from '@/components/chat/chatTabs';
 import ChatMessageList from '@/components/chat/ChatMessageList';
 import ChatComposer from '@/components/chat/ChatComposer';
 import { useChatStore } from '@/store/chatStore';
+import type { ChatMessage } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -15,13 +17,7 @@ interface ExtendedPlayer {
   googleId?: string;
   factionId?: string;
   name?: string;
-  email?: string;
 }
-
-type MailRecipient = {
-  id: string;
-  name: string;
-};
 
 type ChatChannelType = 'complexo' | 'faccao' | 'mail';
 
@@ -29,141 +25,387 @@ function isValidChannel(value: string | null): value is ChatChannelType {
   return value === 'complexo' || value === 'faccao' || value === 'mail';
 }
 
+// ── Agrupa mensagens de mail por conversa ────────────────────────────────────
+type Conversation = {
+  partnerId: string;
+  partnerName: string;
+  messages: ChatMessage[];
+  lastMessage: ChatMessage;
+  unreadCount: number;
+};
+
+function buildConversations(
+  messages: ChatMessage[],
+  currentUserId: string
+): Conversation[] {
+  const map = new Map<string, ChatMessage[]>();
+
+  for (const msg of messages) {
+    const senderId   = String(msg.senderId   || '');
+    const recipientId = String(msg.recipientId || '');
+    const partnerId  = senderId === currentUserId ? recipientId : senderId;
+    if (!partnerId || partnerId === currentUserId) continue;
+    if (!map.has(partnerId)) map.set(partnerId, []);
+    map.get(partnerId)!.push(msg);
+  }
+
+  const convs: Conversation[] = [];
+  for (const [partnerId, msgs] of map.entries()) {
+    const sorted = [...msgs].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    const last = sorted[sorted.length - 1];
+    const partnerName =
+      String(last.senderId) === currentUserId
+        ? (last.recipientName || 'Jogador')
+        : (last.senderName   || 'Jogador');
+    const unread = sorted.filter(
+      (m) => String(m.recipientId) === currentUserId && !m.read
+    ).length;
+    convs.push({ partnerId, partnerName, messages: sorted, lastMessage: last, unreadCount: unread });
+  }
+
+  return convs.sort(
+    (a, b) =>
+      new Date(b.lastMessage.createdAt).getTime() -
+      new Date(a.lastMessage.createdAt).getTime()
+  );
+}
+
+function formatTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString('pt-BR', {
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return ''; }
+}
+
+function getInitials(name: string) {
+  return name.trim().split(/\s+/).slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() || '').join('') || '?';
+}
+
+// ── Componente: lista de conversas ────────────────────────────────────────────
+function ConversationList({
+  conversations,
+  onSelect,
+  currentUserId,
+}: {
+  conversations: Conversation[];
+  onSelect: (conv: Conversation) => void;
+  currentUserId: string;
+}) {
+  if (conversations.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-16 text-zinc-500">
+        <span className="text-5xl">✉️</span>
+        <p className="text-sm">Nenhuma conversa ainda.</p>
+        <p className="text-xs text-zinc-600">
+          Clique no barraco de um jogador no mapa para começar.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col divide-y divide-white/5">
+      {conversations.map((conv) => {
+        const isMine = String(conv.lastMessage.senderId) === currentUserId;
+        return (
+          <button
+            key={conv.partnerId}
+            type="button"
+            onClick={() => onSelect(conv)}
+            className="flex items-center gap-3 px-4 py-4 text-left transition hover:bg-white/5 active:bg-white/10"
+          >
+            {/* Avatar */}
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-700 text-lg font-black text-white">
+              {getInitials(conv.partnerName)}
+            </div>
+
+            {/* Info */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate font-black text-white">{conv.partnerName}</p>
+                <span className="shrink-0 text-[11px] text-zinc-500">
+                  {formatTime(conv.lastMessage.createdAt)}
+                </span>
+              </div>
+              <p className="mt-0.5 truncate text-sm text-zinc-400">
+                {isMine ? 'Você: ' : ''}
+                {conv.lastMessage.body}
+              </p>
+            </div>
+
+            {/* Badge não lido */}
+            {conv.unreadCount > 0 && (
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-600 text-[11px] font-black text-white">
+                {conv.unreadCount}
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Componente: tela da conversa (tipo WhatsApp) ──────────────────────────────
+function ConversationView({
+  conversation,
+  currentUserId,
+  isSending,
+  onBack,
+  onSend,
+  onMarkRead,
+}: {
+  conversation: Conversation;
+  currentUserId: string;
+  isSending: boolean;
+  onBack: () => void;
+  onSend: (body: string) => Promise<boolean>;
+  onMarkRead: (id: string) => void;
+}) {
+  const [text, setText] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Marca não lidas como lidas ao abrir
+  useEffect(() => {
+    conversation.messages.forEach((m) => {
+      if (String(m.recipientId) === currentUserId && !m.read) {
+        onMarkRead(m.id);
+      }
+    });
+  }, [conversation.partnerId]);
+
+  // Scroll para o fim quando chegam novas mensagens
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [conversation.messages.length]);
+
+  const handleSend = async () => {
+    const body = text.trim();
+    if (!body || isSending) return;
+    const ok = await onSend(body);
+    if (ok) setText('');
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Header da conversa */}
+      <div className="flex items-center gap-3 border-b border-white/10 bg-zinc-950 px-4 py-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-xl p-2 text-white/70 hover:bg-white/10"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-700 font-black text-white">
+          {getInitials(conversation.partnerName)}
+        </div>
+        <p className="font-black text-white">{conversation.partnerName}</p>
+      </div>
+
+      {/* Mensagens */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+        {conversation.messages.map((msg) => {
+          const isMine = String(msg.senderId) === currentUserId;
+          return (
+            <div
+              key={msg.id}
+              className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[78%] rounded-2xl px-4 py-2 text-sm ${
+                  isMine
+                    ? 'rounded-br-sm bg-red-700 text-white'
+                    : 'rounded-bl-sm bg-zinc-800 text-white'
+                }`}
+              >
+                <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                <div className={`mt-1 flex items-center gap-1 text-[11px] ${isMine ? 'justify-end text-red-200' : 'text-zinc-500'}`}>
+                  {formatTime(msg.createdAt)}
+                  {isMine && (
+                    <span>{msg.read ? '✓✓' : '✓'}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Compositor */}
+      <div className="flex items-end gap-2 border-t border-white/10 bg-zinc-950 px-4 py-3">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              void handleSend();
+            }
+          }}
+          placeholder="Digite uma mensagem..."
+          rows={1}
+          className="flex-1 resize-none rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-red-500/60"
+          style={{ maxHeight: '120px' }}
+        />
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={!text.trim() || isSending}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-600 text-white disabled:opacity-40"
+        >
+          <Send size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── ChatPage principal ─────────────────────────────────────────────────────────
 export default function ChatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useGoogleAuth();
-
   const player = usePlayerStore((state) => state.player) as ExtendedPlayer | null;
 
-  const activeChannel = useChatStore((state) => state.activeChannel);
-  const setActiveChannel = useChatStore((state) => state.setActiveChannel);
-  const complexoMessages = useChatStore((state) => state.complexoMessages);
-  const faccaoMessages = useChatStore((state) => state.faccaoMessages);
-  const mailMessages = useChatStore((state) => state.mailMessages);
-  const factionHelpRequests = useChatStore((state) => state.factionHelpRequests);
-  const isLoading = useChatStore((state) => state.isLoading);
-  const isSending = useChatStore((state) => state.isSending);
-  const isHelpingRequest = useChatStore((state) => state.isHelpingRequest);
-  const syncError = useChatStore((state) => state.syncError);
-  const loadChat = useChatStore((state) => state.loadChat);
-  const fetchMessages = useChatStore((state) => state.fetchMessages);
-  const fetchFactionHelpRequests = useChatStore((state) => state.fetchFactionHelpRequests);
-  const startChatPolling = useChatStore((state) => state.startChatPolling);
-  const stopChatPolling = useChatStore((state) => state.stopChatPolling);
-  const sendComplexoMessage = useChatStore((state) => state.sendComplexoMessage);
-  const sendFaccaoMessage = useChatStore((state) => state.sendFaccaoMessage);
-  const sendMailMessage = useChatStore((state) => state.sendMailMessage);
-  const markMailAsRead = useChatStore((state) => state.markMailAsRead);
-  const createFactionHelpRequest = useChatStore((state) => state.createFactionHelpRequest);
-  const helpFactionRequest = useChatStore((state) => state.helpFactionRequest);
+  const activeChannel    = useChatStore((s) => s.activeChannel);
+  const setActiveChannel = useChatStore((s) => s.setActiveChannel);
+  const complexoMessages = useChatStore((s) => s.complexoMessages);
+  const faccaoMessages   = useChatStore((s) => s.faccaoMessages);
+  const mailMessages     = useChatStore((s) => s.mailMessages);
+  const factionHelpRequests    = useChatStore((s) => s.factionHelpRequests);
+  const isLoading        = useChatStore((s) => s.isLoading);
+  const isSending        = useChatStore((s) => s.isSending);
+  const isHelpingRequest = useChatStore((s) => s.isHelpingRequest);
+  const syncError        = useChatStore((s) => s.syncError);
+  const loadChat                  = useChatStore((s) => s.loadChat);
+  const fetchMessages             = useChatStore((s) => s.fetchMessages);
+  const fetchFactionHelpRequests  = useChatStore((s) => s.fetchFactionHelpRequests);
+  const startChatPolling          = useChatStore((s) => s.startChatPolling);
+  const stopChatPolling           = useChatStore((s) => s.stopChatPolling);
+  const sendComplexoMessage = useChatStore((s) => s.sendComplexoMessage);
+  const sendFaccaoMessage   = useChatStore((s) => s.sendFaccaoMessage);
+  const sendMailMessage     = useChatStore((s) => s.sendMailMessage);
+  const markMailAsRead      = useChatStore((s) => s.markMailAsRead);
+  const createFactionHelpRequest = useChatStore((s) => s.createFactionHelpRequest);
+  const helpFactionRequest       = useChatStore((s) => s.helpFactionRequest);
 
-  const [mailRecipientId, setMailRecipientId] = useState('');
-  const [mailRecipientName, setMailRecipientName] = useState('');
-  const [mailSubject, setMailSubject] = useState('');
   const [hasBootstrapped, setHasBootstrapped] = useState(false);
+
+  // ── Conversa selecionada no correio ─────────────────────────────────────
+  const [selectedPartnerId,   setSelectedPartnerId]   = useState<string | null>(null);
+  const [selectedPartnerName, setSelectedPartnerName] = useState<string>('');
+
+  const currentUserId = String(player?._id || player?.googleId || '');
+  const hasFaction    = Boolean(player?.factionId);
 
   // Redireciona se não autenticado
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate('/');
-    }
+    if (!authLoading && !isAuthenticated) navigate('/');
   }, [isAuthenticated, authLoading, navigate]);
 
+  // Bootstrap: lê canal e destinatário da URL
   useEffect(() => {
     if (hasBootstrapped) return;
 
     const queryChannel = searchParams.get('channel');
-    const sessionChannel = sessionStorage.getItem('chat_active_channel');
+    const recipientId  = searchParams.get('recipientId');
+    const recipientName = searchParams.get('recipientName');
 
     if (isValidChannel(queryChannel)) {
       setActiveChannel(queryChannel);
-    } else if (isValidChannel(sessionChannel)) {
-      setActiveChannel(sessionChannel);
     } else {
       setActiveChannel('complexo');
     }
 
+    // Pré-seleciona conversa se veio do mapa
+    if (recipientId && recipientName) {
+      setSelectedPartnerId(recipientId);
+      setSelectedPartnerName(decodeURIComponent(recipientName));
+      setActiveChannel('mail');
+    }
+
     setHasBootstrapped(true);
-  }, []); // Only run once on mount
+  }, []);
 
   useEffect(() => {
     if (!hasBootstrapped) return;
-
     void loadChat();
     startChatPolling();
-
-    return () => {
-      stopChatPolling();
-    };
-  }, [hasBootstrapped]); // Only run when bootstrapped
+    return () => stopChatPolling();
+  }, [hasBootstrapped]);
 
   useEffect(() => {
     if (!hasBootstrapped) return;
-
-    sessionStorage.setItem('chat_active_channel', activeChannel);
     setSearchParams({ channel: activeChannel }, { replace: true });
-
     void fetchMessages(activeChannel, true);
-
     if (activeChannel === 'faccao' && player?.factionId) {
       void fetchFactionHelpRequests(true);
     }
-  }, [activeChannel, hasBootstrapped, player?.factionId, setSearchParams, fetchMessages, fetchFactionHelpRequests]);
+  }, [activeChannel, hasBootstrapped, player?.factionId]);
 
-  const currentUserId = String(player?._id || player?.googleId || '');
-  const hasFaction = Boolean(player?.factionId);
+  // ── Conversas agrupadas ──────────────────────────────────────────────────
+  const conversations = useMemo(
+    () => buildConversations(mailMessages, currentUserId),
+    [mailMessages, currentUserId]
+  );
 
-  const currentMessages = useMemo(() => {
-    if (activeChannel === 'complexo') return complexoMessages;
-    if (activeChannel === 'faccao') return faccaoMessages;
-    return mailMessages;
-  }, [activeChannel, complexoMessages, faccaoMessages, mailMessages]);
+  const selectedConversation = useMemo(() => {
+    if (!selectedPartnerId) return null;
+    // Pode ser uma conversa existente ou nova (ainda sem mensagens)
+    return conversations.find((c) => c.partnerId === selectedPartnerId) ?? null;
+  }, [conversations, selectedPartnerId]);
 
-  const unreadMailCount = useMemo(() => {
-    return mailMessages.filter(
-      (message) =>
-        message.channel === 'mail' &&
-        String(message.recipientId || '') === currentUserId &&
-        !message.read
-    ).length;
-  }, [mailMessages, currentUserId]);
+  const unreadMailCount = useMemo(
+    () => conversations.reduce((acc, c) => acc + c.unreadCount, 0),
+    [conversations]
+  );
 
-  const currentUserRequestedToday = useMemo(() => {
-    return factionHelpRequests.some(
-      (request) => String(request.requesterId) === currentUserId
-    );
-  }, [factionHelpRequests, currentUserId]);
+  // ── Send handlers ────────────────────────────────────────────────────────
+  const handleSendComplexo = async (body: string) => sendComplexoMessage({ body });
 
-  const mailRecipientsPreview: MailRecipient[] = useMemo(() => {
-    const map = new Map<string, MailRecipient>();
+  const handleSendFaccao = async (body: string) => {
+    if (!hasFaction) return false;
+    return sendFaccaoMessage({ body, factionId: player?.factionId || null });
+  };
 
-    for (const message of mailMessages) {
-      const senderId = String(message.senderId || '');
-      const recipientId = String(message.recipientId || '');
+  const handleSendMail = async (body: string): Promise<boolean> => {
+    if (!selectedPartnerId || !selectedPartnerName) return false;
+    const ok = await sendMailMessage({
+      recipientId:   selectedPartnerId,
+      recipientName: selectedPartnerName,
+      body,
+    });
+    if (ok) await fetchMessages('mail', true);
+    return ok;
+  };
 
-      if (senderId && senderId !== currentUserId) {
-        map.set(senderId, {
-          id: senderId,
-          name: message.senderName || 'Jogador',
-        });
-      }
+  const handleMarkRead = (id: string) => { void markMailAsRead(id); };
 
-      if (recipientId && recipientId !== currentUserId) {
-        map.set(recipientId, {
-          id: recipientId,
-          name: message.recipientName || 'Jogador',
-        });
-      }
-    }
+  const handleChangeChannel = (ch: ChatChannelType) => {
+    if (ch === 'faccao' && !hasFaction) return;
+    setActiveChannel(ch);
+    setSelectedPartnerId(null);
+  };
 
-    return Array.from(map.values()).slice(0, 8);
-  }, [mailMessages, currentUserId]);
+  const handleSelectConversation = (conv: Conversation) => {
+    setSelectedPartnerId(conv.partnerId);
+    setSelectedPartnerName(conv.partnerName);
+  };
 
-  // Garante que o player está autenticado
+  const handleBackToList = () => {
+    setSelectedPartnerId(null);
+    setSelectedPartnerName('');
+  };
+
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <LoadingSpinner />
       </div>
     );
@@ -171,61 +413,41 @@ export default function ChatPage() {
 
   if (!isAuthenticated || !player) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-300">Você precisa estar autenticado para acessar o chat.</p>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-red-300">Você precisa estar autenticado para acessar o chat.</p>
+      </div>
+    );
+  }
+
+  // ── CORREIO: conversa aberta (tela cheia no mobile) ──────────────────────
+  if (activeChannel === 'mail' && selectedPartnerId) {
+    // Conversa com mensagens existentes ou conversa nova (sem histórico ainda)
+    const conv: Conversation = selectedConversation ?? {
+      partnerId:    selectedPartnerId,
+      partnerName:  selectedPartnerName,
+      messages:     [],
+      lastMessage:  {} as ChatMessage,
+      unreadCount:  0,
+    };
+
+    return (
+      <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <Header />
+        <div className="flex flex-1 flex-col pt-[104px]" style={{ height: 'calc(100vh - 104px)' }}>
+          <ConversationView
+            conversation={conv}
+            currentUserId={currentUserId}
+            isSending={isSending}
+            onBack={handleBackToList}
+            onSend={handleSendMail}
+            onMarkRead={handleMarkRead}
+          />
         </div>
       </div>
     );
   }
 
-  const handleSendMessage = async (body: string) => {
-    if (activeChannel === 'complexo') {
-      return sendComplexoMessage({ body });
-    }
-
-    if (activeChannel === 'faccao') {
-      if (!hasFaction) {
-        return false;
-      }
-
-      return sendFaccaoMessage({
-        body,
-        factionId: player?.factionId || null,
-      });
-    }
-
-    if (!mailRecipientId.trim() || !mailRecipientName.trim()) {
-      return false;
-    }
-
-    return sendMailMessage({
-      recipientId: mailRecipientId,
-      recipientName: mailRecipientName,
-      subject: mailSubject,
-      body,
-    });
-  };
-
-  const handleMailOpen = async (messageId: string) => {
-    await markMailAsRead(messageId);
-  };
-
-  const handleChangeChannel = (channel: ChatChannelType) => {
-    if (channel === 'faccao' && !hasFaction) return;
-    setActiveChannel(channel);
-  };
-
-  const handleCreateHelpRequest = async () => {
-    await createFactionHelpRequest({
-      message: 'Família, fortalece no corre aí 🙏',
-    });
-  };
-
-  const handleHelpRequest = async (requestId: string) => {
-    await helpFactionRequest(requestId);
-  };
-
+  // ── LAYOUT PRINCIPAL ─────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
@@ -255,106 +477,67 @@ export default function ChatPage() {
           </div>
         )}
 
+        {/* ── CORREIO: lista de conversas ────────────────────────────────── */}
         {activeChannel === 'mail' && (
-          <div className="mb-4 rounded-3xl border border-border bg-card p-4">
-            <h2 className="mb-3 font-heading text-lg font-bold uppercase">
-              Novo correio
-            </h2>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <input
-                value={mailRecipientId}
-                onChange={(e) => setMailRecipientId(e.target.value)}
-                placeholder="ID do destinatário"
-                className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
-              />
-
-              <input
-                value={mailRecipientName}
-                onChange={(e) => setMailRecipientName(e.target.value)}
-                placeholder="Nome do destinatário"
-                className="rounded-2xl border border-border bg-background px-4 py-3 outline-none"
-              />
-
-              <div className="md:col-span-2">
-                <input
-                  value={mailSubject}
-                  onChange={(e) => setMailSubject(e.target.value)}
-                  placeholder="Assunto"
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 outline-none"
-                />
-              </div>
+          <div className="overflow-hidden rounded-3xl border border-border bg-card">
+            <div className="border-b border-border px-4 py-3">
+              <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                Correio Pessoal
+              </p>
             </div>
 
-            {mailRecipientsPreview.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
-                  Contatos recentes
-                </p>
-
-                <div className="flex flex-wrap gap-2">
-                  {mailRecipientsPreview.map((recipient) => (
-                    <button
-                      key={recipient.id}
-                      onClick={() => {
-                        setMailRecipientId(recipient.id);
-                        setMailRecipientName(recipient.name);
-                      }}
-                      className="rounded-full border border-border bg-background px-3 py-2 text-sm hover:bg-muted"
-                      type="button"
-                    >
-                      {recipient.name}
-                    </button>
-                  ))}
-                </div>
+            {isLoading && conversations.length === 0 ? (
+              <div className="flex items-center justify-center py-16">
+                <LoadingSpinner />
               </div>
+            ) : (
+              <ConversationList
+                conversations={conversations}
+                currentUserId={currentUserId}
+                onSelect={handleSelectConversation}
+              />
             )}
           </div>
         )}
-    <div className="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card">
-          <div className="border-b border-border px-4 py-3">
-            <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-              {activeChannel === 'complexo'
-                ? 'Chat do Complexo'
-                : activeChannel === 'faccao'
-                  ? 'Chat da Facção'
-                  : 'Correio Pessoal'}
-            </p>
-          </div>
 
-          <div className="flex-1 overflow-hidden">
-            <ChatMessageList
-              messages={currentMessages}
-              channel={activeChannel}
-              currentUserId={currentUserId}
-              isLoading={isLoading}
-              onOpenMail={handleMailOpen}
-              factionHelpRequests={activeChannel === 'faccao' ? factionHelpRequests : []}
-              onHelpFactionRequest={handleHelpRequest}
-              isHelpingRequest={isHelpingRequest}
-            />
-          </div>
+        {/* ── COMPLEXO / FACÇÃO: igual ao anterior ──────────────────────── */}
+        {activeChannel !== 'mail' && (
+          <div className="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card">
+            <div className="border-b border-border px-4 py-3">
+              <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                {activeChannel === 'complexo' ? 'Chat do Complexo' : 'Chat da Facção'}
+              </p>
+            </div>
 
-          <div className="border-t border-border p-4">
-            <ChatComposer
-              channel={activeChannel}
-              onSendMessage={handleSendMessage}
-              isSending={isSending}
-              mailReady={
-                activeChannel !== 'mail' ||
-                Boolean(mailRecipientId.trim() && mailRecipientName.trim())
-              }
-              disabled={activeChannel === 'faccao' && !hasFaction}
-              onRequestHelp={
-                activeChannel === 'faccao' && hasFaction ? handleCreateHelpRequest : undefined
-              }
-              requestHelpDisabled={
-                activeChannel === 'faccao' &&
-                (!hasFaction || currentUserRequestedToday || isHelpingRequest)
-              }
-            />
+            <div className="flex-1 overflow-hidden">
+              <ChatMessageList
+                messages={activeChannel === 'complexo' ? complexoMessages : faccaoMessages}
+                channel={activeChannel}
+                currentUserId={currentUserId}
+                isLoading={isLoading}
+                factionHelpRequests={activeChannel === 'faccao' ? factionHelpRequests : []}
+                onHelpFactionRequest={(id) => { void helpFactionRequest(id); }}
+                isHelpingRequest={isHelpingRequest}
+              />
+            </div>
+
+            <div className="border-t border-border p-4">
+              <ChatComposer
+                channel={activeChannel}
+                onSendMessage={activeChannel === 'complexo' ? handleSendComplexo : handleSendFaccao}
+                isSending={isSending}
+                mailReady={true}
+                disabled={activeChannel === 'faccao' && !hasFaction}
+                onRequestHelp={
+                  activeChannel === 'faccao' && hasFaction
+                    ? () => { void createFactionHelpRequest({ message: 'Família, fortalece no corre aí 🙏' }); }
+                    : undefined
+                }
+                requestHelpDisabled={activeChannel === 'faccao' && !hasFaction}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       <Footer />
