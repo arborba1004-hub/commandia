@@ -24,7 +24,7 @@ function generateId() {
   return Date.now().toString();
 }
 
-// MOCK remove background (mantido por enquanto)
+// MOCK remove background (por enquanto)
 async function removeBg(filePath, outputPath) {
   fs.copyFileSync(filePath, outputPath);
 }
@@ -37,20 +37,27 @@ function loadFile() {
   return fs.readFileSync(DATA_FILE, "utf-8");
 }
 
-// extrai conteúdo atual do array
-function extractArray(content) {
+// extrai array atual de forma segura
+function extractOldEmojis(content) {
   const start = content.indexOf("export const CUSTOM_EMOJIS");
-  if (start === -1) return null;
+  if (start === -1) return [];
 
   const open = content.indexOf("[", start);
   const close = content.indexOf("];", open);
 
-  if (open === -1 || close === -1) return null;
+  if (open === -1 || close === -1) return [];
 
-  return {
-    before: content.slice(0, start),
-    after: content.slice(close + 2),
-  };
+  const arrayContent = content
+    .slice(open + 1, close)
+    .trim();
+
+  if (!arrayContent) return [];
+
+  // separa por linha ignorando vazios
+  return arrayContent
+    .split("\n")
+    .map(l => l.trim())
+    .filter(Boolean);
 }
 
 async function run() {
@@ -59,12 +66,8 @@ async function run() {
   const files = fs.readdirSync(INPUT_DIR);
   if (files.length === 0) return;
 
-  let existing = loadFile();
-  const extracted = extractArray(existing);
-
-  if (!extracted) {
-    throw new Error("CUSTOM_EMOJIS array not found in file");
-  }
+  const existing = loadFile();
+  const oldEmojis = extractOldEmojis(existing);
 
   let newEntries = [];
 
@@ -84,31 +87,21 @@ async function run() {
       `  { id: "${id}", label: "${name}", shortcode: ":${slug}:", imageUrl: "/emojis/${outputFile}" }`
     );
 
-    // remove input depois de processar
     fs.unlinkSync(inputPath);
   }
 
   if (newEntries.length === 0) return;
 
-  // monta novo array
-  const existingArray = extracted.before.includes("[")
-  ? extracted.before.split("[")[1]
-  : "";
+  // junta antigos + novos
+  const allEmojis = [...oldEmojis, ...newEntries].join(",\n");
 
-const updatedArray = `
+  const updated = `
 export const CUSTOM_EMOJIS: CustomEmoji[] = [
-${existingArray.trim()}
-${existingArray.trim() ? "," : ""}
-${newEntries.join(",\n")}
+${allEmojis}
 ];
 `;
 
-  const final =
-    extracted.before +
-    updatedArray +
-    extracted.after;
-
-  fs.writeFileSync(DATA_FILE, final);
+  fs.writeFileSync(DATA_FILE, updated.trim());
 }
 
 run();
