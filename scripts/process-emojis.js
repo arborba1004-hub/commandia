@@ -91,8 +91,14 @@ async function run() {
   if (newEntries.length === 0) return;
 
   // monta novo array
-  const updatedArray = `
+  const existingArray = extracted.before.includes("[")
+  ? extracted.before.split("[")[1]
+  : "";
+
+const updatedArray = `
 export const CUSTOM_EMOJIS: CustomEmoji[] = [
+${existingArray.trim()}
+${existingArray.trim() ? "," : ""}
 ${newEntries.join(",\n")}
 ];
 `;
