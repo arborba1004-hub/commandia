@@ -1,17 +1,14 @@
 const fs = require("fs");
 const path = require("path");
 
-// Diretórios
 const INPUT_DIR = path.join(__dirname, "../input");
 const OUTPUT_DIR = path.join(__dirname, "../public/emojis");
-const DATA_FILE = path.join(__dirname, "../src/data/customEmojis.ts");
+const DATA_FILE = path.join(__dirname, "../src/data/customEmojis.json");
 
-// garante pasta de saída
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
-// utils
 function slugify(name) {
   return name
     .toLowerCase()
@@ -24,17 +21,13 @@ function generateId() {
   return Date.now().toString();
 }
 
-// MOCK remove background (por enquanto)
 async function removeBg(filePath, outputPath) {
   fs.copyFileSync(filePath, outputPath);
 }
 
-// lê arquivo TS
-function loadFile() {
-  if (!fs.existsSync(DATA_FILE)) {
-    return `export const CUSTOM_EMOJIS: CustomEmoji[] = [];\n`;
-  }
-  return fs.readFileSync(DATA_FILE, "utf-8");
+function loadJSON() {
+  if (!fs.existsSync(DATA_FILE)) return [];
+  return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
 }
 
 async function run() {
@@ -43,9 +36,7 @@ async function run() {
   const files = fs.readdirSync(INPUT_DIR);
   if (files.length === 0) return;
 
-  const existing = loadFile();
-
-  let newEntries = [];
+  const existing = loadJSON();
 
   for (const file of files) {
     const name = path.parse(file).name;
@@ -59,25 +50,17 @@ async function run() {
 
     await removeBg(inputPath, outputPath);
 
-    newEntries.push(
-      `  { id: "${id}", label: "${name}", shortcode: ":${slug}:", imageUrl: "/emojis/${outputFile}" }`
-    );
+    existing.push({
+      id,
+      label: name,
+      shortcode: `:${slug}:`,
+      imageUrl: `/emojis/${outputFile}`
+    });
 
-    // remove input depois de processar
     fs.unlinkSync(inputPath);
   }
 
-  if (newEntries.length === 0) return;
-
-  // 🔥 substitui o array inteiro com segurança
-  const updated = existing.replace(
-    /export const CUSTOM_EMOJIS: CustomEmoji\[\]\s*=\s*\[[\s\S]*?\];/,
-    `export const CUSTOM_EMOJIS: CustomEmoji[] = [
-${newEntries.join(",\n")}
-];`
-  );
-
-  fs.writeFileSync(DATA_FILE, updated.trim());
+  fs.writeFileSync(DATA_FILE, JSON.stringify(existing, null, 2));
 }
 
 run();
