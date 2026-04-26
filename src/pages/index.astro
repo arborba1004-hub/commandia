@@ -2,7 +2,6 @@
 import { SEO } from '@wix/seo/components';
 import { loadSEOTagsServiceConfig } from '@wix/seo/services';
 import { Head } from "@/components/Head";
-import AppRouter from "@/components/Router";
 import "@wix/wix-vibe-plugins/plugins-vars.css";
 import "@wix/wix-vibe-plugins/plugins-theme.css";
 import "@/styles/global.css";
@@ -22,8 +21,13 @@ const seoTagsServiceConfig = await loadSEOTagsServiceConfig({
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body class="w-full h-full">
-    <div id="root" class="w-full h-full">
-      <AppRouter client:only="react" />
-    </div>
+    <div id="root" class="w-full h-full"></div>
+    <script type="module">
+      import AppRouter from "@/components/Router.tsx";
+      import { createRoot } from "react-dom/client";
+      
+      const root = createRoot(document.getElementById("root"));
+      root.render(AppRouter());
+    </script>
   </body>
 </html>

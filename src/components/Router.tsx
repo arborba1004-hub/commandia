@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-rou
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import Layout from '@/components/Layout';
+import { MemberProvider } from '@/integrations/members/providers';
 
 // Static imports - avoid nested dynamic imports
 import HomePage from '@/components/pages/HomePage';
@@ -139,7 +140,9 @@ const router = createBrowserRouter(
 
 function AppRouter() {
   return (
-    <RouterProvider router={router} />
+    <MemberProvider>
+      <RouterProvider router={router} />
+    </MemberProvider>
   );
 }
 
