@@ -1,5 +1,12 @@
+import { useEffect, useState } from 'react';
 import { Image } from '@/components/ui/image';
-import CUSTOM_EMOJIS from '@/data/customEmojis.json';
+
+type CustomEmoji = {
+  id: string;
+  label: string;
+  shortcode: string;
+  imageUrl: string;
+};
 
 type EmojiPickerItem =
   | { type: 'unicode'; value: string }
@@ -9,8 +16,26 @@ interface EmojiPickerProps {
   onSelectEmoji: (value: string) => void;
 }
 
-const EMOJI_ITEMS: EmojiPickerItem[] = [
-  { type: 'unicode', value: '💥' }
+const STATIC_EMOJIS: EmojiPickerItem[] = [
+  { type: 'unicode', value: '💥' },
+  {
+    type: 'image',
+    id: 'comando-apaixonado',
+    src: 'https://static.wixstatic.com/media/50f4bf_510e83d240c84061a9ae051d0c4be0af~mv2.png',
+    alt: 'Comando Apaixonado',
+  },
+  {
+    type: 'image',
+    id: 'comando-hostil',
+    src: 'https://static.wixstatic.com/media/50f4bf_fe66f84eeecf4b18ad5c8a07b3e807f7~mv2.png',
+    alt: 'Comando Hostil',
+  },
+  {
+    type: 'image',
+    id: 'sextou',
+    src: 'https://static.wixstatic.com/media/50f4bf_0fe37c167b134ab280c353da7c7dd9f2~mv2.png',
+    alt: 'Sextou',
+  },
 ];
 
 function buildImageToken(id: string, src: string, alt: string) {
@@ -18,20 +43,28 @@ function buildImageToken(id: string, src: string, alt: string) {
 }
 
 export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
+  const [customEmojis, setCustomEmojis] = useState<CustomEmoji[]>([]);
+
+  useEffect(() => {
+    fetch('/data/customEmojis.json')
+      .then((r) => r.json())
+      .then(setCustomEmojis)
+      .catch(() => setCustomEmojis([]));
+  }, []);
+
   return (
     <div className="w-[320px] rounded-2xl border border-border bg-card p-3 shadow-2xl">
       <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
         Emojis e stickers
       </div>
 
-      {/* Custom Emojis Section */}
       <div className="mb-3 border-b border-border pb-3">
         <div className="mb-2 text-xs font-semibold text-muted-foreground">
           Customizados
         </div>
 
         <div className="grid grid-cols-6 gap-2">
-          {CUSTOM_EMOJIS.map((emoji) => (
+          {customEmojis.map((emoji) => (
             <button
               key={emoji.id}
               type="button"
@@ -50,14 +83,13 @@ export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
         </div>
       </div>
 
-      {/* Unicode Emojis Section */}
       <div>
         <div className="mb-2 text-xs font-semibold text-muted-foreground">
           Padrão
         </div>
 
         <div className="grid grid-cols-6 gap-2">
-          {EMOJI_ITEMS.map((item, index) => (
+          {STATIC_EMOJIS.map((item, index) => (
             <button
               key={item.type === 'unicode' ? `${item.value}-${index}` : item.id}
               type="button"
