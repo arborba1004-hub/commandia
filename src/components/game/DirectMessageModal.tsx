@@ -3,6 +3,7 @@ import { X, Send, ArrowRight } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useChatStore } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
+import { Image } from '@/components/ui/image';
 
 export type DirectMessageTarget = {
   id: string;
@@ -105,8 +106,7 @@ export default function DirectMessageModal({
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
             {target.avatarUrl ? (
-              <img src={target.avatarUrl} alt={target.name}
-                className="h-9 w-9 rounded-full object-cover border border-white/10" />
+              <Image src={target.avatarUrl} alt={target.name} className="h-9 w-9 rounded-full object-cover border border-white/10" />
             ) : (
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-700 font-black text-sm text-white">
                 {getInitials(target.name)}

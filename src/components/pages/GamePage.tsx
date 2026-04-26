@@ -21,6 +21,7 @@ import OtherPlayerBarracoModal, {
   openOtherPlayerBarracoModal,
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
+import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
 
 const GRID_WIDTH      = 120;
 const GRID_HEIGHT     = 120;
@@ -45,14 +46,17 @@ export default function GamePage() {
   const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
   const [isInviting,       setIsInviting]       = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [dmModalOpen,      setDmModalOpen]      = useState(false);
+  const [dmTarget,         setDmTarget]         = useState<DirectMessageTarget | null>(null);
 
   // ── Handler: mensagem privada
   const handleSendPrivateMessage = useCallback(
-    (_target: OtherPlayerBarracoTarget) => {
+    (target: OtherPlayerBarracoTarget) => {
       setModalState(closeOtherPlayerBarracoModal());
-      navigate('/chat');
+      setDmTarget({ id: target.id, name: target.name, avatarUrl: target.avatarUrl });
+      setDmModalOpen(true);
     },
-    [navigate]
+    []
   );
 
   // ── Handler: convidar para facção
@@ -559,6 +563,12 @@ export default function GamePage() {
         onSendPrivateMessage={handleSendPrivateMessage}
         onInviteToFaction={handleInviteToFaction}
         onAttack={handleAttack}
+      />
+
+      <DirectMessageModal
+        isOpen={dmModalOpen}
+        target={dmTarget}
+        onClose={() => { setDmModalOpen(false); setDmTarget(null); }}
       />
     </div>
   );
