@@ -1,5 +1,5 @@
 import { Image } from '@/components/ui/image';
-import { CUSTOM_EMOJIS } from '@/data/customEmojis';
+import CUSTOM_EMOJIS from '@/data/customEmojis.json';
 
 type EmojiPickerItem =
   | { type: 'unicode'; value: string }
@@ -10,27 +10,7 @@ interface EmojiPickerProps {
 }
 
 const EMOJI_ITEMS: EmojiPickerItem[] = [
-  
-  { type: 'unicode', value: '💥' },
-
-  {
-    type: 'image',
-    id: 'comando-apaixonado',
-    src: 'https://static.wixstatic.com/media/50f4bf_510e83d240c84061a9ae051d0c4be0af~mv2.png',
-    alt: 'Comando Apaixonado',
-  },
-  {
-    type: 'image',
-    id: 'comando-hostil',
-    src: 'https://static.wixstatic.com/media/50f4bf_fe66f84eeecf4b18ad5c8a07b3e807f7~mv2.png',
-    alt: 'Comando Hostil',
-  },
-  {
-    type: 'image',
-    id: 'sextou',
-    src: 'https://static.wixstatic.com/media/50f4bf_0fe37c167b134ab280c353da7c7dd9f2~mv2.png',
-    alt: 'Sextou',
-  },
+  { type: 'unicode', value: '💥' }
 ];
 
 function buildImageToken(id: string, src: string, alt: string) {
@@ -46,19 +26,25 @@ export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
 
       {/* Custom Emojis Section */}
       <div className="mb-3 border-b border-border pb-3">
-        <div className="mb-2 text-xs font-semibold text-muted-foreground">Customizados</div>
+        <div className="mb-2 text-xs font-semibold text-muted-foreground">
+          Customizados
+        </div>
+
         <div className="grid grid-cols-6 gap-2">
           {CUSTOM_EMOJIS.map((emoji) => (
             <button
               key={emoji.id}
               type="button"
-              onClick={() => {
-                onSelectEmoji(emoji.shortcode);
-              }}
+              onClick={() => onSelectEmoji(emoji.shortcode)}
               className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-background hover:bg-muted"
               title={emoji.label}
             >
-              <Image src={emoji.imageUrl} alt={emoji.label} className="h-10 w-10 object-contain" draggable={false} />
+              <Image
+                src={emoji.imageUrl}
+                alt={emoji.label}
+                className="h-10 w-10 object-contain"
+                draggable={false}
+              />
             </button>
           ))}
         </div>
@@ -66,7 +52,10 @@ export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
 
       {/* Unicode Emojis Section */}
       <div>
-        <div className="mb-2 text-xs font-semibold text-muted-foreground">Padrão</div>
+        <div className="mb-2 text-xs font-semibold text-muted-foreground">
+          Padrão
+        </div>
+
         <div className="grid grid-cols-6 gap-2">
           {EMOJI_ITEMS.map((item, index) => (
             <button
@@ -76,7 +65,9 @@ export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
                 if (item.type === 'unicode') {
                   onSelectEmoji(item.value);
                 } else {
-                  onSelectEmoji(buildImageToken(item.id, item.src, item.alt));
+                  onSelectEmoji(
+                    buildImageToken(item.id, item.src, item.alt)
+                  );
                 }
               }}
               className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-background hover:bg-muted"
@@ -84,7 +75,12 @@ export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
               {item.type === 'unicode' ? (
                 <span className="text-xl">{item.value}</span>
               ) : (
-                <Image src={item.src} alt={item.alt} className="h-10 w-10 object-contain" draggable={false} />
+                <Image
+                  src={item.src}
+                  alt={item.alt}
+                  className="h-10 w-10 object-contain"
+                  draggable={false}
+                />
               )}
             </button>
           ))}
