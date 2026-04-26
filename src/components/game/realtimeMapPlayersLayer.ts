@@ -486,12 +486,6 @@ export function mountRealtimeMapPlayersLayer({
       child.traverse((subChild: any) => { subChild.userData.playerId = playerId; });
     });
 
-    // FIX 3: marca também o entry.group e o spaceMesh para que cliques no
-    // espaço azul (spaceMesh) também encontrem o playerId no parent chain
-    entry.group.userData.playerId = playerId;
-    if (entry.spaceMesh) entry.spaceMesh.userData.playerId = playerId;
-    entry.modelContainer.userData.playerId = playerId;
-
     console.log('✅ upsertPlayer concluído para:', playerId, '| Total:', entries.size);
   }
 

@@ -12,7 +12,6 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "socket.io-client": "^4.8.1",
     "@astrojs/check": "0.9.4",
     "@astrojs/cloudflare": "12.5.5",
     "@astrojs/react": "4.3.0",
