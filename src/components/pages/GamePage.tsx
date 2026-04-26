@@ -265,12 +265,12 @@ export default function GamePage() {
       }
     }
 
-    socket.on('mapSnapshot', (players: any[]) => {
+    function handleMapSnapshot(players: any[]) {
       if (!isMounted) return;
       void processSnapshot(players);
-    });
+    }
 
-    socket.on('playerJoined', async (p: any) => {
+    async function handlePlayerJoined(p: any) {
       if (!isMounted) return;
       const pId = String(p.id || p._id || '');
       if (pId === (myId || String(player?._id || ''))) return;
@@ -284,9 +284,9 @@ export default function GamePage() {
         power:        Number(p.power ?? 0),
         factionId:    p.factionId ?? null,
       });
-    });
+    }
 
-    socket.on('playerMoved', async (data: any) => {
+    async function handlePlayerMoved(data: any) {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
       if (pId === (myId || String(player?._id || ''))) {
@@ -300,9 +300,9 @@ export default function GamePage() {
         tileX: Number(data.tileX),
         tileY: Number(data.tileY),
       });
-    });
+    }
 
-    socket.on('playerTeleported', async (data: any) => {
+    async function handlePlayerTeleported(data: any) {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
       if (pId === (myId || String(player?._id || ''))) {
@@ -319,13 +319,19 @@ export default function GamePage() {
         tileX: Number(data.newPosition.tileX),
         tileY: Number(data.newPosition.tileY),
       });
-    });
+    }
 
-    socket.on('playerLeft', (data: { playerId: string }) => {
+    function handlePlayerLeft(data: { playerId: string }) {
       if (!isMounted) return;
       localPlayers.delete(String(data.playerId));
       void realtimePlayersLayer.refresh();
-    });
+    }
+
+    socket.on('mapSnapshot', handleMapSnapshot);
+    socket.on('playerJoined', handlePlayerJoined);
+    socket.on('playerMoved', handlePlayerMoved);
+    socket.on('playerTeleported', handlePlayerTeleported);
+    socket.on('playerLeft', handlePlayerLeft);
 
     // ── barracoInfo: enriquece modal + prepara AttackTarget ───────────────
     socket.on('barracoInfo', (data: any) => {
@@ -526,11 +532,11 @@ export default function GamePage() {
       renderer.domElement.removeEventListener('click', handleClick);
 
       socket.off('playerInit');
-      socket.off('mapSnapshot');
-      socket.off('playerJoined');
-      socket.off('playerMoved');
-      socket.off('playerTeleported');
-      socket.off('playerLeft');
+      socket.off('mapSnapshot', handleMapSnapshot);
+      socket.off('playerJoined', handlePlayerJoined);
+      socket.off('playerMoved', handlePlayerMoved);
+      socket.off('playerTeleported', handlePlayerTeleported);
+      socket.off('playerLeft', handlePlayerLeft);
       socket.off('barracoInfo');
 
       controls.dispose();
