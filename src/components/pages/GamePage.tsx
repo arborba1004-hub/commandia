@@ -233,7 +233,7 @@ export default function GamePage() {
     // ═════════════════════════════════════════════════════════════════════════
     const socket = getSocket();
 
-    socket.on('playerInit', (data: { player: any; faction?: any }) => {
+    const onPlayerInit = (data: { player: any; faction?: any }) => {
       if (!isMounted) return;
       const incomingId = String(data.player?._id || data.player?.id || '');
       if (incomingId) {
@@ -241,7 +241,8 @@ export default function GamePage() {
         console.log('✅ playerInit: myId =', myId);
       }
       usePlayerStore.getState().hydratePlayerFromServer(data.player);
-    });
+    };
+    socket.on('playerInit', onPlayerInit);
 
     async function processSnapshot(players: any[]) {
       if (!isMounted || !Array.isArray(players)) return;
@@ -334,7 +335,7 @@ export default function GamePage() {
     socket.on('playerLeft', handlePlayerLeft);
 
     // ── barracoInfo: enriquece modal + prepara AttackTarget ───────────────
-    socket.on('barracoInfo', (data: any) => {
+    const onBarracoInfo = (data: any) => {
       if (!isMounted) return;
       console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
 
@@ -360,7 +361,8 @@ export default function GamePage() {
         power:        Number(data.power ?? 0),
         factionId:    data.factionId ?? null,
       });
-    });
+    };
+    socket.on('barracoInfo', onBarracoInfo);
 
     if (socket.connected) {
       socket.emit('requestMapSnapshot');
@@ -531,13 +533,13 @@ export default function GamePage() {
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('click', handleClick);
 
-      socket.off('playerInit');
+      socket.off('playerInit', onPlayerInit);
       socket.off('mapSnapshot', handleMapSnapshot);
       socket.off('playerJoined', handlePlayerJoined);
       socket.off('playerMoved', handlePlayerMoved);
       socket.off('playerTeleported', handlePlayerTeleported);
       socket.off('playerLeft', handlePlayerLeft);
-      socket.off('barracoInfo');
+      socket.off('barracoInfo', onBarracoInfo);
 
       controls.dispose();
       realtimePlayersLayer.cleanup();
