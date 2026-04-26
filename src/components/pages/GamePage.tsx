@@ -23,6 +23,7 @@ import OtherPlayerBarracoModal, {
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
+import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
 const GRID_HEIGHT     = 120;
@@ -576,9 +577,81 @@ export default function GamePage() {
   }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
 
   return (
-    <div className="w-full h-[calc(100vh-104px)] min-h-[500px]">
-      <div ref={mountRef} className="w-full h-full" />
+    <div className="fixed inset-0 z-40 bg-black overflow-hidden">
 
+      {/* MAPA — tela cheia */}
+      <div ref={mountRef} className="absolute inset-0" />
+
+      {/* ── HUD TOPO ESQUERDO — avatar + nome + saldos ─────────────────── */}
+      <div className="absolute top-3 left-3 z-10 flex items-start gap-2 pointer-events-none">
+
+        {/* Avatar com nível */}
+        <div className="relative shrink-0">
+          {avatarUrl ? (
+            <Image src={avatarUrl} alt={playerName} className="h-16 w-16 rounded-2xl border-2 border-[#d9b764] object-cover shadow-[0_0_12px_rgba(217,183,100,0.4)]" />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-[#d9b764] bg-zinc-900 text-2xl font-black text-[#d9b764]">
+              {playerName[0]?.toUpperCase() || '?'}
+            </div>
+          )}
+          {/* Badge de nível */}
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-[#d9b764] px-2 py-0.5 text-[9px] font-black text-black whitespace-nowrap shadow">
+            {playerLevel}
+          </div>
+        </div>
+
+        {/* Nome + saldos */}
+        <div className="flex flex-col gap-1">
+          <div className="rounded-xl bg-black/70 backdrop-blur-sm border border-white/10 px-3 py-1">
+            <p className="font-black text-[#f6d27b] text-sm leading-none tracking-wide uppercase truncate max-w-[140px]">
+              {playerName}
+            </p>
+          </div>
+
+          {/* Commands Sujo */}
+          <div className="flex items-center gap-1.5 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10 px-2.5 py-1">
+            <Image src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
+            <span className="text-[10px] font-bold text-zinc-400 uppercase">Sujo</span>
+            <span className="text-xs font-black text-white ml-0.5">{fmt(dirtyMoney)}</span>
+          </div>
+
+          {/* Commands Limpo */}
+          <div className="flex items-center gap-1.5 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10 px-2.5 py-1">
+            <Image src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
+            <span className="text-[10px] font-bold text-zinc-400 uppercase">Limpo</span>
+            <span className="text-xs font-black text-white ml-0.5">{fmt(cleanMoney)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── HUD INFERIOR DIREITO — ícones de chat ─────────────────────── */}
+      <div className="absolute bottom-8 right-4 z-10 flex flex-col gap-3 pointer-events-auto">
+
+        {/* Complexo */}
+        <button type="button" onClick={() => navigate('/chat?channel=complexo')}
+          className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/75 shadow-[0_4px_20px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 active:scale-90 transition-all">
+          <Image src={ICON_COMPLEXO} alt="Complexo" className="h-8 w-8 object-contain" />
+        </button>
+
+        {/* Facção */}
+        <button type="button" onClick={() => navigate('/chat?channel=faccao')}
+          className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/75 shadow-[0_4px_20px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 active:scale-90 transition-all">
+          <Image src={ICON_FACCAO} alt="Facção" className="h-8 w-8 object-contain" />
+        </button>
+
+        {/* Correio pessoal com badge */}
+        <button type="button" onClick={() => navigate('/chat?channel=mail')}
+          className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/75 shadow-[0_4px_20px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 active:scale-90 transition-all">
+          <Image src={ICON_MAIL} alt="Correio" className="h-8 w-8 object-contain" />
+          {unreadMailCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-black text-black shadow">
+              {unreadMailCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── Modais ───────────────────────────────────────────────────── */}
       <OtherPlayerBarracoModal
         state={modalState}
         myFactionId={myFactionId}
