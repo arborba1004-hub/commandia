@@ -81,6 +81,12 @@ export type RealtimeMapPlayersLayerOptions = {
   pollingMs?: number;
   limit?: number;
   showSpaces?: boolean;
+  /**
+   * Retorna o ID do próprio jogador para ser filtrado da camada de outros jogadores.
+   * Evita duplicidade: o barraco próprio é renderizado via mountPlayerMapSpace,
+   * não via esta camada. Deve ser uma closure que lê a variável atualizada em tempo real.
+   */
+  getMyId?: () => string | null;
 };
 
 export type RealtimeMapPlayersLayer = {
@@ -433,6 +439,7 @@ export function mountRealtimeMapPlayersLayer({
   pollingMs = DEFAULT_POLLING_MS,
   limit = DEFAULT_LIMIT,
   showSpaces = true,
+  getMyId,
 }: RealtimeMapPlayersLayerOptions): RealtimeMapPlayersLayer {
   const group = new THREE.Group();
   scene.add(group);
@@ -490,10 +497,21 @@ export function mountRealtimeMapPlayersLayer({
   }
 
   async function syncSnapshot(players: MapPlayerSnapshot[]) {
+    // ── FILTRO ANTI-DUPLICIDADE ─────────────────────────────────────────────
+    // Remove o próprio jogador do snapshot para que o barraco próprio seja
+    // renderizado exclusivamente via mountPlayerMapSpace (não aqui).
+    const myId = getMyId?.() ?? null;
     const nextIds = new Set<string>();
 
     for (const snapshot of players) {
       const playerId = String(snapshot.id);
+
+      // Pula o próprio jogador — evita barraco duplicado
+      if (myId && playerId === myId) {
+        console.log('⏭️ syncSnapshot: ignorando próprio jogador:', playerId);
+        continue;
+      }
+
       nextIds.add(playerId);
 
       let entry = entries.get(playerId);
@@ -614,6 +632,15 @@ export function mountRealtimeMapPlayersLayer({
   async function upsertPlayer(snapshot: MapPlayerSnapshot) {
     if (disposed) {
       console.log('⚠️ upsertPlayer ignorado: layer foi descartado');
+      return;
+    }
+
+    // ── FILTRO ANTI-DUPLICIDADE ─────────────────────────────────────────────
+    // Guarda de segurança: o próprio jogador nunca deve ser inserido aqui.
+    // Seu barraco é gerenciado exclusivamente por mountPlayerMapSpace.
+    const myId = getMyId?.() ?? null;
+    if (myId && String(snapshot.id) === myId) {
+      console.log('⏭️ upsertPlayer ignorado: próprio jogador (guard getMyId)');
       return;
     }
 
