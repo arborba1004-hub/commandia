@@ -16,5 +16,11 @@
     "label": "README",
     "shortcode": ":readme:",
     "imageUrl": "/emojis/readme-1777243667161.png"
+  },
+  {
+    "id": "1777243805486",
+    "label": ".KEEP",
+    "shortcode": ":keep:",
+    "imageUrl": "/emojis/keep-1777243805486.png"
   }
 ]
