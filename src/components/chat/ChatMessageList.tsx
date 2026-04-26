@@ -17,448 +17,282 @@ interface ChatMessageListProps {
 const HELP_ICON_URL =
   'https://static.wixstatic.com/media/50f4bf_f469fff24bd3478eae136dd027c0106b~mv2.png';
 
+function formatTime(value: string) {
+  try {
+    return new Date(value).toLocaleTimeString('pt-BR', {
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return value; }
+}
+
 function formatDate(value: string) {
   try {
     return new Date(value).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
+      day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit',
     });
-  } catch {
-    return value;
-  }
+  } catch { return value; }
 }
 
-type BodyPart =
-  | { type: 'text'; value: string }
-  | { type: 'image'; id: string; src: string; alt: string }
-  | { type: 'custom-emoji'; id: string; shortcode: string; imageUrl: string; label: string };
+function getInitials(name: string) {
+  return (name || 'J').trim().split(/\s+/).slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() || '').join('') || 'J';
+}
 
-function parseMessageBody(body: string): BodyPart[] {
-  const imageTokenRegex = /\[imgemoji:([^|\]]+)\|([^|\]]+)\|([^\]]+)\]/g;
-  const customEmojiRegex = /:([a-z_]+):/g;
-  
-  const parts: BodyPart[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+// Cores de avatar por inicial (consistente por nome)
+const AVATAR_COLORS = [
+  'bg-red-700', 'bg-orange-700', 'bg-amber-700',
+  'bg-emerald-700', 'bg-cyan-700', 'bg-blue-700',
+  'bg-violet-700', 'bg-pink-700',
+];
+function avatarColor(name: string) {
+  const code = (name || 'J').charCodeAt(0) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[code];
+}
 
-  // First pass: find all image tokens and custom emojis
-  const tokens: Array<{ type: 'image' | 'custom-emoji'; index: number; length: number; data: any }> = [];
-
-  // Find image tokens
-  while ((match = imageTokenRegex.exec(body)) !== null) {
-    tokens.push({
-      type: 'image',
-      index: match.index,
-      length: match[0].length,
-      data: {
-        id: match[1],
-        src: match[2],
-        alt: match[3],
-      },
-    });
-  }
-
-  // Find custom emojis
-  while ((match = customEmojiRegex.exec(body)) !== null) {
-    const shortcode = match[0]; // e.g., ":comando_hostil:"
-    const emoji = CUSTOM_EMOJIS.find((e) => e.shortcode === shortcode);
+// Parse de emojis customizados no body
+function parseBody(body: string) {
+  const parts: Array<{ type: 'text' | 'emoji'; value: string; imageUrl?: string; label?: string }> = [];
+  const regex = /:([a-z_]+):/g;
+  let last = 0, match: RegExpExecArray | null;
+  while ((match = regex.exec(body)) !== null) {
+    const emoji = CUSTOM_EMOJIS.find((e) => e.shortcode === match![0]);
     if (emoji) {
-      tokens.push({
-        type: 'custom-emoji',
-        index: match.index,
-        length: match[0].length,
-        data: {
-          id: emoji.id,
-          shortcode: emoji.shortcode,
-          imageUrl: emoji.imageUrl,
-          label: emoji.label,
-        },
-      });
+      if (match.index > last) parts.push({ type: 'text', value: body.slice(last, match.index) });
+      parts.push({ type: 'emoji', value: emoji.shortcode, imageUrl: emoji.imageUrl, label: emoji.label });
+      last = match.index + match[0].length;
     }
   }
-
-  // Sort tokens by index
-  tokens.sort((a, b) => a.index - b.index);
-
-  // Build parts array
-  lastIndex = 0;
-  for (const token of tokens) {
-    // Add text before token
-    if (token.index > lastIndex) {
-      parts.push({
-        type: 'text',
-        value: body.slice(lastIndex, token.index),
-      });
-    }
-
-    // Add token
-    if (token.type === 'image') {
-      parts.push({
-        type: 'image',
-        id: token.data.id,
-        src: token.data.src,
-        alt: token.data.alt,
-      });
-    } else if (token.type === 'custom-emoji') {
-      parts.push({
-        type: 'custom-emoji',
-        id: token.data.id,
-        shortcode: token.data.shortcode,
-        imageUrl: token.data.imageUrl,
-        label: token.data.label,
-      });
-    }
-
-    lastIndex = token.index + token.length;
-  }
-
-  // Add remaining text
-  if (lastIndex < body.length) {
-    parts.push({
-      type: 'text',
-      value: body.slice(lastIndex),
-    });
-  }
-
-  // If no parts were added, return the whole body as text
-  if (!parts.length) {
-    parts.push({
-      type: 'text',
-      value: body,
-    });
-  }
-
+  if (last < body.length) parts.push({ type: 'text', value: body.slice(last) });
+  if (!parts.length) parts.push({ type: 'text', value: body });
   return parts;
 }
 
-const MessageBody = memo(function MessageBody({ body }: { body: string }) {
-  const parts = useMemo(() => parseMessageBody(body), [body]);
-
+const MessageBody = memo(({ body }: { body: string }) => {
+  const parts = useMemo(() => parseBody(body), [body]);
   return (
-    <div className="text-sm leading-relaxed text-foreground">
-      {parts.map((part, index) => {
-        if (part.type === 'text') {
-          return (
-            <span key={`text-${index}`} className="whitespace-pre-wrap break-words">
-              {part.value}
-            </span>
-          );
-        }
-
-        if (part.type === 'custom-emoji') {
-          return (
-            <Image
-              key={`emoji-${part.id}-${index}`}
-              src={part.imageUrl}
-              alt={part.label}
-              className="inline-block h-8 w-8 align-middle"
-              draggable={false}
-              loading="lazy"
-            />
-          );
-        }
-
-        return (
-          <Image
-            key={`img-${part.id}-${index}`}
-            src={part.src}
-            alt={part.alt}
-            className="my-2 h-20 w-20 object-contain"
-            draggable={false}
-            loading="lazy"
-          />
-        );
-      })}
-    </div>
+    <span className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+      {parts.map((p, i) =>
+        p.type === 'emoji' ? (
+          <Image key={i} src={p.imageUrl!} alt={p.label!}
+            className="inline-block h-6 w-6 align-middle" />
+        ) : (
+          <span key={i}>{p.value}</span>
+        )
+      )}
+    </span>
   );
 });
 
-const FactionHelpCard = memo(function FactionHelpCard({
-  request,
-  currentUserId,
-  onHelp,
-  isHelpingRequest = false,
+// ── Cartão de pedido de corre ─────────────────────────────────────────────────
+const FactionHelpCard = memo(({
+  request, currentUserId, onHelp, isHelpingRequest = false,
 }: {
   request: FactionHelpRequest;
   currentUserId: string;
-  onHelp?: (requestId: string) => void;
+  onHelp?: (id: string) => void;
   isHelpingRequest?: boolean;
-}) {
+}) => {
   const helpCount = Number(request.helpCount || 0);
-  const maxHelps = Number(request.maxHelps || 10);
-  const remainingHelps = Math.max(0, maxHelps - helpCount);
-  const progressPercent = Math.min(100, (helpCount / maxHelps) * 100);
-
+  const maxHelps  = Number(request.maxHelps  || 10);
+  const remaining = Math.max(0, maxHelps - helpCount);
+  const pct       = Math.min(100, (helpCount / maxHelps) * 100);
   const alreadyHelped = (request.helperIds || []).includes(String(currentUserId));
-  const isOwnRequest = String(request.requesterId) === String(currentUserId);
-  const isCompleted = request.status === 'completed' || remainingHelps <= 0;
+  const isOwn         = String(request.requesterId) === String(currentUserId);
+  const isComplete    = request.status === 'completed' || remaining <= 0;
+  const disabled      = isHelpingRequest || alreadyHelped || isOwn || isComplete;
 
-  const buttonDisabled =
-    isHelpingRequest || alreadyHelped || isOwnRequest || isCompleted;
-
-  let buttonLabel = 'Ajudar';
-  if (isOwnRequest) buttonLabel = 'Seu pedido';
-  else if (alreadyHelped) buttonLabel = 'Você ajudou';
-  else if (isCompleted) buttonLabel = 'Completo';
-  else if (isHelpingRequest) buttonLabel = 'Enviando...';
+  let label = 'Ajudar';
+  if (isOwn)         label = 'Seu pedido';
+  else if (alreadyHelped) label = 'Você ajudou';
+  else if (isComplete)    label = 'Completo';
+  else if (isHelpingRequest) label = 'Enviando...';
 
   return (
-    <div className="rounded-3xl border border-red-500/30 bg-black/70 p-4 shadow-[0_0_25px_rgba(255,0,0,0.18)]">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="flex shrink-0 items-center justify-center">
-          <Image src={HELP_ICON_URL} alt="Ajuda no corre" className="h-28 w-28 object-contain md:h-32 md:w-32" />
+    <div className="rounded-2xl border border-red-500/30 bg-black/60 p-4">
+      <div className="flex items-center gap-3">
+        <Image src={HELP_ICON_URL} alt="Corre" className="h-14 w-14 object-contain" />
+        <div className="flex-1 min-w-0">
+          <p className="font-black text-white text-sm">{request.requesterName} pediu corre</p>
+          <p className="text-xs text-zinc-400 mt-0.5">{request.message}</p>
+          <div className="mt-2 h-2 rounded-full bg-zinc-800">
+            <div className="h-full rounded-full bg-red-600 transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="text-[11px] text-zinc-500 mt-1">{helpCount}/{maxHelps} corres • Faltam {remaining}</p>
         </div>
+        <button type="button" onClick={() => onHelp?.(request.id)} disabled={disabled}
+          className="shrink-0 rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white disabled:opacity-50">
+          {label}
+        </button>
+      </div>
+    </div>
+  );
+});
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-red-700 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
-              Ajuda no corre
-            </span>
+// ── Mensagem estilo WhatsApp (complexo / facção) ───────────────────────────────
+const GroupMessageItem = memo(({
+  message, currentUserId, factionHelpRequests, onHelpFactionRequest, isHelpingRequest,
+}: {
+  message: ChatMessage;
+  currentUserId: string;
+  factionHelpRequests: FactionHelpRequest[];
+  onHelpFactionRequest?: (id: string) => void;
+  isHelpingRequest?: boolean;
+}) => {
+  const isMine = String(message.senderId) === String(currentUserId);
 
-            <span className="rounded-full border border-yellow-400/40 bg-yellow-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-yellow-300">
-              +1 corre por ajuda
-            </span>
-          </div>
+  // Cartão de pedido de corre
+  if (message.messageType === 'faction_help_request') {
+    const req = factionHelpRequests.find(
+      (r) => String(r.id) === String(message.metadata?.requestId || '')
+    );
+    if (req) return (
+      <FactionHelpCard request={req} currentUserId={currentUserId}
+        onHelp={onHelpFactionRequest} isHelpingRequest={isHelpingRequest} />
+    );
+  }
 
-          <div className="mt-3 text-lg font-black text-white">
-            {request.requesterName} pediu fortalecimento
-          </div>
-
-          <p className="mt-1 text-sm text-zinc-300">
-            {request.message || 'Família, fortalece no corre aí 🙏'}
-          </p>
-
-          <div className="mt-4 flex items-end gap-4">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
-                Faltam
-              </div>
-              <div className="text-4xl font-black leading-none text-yellow-300">
-                {remainingHelps}
-              </div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                corres
-              </div>
-            </div>
-
-            <div className="flex-1">
-              <div className="mb-2 flex items-center justify-between text-xs font-semibold text-zinc-400">
-                <span>Progresso</span>
-                <span>
-                  {helpCount}/{maxHelps}
-                </span>
-              </div>
-
-              <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className="h-full rounded-full bg-red-600 transition-all duration-300"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-          </div>
+  return (
+    <div className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+      {/* Avatar */}
+      {!isMine && (
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black text-white ${avatarColor(message.senderName)}`}>
+          {getInitials(message.senderName)}
         </div>
+      )}
 
-        <div className="flex shrink-0 items-center">
-          <button
-            type="button"
-            onClick={() => onHelp?.(request.id)}
-            disabled={buttonDisabled}
-            className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black uppercase tracking-wide text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {buttonLabel}
-          </button>
+      <div className={`flex max-w-[75%] flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+        {/* Nome + facção (só para mensagens dos outros) */}
+        {!isMine && (
+          <div className="mb-1 flex items-center gap-2 px-1">
+            <span className="text-[11px] font-black text-zinc-300">
+              {message.senderName}
+            </span>
+            {message.factionId && (
+              <span className="rounded-full bg-red-700/40 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-red-300">
+                {message.factionId}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Bolha */}
+        <div className={`rounded-2xl px-3 py-2 ${
+          isMine
+            ? 'rounded-br-sm bg-red-700 text-white'
+            : 'rounded-bl-sm bg-zinc-800 text-white'
+        }`}>
+          <MessageBody body={message.body} />
+          <div className={`mt-1 text-[10px] ${isMine ? 'text-right text-red-200' : 'text-zinc-500'}`}>
+            {formatTime(message.createdAt)}
+            {isMine && <span className="ml-1">{message.read ? '✓✓' : '✓'}</span>}
+          </div>
         </div>
       </div>
     </div>
   );
 });
 
-const MessageItem = memo(function MessageItem({
-  message,
-  channel,
-  currentUserId,
-  onOpenMail,
-  factionHelpRequests = [],
-  onHelpFactionRequest,
-  isHelpingRequest = false,
+// ── Mensagem de mail (email style, flat list) ──────────────────────────────────
+const MailMessageItem = memo(({
+  message, currentUserId, onOpenMail,
 }: {
   message: ChatMessage;
-  channel: 'complexo' | 'faccao' | 'mail';
   currentUserId: string;
-  onOpenMail?: (messageId: string) => void;
-  factionHelpRequests?: FactionHelpRequest[];
-  onHelpFactionRequest?: (requestId: string) => void;
-  isHelpingRequest?: boolean;
-}) {
-  const isMine = String(message.senderId || '') === String(currentUserId || '');
-  const isMail = channel === 'mail';
-  const isUnreadMail =
-    isMail &&
-    String(message.recipientId || '') === String(currentUserId || '') &&
-    !message.read;
-
-  if (message.messageType === 'faction_help_request') {
-    const requestId = String(message.metadata?.requestId || '');
-    const request = factionHelpRequests.find((item) => String(item.id) === requestId);
-
-    if (request) {
-      return (
-        <FactionHelpCard
-          request={request}
-          currentUserId={currentUserId}
-          onHelp={onHelpFactionRequest}
-          isHelpingRequest={isHelpingRequest}
-        />
-      );
-    }
-  }
-
-  const WrapperTag = isMail ? 'button' : 'div';
+  onOpenMail?: (id: string) => void;
+}) => {
+  const isMine   = String(message.senderId) === String(currentUserId);
+  const isUnread = !isMine && !message.read;
 
   return (
-    <WrapperTag
-      {...(isMail
-        ? {
-            type: 'button' as const,
-            onClick: () => {
-              if (onOpenMail) onOpenMail(message.id);
-            },
-          }
-        : {})}
-      className={[
-        'w-full rounded-2xl border text-left transition-colors',
-        isMine
-          ? 'self-end border-red-500/30 bg-red-500/10'
-          : 'border-border bg-card',
-        isMail ? 'p-4 hover:bg-muted/60' : 'p-3',
-        isUnreadMail ? 'ring-1 ring-yellow-400/60' : '',
-      ].join(' ')}
+    <button type="button" onClick={() => onOpenMail?.(message.id)}
+      className={`w-full rounded-2xl border text-left p-4 transition hover:bg-white/5 ${
+        isUnread ? 'border-yellow-400/40 bg-yellow-500/5' : 'border-border bg-card'
+      }`}
     >
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-black uppercase tracking-wide">
-            {message.senderName || 'Jogador'}
-          </p>
-
-          {isMail && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {isMine
-                ? `Para: ${message.recipientName || 'Destinatário'}`
-                : `De: ${message.senderName || 'Remetente'}`}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black text-white ${
+            avatarColor(isMine ? (message.recipientName || '') : message.senderName)
+          }`}>
+            {getInitials(isMine ? (message.recipientName || 'J') : message.senderName)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-white">
+              {isMine ? `Para: ${message.recipientName}` : message.senderName}
             </p>
+            {message.subject && (
+              <p className="truncate text-xs text-zinc-400">{message.subject}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className="text-[11px] text-zinc-500">{formatDate(message.createdAt)}</span>
+          {isUnread && (
+            <span className="h-2 w-2 rounded-full bg-yellow-400" />
           )}
         </div>
-
-        <div className="shrink-0 text-[11px] text-muted-foreground">
-          {formatDate(message.createdAt)}
-        </div>
       </div>
-
-      {isMail && message.subject && (
-        <p className="mb-2 text-sm font-bold text-foreground">
-          Assunto: {message.subject}
-        </p>
-      )}
-
-      <MessageBody body={message.body} />
-
-      <div className="mt-3 flex items-center gap-2">
-        {message.system && (
-          <span className="rounded-full bg-blue-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-300">
-            Sistema
-          </span>
-        )}
-
-        {message.messageType === 'faction_help_update' && (
-          <span className="rounded-full bg-yellow-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-yellow-300">
-            Ajuda registrada
-          </span>
-        )}
-
-        {isMail && isUnreadMail && (
-          <span className="rounded-full bg-yellow-400/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-yellow-300">
-            Não lida
-          </span>
-        )}
-
-        {isMail && !isUnreadMail && (
-          <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-300">
-            {message.read ? 'Lida' : 'Enviada'}
-          </span>
-        )}
-      </div>
-    </WrapperTag>
+      <p className="mt-2 truncate text-sm text-zinc-400">{message.body}</p>
+    </button>
   );
 });
 
+// ── Export principal ───────────────────────────────────────────────────────────
 export default function ChatMessageList({
-  messages,
-  channel,
-  currentUserId,
-  isLoading = false,
-  onOpenMail,
-  factionHelpRequests = [],
-  onHelpFactionRequest,
-  isHelpingRequest = false,
+  messages, channel, currentUserId, isLoading = false,
+  onOpenMail, factionHelpRequests = [], onHelpFactionRequest, isHelpingRequest = false,
 }: ChatMessageListProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const previousLastMessageIdRef = useRef<string | null>(null);
+  const prevLastId   = useRef<string | null>(null);
 
-  const orderedMessages = useMemo(() => {
-    return [...messages].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
-  }, [messages]);
+  const ordered = useMemo(
+    () => [...messages].sort((a, b) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    ),
+    [messages]
+  );
 
   useEffect(() => {
     if (!containerRef.current) return;
-
-    const lastMessageId =
-      orderedMessages.length > 0 ? orderedMessages[orderedMessages.length - 1].id : null;
-
-    if (lastMessageId && previousLastMessageIdRef.current !== lastMessageId) {
+    const lastId = ordered.at(-1)?.id ?? null;
+    if (lastId && prevLastId.current !== lastId) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
-      previousLastMessageIdRef.current = lastMessageId;
+      prevLastId.current = lastId;
     }
-  }, [orderedMessages]);
+  }, [ordered]);
 
-  if (isLoading && orderedMessages.length === 0) {
+  if (isLoading && !ordered.length) {
     return (
-      <div className="flex h-full items-center justify-center px-4 py-10 text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-sm text-zinc-500">
         Carregando mensagens...
       </div>
     );
   }
 
-  if (!orderedMessages.length) {
+  if (!ordered.length) {
     return (
-      <div className="flex h-full items-center justify-center px-4 py-10 text-sm text-muted-foreground">
-        {channel === 'mail' ? 'Nenhum correio encontrado.' : 'Nenhuma mensagem ainda.'}
+      <div className="flex h-full items-center justify-center text-sm text-zinc-500">
+        {channel === 'mail' ? 'Nenhum correio.' : 'Nenhuma mensagem ainda.'}
       </div>
     );
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="h-full overflow-y-auto px-4 py-4 will-change-transform"
-    >
-      <div className="flex flex-col gap-3">
-        {orderedMessages.map((message) => (
-          <MessageItem
-            key={message.id}
-            message={message}
-            channel={channel}
-            currentUserId={currentUserId}
-            onOpenMail={onOpenMail}
-            factionHelpRequests={factionHelpRequests}
-            onHelpFactionRequest={onHelpFactionRequest}
-            isHelpingRequest={isHelpingRequest}
-          />
-        ))}
+    <div ref={containerRef} className="h-full overflow-y-auto px-4 py-4">
+      <div className={`flex flex-col gap-3 ${channel !== 'mail' ? 'gap-2' : ''}`}>
+        {ordered.map((msg) =>
+          channel === 'mail' ? (
+            <MailMessageItem key={msg.id} message={msg}
+              currentUserId={currentUserId} onOpenMail={onOpenMail} />
+          ) : (
+            <GroupMessageItem key={msg.id} message={msg}
+              currentUserId={currentUserId}
+              factionHelpRequests={factionHelpRequests}
+              onHelpFactionRequest={onHelpFactionRequest}
+              isHelpingRequest={isHelpingRequest} />
+          )
+        )}
       </div>
     </div>
   );
