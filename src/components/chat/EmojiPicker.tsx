@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Image } from '@/components/ui/image';
+import CUSTOM_EMOJIS from '@/data/customEmojis.json';
 
 type CustomEmoji = {
   id: string;
@@ -16,48 +16,43 @@ interface EmojiPickerProps {
   onSelectEmoji: (value: string) => void;
 }
 
+const STATIC_EMOJIS: EmojiPickerItem[] = [
+  { type: 'unicode', value: '💥' },
+  {
+    type: 'image',
+    id: 'comando-apaixonado',
+    src: 'https://static.wixstatic.com/media/50f4bf_510e83d240c84061a9ae051d0c4be0af~mv2.png',
+    alt: 'Comando Apaixonado',
+  },
+  {
+    type: 'image',
+    id: 'comando-hostil',
+    src: 'https://static.wixstatic.com/media/50f4bf_fe66f84eeecf4b18ad5c8a07b3e807f7~mv2.png',
+    alt: 'Comando Hostil',
+  },
+  {
+    type: 'image',
+    id: 'sextou',
+    src: 'https://static.wixstatic.com/media/50f4bf_0fe37c167b134ab280c353da7c7dd9f2~mv2.png',
+    alt: 'Sextou',
+  },
+];
+
 function buildImageToken(id: string, src: string, alt: string) {
   return `[imgemoji:${id}|${src}|${alt}]`;
 }
 
 export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
-  const [items, setItems] = useState<EmojiPickerItem[]>([
-    { type: 'unicode', value: '💥' },
-    {
+  const customItems: EmojiPickerItem[] = (CUSTOM_EMOJIS as CustomEmoji[]).map(
+    (e) => ({
       type: 'image',
-      id: 'comando-apaixonado',
-      src: 'https://static.wixstatic.com/media/50f4bf_510e83d240c84061a9ae051d0c4be0af~mv2.png',
-      alt: 'Comando Apaixonado',
-    },
-    {
-      type: 'image',
-      id: 'comando-hostil',
-      src: 'https://static.wixstatic.com/media/50f4bf_fe66f84eeecf4b18ad5c8a07b3e807f7~mv2.png',
-      alt: 'Comando Hostil',
-    },
-    {
-      type: 'image',
-      id: 'sextou',
-      src: 'https://static.wixstatic.com/media/50f4bf_0fe37c167b134ab280c353da7c7dd9f2~mv2.png',
-      alt: 'Sextou',
-    },
-  ]);
+      id: e.id,
+      src: e.imageUrl,
+      alt: e.label,
+    })
+  );
 
-  useEffect(() => {
-    fetch('/src/data/customEmojis.json', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((data: CustomEmoji[]) => {
-        const mapped: EmojiPickerItem[] = data.map((e) => ({
-          type: 'image',
-          id: e.id,
-          src: e.imageUrl,
-          alt: e.label,
-        }));
-
-        setItems((prev) => [...mapped, ...prev]);
-      })
-      .catch(() => {});
-  }, []);
+  const items: EmojiPickerItem[] = [...customItems, ...STATIC_EMOJIS];
 
   return (
     <div className="w-[320px] rounded-2xl border border-border bg-card p-3 shadow-2xl">
