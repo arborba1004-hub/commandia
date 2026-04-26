@@ -62,9 +62,9 @@ async function run() {
     .join(",\n");
 
   const updated = existing.replace(
-    /export const customEmojis = \[/,
-    `export const customEmojis = [\n${insert},`
-  );
+  /export const CUSTOM_EMOJIS\s*=\s*\[/,
+  `export const CUSTOM_EMOJIS: CustomEmoji[] = [\n${insert},`
+);
 
   fs.writeFileSync(DATA_FILE, updated);
 }
