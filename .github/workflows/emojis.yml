@@ -22,7 +22,7 @@ jobs:
           node-version: 20
 
       - name: Process emojis
-        run: node scripts/process-emojis.js
+        run: node scripts/process-emojis.cjs
 
       - name: Commit changes
         run: |
