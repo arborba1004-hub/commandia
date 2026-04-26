@@ -13,17 +13,14 @@ import { teleportPlayerMapSpace }                      from '@/components/game/p
 
 import { usePlayerStore }        from '@/store/playerStore';
 import { getSocket }             from '@/socket';
-import type { AttackTarget }     from '@/store/mapAttackStore';
 import { invitePlayerToFaction } from '@/services/factionInviteService';
 
-import Header from '@/components/Header';
 import OtherPlayerBarracoModal, {
   type OtherPlayerBarracoTarget,
   createOtherPlayerBarracoModalState,
   openOtherPlayerBarracoModal,
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
-import MapAttackWithGangModal from '@/components/game/MapAttackWithGangModal';
 
 const GRID_WIDTH      = 120;
 const GRID_HEIGHT     = 120;
@@ -48,10 +45,6 @@ export default function GamePage() {
   const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
   const [isInviting,       setIsInviting]       = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-
-  // ── Modal: atacar com gang
-  const [attackModalOpen, setAttackModalOpen] = useState(false);
-  const [attackTarget,    setAttackTarget]    = useState<AttackTarget | null>(null);
 
   // ── Handler: mensagem privada
   const handleSendPrivateMessage = useCallback(
@@ -84,7 +77,6 @@ export default function GamePage() {
   const handleAttack = useCallback(
     (_target: OtherPlayerBarracoTarget) => {
       setModalState(closeOtherPlayerBarracoModal());
-      setAttackModalOpen(true);
     },
     []
   );
@@ -334,7 +326,7 @@ export default function GamePage() {
     socket.on('playerTeleported', handlePlayerTeleported);
     socket.on('playerLeft', handlePlayerLeft);
 
-    // ── barracoInfo: enriquece modal + prepara AttackTarget ───────────────
+    // ── barracoInfo: enriquece modal ───────────────
     const onBarracoInfo = (data: any) => {
       if (!isMounted) return;
       console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
@@ -350,17 +342,6 @@ export default function GamePage() {
           barracoLevel: Number(data.barracoLevel ?? 1),
         })
       );
-
-      // Prepara AttackTarget para o MapAttackWithGangModal
-      setAttackTarget({
-        playerId:     String(data.playerId),
-        playerName:   data.playerName || 'Jogador',
-        tileX:        Number(data.tileX ?? 0),
-        tileY:        Number(data.tileY ?? 0),
-        barracoLevel: Number(data.barracoLevel ?? 1),
-        power:        Number(data.power ?? 0),
-        factionId:    data.factionId ?? null,
-      });
     };
     socket.on('barracoInfo', onBarracoInfo);
 
@@ -566,13 +547,9 @@ export default function GamePage() {
   }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
 
   return (
-    <div className="min-h-screen bg-black">
-      <Header />
+    <div className="w-full h-[calc(100vh-104px)] min-h-[500px]">
+      <div ref={mountRef} className="w-full h-full" />
 
-      {/* Canvas 3D */}
-      <div ref={mountRef} className="w-full h-[calc(100vh-104px)] min-h-[500px]" />
-
-      {/* Modal: barraco de outro jogador */}
       <OtherPlayerBarracoModal
         state={modalState}
         myFactionId={myFactionId}
@@ -582,21 +559,6 @@ export default function GamePage() {
         onSendPrivateMessage={handleSendPrivateMessage}
         onInviteToFaction={handleInviteToFaction}
         onAttack={handleAttack}
-      />
-
-      {/* Modal: atacar com gang */}
-      <MapAttackWithGangModal
-        isOpen={attackModalOpen}
-        onClose={() => {
-          setAttackModalOpen(false);
-          setAttackTarget(null);
-        }}
-        target={attackTarget}
-        onAttackConfirmed={(result) => {
-          console.log('⚔️ Ataque concluído:', result);
-          setAttackModalOpen(false);
-          setAttackTarget(null);
-        }}
       />
     </div>
   );
