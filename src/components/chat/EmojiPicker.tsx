@@ -46,7 +46,7 @@ export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
   const [customEmojis, setCustomEmojis] = useState<CustomEmoji[]>([]);
 
   useEffect(() => {
-    fetch('/data/customEmojis.json')
+    fetch('/src/data/customEmojis.json', { cache: 'no-store' })
       .then((r) => r.json())
       .then(setCustomEmojis)
       .catch(() => setCustomEmojis([]));
