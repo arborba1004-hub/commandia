@@ -16,40 +16,47 @@ interface EmojiPickerProps {
   onSelectEmoji: (value: string) => void;
 }
 
-const STATIC_EMOJIS: EmojiPickerItem[] = [
-  { type: 'unicode', value: '💥' },
-  {
-    type: 'image',
-    id: 'comando-apaixonado',
-    src: 'https://static.wixstatic.com/media/50f4bf_510e83d240c84061a9ae051d0c4be0af~mv2.png',
-    alt: 'Comando Apaixonado',
-  },
-  {
-    type: 'image',
-    id: 'comando-hostil',
-    src: 'https://static.wixstatic.com/media/50f4bf_fe66f84eeecf4b18ad5c8a07b3e807f7~mv2.png',
-    alt: 'Comando Hostil',
-  },
-  {
-    type: 'image',
-    id: 'sextou',
-    src: 'https://static.wixstatic.com/media/50f4bf_0fe37c167b134ab280c353da7c7dd9f2~mv2.png',
-    alt: 'Sextou',
-  },
-];
-
 function buildImageToken(id: string, src: string, alt: string) {
   return `[imgemoji:${id}|${src}|${alt}]`;
 }
 
 export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
-  const [customEmojis, setCustomEmojis] = useState<CustomEmoji[]>([]);
+  const [items, setItems] = useState<EmojiPickerItem[]>([
+    { type: 'unicode', value: '💥' },
+    {
+      type: 'image',
+      id: 'comando-apaixonado',
+      src: 'https://static.wixstatic.com/media/50f4bf_510e83d240c84061a9ae051d0c4be0af~mv2.png',
+      alt: 'Comando Apaixonado',
+    },
+    {
+      type: 'image',
+      id: 'comando-hostil',
+      src: 'https://static.wixstatic.com/media/50f4bf_fe66f84eeecf4b18ad5c8a07b3e807f7~mv2.png',
+      alt: 'Comando Hostil',
+    },
+    {
+      type: 'image',
+      id: 'sextou',
+      src: 'https://static.wixstatic.com/media/50f4bf_0fe37c167b134ab280c353da7c7dd9f2~mv2.png',
+      alt: 'Sextou',
+    },
+  ]);
 
   useEffect(() => {
     fetch('/src/data/customEmojis.json', { cache: 'no-store' })
       .then((r) => r.json())
-      .then(setCustomEmojis)
-      .catch(() => setCustomEmojis([]));
+      .then((data: CustomEmoji[]) => {
+        const mapped: EmojiPickerItem[] = data.map((e) => ({
+          type: 'image',
+          id: e.id,
+          src: e.imageUrl,
+          alt: e.label,
+        }));
+
+        setItems((prev) => [...mapped, ...prev]);
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -58,65 +65,34 @@ export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
         Emojis e stickers
       </div>
 
-      <div className="mb-3 border-b border-border pb-3">
-        <div className="mb-2 text-xs font-semibold text-muted-foreground">
-          Customizados
-        </div>
-
-        <div className="grid grid-cols-6 gap-2">
-          {customEmojis.map((emoji) => (
-            <button
-              key={emoji.id}
-              type="button"
-              onClick={() => onSelectEmoji(emoji.shortcode)}
-              className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-background hover:bg-muted"
-              title={emoji.label}
-            >
+      <div className="grid grid-cols-6 gap-2">
+        {items.map((item, index) => (
+          <button
+            key={item.type === 'unicode' ? `${item.value}-${index}` : item.id}
+            type="button"
+            onClick={() => {
+              if (item.type === 'unicode') {
+                onSelectEmoji(item.value);
+              } else {
+                onSelectEmoji(
+                  buildImageToken(item.id, item.src, item.alt)
+                );
+              }
+            }}
+            className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-background hover:bg-muted"
+          >
+            {item.type === 'unicode' ? (
+              <span className="text-xl">{item.value}</span>
+            ) : (
               <Image
-                src={emoji.imageUrl}
-                alt={emoji.label}
+                src={item.src}
+                alt={item.alt}
                 className="h-10 w-10 object-contain"
                 draggable={false}
               />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <div className="mb-2 text-xs font-semibold text-muted-foreground">
-          Padrão
-        </div>
-
-        <div className="grid grid-cols-6 gap-2">
-          {STATIC_EMOJIS.map((item, index) => (
-            <button
-              key={item.type === 'unicode' ? `${item.value}-${index}` : item.id}
-              type="button"
-              onClick={() => {
-                if (item.type === 'unicode') {
-                  onSelectEmoji(item.value);
-                } else {
-                  onSelectEmoji(
-                    buildImageToken(item.id, item.src, item.alt)
-                  );
-                }
-              }}
-              className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-background hover:bg-muted"
-            >
-              {item.type === 'unicode' ? (
-                <span className="text-xl">{item.value}</span>
-              ) : (
-                <Image
-                  src={item.src}
-                  alt={item.alt}
-                  className="h-10 w-10 object-contain"
-                  draggable={false}
-                />
-              )}
-            </button>
-          ))}
-        </div>
+            )}
+          </button>
+        ))}
       </div>
     </div>
   );
