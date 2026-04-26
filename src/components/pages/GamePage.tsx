@@ -151,8 +151,12 @@ export default function GamePage() {
       tileSize:   TILE_SIZE,
       pollingMs:  10000,
       showSpaces: true,
+      // Closure que lê myId em tempo real — evita que o polling REST
+      // adicione o próprio barraco (que já existe via mountPlayerMapSpace).
+      getMyId: () => myId,
     });
-    
+    realtimePlayersLayer.start();
+
     // ── ESPAÇO DO PRÓPRIO JOGADOR ─────────────────────────────────────────
     // Coleta posições de outros jogadores para evitar sobreposição
     const occupiedOrigins = Array.from(localPlayers.values()).map((p) => ({
@@ -207,8 +211,8 @@ export default function GamePage() {
     // ═══════════════════════════════════════════════════════════════════════
     const socket = getSocket();
 
-    // ── Funções nomeadas para socket events ─────────────────────────────
-    function handlePlayerInit(data: { player: any; faction?: any }) {
+    // ── playerInit: define myId ──────────────────────────────────────────
+    socket.on('playerInit', (data: { player: any; faction?: any }) => {
       if (!isMounted) return;
       const incomingId = String(data.player?._id || data.player?.id || '');
       if (incomingId) {
@@ -216,8 +220,9 @@ export default function GamePage() {
         console.log('✅ playerInit: myId =', myId);
       }
       usePlayerStore.getState().hydratePlayerFromServer(data.player);
-    }
+    });
 
+    // ── Função auxiliar para processar snapshot ──────────────────────────
     async function processSnapshot(players: any[]) {
       if (!isMounted || !Array.isArray(players)) return;
       console.log('📍 Processando snapshot com', players.length, 'jogadores');
@@ -248,13 +253,15 @@ export default function GamePage() {
       console.log('✅ Snapshot processado');
     }
 
-    function handleMapSnapshot(players: any[]) {
+    // ── mapSnapshot ──────────────────────────────────────────────────────
+    socket.on('mapSnapshot', (players: any[]) => {
       if (!isMounted) return;
       console.log('🗺️ mapSnapshot recebido com', players?.length || 0, 'jogadores');
       processSnapshot(players);
-    }
+    });
 
-    async function handlePlayerJoined(p: any) {
+    // ── playerJoined ─────────────────────────────────────────────────────
+    socket.on('playerJoined', async (p: any) => {
       if (!isMounted) return;
       const pId = String(p.id || p._id || '');
       const currentPlayerId = myId || (player?._id ? String(player._id) : null);
@@ -269,9 +276,10 @@ export default function GamePage() {
         barracoLevel: Number(p.barracoLevel ?? 1), power: Number(p.power ?? 0),
         factionId: p.factionId ?? null,
       });
-    }
+    });
 
-    async function handlePlayerMoved(data: any) {
+    // ── playerMoved ──────────────────────────────────────────────────────
+    socket.on('playerMoved', async (data: any) => {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
       const currentPlayerId = myId || (player?._id ? String(player._id) : null);
@@ -287,9 +295,10 @@ export default function GamePage() {
         id: String(data.playerId), name: data.name,
         tileX: Number(data.tileX), tileY: Number(data.tileY),
       });
-    }
+    });
 
-    async function handlePlayerTeleported(data: any) {
+    // ── playerTeleported ─────────────────────────────────────────────────
+    socket.on('playerTeleported', async (data: any) => {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
       const currentPlayerId = myId || (player?._id ? String(player._id) : null);
@@ -307,22 +316,15 @@ export default function GamePage() {
         tileX: Number(data.newPosition.tileX),
         tileY: Number(data.newPosition.tileY),
       });
-    }
+    });
 
-    function handlePlayerLeft(data: { playerId: string }) {
+    // ── playerLeft ───────────────────────────────────────────────────────
+    socket.on('playerLeft', (data: { playerId: string }) => {
       if (!isMounted) return;
       console.log('👋 playerLeft:', data.playerId);
       localPlayers.delete(String(data.playerId));
       void realtimePlayersLayer.refresh();
-    }
-
-    // ── Registrar listeners com funções nomeadas ────────────────────────
-    socket.on('playerInit', handlePlayerInit);
-    socket.on('mapSnapshot', handleMapSnapshot);
-    socket.on('playerJoined', handlePlayerJoined);
-    socket.on('playerMoved', handlePlayerMoved);
-    socket.on('playerTeleported', handlePlayerTeleported);
-    socket.on('playerLeft', handlePlayerLeft);
+    });
 
     // ── SOLICITAR SNAPSHOT INICIAL ───────────────────────────────────────
     if (socket.connected) {
@@ -487,12 +489,12 @@ export default function GamePage() {
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('click', handleClick);
 
-      socket.off('playerInit', handlePlayerInit);
-      socket.off('mapSnapshot', handleMapSnapshot);
-      socket.off('playerJoined', handlePlayerJoined);
-      socket.off('playerMoved', handlePlayerMoved);
-      socket.off('playerTeleported', handlePlayerTeleported);
-      socket.off('playerLeft', handlePlayerLeft);
+      socket.off('playerInit');
+      socket.off('mapSnapshot');
+      socket.off('playerJoined');
+      socket.off('playerMoved');
+      socket.off('playerTeleported');
+      socket.off('playerLeft');
 
       controls.dispose();
       realtimePlayersLayer.cleanup();
@@ -541,4 +543,4 @@ export default function GamePage() {
       />
     </div>
   );
-}
+} 
