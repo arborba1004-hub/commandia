@@ -163,7 +163,7 @@ export default function Header() {
                 </div>
 
                 {showPlayerState ? (
-                  <div className="flex shrink-0 items-start gap-1">
+                  <div className="flex shrink-0 items-start gap-1 overflow-x-auto max-w-[calc(100vw-90px)] md:overflow-visible">
                     <button
                       type="button"
                       onClick={() => openChatChannel('complexo')}
