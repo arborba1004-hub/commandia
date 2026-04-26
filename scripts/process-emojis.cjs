@@ -37,29 +37,6 @@ function loadFile() {
   return fs.readFileSync(DATA_FILE, "utf-8");
 }
 
-// extrai array atual de forma segura
-function extractOldEmojis(content) {
-  const start = content.indexOf("export const CUSTOM_EMOJIS");
-  if (start === -1) return [];
-
-  const open = content.indexOf("[", start);
-  const close = content.indexOf("];", open);
-
-  if (open === -1 || close === -1) return [];
-
-  const arrayContent = content
-    .slice(open + 1, close)
-    .trim();
-
-  if (!arrayContent) return [];
-
-  // separa por linha ignorando vazios
-  return arrayContent
-    .split("\n")
-    .map(l => l.trim())
-    .filter(Boolean);
-}
-
 async function run() {
   if (!fs.existsSync(INPUT_DIR)) return;
 
@@ -67,7 +44,6 @@ async function run() {
   if (files.length === 0) return;
 
   const existing = loadFile();
-  const oldEmojis = extractOldEmojis(existing);
 
   let newEntries = [];
 
@@ -87,19 +63,19 @@ async function run() {
       `  { id: "${id}", label: "${name}", shortcode: ":${slug}:", imageUrl: "/emojis/${outputFile}" }`
     );
 
+    // remove input depois de processar
     fs.unlinkSync(inputPath);
   }
 
   if (newEntries.length === 0) return;
 
-  // junta antigos + novos
-  const allEmojis = [...oldEmojis, ...newEntries].join(",\n");
-
-  const updated = `
-export const CUSTOM_EMOJIS: CustomEmoji[] = [
-${allEmojis}
-];
-`;
+  // 🔥 substitui o array inteiro com segurança
+  const updated = existing.replace(
+    /export const CUSTOM_EMOJIS: CustomEmoji\[\]\s*=\s*\[[\s\S]*?\];/,
+    `export const CUSTOM_EMOJIS: CustomEmoji[] = [
+${newEntries.join(",\n")}
+];`
+  );
 
   fs.writeFileSync(DATA_FILE, updated.trim());
 }
