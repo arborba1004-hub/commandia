@@ -1,41 +1,33 @@
-/**
- * GamePage.tsx — Mapa multiplayer em tempo real (REESCRITO - FUNCIONAL)
- *
- * ARQUITETURA FINAL:
- *   ✅ Socket como fonte primária de verdade
- *   ✅ Fallback REST com intervalo curto (10s) para garantir renderização inicial
- *   ✅ isMe() síncrono usando cache local myId (definido por playerInit)
- *   ✅ mapSnapshot processa TODOS os jogadores, filtrando o próprio
- *   ✅ playerMoved / playerTeleported ignorados se for o próprio jogador
- *   ✅ Um ÚNICO barraco por jogador, sem duplicação
- *   ✅ Movimento/teleporte acontece UMA única vez
- *   ✅ Clique em barraco de outro jogador abre modal
- *   ✅ Teleporte requer confirmação (dois cliques)
- *   ✅ Teleporte verifica tiles livres e pede confirmação
- */
 
-import { useEffect, useRef, useState } from 'react';
-import * as THREE             from 'three';
-import { OrbitControls }      from 'three/examples/jsm/controls/OrbitControls';
-import { useNavigate }        from 'react-router-dom';
-import { GLTFLoader }         from 'three/examples/jsm/loaders/GLTFLoader';
-import { DRACOLoader }        from 'three/examples/jsm/loaders/DRACOLoader';
-import { mountFixedMapBuildings }      from '@/components/game/fixedMapBuildings';
-import { mountPlayerMapSpace, isPlayerSpaceAvailable, getPlayerSpaceRect, PLAYER_SPACE_WIDTH, PLAYER_SPACE_HEIGHT } from '@/components/game/playerMapSpace';
-import { mountRealtimeMapPlayersLayer } from '@/components/game/realtimeMapPlayersLayer';
-import { usePlayerStore }              from '@/store/playerStore';
-import { getSocket }                   from '@/socket';
-import Header                          from '@/components/Header';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import * as THREE            from 'three';
+import { OrbitControls }     from 'three/examples/jsm/controls/OrbitControls';
+import { useNavigate }       from 'react-router-dom';
+import { GLTFLoader }        from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader }       from 'three/examples/jsm/loaders/DRACOLoader';
+
+import { mountFixedMapBuildings }                      from '@/components/game/fixedMapBuildings';
+import { mountPlayerMapSpace, isPlayerSpaceAvailable } from '@/components/game/playerMapSpace';
+import { mountRealtimeMapPlayersLayer }                from '@/components/game/realtimeMapPlayersLayer';
+import { teleportPlayerMapSpace }                      from '@/components/game/playerTeleport';
+
+import { usePlayerStore }        from '@/store/playerStore';
+import { getSocket }             from '@/socket';
+import type { AttackTarget }     from '@/store/mapAttackStore';
+import { invitePlayerToFaction } from '@/services/factionInviteService';
+
+import Header from '@/components/Header';
 import OtherPlayerBarracoModal, {
   type OtherPlayerBarracoTarget,
   createOtherPlayerBarracoModalState,
   openOtherPlayerBarracoModal,
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
+import MapAttackWithGangModal from '@/components/game/MapAttackWithGangModal';
 
-const GRID_WIDTH   = 120;
-const GRID_HEIGHT  = 120;
-const TILE_SIZE    = 1;
+const GRID_WIDTH      = 120;
+const GRID_HEIGHT     = 120;
+const TILE_SIZE       = 1;
 const PLATFORM_HEIGHT = 1.2;
 
 const FLOOR_TEXTURE =
@@ -45,23 +37,70 @@ const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
 export default function GamePage() {
-  const mountRef = useRef<HTMLDivElement | null>(null);
-  const navigate  = useNavigate();
-  const player    = usePlayerStore((state) => state.player);
-  const [modalState, setModalState] = useState(createOtherPlayerBarracoModalState());
+  const mountRef    = useRef<HTMLDivElement | null>(null);
+  const navigate    = useNavigate();
+  const player      = usePlayerStore((s) => s.player);
+  const myFactionId = usePlayerStore((s) => s.player.factionId) ?? null;
+
   const playerMapSpaceRef = useRef<any>(null);
 
+  // ── Modal: barraco de outro jogador
+  const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
+  const [isInviting,       setIsInviting]       = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+
+  // ── Modal: atacar com gang
+  const [attackModalOpen, setAttackModalOpen] = useState(false);
+  const [attackTarget,    setAttackTarget]    = useState<AttackTarget | null>(null);
+
+  // ── Handler: mensagem privada
+  const handleSendPrivateMessage = useCallback(
+    (_target: OtherPlayerBarracoTarget) => {
+      setModalState(closeOtherPlayerBarracoModal());
+      navigate('/chat');
+    },
+    [navigate]
+  );
+
+  // ── Handler: convidar para facção
+  const handleInviteToFaction = useCallback(
+    async (target: OtherPlayerBarracoTarget) => {
+      if (!target?.id) return;
+      setIsInviting(true);
+      try {
+        await invitePlayerToFaction(target.id);
+        console.log('✅ Convite enviado para:', target.name);
+        setModalState(closeOtherPlayerBarracoModal());
+      } catch (error) {
+        console.error('❌ Erro ao convidar:', error);
+      } finally {
+        setIsInviting(false);
+      }
+    },
+    []
+  );
+
+  // ── Handler: atacar
+  const handleAttack = useCallback(
+    (_target: OtherPlayerBarracoTarget) => {
+      setModalState(closeOtherPlayerBarracoModal());
+      setAttackModalOpen(true);
+    },
+    []
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EFEITO THREE.JS
+  // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     const mountEl = mountRef.current;
     if (!mountEl) return;
 
     let isMounted = true;
 
-    // ── SCENE ──────────────────────────────────────────────────────────────
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#050505');
 
-    // ── CAMERA ─────────────────────────────────────────────────────────────
     const camera = new THREE.PerspectiveCamera(
       50,
       mountEl.clientWidth / Math.max(mountEl.clientHeight, 1),
@@ -69,7 +108,6 @@ export default function GamePage() {
       1000
     );
 
-    // ── RENDERER ───────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
@@ -77,7 +115,6 @@ export default function GamePage() {
     renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
     mountEl.appendChild(renderer.domElement);
 
-    // ── CONTROLES DE CÂMERA ────────────────────────────────────────────────
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping  = true;
     controls.dampingFactor  = 0.06;
@@ -85,7 +122,6 @@ export default function GamePage() {
     controls.maxDistance    = 70;
     controls.maxPolarAngle  = Math.PI / 2.05;
 
-    // ── LUZES ──────────────────────────────────────────────────────────────
     scene.add(new THREE.AmbientLight(0xffffff, 1.25));
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.35);
     dirLight.position.set(40, 90, 30);
@@ -100,36 +136,29 @@ export default function GamePage() {
     dirLight.shadow.camera.bottom = -90;
     scene.add(dirLight);
 
-    // ── PLATAFORMA ─────────────────────────────────────────────────────────
     const textureLoader = new THREE.TextureLoader();
     const floorTexture  = textureLoader.load(FLOOR_TEXTURE);
-    floorTexture.wrapS  = THREE.ClampToEdgeWrapping;
-    floorTexture.wrapT  = THREE.ClampToEdgeWrapping;
+    floorTexture.wrapS     = THREE.ClampToEdgeWrapping;
+    floorTexture.wrapT     = THREE.ClampToEdgeWrapping;
     floorTexture.repeat.set(1, 1);
-    floorTexture.anisotropy  = renderer.capabilities.getMaxAnisotropy();
-    floorTexture.magFilter   = THREE.LinearFilter;
-    floorTexture.minFilter   = THREE.LinearMipmapLinearFilter;
+    floorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    floorTexture.magFilter  = THREE.LinearFilter;
+    floorTexture.minFilter  = THREE.LinearMipmapLinearFilter;
 
     const platformGeometry = new THREE.BoxGeometry(
-      GRID_WIDTH * TILE_SIZE,
-      PLATFORM_HEIGHT,
-      GRID_HEIGHT * TILE_SIZE
+      GRID_WIDTH * TILE_SIZE, PLATFORM_HEIGHT, GRID_HEIGHT * TILE_SIZE
     );
     const platformMaterial = new THREE.MeshStandardMaterial({
-      map:        floorTexture,
-      roughness:  1,
-      metalness:  0,
+      map: floorTexture, roughness: 1, metalness: 0,
     });
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
     platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
     platform.receiveShadow = true;
     scene.add(platform);
 
-    // ── LOADER ─────────────────────────────────────────────────────────────
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    // ── PRÉDIOS FIXOS ─────────────────────────────────────────────────────
     const fixedBuildingsLayer = mountFixedMapBuildings({
       scene,
       loader,
@@ -139,11 +168,13 @@ export default function GamePage() {
       onMessage:  () => {},
     });
 
-    // ── ESTADO LOCAL (cache de posições) ───────────────────────────────────
+    // Cache de posições dos outros jogadores
     const localPlayers = new Map<string, { tileX: number; tileY: number }>();
+
+    // myId inicializado do store; playerInit o atualiza via closure
     let myId: string | null = player?._id ? String(player._id) : null;
 
-    // ── CAMADA DE JOGADORES EM TEMPO REAL ─────────────────────────────────
+    // ── Camada de jogadores em tempo real ─────────────────────────────────
     const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
       scene,
       gridWidth:  GRID_WIDTH,
@@ -151,17 +182,12 @@ export default function GamePage() {
       tileSize:   TILE_SIZE,
       pollingMs:  10000,
       showSpaces: true,
-      // Closure que lê myId em tempo real — evita que o polling REST
-      // adicione o próprio barraco (que já existe via mountPlayerMapSpace).
-      getMyId: () => myId,
+      getMyId:    () => myId,   // closure lê myId em tempo real
     });
     realtimePlayersLayer.start();
 
-    // ── ESPAÇO DO PRÓPRIO JOGADOR ─────────────────────────────────────────
-    // Coleta posições de outros jogadores para evitar sobreposição
     const occupiedOrigins = Array.from(localPlayers.values()).map((p) => ({
-      tileX: p.tileX,
-      tileY: p.tileY,
+      tileX: p.tileX, tileY: p.tileY,
     }));
 
     const playerMapSpace = mountPlayerMapSpace({
@@ -177,15 +203,12 @@ export default function GamePage() {
     playerMapSpaceRef.current = playerMapSpace;
 
     controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
-    camera.position.set(
-      playerMapSpace.worldX + 12,
-      10,
-      playerMapSpace.worldZ + 12
-    );
+    camera.position.set(playerMapSpace.worldX + 12, 10, playerMapSpace.worldZ + 12);
     controls.update();
 
-    // ── PLANO DE CLIQUE ────────────────────────────────────────────────────
-    const clickPlaneGeo = new THREE.PlaneGeometry(GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE);
+    const clickPlaneGeo = new THREE.PlaneGeometry(
+      GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE
+    );
     const clickPlaneMat = new THREE.MeshBasicMaterial({
       transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
     });
@@ -194,7 +217,6 @@ export default function GamePage() {
     clickPlane.position.y = 0.05;
     scene.add(clickPlane);
 
-    // ── SELETOR VISUAL ─────────────────────────────────────────────────────
     const selectionGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
     const selectionMat = new THREE.MeshBasicMaterial({
       color: 0xd9b764, transparent: true, opacity: 0.4,
@@ -206,12 +228,11 @@ export default function GamePage() {
     selectionMesh.visible = false;
     scene.add(selectionMesh);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SOCKET.IO — FONTE PRIMÁRIA DE VERDADE
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
+    // SOCKET.IO
+    // ═════════════════════════════════════════════════════════════════════════
     const socket = getSocket();
 
-    // ── playerInit: define myId ──────────────────────────────────────────
     socket.on('playerInit', (data: { player: any; faction?: any }) => {
       if (!isMounted) return;
       const incomingId = String(data.player?._id || data.player?.id || '');
@@ -222,24 +243,16 @@ export default function GamePage() {
       usePlayerStore.getState().hydratePlayerFromServer(data.player);
     });
 
-    // ── Função auxiliar para processar snapshot ──────────────────────────
     async function processSnapshot(players: any[]) {
       if (!isMounted || !Array.isArray(players)) return;
-      console.log('📍 Processando snapshot com', players.length, 'jogadores');
-      
-      const currentPlayerId = myId || (player?._id ? String(player._id) : null);
+      const currentId = myId || (player?._id ? String(player._id) : null);
       const others = players.filter((p) => {
         const pId = String(p.id || p._id || '');
-        return pId && pId !== currentPlayerId;
+        return pId && pId !== currentId;
       });
-      
-      console.log('📍 Outros jogadores:', others.length, '| myId:', myId, '| currentPlayerId:', currentPlayerId);
       localPlayers.clear();
       for (const p of others) {
-        localPlayers.set(String(p.id), {
-          tileX: Number(p.tileX),
-          tileY: Number(p.tileY),
-        });
+        localPlayers.set(String(p.id), { tileX: Number(p.tileX), tileY: Number(p.tileY) });
         await realtimePlayersLayer.upsertPlayer({
           id:           String(p.id),
           name:         p.name || 'Jogador',
@@ -250,99 +263,110 @@ export default function GamePage() {
           factionId:    p.factionId ?? null,
         });
       }
-      console.log('✅ Snapshot processado');
     }
 
-    // ── mapSnapshot ──────────────────────────────────────────────────────
     socket.on('mapSnapshot', (players: any[]) => {
       if (!isMounted) return;
-      console.log('🗺️ mapSnapshot recebido com', players?.length || 0, 'jogadores');
-      processSnapshot(players);
+      void processSnapshot(players);
     });
 
-    // ── playerJoined ─────────────────────────────────────────────────────
     socket.on('playerJoined', async (p: any) => {
       if (!isMounted) return;
       const pId = String(p.id || p._id || '');
-      const currentPlayerId = myId || (player?._id ? String(player._id) : null);
-      if (pId === currentPlayerId) {
-        console.log('⏭️ playerJoined ignorado (próprio jogador)');
-        return;
-      }
-      console.log('👤 playerJoined:', p.id || p.name);
-      localPlayers.set(String(p.id), { tileX: Number(p.tileX), tileY: Number(p.tileY) });
+      if (pId === (myId || String(player?._id || ''))) return;
+      localPlayers.set(pId, { tileX: Number(p.tileX), tileY: Number(p.tileY) });
       await realtimePlayersLayer.upsertPlayer({
-        id: String(p.id), name: p.name, tileX: Number(p.tileX), tileY: Number(p.tileY),
-        barracoLevel: Number(p.barracoLevel ?? 1), power: Number(p.power ?? 0),
-        factionId: p.factionId ?? null,
+        id:           pId,
+        name:         p.name || 'Jogador',
+        tileX:        Number(p.tileX),
+        tileY:        Number(p.tileY),
+        barracoLevel: Number(p.barracoLevel ?? 1),
+        power:        Number(p.power ?? 0),
+        factionId:    p.factionId ?? null,
       });
     });
 
-    // ── playerMoved ──────────────────────────────────────────────────────
     socket.on('playerMoved', async (data: any) => {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
-      const currentPlayerId = myId || (player?._id ? String(player._id) : null);
-      console.log('🚀 playerMoved:', data.playerId, data.tileX, data.tileY);
-      if (pId === currentPlayerId) {
-        console.log('⏭️ Ignorado (próprio jogador)');
+      if (pId === (myId || String(player?._id || ''))) {
+        console.log('⏭️ playerMoved ignorado (próprio jogador)');
         return;
       }
-      localPlayers.set(String(data.playerId), {
-        tileX: Number(data.tileX), tileY: Number(data.tileY),
-      });
+      localPlayers.set(pId, { tileX: Number(data.tileX), tileY: Number(data.tileY) });
       await realtimePlayersLayer.upsertPlayer({
-        id: String(data.playerId), name: data.name,
-        tileX: Number(data.tileX), tileY: Number(data.tileY),
+        id:    pId,
+        name:  data.name,
+        tileX: Number(data.tileX),
+        tileY: Number(data.tileY),
       });
     });
 
-    // ── playerTeleported ─────────────────────────────────────────────────
     socket.on('playerTeleported', async (data: any) => {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
-      const currentPlayerId = myId || (player?._id ? String(player._id) : null);
-      if (pId === currentPlayerId) {
+      if (pId === (myId || String(player?._id || ''))) {
         console.log('⏭️ playerTeleported ignorado (próprio jogador)');
         return;
       }
-      console.log('🌀 playerTeleported:', data.playerId);
-      localPlayers.set(String(data.playerId), {
+      localPlayers.set(pId, {
         tileX: Number(data.newPosition.tileX),
         tileY: Number(data.newPosition.tileY),
       });
       await realtimePlayersLayer.upsertPlayer({
-        id: String(data.playerId), name: data.name,
+        id:    pId,
+        name:  data.name,
         tileX: Number(data.newPosition.tileX),
         tileY: Number(data.newPosition.tileY),
       });
     });
 
-    // ── playerLeft ───────────────────────────────────────────────────────
     socket.on('playerLeft', (data: { playerId: string }) => {
       if (!isMounted) return;
-      console.log('👋 playerLeft:', data.playerId);
       localPlayers.delete(String(data.playerId));
       void realtimePlayersLayer.refresh();
     });
 
-    // ── SOLICITAR SNAPSHOT INICIAL ───────────────────────────────────────
+    // ── barracoInfo: enriquece modal + prepara AttackTarget ───────────────
+    socket.on('barracoInfo', (data: any) => {
+      if (!isMounted) return;
+      console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
+
+      // Atualiza modal com dados completos (avatar, factionName, etc.)
+      setModalState(
+        openOtherPlayerBarracoModal({
+          id:           String(data.playerId),
+          name:         data.playerName  || 'Jogador',
+          avatarUrl:    data.avatarUrl   ?? null,
+          factionId:    data.factionId   ?? null,
+          factionName:  data.factionName ?? null,
+          barracoLevel: Number(data.barracoLevel ?? 1),
+        })
+      );
+
+      // Prepara AttackTarget para o MapAttackWithGangModal
+      setAttackTarget({
+        playerId:     String(data.playerId),
+        playerName:   data.playerName || 'Jogador',
+        tileX:        Number(data.tileX ?? 0),
+        tileY:        Number(data.tileY ?? 0),
+        barracoLevel: Number(data.barracoLevel ?? 1),
+        power:        Number(data.power ?? 0),
+        factionId:    data.factionId ?? null,
+      });
+    });
+
     if (socket.connected) {
-      console.log('🔌 Socket já conectado, solicitando mapSnapshot');
       socket.emit('requestMapSnapshot');
     } else {
-      console.log('⏳ Aguardando conexão do socket...');
       socket.once('connect', () => {
-        if (isMounted) {
-          console.log('🔌 Socket conectado, solicitando mapSnapshot');
-          socket.emit('requestMapSnapshot');
-        }
+        if (isMounted) socket.emit('requestMapSnapshot');
       });
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CLICK HANDLER COM TELEPORTE REFATORADO
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
+    // CLICK HANDLER
+    // ═════════════════════════════════════════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     const mouse     = new THREE.Vector2();
     let pendingTeleportTile: { tileX: number; tileY: number } | null = null;
@@ -353,7 +377,7 @@ export default function GamePage() {
       mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
 
-      // Clique no próprio barraco → navega
+      // Próprio barraco → /barraco
       const ownHits = raycaster.intersectObjects(
         playerMapSpaceRef.current?.modelContainer?.children || [], true
       );
@@ -362,27 +386,28 @@ export default function GamePage() {
         return;
       }
 
-      // Clique em barraco de outro jogador → modal
+      // Barraco de outro jogador → modal
       const otherHits = raycaster.intersectObjects(
         realtimePlayersLayer.group.children, true
       );
       if (otherHits.length > 0) {
-        const hitObject = otherHits[0].object;
-        let current: any = hitObject;
+        let current: any = otherHits[0].object;
         while (current) {
           if (current.userData?.playerId) {
-            const playerId = String(current.userData.playerId);
-            const playerData = realtimePlayersLayer.players().find(
-              (p: any) => String(p.id) === playerId
-            );
+            const playerId   = String(current.userData.playerId);
+            const playerData = realtimePlayersLayer.players()
+              .find((p: any) => String(p.id) === playerId);
+
             if (playerData) {
-              console.log('🎯 Clique em barraco de outro jogador:', playerData.id, playerData.name);
+              // 1) Abre imediatamente com dados básicos (UX otimista)
               setModalState(openOtherPlayerBarracoModal({
-                id: playerData.id,
-                name: playerData.name || 'Jogador',
+                id:           playerData.id,
+                name:         playerData.name || 'Jogador',
                 barracoLevel: playerData.barracoLevel,
-                factionId: playerData.factionId,
+                factionId:    playerData.factionId,
               }));
+              // 2) Solicita dados ricos → barracoInfo event atualizará modal + attackTarget
+              socket.emit('requestBarracoInfo', { targetPlayerId: playerId });
             }
             return;
           }
@@ -390,78 +415,91 @@ export default function GamePage() {
         }
       }
 
-      // Clique no chão → movimento
+      // Chão → teleporte (dois cliques para confirmar)
       const hits = raycaster.intersectObject(clickPlane, false);
       if (!hits.length) return;
 
-      const point = hits[0].point;
+      const point       = hits[0].point;
       const clickedTileX = Math.floor(point.x + GRID_WIDTH  / 2);
       const clickedTileY = Math.floor(point.z + GRID_HEIGHT / 2);
 
-      if (clickedTileX < 0 || clickedTileX >= GRID_WIDTH || clickedTileY < 0 || clickedTileY >= GRID_HEIGHT) return;
+      if (
+        clickedTileX < 0 || clickedTileX >= GRID_WIDTH ||
+        clickedTileY < 0 || clickedTileY >= GRID_HEIGHT
+      ) return;
 
-      // Verifica se há barraco de outro jogador no tile
-      const tileKey = `${clickedTileX},${clickedTileY}`;
-      const occupiedByPlayer = Array.from(localPlayers.values()).find(
-        (p) => `${p.tileX},${p.tileY}` === tileKey
-      );
-      if (occupiedByPlayer) {
+      // Bloqueia tile de outro jogador
+      if (
+        Array.from(localPlayers.values()).find(
+          (p) => `${p.tileX},${p.tileY}` === `${clickedTileX},${clickedTileY}`
+        )
+      ) {
         console.log('⚠️ Tile ocupado por outro jogador');
         return;
       }
 
-      // Verifica se o tile é livre (não ocupado por outro jogador)
-      const occupiedOrigins = Array.from(localPlayers.values()).map((p) => ({
-        tileX: p.tileX,
-        tileY: p.tileY,
+      const currentOccupied = Array.from(localPlayers.values()).map((p) => ({
+        tileX: p.tileX, tileY: p.tileY,
       }));
 
-      const isTileFree = isPlayerSpaceAvailable(
-        clickedTileX,
-        clickedTileY,
-        occupiedOrigins,
-        GRID_WIDTH,
-        GRID_HEIGHT
-      );
-
-      if (!isTileFree) {
-        console.log('⚠️ Tile não está livre (construção ou outro jogador)');
+      if (!isPlayerSpaceAvailable(clickedTileX, clickedTileY, currentOccupied, GRID_WIDTH, GRID_HEIGHT)) {
+        console.log('⚠️ Tile não está livre');
         return;
       }
 
-      // Se já há um teleporte pendente, confirma
-      if (pendingTeleportTile && pendingTeleportTile.tileX === clickedTileX && pendingTeleportTile.tileY === clickedTileY) {
-        console.log('✅ Confirmando teleporte para:', clickedTileX, clickedTileY);
-        pendingTeleportTile = null;
+      // Segundo clique no mesmo tile → confirma teleporte
+      if (
+        pendingTeleportTile &&
+        pendingTeleportTile.tileX === clickedTileX &&
+        pendingTeleportTile.tileY === clickedTileY
+      ) {
+        console.log('✅ Confirmando teleporte:', clickedTileX, clickedTileY);
+        pendingTeleportTile   = null;
+        selectionMesh.visible = false;
 
-        // Atualiza posição do jogador
-        playerMapSpace.updatePosition(clickedTileX, clickedTileY, occupiedOrigins);
+        // ── teleportPlayerMapSpace: resolve colisão + atualiza posição 3D ──
+        const result = teleportPlayerMapSpace(playerMapSpaceRef.current, {
+          clickedTileX,
+          clickedTileY,
+          occupiedOrigins: currentOccupied,
+          gridWidth:  GRID_WIDTH,
+          gridHeight: GRID_HEIGHT,
+        });
 
+        // Atualiza store de forma otimista
         usePlayerStore.getState().applyPlayerUpdate((p) => ({
           ...p,
           mapPosition: {
-            tileX: clickedTileX,
-            tileY: clickedTileY,
-            worldX: (clickedTileX - GRID_WIDTH  / 2) * TILE_SIZE + TILE_SIZE / 2,
-            worldY: (clickedTileY - GRID_HEIGHT / 2) * TILE_SIZE + TILE_SIZE / 2,
+            tileX:  result.tileX,
+            tileY:  result.tileY,
+            worldX: result.worldX,
+            worldY: result.worldZ,
           },
         }));
 
-        socket.emit('move', { tileX: clickedTileX, tileY: clickedTileY });
-        selectionMesh.visible = false;
+        // 'teleport' tem cooldown de 30s no backend (diferente de 'move' que é 1s)
+        socket.emit('teleport', {
+          tileX:        result.tileX,
+          tileY:        result.tileY,
+          teleportType: 'manual',
+        });
+
         return;
       }
 
-      // Primeiro clique → mostra seleção e pede confirmação
-      console.log('🎯 Selecionando tile para teleporte:', clickedTileX, clickedTileY);
+      // Primeiro clique → mostra seletor, aguarda confirmação
+      console.log('🎯 Selecionando tile:', clickedTileX, clickedTileY);
       pendingTeleportTile = { tileX: clickedTileX, tileY: clickedTileY };
-      selectionMesh.position.set(clickedTileX - GRID_WIDTH / 2 + 0.5, 0.06, clickedTileY - GRID_HEIGHT / 2 + 0.5);
+      selectionMesh.position.set(
+        clickedTileX - GRID_WIDTH  / 2 + 0.5,
+        0.06,
+        clickedTileY - GRID_HEIGHT / 2 + 0.5
+      );
       selectionMesh.visible = true;
     }
 
     renderer.domElement.addEventListener('click', handleClick);
 
-    // ── RESIZE ─────────────────────────────────────────────────────────────
     function handleResize() {
       if (!mountEl) return;
       const w = mountEl.clientWidth;
@@ -473,7 +511,6 @@ export default function GamePage() {
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(mountEl);
 
-    // ── ANIMATE ────────────────────────────────────────────────────────────
     let animationFrameId = 0;
     function animate() {
       animationFrameId = window.requestAnimationFrame(animate);
@@ -482,7 +519,6 @@ export default function GamePage() {
     }
     animate();
 
-    // ── CLEANUP ────────────────────────────────────────────────────────────
     return () => {
       isMounted = false;
       window.cancelAnimationFrame(animationFrameId);
@@ -495,6 +531,7 @@ export default function GamePage() {
       socket.off('playerMoved');
       socket.off('playerTeleported');
       socket.off('playerLeft');
+      socket.off('barracoInfo');
 
       controls.dispose();
       realtimePlayersLayer.cleanup();
@@ -513,34 +550,46 @@ export default function GamePage() {
       scene.remove(clickPlane);
       scene.remove(selectionMesh);
 
-      renderer.dispose();
-      if (mountEl && renderer.domElement && renderer.domElement.parentNode === mountEl) {
+  renderer.dispose();
+      if (mountEl && renderer.domElement?.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }
     };
   }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
 
-  // ── JSX ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-black">
       <Header />
+
+      {/* Canvas 3D */}
       <div ref={mountRef} className="w-full h-[calc(100vh-104px)] min-h-[500px]" />
+
+      {/* Modal: barraco de outro jogador */}
       <OtherPlayerBarracoModal
         state={modalState}
+        myFactionId={myFactionId}
+        isInviting={isInviting}
+        isSendingMessage={isSendingMessage}
         onClose={() => setModalState(closeOtherPlayerBarracoModal())}
-        onSendPrivateMessage={(target) => {
-          console.log('Enviar mensagem para:', target);
-          setModalState(closeOtherPlayerBarracoModal());
+        onSendPrivateMessage={handleSendPrivateMessage}
+        onInviteToFaction={handleInviteToFaction}
+        onAttack={handleAttack}
+      />
+
+      {/* Modal: atacar com gang */}
+      <MapAttackWithGangModal
+        isOpen={attackModalOpen}
+        onClose={() => {
+          setAttackModalOpen(false);
+          setAttackTarget(null);
         }}
-        onInviteToFaction={(target) => {
-          console.log('Convidar para facção:', target);
-          setModalState(closeOtherPlayerBarracoModal());
-        }}
-        onAttack={(target) => {
-          console.log('Atacar:', target);
-          setModalState(closeOtherPlayerBarracoModal());
+        target={attackTarget}
+        onAttackConfirmed={(result) => {
+          console.log('⚔️ Ataque concluído:', result);
+          setAttackModalOpen(false);
+          setAttackTarget(null);
         }}
       />
     </div>
   );
-} 
+}
