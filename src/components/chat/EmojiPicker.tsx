@@ -10,29 +10,7 @@ interface EmojiPickerProps {
 }
 
 const EMOJI_ITEMS: EmojiPickerItem[] = [
-  { type: 'unicode', value: '🔥' },
-  { type: 'unicode', value: '💰' },
-  { type: 'unicode', value: '💎' },
-  { type: 'unicode', value: '🚔' },
-  { type: 'unicode', value: '🔫' },
-  { type: 'unicode', value: '😈' },
-  { type: 'unicode', value: '😎' },
-  { type: 'unicode', value: '😂' },
-  { type: 'unicode', value: '😭' },
-  { type: 'unicode', value: '❤️' },
-  { type: 'unicode', value: '💣' },
-  { type: 'unicode', value: '⚡' },
-  { type: 'unicode', value: '👑' },
-  { type: 'unicode', value: '🖤' },
-  { type: 'unicode', value: '🤝' },
-  { type: 'unicode', value: '😡' },
-  { type: 'unicode', value: '🥶' },
-  { type: 'unicode', value: '🍀' },
-  { type: 'unicode', value: '🎯' },
-  { type: 'unicode', value: '🏆' },
-  { type: 'unicode', value: '📩' },
-  { type: 'unicode', value: '📦' },
-  { type: 'unicode', value: '🚀' },
+  
   { type: 'unicode', value: '💥' },
 
   {
