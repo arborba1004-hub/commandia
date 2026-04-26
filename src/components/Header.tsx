@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import { useState } from 'react';
 import AvatarNameCustomizationModal from '@/components/AvatarNameCustomizationModal';
+import { Image } from '@/components/ui/image';
 
 const COMMANDS_ICON = 'https://static.wixstatic.com/media/50f4bf_9bda4af1a12b47679336479a80b16eb8~mv2.png';
 const LOGO_URL      = 'https://static.wixstatic.com/media/50f4bf_9e06e6237b1c4e87997633edc2d94227~mv2.png';
@@ -49,8 +50,7 @@ export default function Header() {
           <div className="flex items-center gap-2">
             {/* Logo */}
             <button type="button" onClick={() => navigate('/')} className="shrink-0">
-              <img src={LOGO_URL} alt="Domínio do Comando"
-                className="h-10 w-10 object-contain" draggable={false} />
+              <Image src={LOGO_URL} alt="Domínio do Comando" className="h-10 w-10 object-contain" draggable={false} />
             </button>
 
             {/* Avatar */}
@@ -58,8 +58,7 @@ export default function Header() {
               <button type="button" onClick={() => setIsCustomizationOpen(true)}
                 className="relative shrink-0 group">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt={playerName}
-                    className="h-11 w-11 rounded-xl border-2 border-[#d9b764] object-cover shadow-[0_0_8px_rgba(217,183,100,0.35)]" />
+                  <Image src={avatarUrl} alt={playerName} className="h-11 w-11 rounded-xl border-2 border-[#d9b764] object-cover shadow-[0_0_8px_rgba(217,183,100,0.35)]" />
                 ) : (
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#d9b764] bg-zinc-900 text-lg font-black text-[#d9b764]">
                     {playerName[0]?.toUpperCase() || '?'}
@@ -95,7 +94,7 @@ export default function Header() {
             <div className="flex items-center gap-2">
               {/* Commands Sujo */}
               <div className="flex items-center gap-1 rounded-xl bg-black/50 border border-white/10 px-2.5 py-1.5">
-                <img src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
+                <Image src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
                 <div className="flex flex-col leading-none">
                   <span className="text-[8px] font-bold text-zinc-500 uppercase">Sujo</span>
                   <span className="text-[11px] font-black text-white">{fmt(dirtyMoney)}</span>
@@ -104,7 +103,7 @@ export default function Header() {
 
               {/* Commands Limpo */}
               <div className="flex items-center gap-1 rounded-xl bg-black/50 border border-white/10 px-2.5 py-1.5">
-                <img src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
+                <Image src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
                 <div className="flex flex-col leading-none">
                   <span className="text-[8px] font-bold text-zinc-500 uppercase">Limpo</span>
                   <span className="text-[11px] font-black text-white">{fmt(cleanMoney)}</span>

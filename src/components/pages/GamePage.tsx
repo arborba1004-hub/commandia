@@ -625,30 +625,28 @@ export default function GamePage() {
       </div>
 
       {/* ── HUD INFERIOR DIREITO — ícones de chat ─────────────────────── */}
-      <div className="absolute bottom-8 right-4 z-10 flex flex-col gap-3 pointer-events-auto">
+      <div className="absolute bottom-8 right-4 z-10 flex flex-col gap-4 pointer-events-auto">
 
-        {/* Complexo */}
         <button type="button" onClick={() => navigate('/chat?channel=complexo')}
-          className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/75 shadow-[0_4px_20px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 active:scale-90 transition-all">
-          <Image src={ICON_COMPLEXO} alt="Complexo" className="h-8 w-8 object-contain" />
+          className="active:scale-90 transition-transform">
+          <Image src={ICON_COMPLEXO} alt="Complexo" className="h-16 w-16 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]" />
         </button>
 
-        {/* Facção */}
         <button type="button" onClick={() => navigate('/chat?channel=faccao')}
-          className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/75 shadow-[0_4px_20px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 active:scale-90 transition-all">
-          <Image src={ICON_FACCAO} alt="Facção" className="h-8 w-8 object-contain" />
+          className="active:scale-90 transition-transform">
+          <Image src={ICON_FACCAO} alt="Facção" className="h-16 w-16 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]" />
         </button>
 
-        {/* Correio pessoal com badge */}
         <button type="button" onClick={() => navigate('/chat?channel=mail')}
-          className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/75 shadow-[0_4px_20px_rgba(0,0,0,0.6)] backdrop-blur-sm hover:bg-white/10 active:scale-90 transition-all">
-          <Image src={ICON_MAIL} alt="Correio" className="h-8 w-8 object-contain" />
+          className="relative active:scale-90 transition-transform">
+          <Image src={ICON_MAIL} alt="Correio" className="h-16 w-16 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]" />
           {unreadMailCount > 0 && (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-black text-black shadow">
               {unreadMailCount}
             </span>
           )}
         </button>
+
       </div>
 
       {/* ── Modais ───────────────────────────────────────────────────── */}
