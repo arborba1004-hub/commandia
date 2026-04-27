@@ -1,58 +1,44 @@
+import { useState } from 'react';
 import { Image } from '@/components/ui/image';
-import CUSTOM_EMOJIS from '@/data/customEmojis.json';
 
-type CustomEmoji = {
+type EmojiItem = {
   id: string;
   label: string;
   shortcode: string;
   imageUrl: string;
 };
 
-type EmojiPickerItem =
-  | { type: 'unicode'; value: string }
-  | { type: 'image'; id: string; src: string; alt: string };
-
 interface EmojiPickerProps {
   onSelectEmoji: (value: string) => void;
 }
-
-const STATIC_EMOJIS: EmojiPickerItem[] = [
-  { type: 'unicode', value: '💥' },
-  {
-    type: 'image',
-    id: 'comando-apaixonado',
-    src: 'https://static.wixstatic.com/media/50f4bf_510e83d240c84061a9ae051d0c4be0af~mv2.png',
-    alt: 'Comando Apaixonado',
-  },
-  {
-    type: 'image',
-    id: 'comando-hostil',
-    src: 'https://static.wixstatic.com/media/50f4bf_fe66f84eeecf4b18ad5c8a07b3e807f7~mv2.png',
-    alt: 'Comando Hostil',
-  },
-  {
-    type: 'image',
-    id: 'sextou',
-    src: 'https://static.wixstatic.com/media/50f4bf_0fe37c167b134ab280c353da7c7dd9f2~mv2.png',
-    alt: 'Sextou',
-  },
-];
 
 function buildImageToken(id: string, src: string, alt: string) {
   return `[imgemoji:${id}|${src}|${alt}]`;
 }
 
 export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
-  const customItems: EmojiPickerItem[] = (CUSTOM_EMOJIS as CustomEmoji[]).map(
-    (e) => ({
-      type: 'image',
-      id: e.id,
-      src: e.imageUrl,
-      alt: e.label,
-    })
-  );
+  const [customEmojis, setCustomEmojis] = useState<EmojiItem[]>([]);
 
-  const items: EmojiPickerItem[] = [...customItems, ...STATIC_EMOJIS];
+  async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const form = new FormData();
+    form.append('file', file);
+
+    const res = await fetch('/emoji/upload', {
+      method: 'POST',
+      body: form,
+    });
+
+    const emoji: EmojiItem = await res.json();
+
+    setCustomEmojis((prev) => [...prev, emoji]);
+
+    onSelectEmoji(
+      buildImageToken(emoji.id, emoji.imageUrl, emoji.label)
+    );
+  }
 
   return (
     <div className="w-[320px] rounded-2xl border border-border bg-card p-3 shadow-2xl">
@@ -60,32 +46,41 @@ export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
         Emojis e stickers
       </div>
 
+      {/* UPLOAD DIRETO */}
+      <label className="mb-3 flex cursor-pointer items-center justify-center rounded-xl border border-dashed p-3 text-xs text-muted-foreground hover:bg-muted">
+        Upload emoji
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleUpload}
+        />
+      </label>
+
+      {/* CUSTOM EMOJIS */}
       <div className="grid grid-cols-6 gap-2">
-        {items.map((item, index) => (
+        {customEmojis.map((emoji) => (
           <button
-            key={item.type === 'unicode' ? `${item.value}-${index}` : item.id}
+            key={emoji.id}
             type="button"
-            onClick={() => {
-              if (item.type === 'unicode') {
-                onSelectEmoji(item.value);
-              } else {
-                onSelectEmoji(
-                  buildImageToken(item.id, item.src, item.alt)
-                );
-              }
-            }}
+            onClick={() =>
+              onSelectEmoji(
+                buildImageToken(
+                  emoji.id,
+                  emoji.imageUrl,
+                  emoji.label
+                )
+              )
+            }
             className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-background hover:bg-muted"
+            title={emoji.label}
           >
-            {item.type === 'unicode' ? (
-              <span className="text-xl">{item.value}</span>
-            ) : (
-              <Image
-                src={item.src}
-                alt={item.alt}
-                className="h-10 w-10 object-contain"
-                draggable={false}
-              />
-            )}
+            <Image
+              src={emoji.imageUrl}
+              alt={emoji.label}
+              className="h-10 w-10 object-contain"
+              draggable={false}
+            />
           </button>
         ))}
       </div>
