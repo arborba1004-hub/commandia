@@ -1,23 +1,33 @@
+/**
+ * store/gangStore.ts
+ * Store Zustand unificado da gangue.
+ * Refatorado para usar os tipos canônicos de @/types/gang.
+ * Integrado com gangEstatisticasStore para atualizar estatísticas ao mudar formação.
+ */
+
 import { create } from 'zustand';
 import { usePlayerStore } from '@/store/playerStore';
+import { useGangEstatisticasStore, getFormacaoBonusPayload } from '@/store/gangEstatisticasStore';
 import type {
-  GangBattleCasualtyResult,
-  GangBattleCompositionStats,
+  GangStateSnapshot,
   GangFormationType,
   GangMemberType,
-  GangStateSnapshot,
-} from '@/types/gangWar';
+  GangBattleStats,
+} from '@/types/gang';
 import {
-  applyGangBattleLosses,
-  completeGangTrainings,
   fetchMyGang,
-  payGangMaintenance,
-  queueGangTraining,
   recruitGangMember,
-  setGangFormation,
-  startGangTraining,
+  queueGangTraining,
+  completeGangTrainings,
   upgradeGangCT,
-} from '@/api/gangWarApi';
+  payGangMaintenance,
+  setGangFormation,
+  applyGangBattleLosses,
+} from '@/api/gangApi';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TIPOS DO STORE
+// ═════════════════════════════════════════════════════════════════════════════
 
 type GangStore = {
   gang: GangStateSnapshot | null;
@@ -25,62 +35,74 @@ type GangStore = {
   isSubmitting: boolean;
   error: string | null;
 
+  // ── Carregamento ──────────────────────────────────────────────────────────
   loadGang: () => Promise<boolean>;
+
+  // ── Mutações ──────────────────────────────────────────────────────────────
   recruitMember: (type: GangMemberType) => Promise<boolean>;
   queueTraining: (type: GangMemberType, quantity?: number) => Promise<boolean>;
-  startTrainingMember: (memberId: string) => Promise<boolean>;
   completeFinishedTrainings: () => Promise<boolean>;
   upgradeCT: () => Promise<boolean>;
   payMaintenance: () => Promise<boolean>;
   setFormation: (formation: GangFormationType) => Promise<boolean>;
 
-  getBattleStats: () => GangBattleCompositionStats;
+  // ── Consultas derivadas ───────────────────────────────────────────────────
+  getBattleStats: () => GangBattleStats;
   getAvailableByType: () => Record<GangMemberType, number>;
+  getActiveMemberCount: (type: GangMemberType) => number;
   getTrainingConfig: () => { quantityPerOrder: number; durationSeconds: number; slots: number };
-  getActiveMembersByType: (type: GangMemberType) => number;
 
-  applyBattleLossesToBackend: (losses: GangBattleCasualtyResult) => Promise<boolean>;
+  // ── Utilitários ───────────────────────────────────────────────────────────
   clearGang: () => void;
 };
 
-const EMPTY_STATS: GangBattleCompositionStats = {
-  totalMembers: 0,
-  ativos: 0,
-  feridos: 0,
-  mortos: 0,
-  bondeAtivos: 0,
-  rajada: 0,
-  blindagem: 0,
-  folego: 0,
-  quebra: 0,
-  medicalPower: 0,
-  economyPower: 0,
-  lootPower: 0,
-  intelPower: 0,
-  mobilityPower: 0,
-  weaponPower: 0,
-  coordinationPower: 0,
-  negotiationPower: 0,
+// ═════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═════════════════════════════════════════════════════════════════════════════
+
+const EMPTY_BATTLE_STATS: GangBattleStats = {
+  totalMembers: 0, ativos: 0, feridos: 0, mortos: 0,
+  rajada: 0, blindagem: 0, folego: 0, quebra: 0,
+  medicalPower: 0, lootPower: 0, mobilityPower: 0,
   totalPower: 0,
 };
 
-function syncBalancesToPlayerStore(playerBalances?: {
+const EMPTY_BY_TYPE: Record<GangMemberType, number> = {
+  capanga: 0, frente: 0, executor: 0, assassino: 0,
+  muralha: 0, certeiro: 0, motorista: 0, nitro: 0,
+};
+
+/** Sincroniza os saldos do player retornados pela API da gangue. */
+function syncBalances(playerBalances?: {
   dirtyMoney: number;
   cleanMoney: number;
   corre: number;
 }) {
   if (!playerBalances) return;
-
-  usePlayerStore.getState().applyPlayerUpdate((player) => ({
-    ...player,
+  usePlayerStore.getState().applyPlayerUpdate((p) => ({
+    ...p,
     balances: {
-      ...player.balances,
-      dirtyMoney: Number(playerBalances.dirtyMoney || 0),
-      cleanMoney: Number(playerBalances.cleanMoney || 0),
-      corre: Number(playerBalances.corre || 0),
+      ...p.balances,
+      dirtyMoney: Number(playerBalances.dirtyMoney ?? 0),
+      cleanMoney: Number(playerBalances.cleanMoney ?? 0),
+      corre:      Number(playerBalances.corre      ?? 0),
     },
   }));
 }
+
+/**
+ * Após mudar a formação, atualiza as estatísticas de combate no gangEstatisticasStore.
+ * Este é o ponto de integração entre gangStore ↔ gangEstatisticasStore.
+ */
+function syncFormacaoToEstatisticas(formation: GangFormationType) {
+  useGangEstatisticasStore
+    .getState()
+    .applyBonus('formacao', getFormacaoBonusPayload(formation));
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// STORE
+// ═════════════════════════════════════════════════════════════════════════════
 
 export const useGangStore = create<GangStore>((set, get) => ({
   gang: null,
@@ -88,34 +110,39 @@ export const useGangStore = create<GangStore>((set, get) => ({
   isSubmitting: false,
   error: null,
 
+  // ── Carregamento ──────────────────────────────────────────────────────────
+
   loadGang: async () => {
     try {
       set({ isLoading: true, error: null });
       const data = await fetchMyGang();
-      syncBalancesToPlayerStore(data.playerBalances);
-      set({ gang: data.gang, isLoading: false, error: null });
+      syncBalances(data.playerBalances);
+      set({ gang: data.gang, isLoading: false });
+      // Sincroniza formação atual com o sistema de estatísticas
+      if (data.gang?.formation) {
+        syncFormacaoToEstatisticas(data.gang.formation);
+      }
       return true;
-    } catch (error) {
+    } catch (err) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Erro ao carregar gangue',
+        error: err instanceof Error ? err.message : 'Erro ao carregar gangue',
       });
       return false;
     }
   },
 
+  // ── Mutações ──────────────────────────────────────────────────────────────
+
   recruitMember: async (type) => {
     try {
       set({ isSubmitting: true, error: null });
       const data = await recruitGangMember(type);
-      syncBalancesToPlayerStore(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false, error: null });
+      syncBalances(data.playerBalances);
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      set({
-        isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao recrutar',
-      });
+    } catch (err) {
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao recrutar' });
       return false;
     }
   },
@@ -123,32 +150,13 @@ export const useGangStore = create<GangStore>((set, get) => ({
   queueTraining: async (type, quantity) => {
     try {
       set({ isSubmitting: true, error: null });
-      const fallbackQty = get().gang?.trainingConfig.quantityPerOrder || 10;
-      const data = await queueGangTraining(type, quantity || fallbackQty);
-      syncBalancesToPlayerStore(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false, error: null });
+      const qty = quantity ?? get().gang?.trainingConfig.quantityPerOrder ?? 10;
+      const data = await queueGangTraining(type, qty);
+      syncBalances(data.playerBalances);
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      set({
-        isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao treinar tropa',
-      });
-      return false;
-    }
-  },
-
-  startTrainingMember: async (memberId) => {
-    try {
-      set({ isSubmitting: true, error: null });
-      const data = await startGangTraining(memberId);
-      syncBalancesToPlayerStore(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false, error: null });
-      return true;
-    } catch (error) {
-      set({
-        isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao treinar membro',
-      });
+    } catch (err) {
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao treinar' });
       return false;
     }
   },
@@ -157,14 +165,11 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isSubmitting: true, error: null });
       const data = await completeGangTrainings();
-      syncBalancesToPlayerStore(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false, error: null });
+      syncBalances(data.playerBalances);
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      set({
-        isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao concluir treinos',
-      });
+    } catch (err) {
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao coletar treinos' });
       return false;
     }
   },
@@ -173,14 +178,11 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isSubmitting: true, error: null });
       const data = await upgradeGangCT();
-      syncBalancesToPlayerStore(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false, error: null });
+      syncBalances(data.playerBalances);
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      set({
-        isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao evoluir CT',
-      });
+    } catch (err) {
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao evoluir CT' });
       return false;
     }
   },
@@ -189,14 +191,11 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isSubmitting: true, error: null });
       const data = await payGangMaintenance();
-      syncBalancesToPlayerStore(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false, error: null });
+      syncBalances(data.playerBalances);
+      set({ gang: data.gang, isSubmitting: false });
       return true;
-    } catch (error) {
-      set({
-        isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao pagar manutenção',
-      });
+    } catch (err) {
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao pagar manutenção' });
       return false;
     }
   },
@@ -205,105 +204,72 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isSubmitting: true, error: null });
       const data = await setGangFormation(formation);
-      syncBalancesToPlayerStore(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false, error: null });
+      syncBalances(data.playerBalances);
+      set({ gang: data.gang, isSubmitting: false });
+      // ← Ponto de integração: atualiza estatísticas de combate
+      syncFormacaoToEstatisticas(formation);
       return true;
-    } catch (error) {
-      set({
-        isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao trocar formação',
-      });
+    } catch (err) {
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao trocar formação' });
       return false;
     }
   },
 
-  getBattleStats: () => {
-    const gang = get().gang;
-    if (!gang) return EMPTY_STATS;
+  // ── Consultas derivadas ───────────────────────────────────────────────────
 
-    const activeByType = gang.troopSummary.activeByType;
+  getBattleStats: () => {
+    const { gang } = get();
+    if (!gang) return EMPTY_BATTLE_STATS;
+
+    const active = gang.troopSummary.activeByType;
+
+    // Pesos de poder por tipo (igual ao backend gangWarService.js)
     const totalPower =
-      activeByType.capanga * 14 +
-      activeByType.frente * 18 +
-      activeByType.executor * 22 +
-      activeByType.muralha * 16 +
-      activeByType.certeiro * 18 +
-      activeByType.motorista * 12 +
-      activeByType.nitro * 16 +
-      activeByType.armeiro * 11 +
-      activeByType.informante * 10 +
-      activeByType.wifi * 10 +
-      activeByType.medico * 9 +
-      activeByType.lavador * 9 +
-      activeByType.negociador * 8;
+      active.capanga   * 14 +
+      active.frente    * 18 +
+      active.executor  * 22 +
+      active.assassino * 20 +
+      active.muralha   * 16 +
+      active.certeiro  * 18 +
+      active.motorista * 12 +
+      active.nitro     * 16;
 
     return {
-      ...EMPTY_STATS,
       totalMembers: gang.troopSummary.totalMembers,
-      ativos: gang.troopSummary.activeMembers,
-      feridos: gang.troopSummary.injuredMembers,
-      mortos: gang.troopSummary.deadMembers,
-      bondeAtivos: activeByType.nitro + activeByType.capanga,
+      ativos:       gang.troopSummary.activeMembers,
+      feridos:      gang.troopSummary.injuredMembers,
+      mortos:       gang.troopSummary.deadMembers,
+      // Os valores abaixo são somados dos atributos dos membros ativos.
+      // Para atributos detalhados por tipo+nível use gangAtributos.ts + gangEstatisticasStore.
+      rajada:    active.capanga * 9  + active.frente  * 12 + active.executor  * 11 + active.assassino * 12,
+      blindagem: active.muralha * 15 + active.motorista * 14 + active.nitro   * 13 + active.certeiro * 10,
+      folego:    active.muralha * 16 + active.nitro    * 15 + active.motorista * 14 + active.capanga * 12,
+      quebra:    active.frente  * 12 + active.executor * 12 + active.assassino * 13 + active.certeiro * 8,
+      medicalPower: 0,
+      lootPower:    0,
+      mobilityPower: active.motorista * 8 + active.nitro * 6,
       totalPower,
     };
   },
 
   getAvailableByType: () => {
-    return (
-      get().gang?.troopSummary.activeByType || {
-        capanga: 0,
-        frente: 0,
-        executor: 0,
-        muralha: 0,
-        certeiro: 0,
-        motorista: 0,
-        nitro: 0,
-        armeiro: 0,
-        informante: 0,
-        wifi: 0,
-        medico: 0,
-        lavador: 0,
-        negociador: 0,
-      }
-    );
+    return get().gang?.troopSummary.activeByType ?? { ...EMPTY_BY_TYPE };
+  },
+
+  getActiveMemberCount: (type) => {
+    return get().gang?.troopSummary.activeByType?.[type] ?? 0;
   },
 
   getTrainingConfig: () => {
-    return (
-      get().gang?.trainingConfig || {
-        quantityPerOrder: 10,
-        durationSeconds: 10,
-        slots: 7,
-      }
-    );
-  },
-
-  getActiveMembersByType: (type) => {
-    return get().gang?.troopSummary.activeByType?.[type] || 0;
-  },
-
-  applyBattleLossesToBackend: async (losses) => {
-    try {
-      set({ isSubmitting: true, error: null });
-      const data = await applyGangBattleLosses({ losses });
-      syncBalancesToPlayerStore(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false, error: null });
-      return true;
-    } catch (error) {
-      set({
-        isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Erro ao aplicar perdas',
-      });
-      return false;
-    }
+    return get().gang?.trainingConfig ?? {
+      quantityPerOrder: 10,
+      durationSeconds:  10,
+      slots:            7,
+    };
   },
 
   clearGang: () => {
-    set({
-      gang: null,
-      isLoading: false,
-      isSubmitting: false,
-      error: null,
-    });
+    set({ gang: null, isLoading: false, isSubmitting: false, error: null });
+    useGangEstatisticasStore.getState().resetAll();
   },
 }));
