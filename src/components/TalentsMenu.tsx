@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BaseCrudService } from '@/integrations';
-import { TalentosDoCrime } from '@/entities';
+import { TalentosdoCrime } from '@/entities';
 import { useTalentStore } from '@/store/talentStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { getEffectValue } from '@/utils/talentEffects';
@@ -11,7 +11,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Lock, Unlock, Star, TrendingUp } from 'lucide-react';
 import TalentUpgradeModal from '@/components/TalentUpgradeModal';
 
-interface TalentWithProgress extends TalentosDoCrime {
+interface TalentWithProgress extends TalentosdoCrime {
   currentLevel: number;
   isUnlocked: boolean;
 }
@@ -49,7 +49,7 @@ export default function TalentsMenu() {
     try {
       setIsLoading(true);
 
-      const result = await BaseCrudService.getAll<TalentosDoCrime>('talentosdocrime', [], {
+      const result = await BaseCrudService.getAll<TalentosdoCrime>('talentosdocrime', [], {
         limit: 100,
       });
 
@@ -69,7 +69,7 @@ export default function TalentsMenu() {
     }
   };
 
-  const canUnlockTalent = (talent: TalentosDoCrime): boolean => {
+  const canUnlockTalent = (talent: TalentosdoCrime): boolean => {
     if (talent.isAutoUnlock && playerLevel >= (talent.unlockLevel || 0)) {
       return true;
     }
@@ -87,7 +87,7 @@ export default function TalentsMenu() {
     return dirtyMoney >= cost;
   };
 
-  const handleUnlockTalent = async (talent: TalentosDoCrime) => {
+  const handleUnlockTalent = async (talent: TalentosdoCrime) => {
     const cost = talent.isAutoUnlock ? 1 : talent.unlockCostDirtyMoney || 10000;
 
     if (dirtyMoney < cost) {
@@ -311,7 +311,7 @@ export default function TalentsMenu() {
 }
 
 interface TalentCardProps {
-  talent: TalentosDoCrime;
+  talent: TalentosdoCrime;
   onUnlock: () => void;
   cost: number;
   canAfford: boolean;

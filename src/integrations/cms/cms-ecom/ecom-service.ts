@@ -11,5 +11,7 @@
  * ]);
  */
 
-// eCommerce functionality is provided by the Wix platform
-export { buyNow } from '@wix/sdk';
+export const buyNow = async (items: Array<{ collectionId: string; itemId: string; quantity: number }>) => {
+  console.warn('buyNow not implemented', items);
+  throw new Error('buyNow functionality not available');
+};

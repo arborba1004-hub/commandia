@@ -14,5 +14,30 @@
  * actions.checkout();
  */
 
-// Cart functionality is provided by the Wix platform
-export { useCart, useCartStore } from '@wix/sdk';
+// Placeholder implementation - Cart functionality should be provided by Wix platform
+export const useCart = () => {
+  return {
+    items: [],
+    itemCount: 0,
+    totalPrice: 0,
+    isOpen: false,
+    addingItemId: null,
+    isCheckingOut: false,
+    actions: {
+      addToCart: async (item: any) => console.warn('useCart.addToCart not implemented'),
+      removeFromCart: (item: any) => console.warn('useCart.removeFromCart not implemented'),
+      updateQuantity: (item: any, qty: number) => console.warn('useCart.updateQuantity not implemented'),
+      toggleCart: () => console.warn('useCart.toggleCart not implemented'),
+      openCart: () => console.warn('useCart.openCart not implemented'),
+      closeCart: () => console.warn('useCart.closeCart not implemented'),
+      clearCart: () => console.warn('useCart.clearCart not implemented'),
+      checkout: async () => console.warn('useCart.checkout not implemented'),
+    },
+  };
+};
+
+export const useCartStore = () => ({
+  items: [],
+  itemCount: 0,
+  totalPrice: 0,
+});
