@@ -45,6 +45,12 @@ class RealSocket implements Socket {
   }
 
   private connect(): void {
+    // Prevent socket connection during build/publish
+    if (typeof window === 'undefined') {
+      console.log('⚠️ Socket connection skipped during SSR/build');
+      return;
+    }
+
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     const protocol = BACKEND_URL.startsWith('https') ? 'wss' : 'ws';
@@ -256,7 +262,18 @@ export function getSocket(): Socket {
 export function reconnectSocket(): Socket {
   // Prevent socket connection during build/publish
   if (typeof window === 'undefined') {
-    throw new Error('Socket cannot be used during SSR/build');
+    console.log('⚠️ reconnectSocket called during SSR/build - skipping');
+    // Return a no-op socket for SSR
+    return {
+      on: () => {},
+      once: () => {},
+      off: () => {},
+      emit: () => {},
+      disconnect: () => {},
+      removeAllListeners: () => {},
+      isConnected: () => false,
+      connected: false,
+    };
   }
 
   if (_socket) {

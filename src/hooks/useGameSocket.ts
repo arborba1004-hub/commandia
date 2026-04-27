@@ -25,13 +25,19 @@ export function useGameSocket() {
 
   useEffect(() => {
     // Prevent socket initialization during SSR/build
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+      console.log('⚠️ useGameSocket skipped during SSR/build');
+      return;
+    }
 
     // Evita múltiplas inicializações do socket
     if (socketInitializedRef.current) return;
     
     const token = localStorage.getItem('authToken');
-    if (!token) return;
+    if (!token) {
+      console.log('⚠️ No auth token available - socket initialization skipped');
+      return;
+    }
 
     try {
       socketInitializedRef.current = true;
