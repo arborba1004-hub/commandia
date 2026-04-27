@@ -10,8 +10,31 @@ interface EmojiPickerProps {
 }
 
 const EMOJI_ITEMS: EmojiPickerItem[] = [
-  
-  
+  { type: 'unicode', value: '🔥' },
+  { type: 'unicode', value: '💰' },
+  { type: 'unicode', value: '💎' },
+  { type: 'unicode', value: '🚔' },
+  { type: 'unicode', value: '🔫' },
+  { type: 'unicode', value: '😈' },
+  { type: 'unicode', value: '😎' },
+  { type: 'unicode', value: '😂' },
+  { type: 'unicode', value: '😭' },
+  { type: 'unicode', value: '❤️' },
+  { type: 'unicode', value: '💣' },
+  { type: 'unicode', value: '⚡' },
+  { type: 'unicode', value: '👑' },
+  { type: 'unicode', value: '🖤' },
+  { type: 'unicode', value: '🤝' },
+  { type: 'unicode', value: '😡' },
+  { type: 'unicode', value: '🥶' },
+  { type: 'unicode', value: '🍀' },
+  { type: 'unicode', value: '🎯' },
+  { type: 'unicode', value: '🏆' },
+  { type: 'unicode', value: '📩' },
+  { type: 'unicode', value: '📦' },
+  { type: 'unicode', value: '🚀' },
+  { type: 'unicode', value: '💥' },
+
   {
     type: 'image',
     id: 'comando-apaixonado',
@@ -30,30 +53,7 @@ const EMOJI_ITEMS: EmojiPickerItem[] = [
     src: 'https://static.wixstatic.com/media/50f4bf_0fe37c167b134ab280c353da7c7dd9f2~mv2.png',
     alt: 'Sextou',
   },
-
-
-{
-    id: "1777237845773",
-    label: "1777198095616",
-    shortcode: ":1777198095616:",
-    imageUrl: "/emojis/1777198095616-1777237845773.png"
-  },
-  {
-    id: "1777237845774",
-    label: "1777198327216",
-    shortcode: ":1777198327216:",
-    imageUrl: "/emojis/1777198327216-1777237845774.png"
-  },
-  {
-    id: "1777237845774",
-    label: "1777198421581",
-    shortcode: ":1777198421581:",
-    imageUrl: "/emojis/1777198421581-1777237845774.png"
-  },
 ];
-
-
-
 
 function buildImageToken(id: string, src: string, alt: string) {
   return `[imgemoji:${id}|${src}|${alt}]`;
