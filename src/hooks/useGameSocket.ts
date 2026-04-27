@@ -21,44 +21,44 @@ export function useGameSocket() {
   const hydratePlayerFromServer = usePlayerStore((s) => s.hydratePlayerFromServer);
   const setFaction              = useFactionStore((s) => s.setFaction);
   const mountedRef              = useRef(false);
+  const socketInitializedRef    = useRef(false);
 
   useEffect(() => {
+    // Evita múltiplas inicializações do socket
+    if (socketInitializedRef.current) return;
+    
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
     try {
+      socketInitializedRef.current = true;
+      mountedRef.current = true;
+
       // Garante socket autenticado com token atual
       const socket = reconnectSocket();
-      mountedRef.current = true;
 
       // ── playerInit: estado completo do jogador ao conectar ────────────────────
       // Substitui completamente o loadPlayer() + polling do playerStore
-      socket.on('playerInit', (data: { player: any; faction?: any }) => {
+      const handlePlayerInit = (data: { player: any; faction?: any }) => {
         if (!mountedRef.current) return;
         hydratePlayerFromServer(data.player);
         if (data.faction !== undefined) {
           setFaction(data.faction);
         }
-      });
+      };
 
       // ── playerUpdate: estado atualizado após qualquer mutação backend ─────────
       // Emitido por todos os controllers após player.save()
-      socket.on('playerUpdate', (data: { player: any; faction?: any }) => {
+      const handlePlayerUpdate = (data: { player: any; faction?: any }) => {
         if (!mountedRef.current) return;
         hydratePlayerFromServer(data.player);
         if (data.faction !== undefined) {
           setFaction(data.faction);
         }
-      });
-
-      // Fallback: se socket não conectar em 3 segundos, hydrate com dados locais
-      const fallbackTimeout = setTimeout(() => {
-        if (!mountedRef.current) return;
-        hydratePlayerFromServer({});
-      }, 3000);
+      };
 
       // ── gangUpdate: quando gang muda (treinamento, recrutamento) ─────────────
-      socket.on('gangUpdate', (data: { gang: any }) => {
+      const handleGangUpdate = (data: { gang: any }) => {
         if (!mountedRef.current || !data?.gang) return;
         // Atualiza gang dentro do playerStore
         usePlayerStore.getState().applyPlayerUpdate((p) => (
@@ -69,28 +69,34 @@ export function useGameSocket() {
             gangStats:   data.gang?.stats   ?? p.gangStats,
           }
         ));
-      });
+      };
 
-      socket.on('connect', () => {
+      const handleConnect = () => {
         console.log('🟢 Socket conectado');
-      });
+      };
 
-      socket.on('connect_error', (err: Error) => {
+      const handleConnectError = (err: Error) => {
         console.error('🔴 Socket connection error:', err.message);
-      });
+      };
+
+      socket.on('playerInit', handlePlayerInit);
+      socket.on('playerUpdate', handlePlayerUpdate);
+      socket.on('gangUpdate', handleGangUpdate);
+      socket.on('connect', handleConnect);
+      socket.on('connect_error', handleConnectError);
 
       return () => {
         mountedRef.current = false;
-        clearTimeout(fallbackTimeout);
-        socket.off('playerInit');
-        socket.off('playerUpdate');
-        socket.off('gangUpdate');
-        socket.off('connect');
-        socket.off('connect_error');
+        socket.off('playerInit', handlePlayerInit);
+        socket.off('playerUpdate', handlePlayerUpdate);
+        socket.off('gangUpdate', handleGangUpdate);
+        socket.off('connect', handleConnect);
+        socket.off('connect_error', handleConnectError);
         // Não desconecta o socket aqui — ele é singleton e pode ser usado por outros componentes
       };
     } catch (error) {
       console.error('Erro ao conectar socket:', error);
+      socketInitializedRef.current = false;
       return;
     }
   }, []); // Apenas na montagem — o socket é singleton
