@@ -1,85 +1,47 @@
-import { useMapAttackStore } from '@/store/mapAttackStore';
-import type {
-  GangBattleCasualtyResult,
-  GangBattleCompositionStats,
-  GangTroopSelection,
-} from '@/types/gangWar';
-import type { AttackResolution } from '@/store/mapAttackStore';
+/**
+ * api/attackApi.ts
+ * API unificada de ataque PVP.
+ * Substitui: attackApi.ts (novo), attack.ts (antigo)
+ *
+ * Fluxo do ataque:
+ *   1. estimateBattle() → mostra probabilidade antes de confirmar
+ *   2. startBattle()    → backend cria registro, retorna battleId + tempo de viagem
+ *   3. (frontend anima deslocamento durante o tempo de viagem)
+ *   4. resolveBattle()  → backend calcula resultado, persiste espólios, envia e-mail
+ *   5. getBattleReport()→ busca relatório de batalha já resolvida
+ */
+
+import type { BattleResolution, AttackTarget, GangAttackSelection } from '@/types/gang';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CONFIG
+// ═════════════════════════════════════════════════════════════════════════════
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
+const TIMEOUT_MS  = 10_000;
 
-function getAuthToken(): string | null {
-  const token = localStorage.getItem('authToken');
-  return token && token.trim() ? token.trim() : null;
-}
+// ═════════════════════════════════════════════════════════════════════════════
+// TIPOS DE REQUEST / RESPONSE
+// ═════════════════════════════════════════════════════════════════════════════
 
-function buildUrl(endpoint: string): string {
-  const normalizedBase = BACKEND_URL.replace(/\/+$/, '');
-  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  return `${normalizedBase}${normalizedEndpoint}`;
-}
-
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getAuthToken();
-
-  if (!token) {
-    throw new Error('Usuário não autenticado');
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const response = await fetch(buildUrl(endpoint), {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...(options.headers || {}),
-      },
-    });
-
-    let data: any = null;
-
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
-
-    if (!response.ok) {
-      const error = new Error(
-        data?.error || `Erro ${response.status}: ${response.statusText}`
-      ) as Error & {
-        status?: number;
-        data?: unknown;
-      };
-      error.status = response.status;
-      error.data = data;
-      throw error;
-    }
-
-    return data as T;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-type StartBattlePayload = {
+export type StartBattlePayload = {
   targetId: string;
   targetName?: string;
   targetTileX?: number;
   targetTileY?: number;
   originTileX?: number;
   originTileY?: number;
+  /** Seleção de tropas por quantidade por tipo (Mafia City style) */
+  selection?: Partial<GangAttackSelection>;
 };
 
-type StartBattleResponse = {
+export type StartBattleResponse = {
   battleId: string;
   success: boolean;
   message: string;
+  /** Tempo estimado de viagem em ms (para sincronizar animação) */
+  totalDurationMs: number;
+  arriveAtIso: string;
   estimatedLoot: number;
   estimatedChance: number;
   attackerPower: number;
@@ -92,9 +54,19 @@ type StartBattleResponse = {
   };
 };
 
-type BattleReportResponse = {
+export type EstimateBattleResponse = {
+  estimatedLoot: number;
+  estimatedChance: number;
+  attackerPower: number;
+  defenderPower: number;
+  correCost: number;
+  attackerGangPower?: number;
+  defenderGangPower?: number;
+};
+
+export type BattleReportResponse = {
   battleId: string;
-  resolution: AttackResolution;
+  resolution: BattleResolution;
   attacker: {
     playerId: string;
     playerName: string;
@@ -111,202 +83,192 @@ type BattleReportResponse = {
   };
 };
 
-type EstimateBattleResponse = {
-  estimatedLoot: number;
-  estimatedChance: number;
-  attackerPower: number;
-  defenderPower: number;
-  correCost: number;
-  attackerGangPower?: number;
-  defenderGangPower?: number;
-};
+// ═════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═════════════════════════════════════════════════════════════════════════════
 
-function readSelectedTroops(): GangTroopSelection[] {
-  return useMapAttackStore.getState().selectedTroops || [];
+function getToken(): string {
+  const token = localStorage.getItem('authToken');
+  if (!token?.trim()) throw new Error('Usuário não autenticado');
+  return token.trim();
 }
 
-function normalizeGangLosses(
-  losses: any
-): GangBattleCasualtyResult | undefined {
-  if (!losses || typeof losses !== 'object') return undefined;
+function buildUrl(path: string): string {
+  const base = BACKEND_URL.replace(/\/+$/, '');
+  const endpoint = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${endpoint}`;
+}
 
-  const keys = [
-    'capanga',
-    'frente',
-    'executor',
-    'muralha',
-    'certeiro',
-    'motorista',
-    'nitro',
-    'armeiro',
-    'informante',
-    'wifi',
-    'medico',
-    'lavador',
-    'negociador',
-  ];
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  const mapSide = (side: any) =>
-    Object.fromEntries(keys.map((key) => [key, Number(side?.[key] || 0)])) as any;
+  try {
+    const response = await fetch(buildUrl(endpoint), {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers ?? {}),
+      },
+    });
 
+    let data: unknown = null;
+    try { data = await response.json(); } catch { data = null; }
+
+    if (!response.ok) {
+      const msg = (data as any)?.error
+        ?? (data as any)?.message
+        ?? `Erro ${response.status}: ${response.statusText}`;
+      const err = Object.assign(new Error(msg), { status: response.status, data });
+      throw err;
+    }
+
+    return data as T;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/** Espera ms antes de continuar (para polling com backoff). */
+function wait(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// NORMALIZAÇÃO
+// ═════════════════════════════════════════════════════════════════════════════
+
+function normalizeSpoils(spoils: any) {
   return {
-    mortos: mapSide(losses?.mortos),
-    feridos: mapSide(losses?.feridos),
-    preservadosPeloMedico: Number(losses?.preservadosPeloMedico || 0),
+    dirtyMoneyLoot:          Number(spoils?.dirtyMoneyLoot ?? spoils?.loot ?? 0),
+    correLoot:               Number(spoils?.correLoot ?? 0),
+    prestigeLoot:            Number(spoils?.prestigeLoot ?? 0),
+    brokenLuxuryItemId:      spoils?.brokenLuxuryItemId ?? null,
+    brokenLuxuryItemName:    spoils?.brokenLuxuryItemName ?? null,
+    brokenLuxuryItemValue:   spoils?.brokenLuxuryItemValue ?? null,
+    luxuryConvertedDirtyMoney: Number(spoils?.luxuryConvertedDirtyMoney ?? 0),
   };
 }
 
-function normalizeGangStats(
-  stats: any
-): GangBattleCompositionStats | undefined {
-  if (!stats || typeof stats !== 'object') return undefined;
-
+function normalizeResolution(raw: any): BattleResolution {
   return {
-    totalMembers: Number(stats.totalMembers || 0),
-    ativos: Number(stats.ativos || 0),
-    feridos: Number(stats.feridos || 0),
-    mortos: Number(stats.mortos || 0),
-    bondeAtivos: Number(stats.bondeAtivos || 0),
-    rajada: Number(stats.rajada || 0),
-    blindagem: Number(stats.blindagem || 0),
-    folego: Number(stats.folego || 0),
-    quebra: Number(stats.quebra || 0),
-    medicalPower: Number(stats.medicalPower || 0),
-    economyPower: Number(stats.economyPower || 0),
-    lootPower: Number(stats.lootPower || 0),
-    intelPower: Number(stats.intelPower || 0),
-    mobilityPower: Number(stats.mobilityPower || 0),
-    weaponPower: Number(stats.weaponPower || 0),
-    coordinationPower: Number(stats.coordinationPower || 0),
-    negotiationPower: Number(stats.negotiationPower || 0),
-    totalPower: Number(stats.totalPower || 0),
+    success:       Boolean(raw?.success),
+    loot:          Number(raw?.loot ?? 0),
+    chance:        Number(raw?.chance ?? 0) / (Number(raw?.chance ?? 0) > 1 ? 100 : 1),
+    attackerPower: Number(raw?.attackerPower ?? 0),
+    defenderPower: Number(raw?.defenderPower ?? 0),
+    message:       String(raw?.message ?? ''),
+    critical:      Boolean(raw?.critical),
+    spoils:        normalizeSpoils(raw?.spoils),
+    attackerGangLosses: raw?.attackerGangLosses,
+    defenderGangLosses: raw?.defenderGangLosses,
+    attackerGangStats:  raw?.attackerGangStats,
+    defenderGangStats:  raw?.defenderGangStats,
   };
 }
 
-function normalizeResolution(input: any): AttackResolution {
+function normalizeReportResponse(raw: any, battleId: string): BattleReportResponse {
   return {
-    success: Boolean(input?.success),
-    loot: Number(input?.loot || 0),
-    chance: Number(input?.chance || 0) / 100,
-    attackerPower: Number(input?.attackerPower || 0),
-    defenderPower: Number(input?.defenderPower || 0),
-    message: String(input?.message || ''),
-    critical: Boolean(input?.critical),
-    spoils: {
-      dirtyMoneyLoot: Number(input?.spoils?.dirtyMoneyLoot || input?.loot || 0),
-      correLoot: Number(input?.spoils?.correLoot || 0),
-      prestigeLoot: Number(input?.spoils?.prestigeLoot || 0),
-      brokenLuxuryItemId: input?.spoils?.brokenLuxuryItemId || null,
-      brokenLuxuryItemName: input?.spoils?.brokenLuxuryItemName || null,
-      brokenLuxuryItemValue: input?.spoils?.brokenLuxuryItemValue || null,
-      luxuryConvertedDirtyMoney: Number(input?.spoils?.luxuryConvertedDirtyMoney || 0),
+    battleId: String(raw?.battleId ?? battleId),
+    resolution: normalizeResolution(raw?.resolution),
+    attacker: {
+      playerId:    String(raw?.attacker?.playerId ?? ''),
+      playerName:  String(raw?.attacker?.playerName ?? ''),
+      factionId:   raw?.attacker?.factionId ?? null,
+      factionName: String(raw?.attacker?.factionName ?? ''),
+      factionTag:  String(raw?.attacker?.factionTag ?? ''),
     },
-    attackerGangLosses: normalizeGangLosses(input?.attackerGangLosses),
-    defenderGangLosses: normalizeGangLosses(input?.defenderGangLosses),
-    attackerGangStats: normalizeGangStats(input?.attackerGangStats),
-    defenderGangStats: normalizeGangStats(input?.defenderGangStats),
+    defender: {
+      playerId:    String(raw?.defender?.playerId ?? ''),
+      playerName:  String(raw?.defender?.playerName ?? ''),
+      factionId:   raw?.defender?.factionId ?? null,
+      factionName: String(raw?.defender?.factionName ?? ''),
+      factionTag:  String(raw?.defender?.factionTag ?? ''),
+    },
   };
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// ENDPOINTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Estima resultado sem criar batalha.
+ * Usado no preview antes do jogador confirmar o ataque.
+ */
 export async function estimateBattle(
-  payload: Pick<StartBattlePayload, 'targetId'>
+  payload: Pick<StartBattlePayload, 'targetId' | 'selection'>
 ): Promise<EstimateBattleResponse> {
-  return request<EstimateBattleResponse>('/battle/estimate', {
+  return request('/battle/estimate', {
     method: 'POST',
-    body: JSON.stringify({
-      targetId: payload.targetId,
-      selectedTroops: readSelectedTroops(),
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
+/**
+ * Inicia o ataque — backend cria registro e retorna tempo de viagem.
+ * O frontend usa totalDurationMs para sincronizar a animação.
+ */
 export async function startBattle(
   payload: StartBattlePayload
 ): Promise<StartBattleResponse> {
-  return request<StartBattleResponse>('/battle/start', {
+  return request('/battle/start', {
     method: 'POST',
-    body: JSON.stringify({
-      ...payload,
-      selectedTroops: readSelectedTroops(),
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
-export async function resolveBattleById(
-  battleId: string
+/**
+ * Resolve o resultado da batalha no backend.
+ * Deve ser chamado após a animação chegar ao destino (arriveAtIso).
+ * Backend retorna 409 se ainda não chegou → função retenta automaticamente.
+ */
+export async function resolveBattle(
+  battleId: string,
+  options?: { maxAttempts?: number; intervalMs?: number }
 ): Promise<BattleReportResponse> {
-  const data = await request<any>(`/battle/resolve/${battleId}`, {
-    method: 'POST',
-  });
+  const maxAttempts = Math.max(1, options?.maxAttempts ?? 8);
+  const intervalMs  = Math.max(200, options?.intervalMs ?? 900);
+  let lastError: unknown = null;
 
-  return {
-    battleId: String(data?.battleId || battleId),
-    resolution: normalizeResolution(data?.resolution),
-    attacker: {
-      playerId: String(data?.attacker?.playerId || ''),
-      playerName: String(data?.attacker?.playerName || ''),
-      factionId: data?.attacker?.factionId || null,
-      factionName: String(data?.attacker?.factionName || ''),
-      factionTag: String(data?.attacker?.factionTag || ''),
-    },
-    defender: {
-      playerId: String(data?.defender?.playerId || ''),
-      playerName: String(data?.defender?.playerName || ''),
-      factionId: data?.defender?.factionId || null,
-      factionName: String(data?.defender?.factionName || ''),
-      factionTag: String(data?.defender?.factionTag || ''),
-    },
-  };
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const raw = await request<any>(`/battle/resolve/${battleId}`, { method: 'POST' });
+      return normalizeReportResponse(raw, battleId);
+    } catch (err: any) {
+      lastError = err;
+      if (err?.status === 409) {
+        await wait(intervalMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Não foi possível resolver o ataque no tempo esperado');
 }
 
-export async function getBattleReport(
-  battleId: string
-): Promise<BattleReportResponse> {
-  const data = await request<any>(`/battle/report/${battleId}`, {
-    method: 'GET',
-  });
-
-  return {
-    battleId: String(data?.battleId || battleId),
-    resolution: normalizeResolution(data?.resolution),
-    attacker: {
-      playerId: String(data?.attacker?.playerId || ''),
-      playerName: String(data?.attacker?.playerName || ''),
-      factionId: data?.attacker?.factionId || null,
-      factionName: String(data?.attacker?.factionName || ''),
-      factionTag: String(data?.attacker?.factionTag || ''),
-    },
-    defender: {
-      playerId: String(data?.defender?.playerId || ''),
-      playerName: String(data?.defender?.playerName || ''),
-      factionId: data?.defender?.factionId || null,
-      factionName: String(data?.defender?.factionName || ''),
-      factionTag: String(data?.defender?.factionTag || ''),
-    },
-  };
+/**
+ * Busca relatório de batalha já resolvida por ID.
+ * Usado para exibir o BattleReportPanel sem depender do fluxo de ataque ativo.
+ */
+export async function getBattleReport(battleId: string): Promise<BattleReportResponse> {
+  const raw = await request<any>(`/battle/report/${battleId}`, { method: 'GET' });
+  return normalizeReportResponse(raw, battleId);
 }
 
+/**
+ * Histórico de batalhas do jogador autenticado.
+ */
 export async function getBattleHistory(): Promise<BattleReportResponse[]> {
   const data = await request<any[]>('/battle/history', { method: 'GET' });
-
-  return (Array.isArray(data) ? data : []).map((item) => ({
-    battleId: String(item?.battleId || ''),
-    resolution: normalizeResolution(item?.resolution),
-    attacker: {
-      playerId: String(item?.attacker?.playerId || ''),
-      playerName: String(item?.attacker?.playerName || ''),
-      factionId: item?.attacker?.factionId || null,
-      factionName: String(item?.attacker?.factionName || ''),
-      factionTag: String(item?.attacker?.factionTag || ''),
-    },
-    defender: {
-      playerId: String(item?.defender?.playerId || ''),
-      playerName: String(item?.defender?.playerName || ''),
-      factionId: item?.defender?.factionId || null,
-      factionName: String(item?.defender?.factionName || ''),
-      factionTag: String(item?.defender?.factionTag || ''),
-    },
-  }));
+  return (Array.isArray(data) ? data : []).map((item) =>
+    normalizeReportResponse(item, item?.battleId ?? '')
+  );
 }
-
-export const getAttackEstimate = estimateBattle;
