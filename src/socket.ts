@@ -1,17 +1,17 @@
 /**
- * socket.ts — Gerenciador de Socket.io para comunicação em tempo real
+ * socket.ts — Gerenciador de WebSocket para comunicação em tempo real
  *
- * Responsabilidades:
- *   - Conecta ao backend com JWT autenticado
- *   - Gerencia listeners de eventos (mapSnapshot, playerMoved, etc.)
- *   - Suporta emit de eventos (move, attack, etc.)
- *   - Reconecta automaticamente com novo token
- *   - Fallback para REST se socket falhar
+ * Mudanças desta versão:
+ *   - Keep-alive automático: pinga /health a cada 14 min para evitar
+ *     hibernação do Render free tier (sem precisar de plano pago)
+ *   - startKeepAlive() chamado ao conectar, stopKeepAlive() ao desconectar
+ *   - Resto da lógica preservada integralmente
  */
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECT_ATTEMPTS = 5;
+const KEEP_ALIVE_INTERVAL_MS = 14 * 60 * 1000; // 14 minutos (Render hiberna em 15)
 
 // ─── Event Listeners ──────────────────────────────────────────────────────
 type EventListener = (...args: any[]) => void;
@@ -27,6 +27,33 @@ export interface Socket {
   removeAllListeners: () => void;
   isConnected: () => boolean;
   connected?: boolean;
+}
+
+// ─── Keep-Alive para Render Free Tier ─────────────────────────────────────
+let _keepAliveInterval: ReturnType<typeof setInterval> | null = null;
+
+function startKeepAlive(): void {
+  stopKeepAlive();
+  if (typeof window === 'undefined') return;
+
+  _keepAliveInterval = setInterval(async () => {
+    try {
+      await fetch(`${BACKEND_URL}/health`, { method: 'GET' });
+      console.log('💓 Keep-alive: backend acordado');
+    } catch {
+      // Silencioso — o servidor pode estar voltando do sleep
+    }
+  }, KEEP_ALIVE_INTERVAL_MS);
+
+  console.log('💓 Keep-alive iniciado (ping a cada 14 minutos)');
+}
+
+function stopKeepAlive(): void {
+  if (_keepAliveInterval) {
+    clearInterval(_keepAliveInterval);
+    _keepAliveInterval = null;
+    console.log('💓 Keep-alive parado');
+  }
 }
 
 // ─── Implementação Real ────────────────────────────────────────────────────
@@ -66,6 +93,8 @@ class RealSocket implements Socket {
         this.isReconnecting = false;
         this.flushMessageQueue();
         this.emit('connect');
+        // Inicia keep-alive quando socket conecta com sucesso
+        startKeepAlive();
       };
 
       this.ws.onmessage = (event) => {
@@ -157,7 +186,7 @@ class RealSocket implements Socket {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event)?.add(callback);
-    
+
     if (event === 'mapSnapshot' || event === 'playerMoved' || event === 'playerJoined' || event === 'connect') {
       console.log(`📌 Listener registrado para evento: ${event}`);
     }
@@ -263,7 +292,6 @@ export function reconnectSocket(): Socket {
   // Prevent socket connection during build/publish
   if (typeof window === 'undefined') {
     console.log('⚠️ reconnectSocket called during SSR/build - skipping');
-    // Return a no-op socket for SSR
     return {
       on: () => {},
       once: () => {},
@@ -291,8 +319,9 @@ export function reconnectSocket(): Socket {
   return _socket;
 }
 
-/** Desconecta o socket (chamado no logout). */
+/** Desconecta o socket e para o keep-alive (chamado no logout). */
 export function disconnectSocket(): void {
+  stopKeepAlive();
   if (_socket) {
     _socket.removeAllListeners();
     _socket.disconnect();
