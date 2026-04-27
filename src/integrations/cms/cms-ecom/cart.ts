@@ -1,7 +1,10 @@
 /**
  * Cart Management Hook
  * 
+ * PLACEHOLDER IMPLEMENTATION - Ready for external backend integration
+ * 
  * Provides shopping cart functionality for eCommerce collections.
+ * Replace with your backend cart API implementation.
  * 
  * Usage:
  * import { useCart } from '@/integrations';
@@ -12,9 +15,14 @@
  * actions.updateQuantity(item, 5);
  * actions.toggleCart();
  * actions.checkout();
+ * 
+ * INTEGRATION GUIDE:
+ * 1. Connect to your backend cart API
+ * 2. Implement state management (Zustand, Redux, etc.)
+ * 3. Add error handling for cart operations
  */
 
-// Placeholder implementation - Cart functionality should be provided by Wix platform
+// Placeholder implementation - Replace with your backend cart API
 export const useCart = () => {
   return {
     items: [],
@@ -24,14 +32,14 @@ export const useCart = () => {
     addingItemId: null,
     isCheckingOut: false,
     actions: {
-      addToCart: async (item: any) => console.warn('useCart.addToCart not implemented'),
-      removeFromCart: (item: any) => console.warn('useCart.removeFromCart not implemented'),
-      updateQuantity: (item: any, qty: number) => console.warn('useCart.updateQuantity not implemented'),
-      toggleCart: () => console.warn('useCart.toggleCart not implemented'),
-      openCart: () => console.warn('useCart.openCart not implemented'),
-      closeCart: () => console.warn('useCart.closeCart not implemented'),
-      clearCart: () => console.warn('useCart.clearCart not implemented'),
-      checkout: async () => console.warn('useCart.checkout not implemented'),
+      addToCart: async (item: any) => console.warn('useCart.addToCart not implemented - connect to your backend'),
+      removeFromCart: (item: any) => console.warn('useCart.removeFromCart not implemented - connect to your backend'),
+      updateQuantity: (item: any, qty: number) => console.warn('useCart.updateQuantity not implemented - connect to your backend'),
+      toggleCart: () => console.warn('useCart.toggleCart not implemented - connect to your backend'),
+      openCart: () => console.warn('useCart.openCart not implemented - connect to your backend'),
+      closeCart: () => console.warn('useCart.closeCart not implemented - connect to your backend'),
+      clearCart: () => console.warn('useCart.clearCart not implemented - connect to your backend'),
+      checkout: async () => console.warn('useCart.checkout not implemented - connect to your backend'),
     },
   };
 };
