@@ -24,12 +24,7 @@ export const CUSTOM_EMOJIS: CustomEmoji[] = [
     shortcode: ':sextou:',
     imageUrl: 'https://static.wixstatic.com/media/50f4bf_506cc0570c80440185531ff103ac4398~mv2.png',
   },
-  {
-    id: "1777237845773",
-    label: ".gitkeep",
-    shortcode: ":gitkeep:",
-    imageUrl: "/emojis/gitkeep-1777237845773.png"
-  },
+  
   {
     id: "1777237845773",
     label: "1777198095616",
