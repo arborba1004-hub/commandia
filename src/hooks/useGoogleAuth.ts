@@ -1,13 +1,12 @@
 /**
  * useGoogleAuth.ts
  *
- * MUDANÇAS vs. versão anterior:
- *   - Remove startPolling / stopPolling (polling eliminado)
- *   - Remove localStorage.setItem('playerData') — hidratação vem do socket
- *   - Adiciona reconnectSocket() após login para autenticar o socket com o novo token
- *   - restoreSession() apenas verifica se existe token; estado do player vem do socket
- *   - useSocketLogout() do useGameSocket é o ponto correto para desconectar socket
- *   - Adiciona console.log para debug do fluxo de login
+ * Mudanças desta versão:
+ *   - Timeout de login: 8s → 60s (aguenta cold start do Render free tier)
+ *   - Warm-up: pinga /health antes do login para iniciar o wake-up do servidor
+ *   - Retry automático: até 2 tentativas com 3s de intervalo entre elas
+ *   - Mensagem de loading dinâmica: "Acordando o servidor..." durante warm-up
+ *   - Resto da lógica preservada integralmente
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -24,10 +23,14 @@ export interface AuthState {
   authToken:  string | null;
   playerData: PlayerData | null;
   isLoading:  boolean;
+  loadingMessage: string | null; // mensagem dinâmica durante login
   error:      string | null;
 }
 
-const BACKEND_URL = 'https://comando-backend.onrender.com';
+const BACKEND_URL    = 'https://comando-backend.onrender.com';
+const LOGIN_TIMEOUT  = 60_000; // 60 segundos — aguenta cold start do Render
+const MAX_RETRIES    = 2;      // tenta até 2 vezes antes de desistir
+const RETRY_DELAY_MS = 3_000;  // 3 segundos entre tentativas
 
 function canUseStorage() {
   return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
@@ -52,23 +55,40 @@ function normalizePlayer(rawPlayer: any): PlayerData {
   return { ...(rawPlayer || {}), _id: String(rawPlayer?._id ?? rawPlayer?.id ?? rawPlayer?.googleId ?? '') };
 }
 
+/** Espera N milissegundos */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Pinga /health para despertar o servidor antes do login.
+ * Não lança erro — é só um "apertar a campainha" antes de entrar.
+ */
+async function warmUpBackend(): Promise<void> {
+  try {
+    await fetch(`${BACKEND_URL}/health`, { method: 'GET' });
+    console.log('🔥 Warm-up: servidor respondeu');
+  } catch {
+    console.log('🔥 Warm-up: servidor ainda dormindo, aguardando...');
+  }
+}
+
 export function useGoogleAuth() {
   const [authState, setAuthState] = useState<AuthState>({
-    authToken:  null,
-    playerData: null,
-    isLoading:  true,
-    error:      null,
+    authToken:      null,
+    playerData:     null,
+    isLoading:      true,
+    loadingMessage: null,
+    error:          null,
   });
 
   const clearPlayer = usePlayerStore((state) => state.clearPlayer);
 
   // ── Restaura sessão do token existente ──────────────────────────────────────
-  // NÃO tenta parsear playerData do localStorage — o socket envia playerInit
   const restoreSession = useCallback(() => {
-    // Skip during SSR/build to prevent infinite loops
     if (typeof window === 'undefined') {
       console.log('⚠️ useGoogleAuth: restoreSession skipped during SSR/build');
-      setAuthState({ authToken: null, playerData: null, isLoading: false, error: null });
+      setAuthState({ authToken: null, playerData: null, isLoading: false, loadingMessage: null, error: null });
       return;
     }
 
@@ -76,15 +96,14 @@ export function useGoogleAuth() {
 
     if (!token) {
       console.log('🔵 useGoogleAuth: Nenhum token encontrado, usuário não autenticado');
-      setAuthState({ authToken: null, playerData: null, isLoading: false, error: null });
+      setAuthState({ authToken: null, playerData: null, isLoading: false, loadingMessage: null, error: null });
       return;
     }
 
     console.log('🔵 useGoogleAuth: Token encontrado, conectando socket...');
-    // Token existe → conecta socket (ele enviará playerInit automaticamente)
     reconnectSocket();
 
-    setAuthState({ authToken: token, playerData: null, isLoading: false, error: null });
+    setAuthState({ authToken: token, playerData: null, isLoading: false, loadingMessage: null, error: null });
     console.log('🟢 useGoogleAuth: Sessão restaurada');
   }, []);
 
@@ -92,90 +111,119 @@ export function useGoogleAuth() {
     restoreSession();
   }, [restoreSession]);
 
-  // ── Login com Google ────────────────────────────────────────────────────────
-  const handleGoogleResponse = useCallback(async (response: any) => {
+  // ── Tentativa de login (usada pelo retry loop) ──────────────────────────────
+  const attemptLogin = useCallback(async (credential: string) => {
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), LOGIN_TIMEOUT);
+
     try {
-      // Skip during SSR/build to prevent infinite loops
-      if (typeof window === 'undefined') {
-        console.log('⚠️ useGoogleAuth: handleGoogleResponse skipped during SSR/build');
-        return { ok: false, error: 'SSR/build environment' };
-      }
-
-      console.log('🔵 useGoogleAuth: handleGoogleResponse iniciado');
-      setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
-
-      const credential = response?.credential;
-      if (!credential || typeof credential !== 'string') {
-        console.error('🔴 useGoogleAuth: Sem credencial do Google');
-        throw new Error('Sem credencial do Google');
-      }
-
-      console.log('🔵 useGoogleAuth: Credencial recebida, enviando para backend...');
-
-      // Backend REQUIRED - no fallback
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-      
       const backendResponse = await fetch(`${BACKEND_URL}/auth/google`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body:    JSON.stringify({ token: credential }),
-        signal: controller.signal,
+        signal:  controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
 
       if (!backendResponse.ok) {
         const errorText = await backendResponse.text();
-        console.error('🔴 useGoogleAuth: Backend error:', errorText);
-        throw new Error(`Backend error: ${backendResponse.status} ${backendResponse.statusText}`);
+        throw new Error(`Backend error: ${backendResponse.status} - ${errorText}`);
       }
 
       const data = await backendResponse.json();
-      console.log('🔵 useGoogleAuth: Resposta do backend recebida:', { hasToken: !!data?.token, hasPlayer: !!data?.player });
 
       if (!data?.token || !data?.player) {
-        console.error('🔴 useGoogleAuth: Resposta inválida do backend', data);
         throw new Error('Resposta inválida do backend: token ou player ausente');
       }
 
-      const normalizedPlayer = normalizePlayer(data.player);
-      console.log('🔵 useGoogleAuth: Player normalizado:', { id: normalizedPlayer._id, name: normalizedPlayer.name });
-
-      // Persiste APENAS o token (playerData vai embora)
-      writeStorage('authToken', data.token);
-      console.log('🔵 useGoogleAuth: Token salvo no localStorage');
-
-      // Conecta socket com o novo token → backend enviará playerInit
-      reconnectSocket();
-      console.log('🔵 useGoogleAuth: Socket reconectado');
-
-      setAuthState({
-        authToken:  data.token,
-        playerData: normalizedPlayer,
-        isLoading:  false,
-        error:      null,
-      });
-
-      console.log('🟢 useGoogleAuth: Login bem-sucedido!');
-      return { ok: true, token: data.token, player: normalizedPlayer };
-    } catch (error) {
-      console.error('🔴 useGoogleAuth: Erro login Google:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Erro no login';
-      setAuthState((prev) => (
-        {
-          ...prev,
-          isLoading: false,
-          error: errorMsg,
-        }
-      ));
-      return { ok: false, error: errorMsg };
+      return data;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
     }
   }, []);
 
+  // ── Login com Google ────────────────────────────────────────────────────────
+  const handleGoogleResponse = useCallback(async (response: any) => {
+    if (typeof window === 'undefined') {
+      console.log('⚠️ useGoogleAuth: handleGoogleResponse skipped during SSR/build');
+      return { ok: false, error: 'SSR/build environment' };
+    }
+
+    console.log('🔵 useGoogleAuth: handleGoogleResponse iniciado');
+
+    const credential = response?.credential;
+    if (!credential || typeof credential !== 'string') {
+      console.error('🔴 useGoogleAuth: Sem credencial do Google');
+      setAuthState((prev) => ({ ...prev, isLoading: false, error: 'Sem credencial do Google' }));
+      return { ok: false, error: 'Sem credencial do Google' };
+    }
+
+    // 1. Inicia loading com warm-up
+    setAuthState((prev) => ({ ...prev, isLoading: true, loadingMessage: 'Acordando o servidor...', error: null }));
+    await warmUpBackend();
+
+    // 2. Atualiza mensagem após warm-up
+    setAuthState((prev) => ({ ...prev, loadingMessage: 'Entrando no jogo...' }));
+
+    // 3. Retry loop — tenta até MAX_RETRIES vezes
+    let lastError: string = 'Erro desconhecido';
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`🔵 useGoogleAuth: Tentativa ${attempt}/${MAX_RETRIES} de login`);
+
+        const data = await attemptLogin(credential);
+
+        const normalizedPlayer = normalizePlayer(data.player);
+        console.log('🔵 useGoogleAuth: Player normalizado:', { id: normalizedPlayer._id, name: normalizedPlayer.name });
+
+        writeStorage('authToken', data.token);
+        console.log('🔵 useGoogleAuth: Token salvo');
+
+        reconnectSocket();
+        console.log('🔵 useGoogleAuth: Socket reconectado');
+
+        setAuthState({
+          authToken:      data.token,
+          playerData:     normalizedPlayer,
+          isLoading:      false,
+          loadingMessage: null,
+          error:          null,
+        });
+
+        console.log('🟢 useGoogleAuth: Login bem-sucedido!');
+        return { ok: true, token: data.token, player: normalizedPlayer };
+
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : 'Erro no login';
+        console.error(`🔴 useGoogleAuth: Tentativa ${attempt} falhou:`, lastError);
+
+        if (attempt < MAX_RETRIES) {
+          console.log(`⏳ useGoogleAuth: Aguardando ${RETRY_DELAY_MS}ms antes de tentar novamente...`);
+          setAuthState((prev) => ({
+            ...prev,
+            loadingMessage: `Servidor ocupado, tentando novamente... (${attempt}/${MAX_RETRIES})`,
+          }));
+          await delay(RETRY_DELAY_MS);
+        }
+      }
+    }
+
+    // Todas as tentativas falharam
+    console.error('🔴 useGoogleAuth: Todas as tentativas falharam. Último erro:', lastError);
+    setAuthState((prev) => ({
+      ...prev,
+      isLoading:      false,
+      loadingMessage: null,
+      error:          lastError,
+    }));
+    return { ok: false, error: lastError };
+  }, [attemptLogin]);
+
   // ── Logout ──────────────────────────────────────────────────────────────────
   const logout = useCallback(() => {
-    // Skip during SSR/build to prevent infinite loops
     if (typeof window === 'undefined') {
       console.log('⚠️ useGoogleAuth: logout skipped during SSR/build');
       return;
@@ -183,10 +231,9 @@ export function useGoogleAuth() {
 
     console.log('🔵 useGoogleAuth: Logout iniciado');
     removeStorage('authToken');
-    // NÃO remove playerData pois não existe mais no localStorage
     disconnectSocket();
     clearPlayer();
-    setAuthState({ authToken: null, playerData: null, isLoading: false, error: null });
+    setAuthState({ authToken: null, playerData: null, isLoading: false, loadingMessage: null, error: null });
     console.log('🟢 useGoogleAuth: Logout completo');
   }, [clearPlayer]);
 
