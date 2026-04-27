@@ -65,6 +65,13 @@ export function useGoogleAuth() {
   // ── Restaura sessão do token existente ──────────────────────────────────────
   // NÃO tenta parsear playerData do localStorage — o socket envia playerInit
   const restoreSession = useCallback(() => {
+    // Skip during SSR/build to prevent infinite loops
+    if (typeof window === 'undefined') {
+      console.log('⚠️ useGoogleAuth: restoreSession skipped during SSR/build');
+      setAuthState({ authToken: null, playerData: null, isLoading: false, error: null });
+      return;
+    }
+
     const token = readStorage('authToken');
 
     if (!token) {
@@ -88,6 +95,12 @@ export function useGoogleAuth() {
   // ── Login com Google ────────────────────────────────────────────────────────
   const handleGoogleResponse = useCallback(async (response: any) => {
     try {
+      // Skip during SSR/build to prevent infinite loops
+      if (typeof window === 'undefined') {
+        console.log('⚠️ useGoogleAuth: handleGoogleResponse skipped during SSR/build');
+        return { ok: false, error: 'SSR/build environment' };
+      }
+
       console.log('🔵 useGoogleAuth: handleGoogleResponse iniciado');
       setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
@@ -162,6 +175,12 @@ export function useGoogleAuth() {
 
   // ── Logout ──────────────────────────────────────────────────────────────────
   const logout = useCallback(() => {
+    // Skip during SSR/build to prevent infinite loops
+    if (typeof window === 'undefined') {
+      console.log('⚠️ useGoogleAuth: logout skipped during SSR/build');
+      return;
+    }
+
     console.log('🔵 useGoogleAuth: Logout iniciado');
     removeStorage('authToken');
     // NÃO remove playerData pois não existe mais no localStorage

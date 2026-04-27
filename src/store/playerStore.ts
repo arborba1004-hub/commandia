@@ -324,6 +324,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   hydratePlayerFromServer: (playerData) => {
     try {
       if (!playerData || typeof playerData !== 'object') return;
+      
+      // Skip during SSR/build to prevent infinite loops
+      if (typeof window === 'undefined') {
+        console.log('⚠️ hydratePlayerFromServer skipped during SSR/build');
+        return;
+      }
+      
       const merged = clearExpiredPunishments(mergePlayer(playerData));
       const normalized = {
         ...merged,
@@ -337,11 +344,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         lastServerHydrationAt: Date.now(),
         pendingLocalChanges:   false,
       });
-      setTimeout(() => {
+      
+      // Only sync faction store on client-side
+      if (typeof window !== 'undefined') {
         syncFactionStoreFromEnvelope((playerData as any)?.faction ?? null, {
           allowClear: (playerData as any)?.factionId == null,
         }).catch(console.warn);
-      }, 0);
+      }
     } catch (error) {
       console.error('Erro ao hidratar playerData:', error);
     }

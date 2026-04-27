@@ -20,7 +20,6 @@ import { reconnectSocket, disconnectSocket } from '@/socket';
 export function useGameSocket() {
   const hydratePlayerFromServer = usePlayerStore((s) => s.hydratePlayerFromServer);
   const setFaction              = useFactionStore((s) => s.setFaction);
-  const mountedRef              = useRef(false);
   const socketInitializedRef    = useRef(false);
 
   useEffect(() => {
@@ -41,7 +40,6 @@ export function useGameSocket() {
 
     try {
       socketInitializedRef.current = true;
-      mountedRef.current = true;
 
       // Garante socket autenticado com token atual
       const socket = reconnectSocket();

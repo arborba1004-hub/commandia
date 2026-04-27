@@ -5,17 +5,9 @@ import { useEffect, useState } from 'react';
 
 export default function Layout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
 
-  // Only initialize socket on client-side after mount
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Call hook only after component is mounted on client
-  if (isMounted) {
-    useGameSocket();
-  }
+  // Always call hooks unconditionally (React rule)
+  useGameSocket();
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
