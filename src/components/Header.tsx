@@ -19,6 +19,7 @@ export default function Header() {
   const navigate = useNavigate();
   const { player, clearPlayer, isLoaded } = usePlayerStore();
   const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
+  const [isNavOpen, setIsNavOpen] = useState(false);
 
   const isReady    = Boolean(isLoaded && ((player as any)?._id || player?.googleId));
   const avatarUrl  = (player as any)?.headerCustomization?.customAvatar || (player as any)?.avatar || '';
