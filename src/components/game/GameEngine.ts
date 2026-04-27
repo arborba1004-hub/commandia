@@ -52,13 +52,21 @@ class GameEngine {
     this.playersLayer.start();
 
     // SOCKET
-    this.socket = getSocket();
-    this.bindSocket();
+    try {
+      if (typeof window !== 'undefined') {
+        this.socket = getSocket();
+        this.bindSocket();
+      }
+    } catch {
+      // Socket unavailable during SSR/build
+    }
 
     this.animate();
   }
 
   bindSocket() {
+    if (!this.socket) return;
+    
     this.socket.on('mapSnapshot', async (players: any[]) => {
       this.playersLayer.clearAllPlayers();
 

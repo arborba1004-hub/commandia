@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { getSocket } from '@/socket';
+
+function getSocket() {
+  if (typeof window === 'undefined') {
+    throw new Error('Socket cannot be used during SSR/build');
+  }
+  const { getSocket: realGetSocket } = require('@/socket');
+  return realGetSocket();
+}
 
 export type ChatChannelType = 'complexo' | 'faccao' | 'mail';
 
@@ -210,6 +217,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // Socket em tempo real — recebe novas mensagens instantaneamente
     try {
+      if (typeof window === 'undefined') return; // Prevent during SSR
       const socket = getSocket();
       socket.off('newChatMessage');
       socket.on('newChatMessage', (msg: ChatMessage) => {
@@ -231,6 +239,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
     // Remove listener do socket
     try {
+      if (typeof window === 'undefined') return; // Prevent during SSR
       const socket = getSocket();
       socket.off('newChatMessage');
     } catch { /* sem socket */ }

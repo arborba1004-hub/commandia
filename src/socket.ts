@@ -254,6 +254,11 @@ export function getSocket(): Socket {
  * Chame após login Google ou após renovação de token.
  */
 export function reconnectSocket(): Socket {
+  // Prevent socket connection during build/publish
+  if (typeof window === 'undefined') {
+    throw new Error('Socket cannot be used during SSR/build');
+  }
+
   if (_socket) {
     _socket.removeAllListeners();
     _socket.disconnect();

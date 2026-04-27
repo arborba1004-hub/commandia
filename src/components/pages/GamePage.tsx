@@ -253,7 +253,14 @@ export default function GamePage() {
     // ═════════════════════════════════════════════════════════════════════════
     // SOCKET.IO
     // ═════════════════════════════════════════════════════════════════════════
-    const socket = getSocket();
+    let socket: any = null;
+    try {
+      if (typeof window !== 'undefined') {
+        socket = getSocket();
+      }
+    } catch {
+      // Socket unavailable during SSR/build
+    }
 
     const onPlayerInit = (data: { player: any; faction?: any }) => {
       if (!isMounted) return;
@@ -264,7 +271,10 @@ export default function GamePage() {
       }
       usePlayerStore.getState().hydratePlayerFromServer(data.player);
     };
-    socket.on('playerInit', onPlayerInit);
+    
+    if (socket) {
+      socket.on('playerInit', onPlayerInit);
+    }
 
     async function processSnapshot(players: any[]) {
       if (!isMounted || !Array.isArray(players)) return;
@@ -350,37 +360,39 @@ export default function GamePage() {
       void realtimePlayersLayer.refresh();
     }
 
-    socket.on('mapSnapshot', handleMapSnapshot);
-    socket.on('playerJoined', handlePlayerJoined);
-    socket.on('playerMoved', handlePlayerMoved);
-    socket.on('playerTeleported', handlePlayerTeleported);
-    socket.on('playerLeft', handlePlayerLeft);
+    if (socket) {
+      socket.on('mapSnapshot', handleMapSnapshot);
+      socket.on('playerJoined', handlePlayerJoined);
+      socket.on('playerMoved', handlePlayerMoved);
+      socket.on('playerTeleported', handlePlayerTeleported);
+      socket.on('playerLeft', handlePlayerLeft);
 
-    // ── barracoInfo: enriquece modal ───────────────
-    const onBarracoInfo = (data: any) => {
-      if (!isMounted) return;
-      console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
+      // ── barracoInfo: enriquece modal ───────────────
+      const onBarracoInfo = (data: any) => {
+        if (!isMounted) return;
+        console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
 
-      // Atualiza modal com dados completos (avatar, factionName, etc.)
-      setModalState(
-        openOtherPlayerBarracoModal({
-          id:           String(data.playerId),
-          name:         data.playerName  || 'Jogador',
-          avatarUrl:    data.avatarUrl   ?? null,
-          factionId:    data.factionId   ?? null,
-          factionName:  data.factionName ?? null,
-          barracoLevel: Number(data.barracoLevel ?? 1),
-        })
-      );
-    };
-    socket.on('barracoInfo', onBarracoInfo);
+        // Atualiza modal com dados completos (avatar, factionName, etc.)
+        setModalState(
+          openOtherPlayerBarracoModal({
+            id:           String(data.playerId),
+            name:         data.playerName  || 'Jogador',
+            avatarUrl:    data.avatarUrl   ?? null,
+            factionId:    data.factionId   ?? null,
+            factionName:  data.factionName ?? null,
+            barracoLevel: Number(data.barracoLevel ?? 1),
+          })
+        );
+      };
+      socket.on('barracoInfo', onBarracoInfo);
 
-    if (socket.connected) {
-      socket.emit('requestMapSnapshot');
-    } else {
-      socket.once('connect', () => {
-        if (isMounted) socket.emit('requestMapSnapshot');
-      });
+      if (socket.connected) {
+        socket.emit('requestMapSnapshot');
+      } else {
+        socket.once('connect', () => {
+          if (isMounted) socket.emit('requestMapSnapshot');
+        });
+      }
     }
 
     // ═════════════════════════════════════════════════════════════════════════

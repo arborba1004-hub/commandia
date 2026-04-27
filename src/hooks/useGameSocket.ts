@@ -24,6 +24,9 @@ export function useGameSocket() {
   const socketInitializedRef    = useRef(false);
 
   useEffect(() => {
+    // Prevent socket initialization during SSR/build
+    if (typeof window === 'undefined') return;
+
     // Evita múltiplas inicializações do socket
     if (socketInitializedRef.current) return;
     

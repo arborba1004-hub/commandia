@@ -45,10 +45,14 @@ export default function AttackIncomingToast() {
     let socket: ReturnType<typeof getSocket> | null = null;
 
     try {
-      socket = getSocket();
+      if (typeof window !== 'undefined') {
+        socket = getSocket();
+      }
     } catch {
       return;
     }
+
+    if (!socket) return;
 
     function onAttackReceived(payload: AttackIncomingPayload) {
       const entry: ToastEntry = {
