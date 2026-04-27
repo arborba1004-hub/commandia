@@ -10,5 +10,5 @@
  * const formatted = formatPrice(29.99, currency ?? DEFAULT_CURRENCY);
  */
 
-// This is a placeholder file that re-exports the actual currency implementation from the Wix platform
-export { useCurrency, formatPrice, DEFAULT_CURRENCY } from '@wix/codegen-framework-packages';
+// Currency functionality is provided by the Wix platform
+export { useCurrency, formatPrice, DEFAULT_CURRENCY } from '@wix/sdk';

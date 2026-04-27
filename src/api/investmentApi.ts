@@ -1,11 +1,17 @@
 /**
- * COMMANDIA — investmentApi.ts
- * Service de API para investimentos
+ * ⚠️ DEPRECATED - Investment API (LEGACY)
+ * 
+ * Status: LEGACY - DO NOT USE
+ * Reason: This file references external backend API that is no longer available
+ * 
+ * This file is preserved for reference only.
+ * DO NOT import this file in active components.
  */
 
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+// This API is no longer available - preserved for reference only
+const API_BASE = process.env.REACT_APP_API_URL || '';
 
 interface Investment {
   key: string;

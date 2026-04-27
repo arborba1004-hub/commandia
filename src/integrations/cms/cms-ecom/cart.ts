@@ -14,5 +14,5 @@
  * actions.checkout();
  */
 
-// This is a placeholder file that re-exports the actual cart implementation from the Wix platform
-export { useCart, useCartStore } from '@wix/codegen-framework-packages';
+// Cart functionality is provided by the Wix platform
+export { useCart, useCartStore } from '@wix/sdk';

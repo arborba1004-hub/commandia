@@ -14,6 +14,6 @@
  * await BaseCrudService.delete('collection-id', 'item-id');
  */
 
-// This is a placeholder file that re-exports the actual service from the Wix platform
-// The real implementation is provided by @wix/codegen-framework-packages
-export { BaseCrudService } from '@wix/codegen-framework-packages';
+// BaseCrudService is provided by the Wix platform
+// Import it directly from the Wix SDK when available
+export { BaseCrudService } from '@wix/sdk';

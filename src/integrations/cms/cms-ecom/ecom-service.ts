@@ -11,5 +11,5 @@
  * ]);
  */
 
-// This is a placeholder file that re-exports the actual ecom service from the Wix platform
-export { buyNow } from '@wix/codegen-framework-packages';
+// eCommerce functionality is provided by the Wix platform
+export { buyNow } from '@wix/sdk';
