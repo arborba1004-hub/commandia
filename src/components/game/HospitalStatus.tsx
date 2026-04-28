@@ -25,11 +25,11 @@ interface Props {
   title?: string;
 }
 
-export const HospitalStatus: React.FC<Props> = ({
+function HospitalStatus({
   hospital,
   wounded,
   title = 'Status do Hospital',
-}) => {
+}: Props) {
   const occupancyPercent = Math.round((hospital.currentWounded / hospital.capacity) * 100);
   const isFull = hospital.currentWounded >= hospital.capacity;
   const availableSpace = hospital.capacity - hospital.currentWounded;
