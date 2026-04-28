@@ -24,6 +24,7 @@ const TalentsPage = lazy(() => import('@/components/pages/TalentsPage'));
 const FactionPage = lazy(() => import('@/components/pages/FactionPage'));
 const RankingPage = lazy(() => import('@/components/pages/RankingPage'));
 const GangPage = lazy(() => import('@/components/gang/GangPage'));
+const TreinamentoGangPage = lazy(() => import('@/components/pages/TreinamentoGangPage'));
 const FeatureGateRoute = lazy(() => import('@/components/routes/FeatureGateRoute'));
 const ProtectedRoute = lazy(() => import('@/components/routes/ProtectedRoute'));
 
@@ -149,6 +150,7 @@ const router = createBrowserRouter(
         { path: 'faccao',  element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><FactionPage /></ProtectedRoute></Suspense> },
         { path: 'ranking', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><RankingPage /></ProtectedRoute></Suspense> },
         { path: 'gang',    element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GangPage /></ProtectedRoute></Suspense> },
+        { path: 'treinamento-gang', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><TreinamentoGangPage /></ProtectedRoute></Suspense> },
         { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
         { path: 'lavagemdedinheiro', element: <Navigate to="/lavagem-de-dinheiro" replace /> },
         { path: 'subornoilustrado', element: <Navigate to="/suborno-ilustrado" replace /> },
