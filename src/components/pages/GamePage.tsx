@@ -15,6 +15,7 @@ import { usePlayerStore }        from '@/store/playerStore';
 import { useChatStore }          from '@/store/chatStore';
 import { getSocket }             from '@/socket';
 import { invitePlayerToFaction } from '@/services/factionInviteService';
+import { useMapAttack }          from '@/hooks/useMapAttack';
 
 import OtherPlayerBarracoModal, {
   type OtherPlayerBarracoTarget,
@@ -23,6 +24,8 @@ import OtherPlayerBarracoModal, {
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
+import GangAttackModal from '@/components/gang/GangAttackModal';
+import AttackResultOverlay from '@/components/game/AttackResultOverlay';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -67,6 +70,11 @@ export default function GamePage() {
   const playerLevel = player?.niveis?.barracoLevel ?? 0;
 
   const playerMapSpaceRef = useRef<any>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.Camera | null>(null);
+
+  // ── Attack hook
+  const { isModalOpen, selectedTarget, confirmAttack, cancelAttack, resolution, dismissResult } = useMapAttack();
 
   // ── Modal: barraco de outro jogador
   const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
@@ -105,10 +113,19 @@ export default function GamePage() {
 
   // ── Handler: atacar
   const handleAttack = useCallback(
-    (_target: OtherPlayerBarracoTarget) => {
+    (target: OtherPlayerBarracoTarget) => {
       setModalState(closeOtherPlayerBarracoModal());
+      if (sceneRef.current && cameraRef.current) {
+        confirmAttack(
+          { soldados: 10, oficiais: 5, capangas: 2, chefes: 1 },
+          sceneRef.current,
+          cameraRef.current,
+          120,
+          120
+        );
+      }
     },
-    []
+    [confirmAttack]
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -122,6 +139,7 @@ export default function GamePage() {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#050505');
+    sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
       50,
@@ -129,6 +147,7 @@ export default function GamePage() {
       0.1,
       1000
     );
+    cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -684,6 +703,23 @@ export default function GamePage() {
         target={dmTarget}
         onClose={() => { setDmModalOpen(false); setDmTarget(null); }}
       />
+
+      {/* ── Attack Modal ─────────────────────────────────────────────── */}
+      {isModalOpen && selectedTarget && (
+        <GangAttackModal
+          isOpen={isModalOpen}
+          target={selectedTarget}
+          onClose={cancelAttack}
+          onConfirm={(selection) => {
+            if (sceneRef.current && cameraRef.current) {
+              confirmAttack(selection, sceneRef.current, cameraRef.current, 120, 120);
+            }
+          }}
+        />
+      )}
+
+      {/* ── Attack Result Overlay ────────────────────────────────────── */}
+      {resolution && <AttackResultOverlay />}
     </div>
   );
 }
