@@ -119,6 +119,28 @@ export default function GangPage() {
     return () => clearInterval(interval);
   }, [gang?.trainingJobs, completeFinishedTrainings]);
 
+  // Auto-refresh gang data when there are injured members recovering
+  useEffect(() => {
+    const hasInjuredMembers = (gang?.members || []).some(
+      (member) => member.status === 'ferido' && member.injuryEndsAt
+    );
+
+    if (!hasInjuredMembers) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const hasRecoveringMembers = (gang?.members || []).some(
+        (member) => member.status === 'ferido' && member.injuryEndsAt && new Date(member.injuryEndsAt).getTime() > now
+      );
+
+      if (hasRecoveringMembers) {
+        void loadGang();
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [gang?.members, loadGang]);
+
   const activeJobs = useMemo(
     () => (gang?.trainingJobs || []).filter((job) => !job.completed),
     [gang?.trainingJobs]
