@@ -39,12 +39,12 @@ const LAYER_CONFIG = [
   { layer: 8, name: 'Executor', color: 'bg-pink-100', textColor: 'text-pink-800' },
 ];
 
-export const GangLayerVisualization: React.FC<Props> = ({
+function GangLayerVisualization({
   members,
   selectedMemberId,
   onSelectMember,
   title = 'Formação de Combate',
-}) => {
+}: Props) {
   const getMembersByLayer = (layer: number) => {
     return members.filter(m => m.layer === layer).sort((a, b) => {
       if (a.status === 'ativo' && b.status !== 'ativo') return -1;
@@ -138,6 +138,6 @@ export const GangLayerVisualization: React.FC<Props> = ({
       </div>
     </div>
   );
-};
+}
 
 export default GangLayerVisualization;
