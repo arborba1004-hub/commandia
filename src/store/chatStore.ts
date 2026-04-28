@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 
+import { getSocket as _getSocket } from '@/socket';
+
 function getSocket() {
   if (typeof window === 'undefined') {
     throw new Error('Socket cannot be used during SSR/build');
   }
-  const { getSocket: realGetSocket } = require('@/socket');
-  return realGetSocket();
+  return _getSocket();
 }
 
 export type ChatChannelType = 'complexo' | 'faccao' | 'mail';
