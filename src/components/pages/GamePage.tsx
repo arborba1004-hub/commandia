@@ -51,7 +51,7 @@ function fmt(value: number) {
   return value.toLocaleString('pt-BR');
 }
 
-// DRACOLoader instanciado dentro do useEffect (evita execução no SSR/build do Wix)
+// DRACOLoader criado dentro do useEffect para evitar execução no SSR/build
 
 export default function GamePage() {
   const mountRef    = useRef<HTMLDivElement | null>(null);
@@ -73,11 +73,9 @@ export default function GamePage() {
   const playerMapSpaceRef = useRef<any>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.Camera | null>(null);
-  // Guarda tileX/tileY do último barracoInfo recebido (para o ataque)
-  const enrichedTargetRef = useRef<{ tileX: number; tileY: number } | null>(null);
 
   // ── Attack hook
-  const { isModalOpen, selectedTarget, initiateAttack, confirmAttack, cancelAttack, resolution, dismissResult } = useMapAttack();
+  const { isModalOpen, selectedTarget, confirmAttack, cancelAttack, resolution, dismissResult } = useMapAttack();
 
   // ── Modal: barraco de outro jogador
   const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
@@ -114,26 +112,21 @@ export default function GamePage() {
     []
   );
 
-  // ── Handler: atacar — abre GangAttackModal com o target correto
+  // ── Handler: atacar
   const handleAttack = useCallback(
     (target: OtherPlayerBarracoTarget) => {
       setModalState(closeOtherPlayerBarracoModal());
-      // Mapeia OtherPlayerBarracoTarget → AttackTarget
-      // tileX/tileY vêm do barracoInfo via socket (enrichedTargetRef)
-      const tileX = enrichedTargetRef.current?.tileX ?? 0;
-      const tileY = enrichedTargetRef.current?.tileY ?? 0;
-      initiateAttack({
-        playerId:     target.id,
-        playerName:   target.name,
-        tileX,
-        tileY,
-        barracoLevel: target.barracoLevel,
-        factionId:    target.factionId,
-        factionName:  target.factionName,
-        avatarUrl:    target.avatarUrl,
-      });
+      if (sceneRef.current && cameraRef.current) {
+        confirmAttack(
+          { soldados: 10, oficiais: 5, capangas: 2, chefes: 1 },
+          sceneRef.current,
+          cameraRef.current,
+          120,
+          120
+        );
+      }
     },
-    [initiateAttack]
+    [confirmAttack]
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -398,12 +391,6 @@ export default function GamePage() {
     const onBarracoInfo = (data: any) => {
       if (!isMounted) return;
       console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
-
-      // Salva tileX/tileY para usar no handleAttack
-      enrichedTargetRef.current = {
-        tileX: Number(data.tileX ?? 0),
-        tileY: Number(data.tileY ?? 0),
-      };
 
       // Atualiza modal com dados completos (avatar, factionName, etc.)
       setModalState(
