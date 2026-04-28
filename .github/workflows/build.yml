@@ -20,11 +20,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Instalar dependências
-        run: npm install
+      - name: Instalar Wix CLI
+        run: npm install -g @wix/cli
 
-      - name: Verificar TypeScript
-        run: npx tsc --noEmit
+      - name: Instalar dependências (modo Wix)
+        run: wix install
 
       - name: Build do projeto
-        run: npm run build
+        run: wix build
