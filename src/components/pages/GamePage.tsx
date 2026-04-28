@@ -257,8 +257,10 @@ export default function GamePage() {
     try {
       if (typeof window !== 'undefined') {
         socket = getSocket();
+        console.log('✅ GamePage: Socket obtido com sucesso');
       }
-    } catch {
+    } catch (err) {
+      console.error('❌ GamePage: Erro ao obter socket:', err);
       // Socket unavailable during SSR/build
     }
 
@@ -274,6 +276,8 @@ export default function GamePage() {
     
     if (socket) {
       socket.on('playerInit', onPlayerInit);
+    } else {
+      console.warn('⚠️ GamePage: Socket não disponível, eventos em tempo real desabilitados');
     }
 
     async function processSnapshot(players: any[]) {
@@ -556,13 +560,15 @@ export default function GamePage() {
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('click', handleClick);
 
-      socket.off('playerInit', onPlayerInit);
-      socket.off('mapSnapshot', handleMapSnapshot);
-      socket.off('playerJoined', handlePlayerJoined);
-      socket.off('playerMoved', handlePlayerMoved);
-      socket.off('playerTeleported', handlePlayerTeleported);
-      socket.off('playerLeft', handlePlayerLeft);
-      socket.off('barracoInfo', onBarracoInfo);
+      if (socket) {
+        socket.off('playerInit', onPlayerInit);
+        socket.off('mapSnapshot', handleMapSnapshot);
+        socket.off('playerJoined', handlePlayerJoined);
+        socket.off('playerMoved', handlePlayerMoved);
+        socket.off('playerTeleported', handlePlayerTeleported);
+        socket.off('playerLeft', handlePlayerLeft);
+        socket.off('barracoInfo', onBarracoInfo);
+      }
 
       controls.dispose();
       realtimePlayersLayer.cleanup();

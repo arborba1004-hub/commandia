@@ -21,6 +21,7 @@ export function useGameSocket() {
   const hydratePlayerFromServer = usePlayerStore((s) => s.hydratePlayerFromServer);
   const setFaction              = useFactionStore((s) => s.setFaction);
   const socketInitializedRef    = useRef(false);
+  const mountedRef              = useRef(true);
 
   useEffect(() => {
     // Prevent socket initialization during SSR/build
@@ -40,6 +41,7 @@ export function useGameSocket() {
 
     try {
       socketInitializedRef.current = true;
+      mountedRef.current = true;
 
       // Garante socket autenticado com token atual
       const socket = reconnectSocket();
