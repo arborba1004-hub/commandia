@@ -5,6 +5,7 @@ import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import type { GangMemberType, GangUnit } from '@/types/gangWar';
 import { Clock3, Plus, Shield, Swords, Zap } from 'lucide-react';
+import GangFormationSelector from '@/components/gang/GangFormationSelector';
 
 const RECRUIT_TYPES: GangMemberType[] = [
   'capanga',
@@ -191,6 +192,10 @@ export default function GangPage() {
           </div>
 
           {error && <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
+        </section>
+
+        <section className="mt-8">
+          <GangFormationSelector />
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-8 xl:grid-cols-2">
