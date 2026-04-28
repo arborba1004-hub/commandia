@@ -17,24 +17,17 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
 
   const cost = getBarracoUpgradeCost(barracoLevel);
 
-  // Requisitos de poder reduzidos para funcionalidade (baseado em skills)
-  const powerRequirement = Math.max(50, Math.floor(barracoLevel * 25));
-  
-  // Requisitos de níveis secundários mais flexíveis
-  const lavagemRequirement = Math.max(1, Math.floor(barracoLevel / 10));
-  const luxuryRequirement = Math.max(1, Math.floor(barracoLevel / 12));
-  const hierarchyRequirement = Math.max(1, Math.floor(barracoLevel / 15));
+  // Requisitos de níveis secundários
+  const nextLevel = barracoLevel + 1;
+  const lavagemRequirement = Math.max(1, Math.floor(nextLevel / 10));
+  const luxuryRequirement = Math.max(1, Math.floor(nextLevel / 12));
+  const hierarchyRequirement = Math.max(1, Math.floor(nextLevel / 15));
 
   const rules = [
     {
       key: 'cleanMoney',
       ok: cleanMoney >= cost,
-      reason: `Você precisa de ${cost.toLocaleString('pt-BR')} de dinheiro limpo.`,
-    },
-    {
-      key: 'power',
-      ok: power >= powerRequirement,
-      reason: `Você precisa de poder mínimo ${powerRequirement}. Atual: ${power}.`,
+      reason: `Você precisa de ${cost.toLocaleString('pt-BR')} de dinheiro limpo. Atual: ${cleanMoney.toLocaleString('pt-BR')}.`,
     },
     {
       key: 'lavagem',
