@@ -26,6 +26,8 @@ import OtherPlayerBarracoModal, {
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
 import GangAttackModal from '@/components/gang/GangAttackModal';
 import AttackResultOverlay from '@/components/game/AttackResultOverlay';
+import AttackNotificationOverlay from '@/components/game/AttackNotificationOverlay';
+import AttackIncomingToast from '@/components/game/AttackIncomingToast';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -720,6 +722,12 @@ export default function GamePage() {
 
       {/* ── Attack Result Overlay ────────────────────────────────────── */}
       {resolution && <AttackResultOverlay />}
+
+      {/* ── Attack Notification Overlay (incoming attacks) ────────────── */}
+      <AttackNotificationOverlay />
+
+      {/* ── Attack Incoming Toast (socket notifications) ──────────────── */}
+      <AttackIncomingToast />
     </div>
   );
 }

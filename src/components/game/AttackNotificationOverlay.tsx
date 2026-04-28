@@ -1,42 +1,68 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getSocket } from '@/socket';
 
-interface AttackNotificationOverlayProps {
-  isVisible: boolean;
+interface AttackNotification {
+  id: string;
   attackerName: string;
   success: boolean;
   loot: number;
   critical: boolean;
   message: string;
-  onClose: () => void;
 }
 
-export default function AttackNotificationOverlay({
-  isVisible,
-  attackerName,
-  success,
-  loot,
-  critical,
-  message,
-  onClose,
-}: AttackNotificationOverlayProps) {
-  const [autoClose, setAutoClose] = useState(false);
+export default function AttackNotificationOverlay() {
+  const [notifications, setNotifications] = useState<AttackNotification[]>([]);
+
+  const removeNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   useEffect(() => {
-    if (isVisible) {
-      setAutoClose(false);
-      const timer = setTimeout(() => {
-        setAutoClose(true);
-        setTimeout(onClose, 500);
-      }, 4000);
-      return () => clearTimeout(timer);
+    let socket: ReturnType<typeof getSocket> | null = null;
+
+    try {
+      if (typeof window !== 'undefined') {
+        socket = getSocket();
+      }
+    } catch (err) {
+      console.error('❌ AttackNotificationOverlay: Erro ao obter socket:', err);
     }
-  }, [isVisible, onClose]);
+
+    const handleAttackReceived = (data: any) => {
+      const notification: AttackNotification = {
+        id: `attack-${Date.now()}-${Math.random()}`,
+        attackerName: data.attackerName || 'Desconhecido',
+        success: data.success !== false,
+        loot: data.loot || 0,
+        critical: data.critical || false,
+        message: data.message || 'Você foi atacado!',
+      };
+
+      setNotifications((prev) => [...prev, notification]);
+
+      // Auto-remove após 5 segundos
+      setTimeout(() => {
+        removeNotification(notification.id);
+      }, 5000);
+    };
+
+    if (socket) {
+      socket.on('attackReceived', handleAttackReceived);
+    }
+
+    return () => {
+      if (socket) {
+        socket.off('attackReceived', handleAttackReceived);
+      }
+    };
+  }, [removeNotification]);
 
   return (
     <AnimatePresence>
-      {isVisible && (
+      {notifications.map((notification) => (
         <motion.div
+          key={notification.id}
           className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -49,16 +75,16 @@ export default function AttackNotificationOverlay({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={() => removeNotification(notification.id)}
           />
 
           {/* Card de notificação */}
           <motion.div
             className={`relative w-full max-w-md mx-4 p-8 rounded-lg border-2 ${
-              success
+              notification.success
                 ? 'bg-red-950/90 border-red-500'
                 : 'bg-yellow-950/90 border-yellow-500'
-            } shadow-2xl`}
+            } shadow-2xl pointer-events-auto`}
             initial={{ scale: 0.5, opacity: 0, y: -50 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.5, opacity: 0, y: 50 }}
@@ -75,19 +101,19 @@ export default function AttackNotificationOverlay({
 
             {/* Título */}
             <h2 className="text-center text-3xl font-bold text-white mt-4 mb-4">
-              {success ? '🔥 VOCÊ FOI ATACADO! 🔥' : '⚠️ TENTATIVA DE ATAQUE'}
+              {notification.success ? '🔥 VOCÊ FOI ATACADO! 🔥' : '⚠️ TENTATIVA DE ATAQUE'}
             </h2>
 
             {/* Informações do atacante */}
             <div className="text-center mb-6">
               <p className="text-lg text-gray-200 mb-2">
-                Atacante: <span className="font-bold text-red-300">{attackerName}</span>
+                Atacante: <span className="font-bold text-red-300">{notification.attackerName}</span>
               </p>
-              <p className="text-base text-gray-300">{message}</p>
+              <p className="text-base text-gray-300">{notification.message}</p>
             </div>
 
             {/* Resultado do ataque */}
-            {success && (
+            {notification.success && (
               <motion.div
                 className="bg-black/40 rounded p-4 mb-6 border border-red-500/50"
                 initial={{ opacity: 0 }}
@@ -95,13 +121,13 @@ export default function AttackNotificationOverlay({
                 transition={{ delay: 0.3 }}
               >
                 <div className="text-center">
-                  {critical && (
+                  {notification.critical && (
                     <p className="text-2xl font-bold text-yellow-300 mb-2">
                       ⚡ GOLPE CRÍTICO! ⚡
                     </p>
                   )}
                   <p className="text-xl text-red-300">
-                    Dinheiro Sujo Roubado: <span className="font-bold">${loot.toLocaleString()}</span>
+                    Dinheiro Sujo Roubado: <span className="font-bold">${notification.loot.toLocaleString()}</span>
                   </p>
                 </div>
               </motion.div>
@@ -109,7 +135,7 @@ export default function AttackNotificationOverlay({
 
             {/* Botão de fechar */}
             <motion.button
-              onClick={onClose}
+              onClick={() => removeNotification(notification.id)}
               className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded transition-colors"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -121,12 +147,12 @@ export default function AttackNotificationOverlay({
             <motion.div
               className="absolute bottom-0 left-0 h-1 bg-red-500"
               initial={{ width: '100%' }}
-              animate={{ width: autoClose ? '0%' : '100%' }}
-              transition={{ duration: 0.5 }}
+              animate={{ width: '0%' }}
+              transition={{ duration: 5 }}
             />
           </motion.div>
         </motion.div>
-      )}
+      ))}
     </AnimatePresence>
   );
 }
