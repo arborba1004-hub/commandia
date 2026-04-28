@@ -51,8 +51,7 @@ function fmt(value: number) {
   return value.toLocaleString('pt-BR');
 }
 
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+// DRACOLoader criado dentro do useEffect para evitar execução no SSR/build
 
 export default function GamePage() {
   const mountRef    = useRef<HTMLDivElement | null>(null);
@@ -138,6 +137,9 @@ export default function GamePage() {
     if (!mountEl) return;
 
     let isMounted = true;
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#050505');
