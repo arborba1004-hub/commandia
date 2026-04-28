@@ -10,12 +10,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Swords, Shield, Target, Zap, Coins, Radar } from 'lucide-react';
+import { Swords, Shield, Target, Zap } from 'lucide-react';
 import type {
   GangMemberType,
   GangAttackSelection,
   AttackTarget,
-  GangFormationType,
 } from '@/types/gang';
 import {
   ALL_GANG_MEMBER_TYPES,
@@ -23,7 +22,6 @@ import {
 } from '@/types/gang';
 import { GANG_MEMBER_META } from '@/data/gangAtributos';
 import { useGangStore } from '@/store/gangStore';
-import { getCustomFormations } from '@/utils/customFormations';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS
@@ -201,31 +199,13 @@ export default function GangAttackModal({
   onConfirm,
   isSubmitting = false,
 }: GangAttackModalProps) {
-  const { gang, setFormation } = useGangStore();
+  const { gang } = useGangStore();
 
   const barracoLevel = (gang as any)?.gangLevel ?? 1;
   const maxMarch     = getMaxMarch(barracoLevel);
   const available    = useGangStore((s) => s.getAvailableByType());
-  const currentFormation = gang?.formation || 'pressao_total';
 
   const [selection, setSelection] = useState<GangAttackSelection>(emptyGangAttackSelection());
-  const [showFormationSelector, setShowFormationSelector] = useState(false);
-
-  // Load custom formations from localStorage
-  const [customFormations] = useState(() => {
-    return getCustomFormations();
-  });
-
-  const formations: Array<{ id: GangFormationType; title: string; icon: string }> = [
-    { id: 'pressao_total', title: 'Pressão Total', icon: '⚔️' },
-    { id: 'linha_fechada', title: 'Linha Fechada', icon: '🛡️' },
-    { id: 'bote_certo', title: 'Bote Certo', icon: '🎯' },
-    { id: 'cerco', title: 'Cerco', icon: '📡' },
-    { id: 'saque_rapido', title: 'Saque Rápido', icon: '💰' },
-    { id: 'custom_1', title: customFormations.custom_1?.title || 'Personalizada 1', icon: '⭐' },
-    { id: 'custom_2', title: customFormations.custom_2?.title || 'Personalizada 2', icon: '⭐' },
-    { id: 'custom_3', title: customFormations.custom_3?.title || 'Personalizada 3', icon: '⭐' },
-  ];
 
   // Reset ao abrir
   useEffect(() => {
@@ -253,11 +233,6 @@ export default function GangAttackModal({
     onConfirm(selection);
   }
 
-  async function handleFormationChange(formationId: GangFormationType) {
-    await setFormation(formationId);
-    setShowFormationSelector(false);
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
       <DialogContent className="max-w-4xl border-white/10 bg-[#0a0a0a] text-white max-h-[90vh] overflow-y-auto">
@@ -272,43 +247,6 @@ export default function GangAttackModal({
             )}
           </DialogTitle>
         </DialogHeader>
-
-        {/* Seletor de Formação */}
-        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-widest text-primary">Formação Atual</div>
-              <div className="mt-1 text-lg font-black text-white">
-                {formations.find(f => f.id === currentFormation)?.title || 'Pressão Total'}
-              </div>
-            </div>
-            <button
-              onClick={() => setShowFormationSelector(!showFormationSelector)}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/80 transition-all"
-            >
-              Mudar Formação
-            </button>
-          </div>
-
-          {/* Grid de Formações */}
-          {showFormationSelector && (
-            <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-              {formations.map((formation) => (
-                <button
-                  key={formation.id}
-                  onClick={() => handleFormationChange(formation.id)}
-                  className={`rounded-lg px-3 py-2 text-sm font-bold transition-all ${
-                    currentFormation === formation.id
-                      ? 'bg-primary text-white'
-                      : 'border border-white/10 bg-white/5 text-white hover:bg-white/10'
-                  }`}
-                >
-                  {formation.icon} {formation.title}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Capacidade */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

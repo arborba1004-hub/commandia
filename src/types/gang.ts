@@ -74,10 +74,7 @@ export type GangFormationType =
   | 'linha_fechada'
   | 'bote_certo'
   | 'cerco'
-  | 'saque_rapido'
-  | 'custom_1'
-  | 'custom_2'
-  | 'custom_3';
+  | 'saque_rapido';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TREINAMENTO (por CT do mapa — 4 CTs, 1 slot cada, compartilhado)

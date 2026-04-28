@@ -5,7 +5,6 @@ import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import type { GangMemberType, GangUnit } from '@/types/gangWar';
 import { Clock3, Plus, Shield, Swords, Zap } from 'lucide-react';
-import GangFormationSelector from '@/components/gang/GangFormationSelector';
 
 const RECRUIT_TYPES: GangMemberType[] = [
   'capanga',
@@ -103,44 +102,6 @@ export default function GangPage() {
     void loadGang();
   }, [loadGang]);
 
-  // Auto-complete finished trainings every 2 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const hasFinishedJobs = (gang?.trainingJobs || []).some(
-        (job) => !job.completed && new Date(job.endsAt).getTime() <= now
-      );
-      
-      if (hasFinishedJobs) {
-        void completeFinishedTrainings();
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [gang?.trainingJobs, completeFinishedTrainings]);
-
-  // Auto-refresh gang data when there are injured members recovering
-  useEffect(() => {
-    const hasInjuredMembers = (gang?.members || []).some(
-      (member) => member.status === 'ferido' && member.injuryEndsAt
-    );
-
-    if (!hasInjuredMembers) return;
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const hasRecoveringMembers = (gang?.members || []).some(
-        (member) => member.status === 'ferido' && member.injuryEndsAt && new Date(member.injuryEndsAt).getTime() > now
-      );
-
-      if (hasRecoveringMembers) {
-        void loadGang();
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [gang?.members, loadGang]);
-
   const activeJobs = useMemo(
     () => (gang?.trainingJobs || []).filter((job) => !job.completed),
     [gang?.trainingJobs]
@@ -230,10 +191,6 @@ export default function GangPage() {
           </div>
 
           {error && <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
-        </section>
-
-        <section className="mt-8">
-          <GangFormationSelector />
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-8 xl:grid-cols-2">
