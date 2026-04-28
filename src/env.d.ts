@@ -14,6 +14,5 @@ declare global {
 
   interface ImportMetaEnv {
     readonly BASE_NAME: string;
-    readonly WIX_CLIENT_INSTANCE_ID?: string;
   }
 }
