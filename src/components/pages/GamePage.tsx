@@ -608,7 +608,7 @@ export default function GamePage() {
       scene.remove(clickPlane);
       scene.remove(selectionMesh);
 
-  renderer.dispose();
+      renderer.dispose();
       if (mountEl && renderer.domElement?.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }
