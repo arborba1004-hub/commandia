@@ -32,12 +32,12 @@ const CATEGORIES = [
   { key: 'operations', name: '⚡ Operações', color: 'bg-indigo-50 border-indigo-200' },
 ];
 
-function InvestmentDashboard({
+export const InvestmentDashboard: React.FC<Props> = ({
   investments,
   onUpgrade,
   dirtyMoney = 0,
   title = 'Centro de Investimentos',
-}: Props) {
+}) => {
   const [expandedCategory, setExpandedCategory] = useState<string | null>('resources');
   const [selectedInvestment, setSelectedInvestment] = useState<string | null>(null);
 
@@ -193,6 +193,6 @@ function InvestmentDashboard({
       </div>
     </div>
   );
-}
+};
 
 export default InvestmentDashboard;

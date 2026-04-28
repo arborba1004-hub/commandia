@@ -33,12 +33,12 @@ interface Props {
   onClose?: () => void;
 }
 
-function BattleResultReport({
+export const BattleResultReport: React.FC<Props> = ({
   result,
   attackerName,
   defenderName,
   onClose,
-}: Props) {
+}) => {
   const totalAttackerDeaths = Object.values(result.attackerLosses.mortos).reduce((a, b) => a + b, 0);
   const totalAttackerWounded = Object.values(result.attackerLosses.feridos).reduce((a, b) => a + b, 0);
   const totalDefenderDeaths = Object.values(result.defenderLosses.mortos).reduce((a, b) => a + b, 0);
@@ -164,6 +164,6 @@ function BattleResultReport({
       )}
     </div>
   );
-}
+};
 
 export default BattleResultReport;

@@ -96,12 +96,12 @@ export default function AttackNotificationOverlay() {
               animate={{ rotate: [0, -10, 10, 0] }}
               transition={{ duration: 0.6, repeat: Infinity }}
             >
-              <div className="text-5xl font-black text-red-500">⚔</div>
+              <div className="text-5xl">⚔️</div>
             </motion.div>
 
             {/* Título */}
             <h2 className="text-center text-3xl font-bold text-white mt-4 mb-4">
-              {notification.success ? 'VOCÊ FOI ATACADO!' : 'TENTATIVA DE ATAQUE'}
+              {notification.success ? '🔥 VOCÊ FOI ATACADO! 🔥' : '⚠️ TENTATIVA DE ATAQUE'}
             </h2>
 
             {/* Informações do atacante */}
@@ -123,7 +123,7 @@ export default function AttackNotificationOverlay() {
                 <div className="text-center">
                   {notification.critical && (
                     <p className="text-2xl font-bold text-yellow-300 mb-2">
-                      GOLPE CRÍTICO!
+                      ⚡ GOLPE CRÍTICO! ⚡
                     </p>
                   )}
                   <p className="text-xl text-red-300">

@@ -51,7 +51,8 @@ function fmt(value: number) {
   return value.toLocaleString('pt-BR');
 }
 
-// DRACOLoader criado dentro do useEffect para evitar execução no SSR/build
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
 export default function GamePage() {
   const mountRef    = useRef<HTMLDivElement | null>(null);
@@ -137,9 +138,6 @@ export default function GamePage() {
     if (!mountEl) return;
 
     let isMounted = true;
-
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#050505');
@@ -610,7 +608,7 @@ export default function GamePage() {
       scene.remove(clickPlane);
       scene.remove(selectionMesh);
 
-      renderer.dispose();
+  renderer.dispose();
       if (mountEl && renderer.domElement?.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }

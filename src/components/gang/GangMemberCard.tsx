@@ -27,12 +27,12 @@ interface Props {
   showDetails?: boolean;
 }
 
-function GangMemberCard({
+export const GangMemberCard: React.FC<Props> = ({
   member,
   onSelect,
   isSelected = false,
   showDetails = true,
-}: Props) {
+}) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ativo':
@@ -146,6 +146,6 @@ function GangMemberCard({
       )}
     </div>
   );
-}
+};
 
 export default GangMemberCard;

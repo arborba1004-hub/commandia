@@ -21,12 +21,12 @@ interface Props {
   onAttack?: (canAttack: boolean, chance: number) => void;
 }
 
-function AttackEstimator({
+export const AttackEstimator: React.FC<Props> = ({
   attackerStats,
   defenderStats,
   formationBonus = 0,
   onAttack,
-}: Props) {
+}) => {
   const [chance, setChance] = useState(0);
   const [estimatedLosses, setEstimatedLosses] = useState({ attacker: 0, defender: 0 });
   const [canAttack, setCanAttack] = useState(false);
@@ -200,6 +200,6 @@ function AttackEstimator({
       </button>
     </div>
   );
-}
+};
 
 export default AttackEstimator;

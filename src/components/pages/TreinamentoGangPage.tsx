@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
-import GangTrainingModal from '@/components/gang/GangTrainingModal';
+import { GangTrainingModal } from '@/components/gang/GangTrainingModal';
 
 export default function TreinamentoGangPage() {
   const { player } = usePlayerStore();

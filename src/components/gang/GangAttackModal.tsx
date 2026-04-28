@@ -217,14 +217,14 @@ export default function GangAttackModal({
   });
 
   const formations: Array<{ id: GangFormationType; title: string; icon: string }> = [
-    { id: 'pressao_total', title: 'Pressão Total', icon: 'ATAQUE' },
-    { id: 'linha_fechada', title: 'Linha Fechada', icon: 'DEFESA' },
-    { id: 'bote_certo', title: 'Bote Certo', icon: 'ALVO' },
-    { id: 'cerco', title: 'Cerco', icon: 'CERCO' },
-    { id: 'saque_rapido', title: 'Saque Rápido', icon: 'ROUBO' },
-    { id: 'custom_1', title: customFormations.custom_1?.title || 'Personalizada 1', icon: 'CUSTOM' },
-    { id: 'custom_2', title: customFormations.custom_2?.title || 'Personalizada 2', icon: 'CUSTOM' },
-    { id: 'custom_3', title: customFormations.custom_3?.title || 'Personalizada 3', icon: 'CUSTOM' },
+    { id: 'pressao_total', title: 'Pressão Total', icon: '⚔️' },
+    { id: 'linha_fechada', title: 'Linha Fechada', icon: '🛡️' },
+    { id: 'bote_certo', title: 'Bote Certo', icon: '🎯' },
+    { id: 'cerco', title: 'Cerco', icon: '📡' },
+    { id: 'saque_rapido', title: 'Saque Rápido', icon: '💰' },
+    { id: 'custom_1', title: customFormations.custom_1?.title || 'Personalizada 1', icon: '⭐' },
+    { id: 'custom_2', title: customFormations.custom_2?.title || 'Personalizada 2', icon: '⭐' },
+    { id: 'custom_3', title: customFormations.custom_3?.title || 'Personalizada 3', icon: '⭐' },
   ];
 
   // Reset ao abrir
