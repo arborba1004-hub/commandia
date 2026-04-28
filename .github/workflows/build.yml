@@ -12,19 +12,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Clonar repositório
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Instalar Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Instalar Wix CLI
-        run: npm install -g @wix/cli
-
-      - name: Instalar dependências (modo Wix)
-        run: wix install
+      - name: Instalar dependências
+        run: npm install --legacy-peer-deps
 
       - name: Build do projeto
-        run: wix build
+        run: npm run build
