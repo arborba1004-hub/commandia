@@ -103,6 +103,22 @@ export default function GangPage() {
     void loadGang();
   }, [loadGang]);
 
+  // Auto-complete finished trainings every 2 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const hasFinishedJobs = (gang?.trainingJobs || []).some(
+        (job) => !job.completed && new Date(job.endsAt).getTime() <= now
+      );
+      
+      if (hasFinishedJobs) {
+        void completeFinishedTrainings();
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [gang?.trainingJobs, completeFinishedTrainings]);
+
   const activeJobs = useMemo(
     () => (gang?.trainingJobs || []).filter((job) => !job.completed),
     [gang?.trainingJobs]
