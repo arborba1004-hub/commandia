@@ -68,6 +68,21 @@ export default function GamePage() {
 
   const playerMapSpaceRef = useRef<any>(null);
 
+  // ── Refs Three.js (preenchidos no useEffect, lidos por handlers de ataque) ──
+  const sceneRef    = useRef<THREE.Scene             | null>(null);
+  const cameraRef   = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer     | null>(null);
+
+  // ── Tile do alvo no clique de barraco inimigo (capturado em handleClick) ───
+  const attackTargetRef = useRef<{
+    playerId:  string;
+    name:      string;
+    tileX:     number;
+    tileY:     number;
+    barracoLevel?: number;
+    factionId?:    string | null;
+  } | null>(null);
+
   // ── Modal: barraco de outro jogador
   const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
   const [isInviting,       setIsInviting]       = useState(false);
@@ -136,6 +151,11 @@ export default function GamePage() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
     mountEl.appendChild(renderer.domElement);
+
+    // ── Expor scene/camera/renderer por ref para handlers fora do useEffect ──
+    sceneRef.current    = scene;
+    cameraRef.current   = camera;
+    rendererRef.current = renderer;
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping  = true;
@@ -441,6 +461,17 @@ export default function GamePage() {
                 barracoLevel: playerData.barracoLevel,
                 factionId:    playerData.factionId,
               }));
+
+              // Guarda dados do alvo (incluindo tile) para handleAttack usar depois
+              attackTargetRef.current = {
+                playerId:     playerData.id,
+                name:         playerData.name || 'Jogador',
+                tileX:        Number(playerData.tileX),
+                tileY:        Number(playerData.tileY),
+                barracoLevel: playerData.barracoLevel,
+                factionId:    playerData.factionId ?? null,
+              };
+
               // 2) Solicita dados ricos → barracoInfo event atualizará modal + attackTarget
               socket.emit('requestBarracoInfo', { targetPlayerId: playerId });
             }
@@ -591,6 +622,11 @@ export default function GamePage() {
       if (mountEl && renderer.domElement?.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }
+
+      // Limpa refs (evita uso de objetos disposed em handlers tardios)
+      sceneRef.current    = null;
+      cameraRef.current   = null;
+      rendererRef.current = null;
     };
   }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
 
