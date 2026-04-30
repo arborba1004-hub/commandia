@@ -23,6 +23,8 @@ import OtherPlayerBarracoModal, {
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
+import GangAttackModal from '@/components/gang/GangAttackModal';
+import { useMapAttack } from '@/hooks/useMapAttack';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -118,12 +120,49 @@ export default function GamePage() {
     []
   );
 
+  // ── Hook do ataque PVP no mapa (estimate → start → marcha 3D → resolve) ────
+  const attack = useMapAttack();
+
   // ── Handler: atacar
   const handleAttack = useCallback(
     (_target: OtherPlayerBarracoTarget) => {
+      const t = attackTargetRef.current;
+      if (!t) {
+        console.warn('⚠️ handleAttack chamado sem attackTargetRef preenchido');
+        return;
+      }
+      if (!Number.isFinite(t.tileX) || !Number.isFinite(t.tileY)) {
+        console.warn('⚠️ handleAttack: tile inválido', t);
+        return;
+      }
+
+      // Fecha modal de barraco e abre o GangAttackModal pelo hook
       setModalState(closeOtherPlayerBarracoModal());
+
+      attack.initiateAttack({
+        playerId:     t.playerId,
+        playerName:   t.name,
+        tileX:        t.tileX,
+        tileY:        t.tileY,
+        barracoLevel: t.barracoLevel,
+        factionId:    t.factionId ?? null,
+      });
     },
-    []
+    [attack]
+  );
+
+  // ── Handler: confirmar ataque (recebido pelo GangAttackModal) ──────────────
+  const handleConfirmAttack = useCallback(
+    (selection: any) => {
+      const scene  = sceneRef.current;
+      const camera = cameraRef.current;
+      if (!scene || !camera) {
+        console.warn('⚠️ handleConfirmAttack: scene/camera ainda não montados');
+        return;
+      }
+      void attack.confirmAttack(selection, scene, camera, GRID_WIDTH, GRID_HEIGHT);
+    },
+    [attack]
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -719,6 +758,14 @@ export default function GamePage() {
         isOpen={dmModalOpen}
         target={dmTarget}
         onClose={() => { setDmModalOpen(false); setDmTarget(null); }}
+      />
+
+      <GangAttackModal
+        isOpen={attack.isModalOpen}
+        target={attack.selectedTarget}
+        onClose={attack.cancelAttack}
+        onConfirm={handleConfirmAttack}
+        isSubmitting={attack.isSubmitting || attack.isResolving}
       />
     </div>
   );
