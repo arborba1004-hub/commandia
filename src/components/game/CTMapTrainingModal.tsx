@@ -82,14 +82,14 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
     if (isOpen) {
       void loadGang();
     }
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, loadGang]);
 
   // Refresh a cada 5s para detectar treinos concluídos
   useEffect(() => {
     if (!isOpen) return undefined;
     const id = setInterval(() => { void loadGang(); }, 5000);
     return () => clearInterval(id);
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, loadGang]);
 
   const activeJobs = useMemo(
     () => (gang?.trainingJobs ?? []).filter((j) => !j.completed),

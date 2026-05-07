@@ -83,7 +83,7 @@ function HomePage() {
       console.error('🔴 HomePage: Erro ao processar resposta do Google:', error);
       throw error;
     }
-  }, [originalHandleGoogleResponse, hydratePlayerFromServer]);
+  }, [originalHandleGoogleResponse, hydratePlayerFromServer, handleGoogleResponse]);
 
   // Load achievements from localStorage and check for new unlocks
   useEffect(() => {
