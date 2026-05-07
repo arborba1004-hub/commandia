@@ -131,7 +131,11 @@ export function useGameSocket() {
         mountedRef.current = false;
         // Remove all listeners using stored references
         handlersRef.current.forEach(({ event, handler }) => {
-          socket.off(event, handler);
+          try {
+            socket.off(event, handler);
+          } catch (e) {
+            console.warn(`Failed to remove listener for ${event}:`, e);
+          }
         });
         handlersRef.current = [];
         // Não desconecta o socket aqui — ele é singleton e pode ser usado por outros componentes

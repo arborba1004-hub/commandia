@@ -332,6 +332,8 @@ export default function GamePage() {
     // SOCKET.IO — Usa singleton do /socket.ts
     // ═════════════════════════════════════════════════════════════════════════
     let socket: any = null;
+    const socketHandlers: Array<{ event: string; handler: any }> = [];
+    
     try {
       socket = getSocket();
       console.log('✅ GamePage: Socket singleton obtido com sucesso');
@@ -352,6 +354,7 @@ export default function GamePage() {
     
     if (socket) {
       socket.on('playerInit', onPlayerInit);
+      socketHandlers.push({ event: 'playerInit', handler: onPlayerInit });
     } else {
       console.warn('⚠️ GamePage: Socket não disponível, eventos em tempo real desabilitados');
     }
@@ -460,11 +463,22 @@ export default function GamePage() {
 
     if (socket) {
       socket.on('mapSnapshot', handleMapSnapshot);
+      socketHandlers.push({ event: 'mapSnapshot', handler: handleMapSnapshot });
+      
       socket.on('playerJoined', handlePlayerJoined);
+      socketHandlers.push({ event: 'playerJoined', handler: handlePlayerJoined });
+      
       socket.on('playerMoved', handlePlayerMoved);
+      socketHandlers.push({ event: 'playerMoved', handler: handlePlayerMoved });
+      
       socket.on('playerTeleported', handlePlayerTeleported);
+      socketHandlers.push({ event: 'playerTeleported', handler: handlePlayerTeleported });
+      
       socket.on('playerLeft', handlePlayerLeft);
+      socketHandlers.push({ event: 'playerLeft', handler: handlePlayerLeft });
+      
       socket.on('barracoInfo', onBarracoInfo);
+      socketHandlers.push({ event: 'barracoInfo', handler: onBarracoInfo });
 
       if (socket.connected) {
         socket.emit('requestMapSnapshot');
@@ -652,13 +666,13 @@ export default function GamePage() {
       renderer.domElement.removeEventListener('click', handleClick);
 
       if (socket) {
-        socket.off('playerInit', onPlayerInit);
-        socket.off('mapSnapshot', handleMapSnapshot);
-        socket.off('playerJoined', handlePlayerJoined);
-        socket.off('playerMoved', handlePlayerMoved);
-        socket.off('playerTeleported', handlePlayerTeleported);
-        socket.off('playerLeft', handlePlayerLeft);
-        socket.off('barracoInfo', onBarracoInfo);
+        socketHandlers.forEach(({ event, handler }) => {
+          try {
+            socket.off(event, handler);
+          } catch (e) {
+            console.warn(`Failed to remove listener for ${event}:`, e);
+          }
+        });
       }
 
       controls.dispose();

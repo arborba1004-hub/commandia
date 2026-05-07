@@ -13,6 +13,7 @@ class GameEngine {
 
   playersLayer: any;
   socket: any;
+  socketHandlers: Array<{ event: string; handler: any }> = [];
 
   mounted = false;
 
@@ -67,7 +68,7 @@ class GameEngine {
   bindSocket() {
     if (!this.socket) return;
     
-    this.socket.on('mapSnapshot', async (players: any[]) => {
+    const handleMapSnapshot = async (players: any[]) => {
       this.playersLayer.clearAllPlayers();
 
       for (const p of players) {
@@ -78,20 +79,31 @@ class GameEngine {
           tileY: p.tileY,
         });
       }
-    });
+    };
 
-    this.socket.on('playerJoined', (p: any) => {
+    const handlePlayerJoined = (p: any) => {
       this.playersLayer.upsertPlayer({
         id: String(p.id),
         name: p.name,
         tileX: p.tileX,
         tileY: p.tileY,
       });
-    });
+    };
 
-    this.socket.on('playerLeft', (p: any) => {
+    const handlePlayerLeft = (p: any) => {
       this.playersLayer.removePlayer?.(String(p.playerId));
-    });
+    };
+
+    this.socket.on('mapSnapshot', handleMapSnapshot);
+    this.socket.on('playerJoined', handlePlayerJoined);
+    this.socket.on('playerLeft', handlePlayerLeft);
+
+    // Store handlers for cleanup
+    this.socketHandlers = [
+      { event: 'mapSnapshot', handler: handleMapSnapshot },
+      { event: 'playerJoined', handler: handlePlayerJoined },
+      { event: 'playerLeft', handler: handlePlayerLeft },
+    ];
   }
 
   animate = () => {
@@ -101,6 +113,18 @@ class GameEngine {
 
   destroy() {
     if (!this.mounted) return;
+
+    // Remove socket listeners before cleanup
+    if (this.socket) {
+      this.socketHandlers.forEach(({ event, handler }) => {
+        try {
+          this.socket.off(event, handler);
+        } catch (e) {
+          console.warn(`Failed to remove listener for ${event}:`, e);
+        }
+      });
+      this.socketHandlers = [];
+    }
 
     this.playersLayer.cleanup();
     this.renderer.dispose();
