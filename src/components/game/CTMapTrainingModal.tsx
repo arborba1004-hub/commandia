@@ -4,15 +4,6 @@
  * Modal de treinamento de gangue aberto ao clicar em um CT do mapa 3D.
  * Usa gangStore → gangApi → backend /gang-war/* (Google Auth + socket).
  * Não depende do sistema legado (TreinamentoGang / localStorage).
- *
- * Fluxo:
- *   clicar CT no mapa
- *     → abre modal
- *     → gangStore.loadGang() busca estado real do backend
- *     → jogador escolhe tipo → gangStore.queueTraining()
- *     → backend persiste, socket emite gangUpdate → gangStore atualiza
- *     → countdown live mostra progresso
- *     → "Coletar" → gangStore.completeFinishedTrainings()
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -28,46 +19,37 @@ import { ALL_GANG_MEMBER_TYPES, type GangMemberType } from '@/types/gang';
 import { GANG_MEMBER_META } from '@/data/gangAtributos';
 import { CheckCircle2, Clock3, TrendingUp, Zap } from 'lucide-react';
 
-// ─── Countdown live para cada job ────────────────────────────────────────────
+// ─── Countdown isolado por job — sem deps problemáticos ──────────────────────
 
-function useJobsWithCountdown(
-  jobs: Array<{ id: string; endsAt: string; memberType: string; quantity: number }>
-) {
-  const [, setTick] = useState(0);
+function CountdownLabel({ endsAt }: { endsAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  return useMemo(
-    () =>
-      jobs.map((job) => {
-        const ms   = new Date(job.endsAt).getTime() - Date.now();
-        const done = ms <= 0;
-        if (done) return { ...job, done: true, label: 'Pronto!' };
-        const s   = Math.ceil(ms / 1000);
-        const m   = Math.floor(s / 60);
-        const sec = s % 60;
-        return {
-          ...job,
-          done:  false,
-          label: `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`,
-        };
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, Math.floor(Date.now() / 1000)] // recalc a cada tick do setInterval
+  const ms = new Date(endsAt).getTime() - now;
+  if (ms <= 0) return <span className="font-bold">Pronto!</span>;
+
+  const totalSec = Math.ceil(ms / 1000);
+  const m   = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return (
+    <span>
+      {String(m).padStart(2, '0')}:{String(sec).padStart(2, '0')}
+    </span>
   );
 }
 
-// ─── Cor por papel do tipo ────────────────────────────────────────────────────
+// ─── Cor por papel ───────────────────────────────────────────────────────────
 
 function toneFor(type: GangMemberType) {
   const papel = GANG_MEMBER_META[type]?.papel;
-  if (papel === 'tanque')          return 'border-cyan-500/25   bg-cyan-500/5   hover:bg-cyan-500/10';
-  if (papel === 'retaguarda')      return 'border-purple-500/25 bg-purple-500/5 hover:bg-purple-500/10';
-  if (papel === 'ofensivo')        return 'border-red-500/25    bg-red-500/5    hover:bg-red-500/10';
-  return                                  'border-amber-500/25  bg-amber-500/5  hover:bg-amber-500/10';
+  if (papel === 'tanque')     return 'border-cyan-500/25   bg-cyan-500/5   hover:bg-cyan-500/10';
+  if (papel === 'retaguarda') return 'border-purple-500/25 bg-purple-500/5 hover:bg-purple-500/10';
+  if (papel === 'ofensivo')   return 'border-red-500/25    bg-red-500/5    hover:bg-red-500/10';
+  return                             'border-amber-500/25  bg-amber-500/5  hover:bg-amber-500/10';
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -82,7 +64,6 @@ type Props = {
 // ─── Componente ──────────────────────────────────────────────────────────────
 
 export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: Props) {
-  // ── Store ────────────────────────────────────────────────────────────────
   const gang                      = useGangStore((s) => s.gang);
   const isLoading                 = useGangStore((s) => s.isLoading);
   const isSubmitting              = useGangStore((s) => s.isSubmitting);
@@ -94,33 +75,28 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
 
   const dirtyMoney = usePlayerStore((s) => s.player.balances.dirtyMoney);
 
-  // ── Estado local ─────────────────────────────────────────────────────────
   const [queueing, setQueueing] = useState<GangMemberType | null>(null);
 
-  // ── Carregar gang ao abrir ────────────────────────────────────────────────
+  // Carrega gang ao abrir
   useEffect(() => {
     if (isOpen) {
       void loadGang();
     }
-  }, [isOpen, loadGang]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Refresh automático a cada 5s (para countdown + coleta automática) ─────
+  // Refresh a cada 5s para detectar treinos concluídos
   useEffect(() => {
     if (!isOpen) return undefined;
     const id = setInterval(() => { void loadGang(); }, 5000);
     return () => clearInterval(id);
-  }, [isOpen, loadGang]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Dados derivados ───────────────────────────────────────────────────────
   const activeJobs = useMemo(
     () => (gang?.trainingJobs ?? []).filter((j) => !j.completed),
     [gang?.trainingJobs]
   );
 
-  const jobsWithCountdown = useJobsWithCountdown(activeJobs);
-  const hasReadyJobs      = jobsWithCountdown.some((j) => j.done);
-
-  const slotsTotal   = gang?.trainingConfig?.slots ?? gang?.ct?.trainingSlots ?? 0;
+  const slotsTotal   = gang?.trainingConfig?.slots    ?? gang?.ct?.trainingSlots ?? 0;
   const slotsFree    = Math.max(0, slotsTotal - activeJobs.length);
   const qtyPerOrder  = gang?.trainingConfig?.quantityPerOrder ?? 10;
   const durationSec  = gang?.trainingConfig?.durationSeconds  ?? 10;
@@ -131,7 +107,6 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
   const totalMembers = gang?.troopSummary?.totalMembers ?? 0;
   const maxMembers   = gang?.maxMembers ?? 0;
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleQueue = useCallback(
     async (type: GangMemberType) => {
       setQueueing(type);
@@ -152,8 +127,6 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
     await upgradeCT();
   }, [upgradeCT]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
       <DialogContent
@@ -168,98 +141,95 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
           </DialogTitle>
         </DialogHeader>
 
-        {/* ── Stats row ───────────────────────────────────────────────────── */}
+        {/* Stats */}
         <div className="grid grid-cols-4 gap-2">
-          {[
-            { label: 'Gang Lv', value: gangLevel,                 color: 'cyan'    },
-            { label: 'Slots',   value: `${slotsFree}/${slotsTotal}`, color: 'amber' },
-            { label: '+Por ord',value: qtyPerOrder,                color: 'emerald' },
-            { label: 'Tropa',   value: `${totalMembers}/${maxMembers}`, color: 'red' },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              className={`rounded-xl border border-${color}-500/20
-                bg-${color}-500/10 p-2.5 text-center`}
-            >
-              <div className={`text-[9px] uppercase tracking-[0.18em] text-${color}-300`}>
-                {label}
-              </div>
-              <div className="mt-0.5 text-lg font-black">{value}</div>
-            </div>
-          ))}
+          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-2.5 text-center">
+            <div className="text-[9px] uppercase tracking-[0.18em] text-cyan-300">Gang Lv</div>
+            <div className="mt-0.5 text-lg font-black">{gangLevel}</div>
+          </div>
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2.5 text-center">
+            <div className="text-[9px] uppercase tracking-[0.18em] text-amber-300">Slots</div>
+            <div className="mt-0.5 text-lg font-black">{slotsFree}/{slotsTotal}</div>
+          </div>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-center">
+            <div className="text-[9px] uppercase tracking-[0.18em] text-emerald-300">+Por ord</div>
+            <div className="mt-0.5 text-lg font-black">{qtyPerOrder}</div>
+          </div>
+          <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 text-center">
+            <div className="text-[9px] uppercase tracking-[0.18em] text-red-300">Tropa</div>
+            <div className="mt-0.5 text-lg font-black">{totalMembers}/{maxMembers}</div>
+          </div>
         </div>
 
-        {/* ── Erro ────────────────────────────────────────────────────────── */}
         {error && (
           <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
             {error}
           </div>
         )}
 
-        {/* ── Treinos em andamento ─────────────────────────────────────────── */}
+        {/* Treinos em andamento */}
         {activeJobs.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
                 Em treinamento ({activeJobs.length}/{slotsTotal})
               </span>
-              {hasReadyJobs && (
-                <button
-                  onClick={handleCollect}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-1.5
-                    text-sm font-black text-black
-                    hover:bg-amber-400 disabled:opacity-50 transition-colors"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Coletar prontos
-                </button>
-              )}
+              <button
+                onClick={handleCollect}
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-1.5
+                  text-sm font-black text-black
+                  hover:bg-amber-400 disabled:opacity-50 transition-colors"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Coletar prontos
+              </button>
             </div>
 
-            {jobsWithCountdown.map((job, i) => (
-              <div
-                key={job.id}
-                className={`flex items-center justify-between rounded-xl border p-3 transition-colors
-                  ${job.done
-                    ? 'border-amber-500/30 bg-amber-500/10'
-                    : 'border-white/10 bg-white/[0.02]'
-                  }`}
-              >
-                <div>
-                  <div className="font-black text-sm">
-                    {GANG_MEMBER_META[job.memberType as GangMemberType]?.nome ?? job.memberType}
-                  </div>
-                  <div className="text-xs text-zinc-500">
-                    +{job.quantity} • Slot {i + 1}
-                  </div>
-                </div>
+            {activeJobs.map((job, i) => {
+              const isDone = new Date(job.endsAt).getTime() <= Date.now();
+              return (
                 <div
-                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-bold
-                    ${job.done
-                      ? 'bg-amber-500 text-black'
-                      : 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
+                  key={job.id}
+                  className={`flex items-center justify-between rounded-xl border p-3
+                    ${isDone
+                      ? 'border-amber-500/30 bg-amber-500/10'
+                      : 'border-white/10 bg-white/[0.02]'
                     }`}
                 >
-                  {job.done
-                    ? <CheckCircle2 className="h-3.5 w-3.5" />
-                    : <Clock3       className="h-3.5 w-3.5" />
-                  }
-                  {job.label}
+                  <div>
+                    <div className="font-black text-sm">
+                      {GANG_MEMBER_META[job.memberType as GangMemberType]?.nome ?? job.memberType}
+                    </div>
+                    <div className="text-xs text-zinc-500">+{job.quantity} • Slot {i + 1}</div>
+                  </div>
+                  <div
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-bold
+                      ${isDone
+                        ? 'bg-amber-500 text-black'
+                        : 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
+                      }`}
+                  >
+                    {isDone
+                      ? <CheckCircle2 className="h-3.5 w-3.5" />
+                      : <Clock3       className="h-3.5 w-3.5" />
+                    }
+                    <CountdownLabel endsAt={job.endsAt} />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {/* ── Nenhum treino ativo ───────────────────────────────────────────── */}
+        {/* Nenhum treino ativo */}
         {activeJobs.length === 0 && !isLoading && (
           <div className="rounded-xl border border-white/8 bg-white/[0.015] p-3 text-center text-sm text-zinc-600">
             Nenhum treino em andamento.
           </div>
         )}
 
-        {/* ── Botões de treino ─────────────────────────────────────────────── */}
+        {/* Botões de treino */}
         {slotsFree > 0 ? (
           <div>
             <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
@@ -267,11 +237,11 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
             </div>
             <div className="grid grid-cols-2 gap-2">
               {ALL_GANG_MEMBER_TYPES.map((type) => {
-                const meta     = GANG_MEMBER_META[type];
-                const cost     = meta.custoTreinamento * qtyPerOrder;
+                const meta      = GANG_MEMBER_META[type];
+                const cost      = meta.custoTreinamento * qtyPerOrder;
                 const canAfford = dirtyMoney >= cost;
-                const active   = activeByType?.[type] ?? 0;
-                const busy     = queueing !== null;
+                const active    = activeByType?.[type] ?? 0;
+                const busy      = queueing !== null;
 
                 return (
                   <button
@@ -305,7 +275,7 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
           </div>
         ) : null}
 
-        {/* ── CT upgrade ───────────────────────────────────────────────────── */}
+        {/* CT upgrade */}
         <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.02] p-3">
           <div>
             <div className="flex items-center gap-1.5">
@@ -326,7 +296,6 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
           </button>
         </div>
 
-        {/* ── Fechar ───────────────────────────────────────────────────────── */}
         <button
           onClick={onClose}
           className="w-full rounded-xl border border-white/8 py-2
