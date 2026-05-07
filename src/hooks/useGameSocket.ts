@@ -60,9 +60,28 @@ export function useGameSocket() {
       // Emitido por todos os controllers após player.save()
       const handlePlayerUpdate = (data: { player: any; faction?: any }) => {
         if (!mountedRef.current) return;
+
+        const currentPlayer = usePlayerStore.getState().player;
+
+        // evita loop infinito
+        if (
+          currentPlayer &&
+          currentPlayer.updatedAt === data.player?.updatedAt
+        ) {
+          return;
+        }
+
         hydratePlayerFromServer(data.player);
+
         if (data.faction !== undefined) {
-          setFaction(data.faction);
+          const currentFaction = useFactionStore.getState().faction;
+
+          if (
+            JSON.stringify(currentFaction) !==
+            JSON.stringify(data.faction)
+          ) {
+            setFaction(data.faction);
+          }
         }
       };
 
