@@ -178,6 +178,19 @@ function HomePage() {
     handleGoogleResponse,
   ]);
 
+  // Cleanup: remove Google Sign-In listeners on unmount
+  useEffect(() => {
+    return () => {
+      if (window.google?.accounts?.id) {
+        try {
+          window.google.accounts.id.cancel();
+        } catch (e) {
+          // Silently ignore if cancel fails
+        }
+      }
+    };
+  }, []);
+
   const scrollToManifesto = () => {
     manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });
   };

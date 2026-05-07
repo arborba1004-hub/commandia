@@ -185,7 +185,10 @@ class RealSocket implements Socket {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    this.listeners.get(event)?.add(callback);
+    const listeners = this.listeners.get(event);
+    if (listeners && !listeners.has(callback)) {
+      listeners.add(callback);
+    }
 
     if (event === 'mapSnapshot' || event === 'playerMoved' || event === 'playerJoined' || event === 'connect') {
       console.log(`📌 Listener registrado para evento: ${event}`);

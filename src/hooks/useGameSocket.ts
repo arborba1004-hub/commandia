@@ -22,6 +22,7 @@ export function useGameSocket() {
   const setFaction              = useFactionStore((s) => s.setFaction);
   const socketInitializedRef    = useRef(false);
   const mountedRef              = useRef(true);
+  const handlersRef             = useRef<Array<{ event: string; handler: any }>>([]);
 
   useEffect(() => {
     // Prevent socket initialization during SSR/build
@@ -117,13 +118,22 @@ export function useGameSocket() {
       socket.on('connect', handleConnect);
       socket.on('connect_error', handleConnectError);
 
+      // Store handlers for cleanup
+      handlersRef.current = [
+        { event: 'playerInit', handler: handlePlayerInit },
+        { event: 'playerUpdate', handler: handlePlayerUpdate },
+        { event: 'gangUpdate', handler: handleGangUpdate },
+        { event: 'connect', handler: handleConnect },
+        { event: 'connect_error', handler: handleConnectError },
+      ];
+
       return () => {
         mountedRef.current = false;
-        socket.off('playerInit', handlePlayerInit);
-        socket.off('playerUpdate', handlePlayerUpdate);
-        socket.off('gangUpdate', handleGangUpdate);
-        socket.off('connect', handleConnect);
-        socket.off('connect_error', handleConnectError);
+        // Remove all listeners using stored references
+        handlersRef.current.forEach(({ event, handler }) => {
+          socket.off(event, handler);
+        });
+        handlersRef.current = [];
         // Não desconecta o socket aqui — ele é singleton e pode ser usado por outros componentes
       };
     } catch (error) {
