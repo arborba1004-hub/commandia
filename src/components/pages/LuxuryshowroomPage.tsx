@@ -55,7 +55,7 @@ export default function LuxuryshowroomPage() {
 
     video.addEventListener('timeupdate', handleTime);
     return () => video.removeEventListener('timeupdate', handleTime);
-  }, [showDialog, showButton]);
+  }, []); // Only set up listener once on mount
 
   return (
     <div className="w-full min-h-screen bg-black overflow-hidden flex flex-col">

@@ -102,14 +102,14 @@ function HomePage() {
       console.error('Erro ao carregar achievements do localStorage:', error);
       localStorage.removeItem('unlockedAchievements');
     }
-  }, [loadAchievements]);
+  }, []); // Only run once on mount
 
   // Check for achievement unlocks when player data changes
   useEffect(() => {
     if (player?._id) {
       checkAndUnlockAchievements(player);
     }
-  }, [player, checkAndUnlockAchievements]);
+  }, [player?._id]); // Only depend on player ID to prevent infinite loops
 
   useEffect(() => {
     // GSI já está no <head> da página Astro — apenas aguarda estar disponível
