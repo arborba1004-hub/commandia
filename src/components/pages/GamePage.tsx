@@ -5,7 +5,6 @@ import { OrbitControls }     from 'three/examples/jsm/controls/OrbitControls';
 import { useNavigate }       from 'react-router-dom';
 import { GLTFLoader }        from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader }       from 'three/examples/jsm/loaders/DRACOLoader';
-import { io }                from 'socket.io-client';
 
 import { mountFixedMapBuildings }                      from '@/components/game/fixedMapBuildings';
 import { mountPlayerMapSpace, isPlayerSpaceAvailable } from '@/components/game/playerMapSpace';
@@ -330,14 +329,12 @@ export default function GamePage() {
     scene.add(selectionMesh);
 
     // ═════════════════════════════════════════════════════════════════════════
-    // SOCKET.IO
+    // SOCKET.IO — Usa singleton do /socket.ts
     // ═════════════════════════════════════════════════════════════════════════
     let socket: any = null;
     try {
-      if (typeof window !== 'undefined') {
-        socket = getSocket();
-        console.log('✅ GamePage: Socket obtido com sucesso');
-      }
+      socket = getSocket();
+      console.log('✅ GamePage: Socket singleton obtido com sucesso');
     } catch (err) {
       console.error('❌ GamePage: Erro ao obter socket:', err);
       // Socket unavailable during SSR/build
