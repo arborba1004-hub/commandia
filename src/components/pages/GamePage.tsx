@@ -64,15 +64,16 @@ export default function GamePage() {
     (m) => String(m.recipientId) === String((player as any)?._id) && !m.read
   ).length;
 
+  // ── Premium Developer Mode: Ativa análise e correção automática ──
+  const PREMIUM_DEV_MODE = true;
+  const ENABLE_GAME_DIAGNOSTICS = PREMIUM_DEV_MODE;
+
+  // ── Memoize player-derived values to prevent infinite loops ──
   const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
   const cleanMoney = player?.balances?.cleanMoney ?? 0;
   const avatarUrl  = (player as any)?.headerCustomization?.customAvatar || (player as any)?.avatar || '';
   const playerName = (player as any)?.headerCustomization?.customName   || player?.name || '—';
   const playerLevel = player?.niveis?.barracoLevel ?? 0;
-
-  // ── Premium Developer Mode: Ativa análise e correção automática ──
-  const PREMIUM_DEV_MODE = true;
-  const ENABLE_GAME_DIAGNOSTICS = PREMIUM_DEV_MODE;
 
   const playerMapSpaceRef = useRef<any>(null);
 
@@ -201,7 +202,7 @@ export default function GamePage() {
     void loadGang();
   }, [loadGang]);
 
-  // ── Premium Developer Diagnostics ──────────────────────────────────────
+  // ── Premium Developer Diagnostics (only on player change, not on derived values) ──
   useEffect(() => {
     if (!ENABLE_GAME_DIAGNOSTICS) return;
     
@@ -240,7 +241,7 @@ export default function GamePage() {
     } else {
       console.log('✅ [PREMIUM DEV MODE] Todos os diagnostics OK');
     }
-  }, [player, mailMessages, dirtyMoney, cleanMoney, avatarUrl, playerName, playerLevel, unreadMailCount]);
+  }, [player, mailMessages]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // EFEITO THREE.JS
