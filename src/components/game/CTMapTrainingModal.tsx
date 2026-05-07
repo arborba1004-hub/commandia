@@ -19,8 +19,6 @@ import { ALL_GANG_MEMBER_TYPES, type GangMemberType } from '@/types/gang';
 import { GANG_MEMBER_META } from '@/data/gangAtributos';
 import { CheckCircle2, Clock3, TrendingUp, Zap } from 'lucide-react';
 
-// ─── Countdown isolado por job — sem deps problemáticos ──────────────────────
-
 function CountdownLabel({ endsAt }: { endsAt: string }) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -68,7 +66,6 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
   const isLoading                 = useGangStore((s) => s.isLoading);
   const isSubmitting              = useGangStore((s) => s.isSubmitting);
   const error                     = useGangStore((s) => s.error);
-  const loadGang                  = useGangStore((s) => s.loadGang);
   const queueTraining             = useGangStore((s) => s.queueTraining);
   const completeFinishedTrainings = useGangStore((s) => s.completeFinishedTrainings);
   const upgradeCT                 = useGangStore((s) => s.upgradeCT);
@@ -77,19 +74,21 @@ export default function CTMapTrainingModal({ isOpen, ctKey, ctName, onClose }: P
 
   const [queueing, setQueueing] = useState<GangMemberType | null>(null);
 
-  // Carrega gang ao abrir
+  // Carrega gang ao abrir — acessa loadGang via getState() para não criar
+  // subscription nem dep instável que causaria loop de re-render.
   useEffect(() => {
-    if (isOpen) {
-      void loadGang();
-    }
-  }, [isOpen, loadGang]);
+    if (!isOpen) return;
+    void useGangStore.getState().loadGang();
+  }, [isOpen]);
 
-  // Refresh a cada 5s para detectar treinos concluídos
+  // Refresh a cada 5s enquanto aberto para detectar treinos concluídos
   useEffect(() => {
     if (!isOpen) return undefined;
-    const id = setInterval(() => { void loadGang(); }, 5000);
+    const id = setInterval(() => {
+      void useGangStore.getState().loadGang();
+    }, 5000);
     return () => clearInterval(id);
-  }, [isOpen, loadGang]);
+  }, [isOpen]);
 
   const activeJobs = useMemo(
     () => (gang?.trainingJobs ?? []).filter((j) => !j.completed),
