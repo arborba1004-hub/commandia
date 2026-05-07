@@ -137,7 +137,21 @@ export default function GamePage() {
   // Ref para o callback de CT (evita recriar a cena Three.js ao mudar estado)
   const onCTClickRef = useRef<(key: string, name: string) => void>(() => {});
   onCTClickRef.current = (key: string, name: string) => {
-    setCtModal({ open: true, key, name });
+    setCtModal((prev) => {
+      if (
+        prev.open &&
+        prev.key === key &&
+        prev.name === name
+      ) {
+        return prev;
+      }
+
+      return {
+        open: true,
+        key,
+        name,
+      };
+    });
   };
 
   // ── Handler: atacar
