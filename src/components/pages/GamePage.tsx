@@ -202,7 +202,7 @@ export default function GamePage() {
     void loadGang();
   }, [loadGang]);
 
-  // ── Premium Developer Diagnostics (only on player change, not on derived values) ──
+  // ── Premium Developer Diagnostics (only on player ID change, not on derived values) ──
   useEffect(() => {
     if (!ENABLE_GAME_DIAGNOSTICS) return;
     
@@ -241,7 +241,7 @@ export default function GamePage() {
     } else {
       console.log('✅ [PREMIUM DEV MODE] Todos os diagnostics OK');
     }
-  }, [player, mailMessages]);
+  }, [player?._id, mailMessages.length]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // EFEITO THREE.JS
