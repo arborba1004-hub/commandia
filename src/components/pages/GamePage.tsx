@@ -5,6 +5,7 @@ import { OrbitControls }     from 'three/examples/jsm/controls/OrbitControls';
 import { useNavigate }       from 'react-router-dom';
 import { GLTFLoader }        from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader }       from 'three/examples/jsm/loaders/DRACOLoader';
+import { io }                from 'socket.io-client';
 
 import { mountFixedMapBuildings }                      from '@/components/game/fixedMapBuildings';
 import { mountPlayerMapSpace, isPlayerSpaceAvailable } from '@/components/game/playerMapSpace';
