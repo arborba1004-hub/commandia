@@ -547,7 +547,9 @@ export default function GamePage() {
               };
 
               // 2) Solicita dados ricos → barracoInfo event atualizará modal + attackTarget
-              socket.emit('requestBarracoInfo', { targetPlayerId: playerId });
+              if (socket) {
+                socket.emit('requestBarracoInfo', { targetPlayerId: playerId });
+              }
             }
             return;
           }
@@ -618,11 +620,13 @@ export default function GamePage() {
         }));
 
         // 'teleport' tem cooldown de 30s no backend (diferente de 'move' que é 1s)
-        socket.emit('teleport', {
-          tileX:        result.tileX,
-          tileY:        result.tileY,
-          teleportType: 'manual',
-        });
+        if (socket) {
+          socket.emit('teleport', {
+            tileX:        result.tileX,
+            tileY:        result.tileY,
+            teleportType: 'manual',
+          });
+        }
 
         return;
       }
