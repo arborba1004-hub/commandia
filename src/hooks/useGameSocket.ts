@@ -46,6 +46,10 @@ export function useGameSocket() {
       // Garante socket autenticado com token atual
       const socket = reconnectSocket();
 
+      if (!socket) {
+        return;
+      }
+
       // ── playerInit: estado completo do jogador ao conectar ────────────────────
       // Substitui completamente o loadPlayer() + polling do playerStore
       const handlePlayerInit = (data: { player: any; faction?: any }) => {
