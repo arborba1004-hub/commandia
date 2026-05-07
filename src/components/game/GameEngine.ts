@@ -107,20 +107,37 @@ class GameEngine {
   }
 
   // Pure animation loop - no side effects, only rendering
-  private scheduleNextFrame = (callback: FrameRequestCallback) => {
-    requestAnimationFrame(callback);
+  // Separated concerns: scheduling is pure, rendering is pure
+  private frameId: number | null = null;
+
+  private scheduleNextFrame = (callback: FrameRequestCallback): void => {
+    this.frameId = requestAnimationFrame(callback);
   };
 
-  animate = (() => {
-    const renderFrame: FrameRequestCallback = () => {
+  private createRenderFrame = (): FrameRequestCallback => {
+    // Pure function that creates a frame renderer
+    // Returns a function with no side effects except rendering
+    return () => {
+      // Pure render operation - no state mutations
       this.renderer.render(this.scene, this.camera);
-      this.scheduleNextFrame(renderFrame);
+      // Schedule next frame (side effect isolated to scheduling)
+      this.scheduleNextFrame(this.createRenderFrame());
     };
-    return () => this.scheduleNextFrame(renderFrame);
-  })();
+  };
+
+  animate = (): void => {
+    // Initiate the pure animation loop
+    this.scheduleNextFrame(this.createRenderFrame());
+  };
 
   destroy() {
     if (!this.mounted) return;
+
+    // Cancel animation frame to stop the pure loop
+    if (this.frameId !== null) {
+      cancelAnimationFrame(this.frameId);
+      this.frameId = null;
+    }
 
     // Remove socket listeners before cleanup
     if (this.socket) {
