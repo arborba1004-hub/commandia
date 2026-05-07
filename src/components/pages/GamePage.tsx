@@ -55,6 +55,7 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 
 export default function GamePage() {
   const mountRef    = useRef<HTMLDivElement | null>(null);
+  const lastBarracoInfoRef = useRef<string>('');
   const navigate    = useNavigate();
   const player      = usePlayerStore((s) => s.player);
   const myFactionId = usePlayerStore((s) => s.player?.factionId) ?? null;
@@ -528,7 +529,6 @@ export default function GamePage() {
 
     // ── barracoInfo: enriquece modal ───────────────
     // Usa ref para evitar recriação de closure e múltiplas atualizações
-    const lastBarracoInfoRef = useRef<string>('');
     const onBarracoInfo = (data: any) => {
       if (!isMounted) return;
       if (ENABLE_GAME_DIAGNOSTICS) {
