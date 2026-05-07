@@ -503,7 +503,7 @@ export default function GamePage() {
     function handlePlayerLeft(data: { playerId: string }) {
       if (!isMounted) return;
       localPlayers.delete(String(data.playerId));
-      void realtimePlayersLayer.refresh();
+      void realtimePlayersLayer.refreshNow();
     }
 
     // ── barracoInfo: enriquece modal ───────────────
@@ -594,7 +594,7 @@ export default function GamePage() {
         while (current) {
           if (current.userData?.playerId) {
             const playerId   = String(current.userData.playerId);
-            const playerData = realtimePlayersLayer.players()
+            const playerData = realtimePlayersLayer.getPlayers()
               .find((p: any) => String(p.id) === playerId);
 
             if (playerData) {
@@ -787,7 +787,7 @@ export default function GamePage() {
       cameraRef.current   = null;
       rendererRef.current = null;
     };
-  }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
+  }, [navigate, player?._id]);
 
   return (
     <div className="fixed inset-0 z-40 bg-black overflow-hidden">
