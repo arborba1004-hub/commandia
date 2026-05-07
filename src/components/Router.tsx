@@ -1,9 +1,13 @@
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
-import { Suspense } from 'react';
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import Layout from '@/components/Layout';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import AchievementNotification from '@/components/AchievementNotification';
+import GameSocketBootstrap from '@/components/GameSocketBootstrap';
+import { applyGPUOptimizations } from '@/utils/gpuOptimization';
 import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
 import ProtectedRoute from '@/components/routes/ProtectedRoute';
 
@@ -30,11 +34,20 @@ import GangPage from '@/components/gang/GangPage';
 const LoadingFallback = () => <div className="flex items-center justify-center min-h-screen"><LoadingSpinner /></div>;
 
 function AppRouterLayout() {
+  useEffect(() => {
+    applyGPUOptimizations();
+  }, []);
+
   return (
-    <>
-      <ScrollToTop />
-      <Layout />
-    </>
+    <div className="min-h-screen bg-background flex flex-col">
+      <GameSocketBootstrap />
+      <Header />
+      <AchievementNotification />
+      <main className="flex-1 pt-20">
+        <Outlet />
+      </main>
+      <Footer />
+    </div>
   );
 }
 
@@ -42,7 +55,12 @@ const router = createBrowserRouter(
   [
     {
       path: '/',
-      element: <AppRouterLayout />,
+      element: (
+        <>
+          <ScrollToTop />
+          <AppRouterLayout />
+        </>
+      ),
       errorElement: <ErrorPage />,
       children: [
         { index: true, element: <HomePage /> },
