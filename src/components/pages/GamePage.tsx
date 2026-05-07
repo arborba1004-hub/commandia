@@ -527,11 +527,20 @@ export default function GamePage() {
     }
 
     // ── barracoInfo: enriquece modal ───────────────
+    // Usa ref para evitar recriação de closure e múltiplas atualizações
+    const lastBarracoInfoRef = useRef<string>('');
     const onBarracoInfo = (data: any) => {
       if (!isMounted) return;
       if (ENABLE_GAME_DIAGNOSTICS) {
         console.log('🏠 [PREMIUM DEV MODE] barracoInfo:', data.playerName, '| power:', data.power);
       }
+
+      // Evita múltiplas atualizações do mesmo evento
+      const infoKey = `${data.playerId}:${data.playerName}:${data.power}`;
+      if (lastBarracoInfoRef.current === infoKey) {
+        return;
+      }
+      lastBarracoInfoRef.current = infoKey;
 
       // Atualiza modal com dados completos (avatar, factionName, etc.)
       setModalState(
