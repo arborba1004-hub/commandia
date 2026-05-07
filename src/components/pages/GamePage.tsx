@@ -252,7 +252,12 @@ export default function GamePage() {
     );
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    renderer.setPixelRatio(
+      isMobile
+        ? 1
+        : Math.min(window.devicePixelRatio, 1.5)
+    );
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type    = THREE.PCFSoftShadowMap;

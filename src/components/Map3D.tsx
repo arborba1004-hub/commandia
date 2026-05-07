@@ -137,7 +137,11 @@ export default function Map3D() {
     });
 
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.8));
+    renderer.setPixelRatio(
+      isMobile
+        ? 1
+        : Math.min(window.devicePixelRatio, 1.5)
+    );
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
