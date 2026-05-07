@@ -26,7 +26,6 @@ import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/
 import GangAttackModal from '@/components/gang/GangAttackModal';
 import CTMapTrainingModal from '@/components/game/CTMapTrainingModal';
 import { useMapAttack } from '@/hooks/useMapAttack';
-import { useGangStore }  from '@/store/gangStore';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -55,21 +54,15 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 
 export default function GamePage() {
   const mountRef    = useRef<HTMLDivElement | null>(null);
-  const lastBarracoInfoRef = useRef<string>('');
   const navigate    = useNavigate();
   const player      = usePlayerStore((s) => s.player);
-  const myFactionId = usePlayerStore((s) => s.player?.factionId) ?? null;
+  const myFactionId = player?.factionId ?? null;
 
   const mailMessages    = useChatStore((s) => s.mailMessages);
   const unreadMailCount = mailMessages.filter(
     (m) => String(m.recipientId) === String((player as any)?._id) && !m.read
   ).length;
 
-  // ── Premium Developer Mode: Ativa análise e correção automática ──
-  const PREMIUM_DEV_MODE = true;
-  const ENABLE_GAME_DIAGNOSTICS = PREMIUM_DEV_MODE;
-
-  // ── Memoize player-derived values to prevent infinite loops ──
   const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
   const cleanMoney = player?.balances?.cleanMoney ?? 0;
   const avatarUrl  = (player as any)?.headerCustomization?.customAvatar || (player as any)?.avatar || '';
@@ -132,7 +125,6 @@ export default function GamePage() {
   const attack = useMapAttack();
 
   // ── CT Training Modal ────────────────────────────────────────────────────
-  const loadGang = useGangStore((s) => s.loadGang);
   const [ctModal, setCtModal] = useState<{ open: boolean; key: string; name: string }>({
     open: false, key: '', name: '',
   });
@@ -140,19 +132,8 @@ export default function GamePage() {
   const onCTClickRef = useRef<(key: string, name: string) => void>(() => {});
   onCTClickRef.current = (key: string, name: string) => {
     setCtModal((prev) => {
-      if (
-        prev.open &&
-        prev.key === key &&
-        prev.name === name
-      ) {
-        return prev;
-      }
-
-      return {
-        open: true,
-        key,
-        name,
-      };
+      if (prev.open && prev.key === key && prev.name === name) return prev;
+      return { open: true, key, name };
     });
   };
 
@@ -198,53 +179,7 @@ export default function GamePage() {
     [attack]
   );
 
-  // ── Pré-carrega gang ao montar para CT modal abrir instantaneamente ──────
-  useEffect(() => {
-    void loadGang();
-  }, [loadGang]);
-
-  // ── Premium Developer Diagnostics (only on player ID change, not on derived values) ──
-  useEffect(() => {
-    if (!ENABLE_GAME_DIAGNOSTICS) return;
-    
-    const diagnostics = {
-      timestamp: new Date().toISOString(),
-      playerLoaded: !!player,
-      playerHasId: !!player?._id,
-      playerHasFactionId: !!player?.factionId,
-      playerHasMapPosition: !!player?.mapPosition,
-      playerHasBalances: !!player?.balances,
-      playerHasNiveis: !!player?.niveis,
-      playerHasHeaderCustomization: !!(player as any)?.headerCustomization,
-      mailMessagesCount: mailMessages.length,
-      unreadMailCount,
-      dirtyMoneyValid: Number.isFinite(dirtyMoney),
-      cleanMoneyValid: Number.isFinite(cleanMoney),
-      avatarUrlValid: !!avatarUrl,
-      playerNameValid: !!playerName && playerName !== '—',
-      playerLevelValid: Number.isFinite(playerLevel),
-    };
-
-    console.log('🎮 [PREMIUM DEV MODE] GamePage Diagnostics:', diagnostics);
-    
-    // Detecta e reporta problemas
-    const issues: string[] = [];
-    if (!diagnostics.playerLoaded) issues.push('❌ Player não carregado');
-    if (!diagnostics.playerHasId) issues.push('❌ Player sem ID');
-    if (!diagnostics.playerHasMapPosition) issues.push('⚠️ Player sem mapPosition');
-    if (!diagnostics.playerHasBalances) issues.push('⚠️ Player sem balances');
-    if (!diagnostics.playerHasNiveis) issues.push('⚠️ Player sem niveis');
-    if (!diagnostics.dirtyMoneyValid) issues.push('⚠️ Dirty money inválido');
-    if (!diagnostics.cleanMoneyValid) issues.push('⚠️ Clean money inválido');
-
-    if (issues.length > 0) {
-      console.warn('🎮 [PREMIUM DEV MODE] Issues Detected:', issues);
-    } else {
-      console.log('✅ [PREMIUM DEV MODE] Todos os diagnostics OK');
-    }
-  }, [player?._id, mailMessages.length]);
-
-  // ─────────────────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
   // EFEITO THREE.JS
   // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
@@ -252,10 +187,6 @@ export default function GamePage() {
     if (!mountEl) return;
 
     let isMounted = true;
-
-    if (ENABLE_GAME_DIAGNOSTICS) {
-      console.log('🎮 [PREMIUM DEV MODE] Inicializando Three.js Scene');
-    }
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#050505');
@@ -269,11 +200,7 @@ export default function GamePage() {
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    renderer.setPixelRatio(
-      isMobile
-        ? 1
-        : Math.min(window.devicePixelRatio, 1.5)
-    );
+    renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
@@ -399,15 +326,13 @@ export default function GamePage() {
     scene.add(selectionMesh);
 
     // ═════════════════════════════════════════════════════════════════════════
-    // SOCKET.IO — Usa singleton do /socket.ts
+    // SOCKET.IO
     // ═════════════════════════════════════════════════════════════════════════
     let socket: any = null;
-    const socketHandlers: Array<{ event: string; handler: any }> = [];
-    
     try {
-      socket = getSocket();
-      if (ENABLE_GAME_DIAGNOSTICS) {
-        console.log('✅ [PREMIUM DEV MODE] GamePage: Socket singleton obtido com sucesso');
+      if (typeof window !== 'undefined') {
+        socket = getSocket();
+        console.log('✅ GamePage: Socket obtido com sucesso');
       }
     } catch (err) {
       console.error('❌ GamePage: Erro ao obter socket:', err);
@@ -419,16 +344,13 @@ export default function GamePage() {
       const incomingId = String(data.player?._id || data.player?.id || '');
       if (incomingId) {
         myId = incomingId;
-        if (ENABLE_GAME_DIAGNOSTICS) {
-          console.log('✅ [PREMIUM DEV MODE] playerInit: myId =', myId);
-        }
+        console.log('✅ playerInit: myId =', myId);
       }
       usePlayerStore.getState().hydratePlayerFromServer(data.player);
     };
     
     if (socket) {
       socket.on('playerInit', onPlayerInit);
-      socketHandlers.push({ event: 'playerInit', handler: onPlayerInit });
     } else {
       console.warn('⚠️ GamePage: Socket não disponível, eventos em tempo real desabilitados');
     }
@@ -453,9 +375,6 @@ export default function GamePage() {
           factionId:    p.factionId ?? null,
         });
       }
-      if (ENABLE_GAME_DIAGNOSTICS) {
-        console.log(`🎮 [PREMIUM DEV MODE] processSnapshot: ${others.length} jogadores processados`);
-      }
     }
 
     function handleMapSnapshot(players: any[]) {
@@ -477,18 +396,13 @@ export default function GamePage() {
         power:        Number(p.power ?? 0),
         factionId:    p.factionId ?? null,
       });
-      if (ENABLE_GAME_DIAGNOSTICS) {
-        console.log(`🎮 [PREMIUM DEV MODE] handlePlayerJoined: ${p.name} (${pId})`);
-      }
     }
 
     async function handlePlayerMoved(data: any) {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
       if (pId === (myId || String(player?._id || ''))) {
-        if (ENABLE_GAME_DIAGNOSTICS) {
-          console.log('⏭️ [PREMIUM DEV MODE] playerMoved ignorado (próprio jogador)');
-        }
+        console.log('⏭️ playerMoved ignorado (próprio jogador)');
         return;
       }
       localPlayers.set(pId, { tileX: Number(data.tileX), tileY: Number(data.tileY) });
@@ -504,9 +418,7 @@ export default function GamePage() {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
       if (pId === (myId || String(player?._id || ''))) {
-        if (ENABLE_GAME_DIAGNOSTICS) {
-          console.log('⏭️ [PREMIUM DEV MODE] playerTeleported ignorado (próprio jogador)');
-        }
+        console.log('⏭️ playerTeleported ignorado (próprio jogador)');
         return;
       }
       localPlayers.set(pId, {
@@ -524,23 +436,13 @@ export default function GamePage() {
     function handlePlayerLeft(data: { playerId: string }) {
       if (!isMounted) return;
       localPlayers.delete(String(data.playerId));
-      void realtimePlayersLayer.refreshNow();
+      void realtimePlayersLayer.refresh();
     }
 
     // ── barracoInfo: enriquece modal ───────────────
-    // Usa ref para evitar recriação de closure e múltiplas atualizações
     const onBarracoInfo = (data: any) => {
       if (!isMounted) return;
-      if (ENABLE_GAME_DIAGNOSTICS) {
-        console.log('🏠 [PREMIUM DEV MODE] barracoInfo:', data.playerName, '| power:', data.power);
-      }
-
-      // Evita múltiplas atualizações do mesmo evento
-      const infoKey = `${data.playerId}:${data.playerName}:${data.power}`;
-      if (lastBarracoInfoRef.current === infoKey) {
-        return;
-      }
-      lastBarracoInfoRef.current = infoKey;
+      console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
 
       // Atualiza modal com dados completos (avatar, factionName, etc.)
       setModalState(
@@ -557,22 +459,11 @@ export default function GamePage() {
 
     if (socket) {
       socket.on('mapSnapshot', handleMapSnapshot);
-      socketHandlers.push({ event: 'mapSnapshot', handler: handleMapSnapshot });
-      
       socket.on('playerJoined', handlePlayerJoined);
-      socketHandlers.push({ event: 'playerJoined', handler: handlePlayerJoined });
-      
       socket.on('playerMoved', handlePlayerMoved);
-      socketHandlers.push({ event: 'playerMoved', handler: handlePlayerMoved });
-      
       socket.on('playerTeleported', handlePlayerTeleported);
-      socketHandlers.push({ event: 'playerTeleported', handler: handlePlayerTeleported });
-      
       socket.on('playerLeft', handlePlayerLeft);
-      socketHandlers.push({ event: 'playerLeft', handler: handlePlayerLeft });
-      
       socket.on('barracoInfo', onBarracoInfo);
-      socketHandlers.push({ event: 'barracoInfo', handler: onBarracoInfo });
 
       if (socket.connected) {
         socket.emit('requestMapSnapshot');
@@ -593,12 +484,7 @@ export default function GamePage() {
     function handleClick(event: MouseEvent) {
       // ── 0. Prédios fixos (CTs, delegacia, etc.) ──────────────────────────
       // Deve ser checado ANTES do barraco próprio e teleporte
-      if (fixedBuildingsLayer.tryHandleBuildingClick(event.clientX, event.clientY)) {
-        if (ENABLE_GAME_DIAGNOSTICS) {
-          console.log('🎮 [PREMIUM DEV MODE] Click em prédio fixo detectado');
-        }
-        return;
-      }
+      if (fixedBuildingsLayer.tryHandleBuildingClick(event.clientX, event.clientY)) return;
 
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
@@ -623,13 +509,10 @@ export default function GamePage() {
         while (current) {
           if (current.userData?.playerId) {
             const playerId   = String(current.userData.playerId);
-            const playerData = realtimePlayersLayer.getPlayers()
+            const playerData = realtimePlayersLayer.players()
               .find((p: any) => String(p.id) === playerId);
 
             if (playerData) {
-              if (ENABLE_GAME_DIAGNOSTICS) {
-                console.log(`🎮 [PREMIUM DEV MODE] Click em barraco: ${playerData.name} (${playerId})`);
-              }
               // 1) Abre imediatamente com dados básicos (UX otimista)
               setModalState(openOtherPlayerBarracoModal({
                 id:           playerData.id,
@@ -678,9 +561,7 @@ export default function GamePage() {
           (p) => `${p.tileX},${p.tileY}` === `${clickedTileX},${clickedTileY}`
         )
       ) {
-        if (ENABLE_GAME_DIAGNOSTICS) {
-          console.log('⚠️ [PREMIUM DEV MODE] Tile ocupado por outro jogador');
-        }
+        console.log('⚠️ Tile ocupado por outro jogador');
         return;
       }
 
@@ -689,9 +570,7 @@ export default function GamePage() {
       }));
 
       if (!isPlayerSpaceAvailable(clickedTileX, clickedTileY, currentOccupied, GRID_WIDTH, GRID_HEIGHT)) {
-        if (ENABLE_GAME_DIAGNOSTICS) {
-          console.log('⚠️ [PREMIUM DEV MODE] Tile não está livre');
-        }
+        console.log('⚠️ Tile não está livre');
         return;
       }
 
@@ -701,9 +580,7 @@ export default function GamePage() {
         pendingTeleportTile.tileX === clickedTileX &&
         pendingTeleportTile.tileY === clickedTileY
       ) {
-        if (ENABLE_GAME_DIAGNOSTICS) {
-          console.log('✅ [PREMIUM DEV MODE] Confirmando teleporte:', clickedTileX, clickedTileY);
-        }
+        console.log('✅ Confirmando teleporte:', clickedTileX, clickedTileY);
         pendingTeleportTile   = null;
         selectionMesh.visible = false;
 
@@ -740,9 +617,7 @@ export default function GamePage() {
       }
 
       // Primeiro clique → mostra seletor, aguarda confirmação
-      if (ENABLE_GAME_DIAGNOSTICS) {
-        console.log('🎯 [PREMIUM DEV MODE] Selecionando tile:', clickedTileX, clickedTileY);
-      }
+      console.log('🎯 Selecionando tile:', clickedTileX, clickedTileY);
       pendingTeleportTile = { tileX: clickedTileX, tileY: clickedTileY };
       selectionMesh.position.set(
         clickedTileX - GRID_WIDTH  / 2 + 0.5,
@@ -765,19 +640,13 @@ export default function GamePage() {
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(mountEl);
 
-    // Pure animation loop - no side effects, only rendering
     let animationFrameId = 0;
-    const scheduleNextFrame = (callback: FrameRequestCallback) => {
-      animationFrameId = window.requestAnimationFrame(callback);
-    };
-
-    const animate: FrameRequestCallback = () => {
+    function animate() {
+      animationFrameId = window.requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
-      scheduleNextFrame(animate);
-    };
-
-    scheduleNextFrame(animate);
+    }
+    animate();
 
     return () => {
       isMounted = false;
@@ -786,13 +655,13 @@ export default function GamePage() {
       renderer.domElement.removeEventListener('click', handleClick);
 
       if (socket) {
-        socketHandlers.forEach(({ event, handler }) => {
-          try {
-            socket.off(event, handler);
-          } catch (e) {
-            console.warn(`Failed to remove listener for ${event}:`, e);
-          }
-        });
+        socket.off('playerInit', onPlayerInit);
+        socket.off('mapSnapshot', handleMapSnapshot);
+        socket.off('playerJoined', handlePlayerJoined);
+        socket.off('playerMoved', handlePlayerMoved);
+        socket.off('playerTeleported', handlePlayerTeleported);
+        socket.off('playerLeft', handlePlayerLeft);
+        socket.off('barracoInfo', onBarracoInfo);
       }
 
       controls.dispose();
@@ -812,7 +681,7 @@ export default function GamePage() {
       scene.remove(clickPlane);
       scene.remove(selectionMesh);
 
-      renderer.dispose();
+  renderer.dispose();
       if (mountEl && renderer.domElement?.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }
