@@ -576,14 +576,20 @@ export default function Map3D() {
       }
     };
 
+    // Pure animation loop - no side effects, only rendering
     let animationId = 0;
-    const animate = () => {
+    const scheduleNextFrame = (callback: FrameRequestCallback) => {
+      animationId = requestAnimationFrame(callback);
+    };
+
+    const animate: FrameRequestCallback = () => {
       updateHorizonParallax();
       controls.update();
       renderer.render(scene, camera);
-      animationId = requestAnimationFrame(animate);
+      scheduleNextFrame(animate);
     };
-    animate();
+
+    scheduleNextFrame(animate);
 
     const handleResize = () => {
       if (!containerRef.current) return;

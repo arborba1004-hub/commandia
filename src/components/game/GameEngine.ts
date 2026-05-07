@@ -106,10 +106,18 @@ class GameEngine {
     ];
   }
 
-  animate = () => {
-    requestAnimationFrame(this.animate);
-    this.renderer.render(this.scene, this.camera);
+  // Pure animation loop - no side effects, only rendering
+  private scheduleNextFrame = (callback: FrameRequestCallback) => {
+    requestAnimationFrame(callback);
   };
+
+  animate = (() => {
+    const renderFrame: FrameRequestCallback = () => {
+      this.renderer.render(this.scene, this.camera);
+      this.scheduleNextFrame(renderFrame);
+    };
+    return () => this.scheduleNextFrame(renderFrame);
+  })();
 
   destroy() {
     if (!this.mounted) return;

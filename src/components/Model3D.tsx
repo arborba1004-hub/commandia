@@ -72,19 +72,22 @@ export function Model3D({ modelUrl }: Model3DProps) {
       }
     );
 
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
+    // Pure animation loop - no side effects, only rendering
+    const scheduleNextFrame = (callback: FrameRequestCallback) => {
+      requestAnimationFrame(callback);
+    };
 
+    const animate: FrameRequestCallback = () => {
       if (model) {
         model.rotation.x += 0.005;
         model.rotation.y += 0.01;
       }
 
       renderer.render(scene, camera);
+      scheduleNextFrame(animate);
     };
 
-    animate();
+    scheduleNextFrame(animate);
 
     // Handle resize
     const handleResize = () => {

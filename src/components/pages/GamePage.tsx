@@ -755,13 +755,19 @@ export default function GamePage() {
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(mountEl);
 
+    // Pure animation loop - no side effects, only rendering
     let animationFrameId = 0;
-    function animate() {
-      animationFrameId = window.requestAnimationFrame(animate);
+    const scheduleNextFrame = (callback: FrameRequestCallback) => {
+      animationFrameId = window.requestAnimationFrame(callback);
+    };
+
+    const animate: FrameRequestCallback = () => {
       controls.update();
       renderer.render(scene, camera);
-    }
-    animate();
+      scheduleNextFrame(animate);
+    };
+
+    scheduleNextFrame(animate);
 
     return () => {
       isMounted = false;
