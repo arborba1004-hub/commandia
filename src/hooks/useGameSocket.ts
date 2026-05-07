@@ -69,23 +69,15 @@ export function useGameSocket() {
       // ── gangUpdate: quando gang muda (treinamento, recrutamento) ─────────────
       const handleGangUpdate = (data: { gang: any }) => {
         if (!mountedRef.current || !data?.gang) return;
-        // Atualiza gang dentro do playerStore (legado / compatibilidade)
-        usePlayerStore.getState().applyPlayerUpdate((p) => ({
-          ...p,
-          gang:        data.gang,
-          gangMembers: data.gang?.members ?? p.gangMembers,
-          gangStats:   data.gang?.stats   ?? p.gangStats,
-        }));
-        // Força reload do gangStore para manter CTMapTrainingModal sincronizado
-        // (fire-and-forget — não bloqueia nada)
-        import('@/store/gangStore')
-          .then(({ useGangStore }) => {
-            // Só recarrega se o gangStore já tem dados (evita fetch desnecessário na cold start)
-            if (useGangStore.getState().gang !== null) {
-              void useGangStore.getState().loadGang();
-            }
-          })
-          .catch(() => { /* silencioso */ });
+        // Atualiza gang dentro do playerStore
+        usePlayerStore.getState().applyPlayerUpdate((p) => (
+          {
+            ...p,
+            gang: data.gang,
+            gangMembers: data.gang?.members ?? p.gangMembers,
+            gangStats:   data.gang?.stats   ?? p.gangStats,
+          }
+        ));
       };
 
       const handleConnect = () => {
