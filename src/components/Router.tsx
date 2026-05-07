@@ -5,27 +5,27 @@ import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import Layout from '@/components/Layout';
 
-// Lazy load all page components
-const HomePage = lazy(() => import('@/components/pages/HomePage'));
-const GaleriaPage = lazy(() => import('@/components/pages/GaleriaPage'));
-const ProfilePage = lazy(() => import('@/components/pages/ProfilePage'));
-const GamePage = lazy(() => import('@/components/pages/GamePage'));
-const GiroPage = lazy(() => import('@/components/pages/GiroPage'));
-const LavagemDeDinheiroPage = lazy(() => import('@/components/pages/LavagemDeDinheiroPage'));
-const SubornoIlustradoPage = lazy(() => import('@/components/pages/SubornoIlustradoPage'));
-const DelacaoPremiadaPage = lazy(() => import('@/components/pages/DelacaoPremiadaPage'));
-const ArsenalPage = lazy(() => import('@/components/pages/ArsenalPage'));
-const ArmasPage = lazy(() => import('@/components/pages/ArmasPage'));
-const LuxoItemPage = lazy(() => import('@/components/pages/LuxoItemPage'));
-const BarracoPage = lazy(() => import('@/components/pages/BarracoPage'));
-const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPage'));
-const ChatPage = lazy(() => import('@/components/pages/ChatPage'));
-const TalentsPage = lazy(() => import('@/components/pages/TalentsPage'));
-const FactionPage = lazy(() => import('@/components/pages/FactionPage'));
-const RankingPage = lazy(() => import('@/components/pages/RankingPage'));
-const GangPage = lazy(() => import('@/components/gang/GangPage'));
-const FeatureGateRoute = lazy(() => import('@/components/routes/FeatureGateRoute'));
-const ProtectedRoute = lazy(() => import('@/components/routes/ProtectedRoute'));
+// Lazy load all page components with proper error handling
+const HomePage = lazy(() => import('@/components/pages/HomePage').catch(err => { console.error('Failed to load HomePage:', err); throw err; }));
+const GaleriaPage = lazy(() => import('@/components/pages/GaleriaPage').catch(err => { console.error('Failed to load GaleriaPage:', err); throw err; }));
+const ProfilePage = lazy(() => import('@/components/pages/ProfilePage').catch(err => { console.error('Failed to load ProfilePage:', err); throw err; }));
+const GamePage = lazy(() => import('@/components/pages/GamePage').catch(err => { console.error('Failed to load GamePage:', err); throw err; }));
+const GiroPage = lazy(() => import('@/components/pages/GiroPage').catch(err => { console.error('Failed to load GiroPage:', err); throw err; }));
+const LavagemDeDinheiroPage = lazy(() => import('@/components/pages/LavagemDeDinheiroPage').catch(err => { console.error('Failed to load LavagemDeDinheiroPage:', err); throw err; }));
+const SubornoIlustradoPage = lazy(() => import('@/components/pages/SubornoIlustradoPage').catch(err => { console.error('Failed to load SubornoIlustradoPage:', err); throw err; }));
+const DelacaoPremiadaPage = lazy(() => import('@/components/pages/DelacaoPremiadaPage').catch(err => { console.error('Failed to load DelacaoPremiadaPage:', err); throw err; }));
+const ArsenalPage = lazy(() => import('@/components/pages/ArsenalPage').catch(err => { console.error('Failed to load ArsenalPage:', err); throw err; }));
+const ArmasPage = lazy(() => import('@/components/pages/ArmasPage').catch(err => { console.error('Failed to load ArmasPage:', err); throw err; }));
+const LuxoItemPage = lazy(() => import('@/components/pages/LuxoItemPage').catch(err => { console.error('Failed to load LuxoItemPage:', err); throw err; }));
+const BarracoPage = lazy(() => import('@/components/pages/BarracoPage').catch(err => { console.error('Failed to load BarracoPage:', err); throw err; }));
+const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPage').catch(err => { console.error('Failed to load FugaIlustradaPage:', err); throw err; }));
+const ChatPage = lazy(() => import('@/components/pages/ChatPage').catch(err => { console.error('Failed to load ChatPage:', err); throw err; }));
+const TalentsPage = lazy(() => import('@/components/pages/TalentsPage').catch(err => { console.error('Failed to load TalentsPage:', err); throw err; }));
+const FactionPage = lazy(() => import('@/components/pages/FactionPage').catch(err => { console.error('Failed to load FactionPage:', err); throw err; }));
+const RankingPage = lazy(() => import('@/components/pages/RankingPage').catch(err => { console.error('Failed to load RankingPage:', err); throw err; }));
+const GangPage = lazy(() => import('@/components/gang/GangPage').catch(err => { console.error('Failed to load GangPage:', err); throw err; }));
+const FeatureGateRoute = lazy(() => import('@/components/routes/FeatureGateRoute').catch(err => { console.error('Failed to load FeatureGateRoute:', err); throw err; }));
+const ProtectedRoute = lazy(() => import('@/components/routes/ProtectedRoute').catch(err => { console.error('Failed to load ProtectedRoute:', err); throw err; }));
 
 const LoadingFallback = () => <div className="flex items-center justify-center min-h-screen"><LoadingSpinner /></div>;
 
