@@ -24,7 +24,6 @@ import OtherPlayerBarracoModal, {
 } from '@/components/game/OtherPlayerBarracoModal';
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
 import GangAttackModal from '@/components/gang/GangAttackModal';
-import CTMapTrainingModal from '@/components/game/CTMapTrainingModal';
 import { useMapAttack } from '@/hooks/useMapAttack';
 import { Image } from '@/components/ui/image';
 
@@ -56,7 +55,7 @@ export default function GamePage() {
   const mountRef    = useRef<HTMLDivElement | null>(null);
   const navigate    = useNavigate();
   const player      = usePlayerStore((s) => s.player);
-  const myFactionId = player?.factionId ?? null;
+  const myFactionId = usePlayerStore((s) => s.player.factionId) ?? null;
 
   const mailMessages    = useChatStore((s) => s.mailMessages);
   const unreadMailCount = mailMessages.filter(
@@ -124,19 +123,6 @@ export default function GamePage() {
   // ── Hook do ataque PVP no mapa (estimate → start → marcha 3D → resolve) ────
   const attack = useMapAttack();
 
-  // ── CT Training Modal ────────────────────────────────────────────────────
-  const [ctModal, setCtModal] = useState<{ open: boolean; key: string; name: string }>({
-    open: false, key: '', name: '',
-  });
-  // Ref para o callback de CT (evita recriar a cena Three.js ao mudar estado)
-  const onCTClickRef = useRef<(key: string, name: string) => void>(() => {});
-  onCTClickRef.current = (key: string, name: string) => {
-    setCtModal((prev) => {
-      if (prev.open && prev.key === key && prev.name === name) return prev;
-      return { open: true, key, name };
-    });
-  };
-
   // ── Handler: atacar
   const handleAttack = useCallback(
     (_target: OtherPlayerBarracoTarget) => {
@@ -199,8 +185,7 @@ export default function GamePage() {
     );
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
@@ -262,7 +247,6 @@ export default function GamePage() {
       container: mountEl,
       onNavigate: (path: string) => navigate(path),
       onMessage:  () => {},
-      onCTClick:  (key, name) => onCTClickRef.current(key, name),
     });
 
     // Cache de posições dos outros jogadores
@@ -482,10 +466,6 @@ export default function GamePage() {
     let pendingTeleportTile: { tileX: number; tileY: number } | null = null;
 
     function handleClick(event: MouseEvent) {
-      // ── 0. Prédios fixos (CTs, delegacia, etc.) ──────────────────────────
-      // Deve ser checado ANTES do barraco próprio e teleporte
-      if (fixedBuildingsLayer.tryHandleBuildingClick(event.clientX, event.clientY)) return;
-
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
       mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
@@ -532,9 +512,7 @@ export default function GamePage() {
               };
 
               // 2) Solicita dados ricos → barracoInfo event atualizará modal + attackTarget
-              if (socket) {
-                socket.emit('requestBarracoInfo', { targetPlayerId: playerId });
-              }
+              socket.emit('requestBarracoInfo', { targetPlayerId: playerId });
             }
             return;
           }
@@ -605,13 +583,11 @@ export default function GamePage() {
         }));
 
         // 'teleport' tem cooldown de 30s no backend (diferente de 'move' que é 1s)
-        if (socket) {
-          socket.emit('teleport', {
-            tileX:        result.tileX,
-            tileY:        result.tileY,
-            teleportType: 'manual',
-          });
-        }
+        socket.emit('teleport', {
+          tileX:        result.tileX,
+          tileY:        result.tileY,
+          teleportType: 'manual',
+        });
 
         return;
       }
@@ -691,7 +667,7 @@ export default function GamePage() {
       cameraRef.current   = null;
       rendererRef.current = null;
     };
-  }, []);
+  }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
 
   return (
     <div className="fixed inset-0 z-40 bg-black overflow-hidden">
@@ -790,14 +766,6 @@ export default function GamePage() {
         onClose={attack.cancelAttack}
         onConfirm={handleConfirmAttack}
         isSubmitting={attack.isSubmitting || attack.isResolving}
-      />
-
-      {/* ── CT Training Modal — treinamento inline sem sair do mapa ─────── */}
-      <CTMapTrainingModal
-        isOpen={ctModal.open}
-        ctKey={ctModal.key}
-        ctName={ctModal.name}
-        onClose={() => setCtModal((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );
