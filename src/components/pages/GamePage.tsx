@@ -57,7 +57,7 @@ export default function GamePage() {
   const mountRef    = useRef<HTMLDivElement | null>(null);
   const navigate    = useNavigate();
   const player      = usePlayerStore((s) => s.player);
-  const myFactionId = usePlayerStore((s) => s.player.factionId) ?? null;
+  const myFactionId = usePlayerStore((s) => s.player?.factionId) ?? null;
 
   const mailMessages    = useChatStore((s) => s.mailMessages);
   const unreadMailCount = mailMessages.filter(
@@ -69,6 +69,10 @@ export default function GamePage() {
   const avatarUrl  = (player as any)?.headerCustomization?.customAvatar || (player as any)?.avatar || '';
   const playerName = (player as any)?.headerCustomization?.customName   || player?.name || '—';
   const playerLevel = player?.niveis?.barracoLevel ?? 0;
+
+  // ── Premium Developer Mode: Ativa análise e correção automática ──
+  const PREMIUM_DEV_MODE = true;
+  const ENABLE_GAME_DIAGNOSTICS = PREMIUM_DEV_MODE;
 
   const playerMapSpaceRef = useRef<any>(null);
 
@@ -183,6 +187,47 @@ export default function GamePage() {
     void loadGang();
   }, [loadGang]);
 
+  // ── Premium Developer Diagnostics ──────────────────────────────────────
+  useEffect(() => {
+    if (!ENABLE_GAME_DIAGNOSTICS) return;
+    
+    const diagnostics = {
+      timestamp: new Date().toISOString(),
+      playerLoaded: !!player,
+      playerHasId: !!player?._id,
+      playerHasFactionId: !!player?.factionId,
+      playerHasMapPosition: !!player?.mapPosition,
+      playerHasBalances: !!player?.balances,
+      playerHasNiveis: !!player?.niveis,
+      playerHasHeaderCustomization: !!(player as any)?.headerCustomization,
+      mailMessagesCount: mailMessages.length,
+      unreadMailCount,
+      dirtyMoneyValid: Number.isFinite(dirtyMoney),
+      cleanMoneyValid: Number.isFinite(cleanMoney),
+      avatarUrlValid: !!avatarUrl,
+      playerNameValid: !!playerName && playerName !== '—',
+      playerLevelValid: Number.isFinite(playerLevel),
+    };
+
+    console.log('🎮 [PREMIUM DEV MODE] GamePage Diagnostics:', diagnostics);
+    
+    // Detecta e reporta problemas
+    const issues: string[] = [];
+    if (!diagnostics.playerLoaded) issues.push('❌ Player não carregado');
+    if (!diagnostics.playerHasId) issues.push('❌ Player sem ID');
+    if (!diagnostics.playerHasMapPosition) issues.push('⚠️ Player sem mapPosition');
+    if (!diagnostics.playerHasBalances) issues.push('⚠️ Player sem balances');
+    if (!diagnostics.playerHasNiveis) issues.push('⚠️ Player sem niveis');
+    if (!diagnostics.dirtyMoneyValid) issues.push('⚠️ Dirty money inválido');
+    if (!diagnostics.cleanMoneyValid) issues.push('⚠️ Clean money inválido');
+
+    if (issues.length > 0) {
+      console.warn('🎮 [PREMIUM DEV MODE] Issues Detected:', issues);
+    } else {
+      console.log('✅ [PREMIUM DEV MODE] Todos os diagnostics OK');
+    }
+  }, [player, mailMessages, dirtyMoney, cleanMoney, avatarUrl, playerName, playerLevel, unreadMailCount]);
+
   // ─────────────────────────────────────────────────────────────────────────
   // EFEITO THREE.JS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -191,6 +236,10 @@ export default function GamePage() {
     if (!mountEl) return;
 
     let isMounted = true;
+
+    if (ENABLE_GAME_DIAGNOSTICS) {
+      console.log('🎮 [PREMIUM DEV MODE] Inicializando Three.js Scene');
+    }
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#050505');
@@ -336,7 +385,9 @@ export default function GamePage() {
     
     try {
       socket = getSocket();
-      console.log('✅ GamePage: Socket singleton obtido com sucesso');
+      if (ENABLE_GAME_DIAGNOSTICS) {
+        console.log('✅ [PREMIUM DEV MODE] GamePage: Socket singleton obtido com sucesso');
+      }
     } catch (err) {
       console.error('❌ GamePage: Erro ao obter socket:', err);
       // Socket unavailable during SSR/build
@@ -347,7 +398,9 @@ export default function GamePage() {
       const incomingId = String(data.player?._id || data.player?.id || '');
       if (incomingId) {
         myId = incomingId;
-        console.log('✅ playerInit: myId =', myId);
+        if (ENABLE_GAME_DIAGNOSTICS) {
+          console.log('✅ [PREMIUM DEV MODE] playerInit: myId =', myId);
+        }
       }
       usePlayerStore.getState().hydratePlayerFromServer(data.player);
     };
@@ -379,6 +432,9 @@ export default function GamePage() {
           factionId:    p.factionId ?? null,
         });
       }
+      if (ENABLE_GAME_DIAGNOSTICS) {
+        console.log(`🎮 [PREMIUM DEV MODE] processSnapshot: ${others.length} jogadores processados`);
+      }
     }
 
     function handleMapSnapshot(players: any[]) {
@@ -400,13 +456,18 @@ export default function GamePage() {
         power:        Number(p.power ?? 0),
         factionId:    p.factionId ?? null,
       });
+      if (ENABLE_GAME_DIAGNOSTICS) {
+        console.log(`🎮 [PREMIUM DEV MODE] handlePlayerJoined: ${p.name} (${pId})`);
+      }
     }
 
     async function handlePlayerMoved(data: any) {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
       if (pId === (myId || String(player?._id || ''))) {
-        console.log('⏭️ playerMoved ignorado (próprio jogador)');
+        if (ENABLE_GAME_DIAGNOSTICS) {
+          console.log('⏭️ [PREMIUM DEV MODE] playerMoved ignorado (próprio jogador)');
+        }
         return;
       }
       localPlayers.set(pId, { tileX: Number(data.tileX), tileY: Number(data.tileY) });
@@ -422,7 +483,9 @@ export default function GamePage() {
       if (!isMounted) return;
       const pId = String(data.playerId || data.id || '');
       if (pId === (myId || String(player?._id || ''))) {
-        console.log('⏭️ playerTeleported ignorado (próprio jogador)');
+        if (ENABLE_GAME_DIAGNOSTICS) {
+          console.log('⏭️ [PREMIUM DEV MODE] playerTeleported ignorado (próprio jogador)');
+        }
         return;
       }
       localPlayers.set(pId, {
@@ -446,7 +509,9 @@ export default function GamePage() {
     // ── barracoInfo: enriquece modal ───────────────
     const onBarracoInfo = (data: any) => {
       if (!isMounted) return;
-      console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
+      if (ENABLE_GAME_DIAGNOSTICS) {
+        console.log('🏠 [PREMIUM DEV MODE] barracoInfo:', data.playerName, '| power:', data.power);
+      }
 
       // Atualiza modal com dados completos (avatar, factionName, etc.)
       setModalState(
@@ -499,7 +564,12 @@ export default function GamePage() {
     function handleClick(event: MouseEvent) {
       // ── 0. Prédios fixos (CTs, delegacia, etc.) ──────────────────────────
       // Deve ser checado ANTES do barraco próprio e teleporte
-      if (fixedBuildingsLayer.tryHandleBuildingClick(event.clientX, event.clientY)) return;
+      if (fixedBuildingsLayer.tryHandleBuildingClick(event.clientX, event.clientY)) {
+        if (ENABLE_GAME_DIAGNOSTICS) {
+          console.log('🎮 [PREMIUM DEV MODE] Click em prédio fixo detectado');
+        }
+        return;
+      }
 
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
@@ -528,6 +598,9 @@ export default function GamePage() {
               .find((p: any) => String(p.id) === playerId);
 
             if (playerData) {
+              if (ENABLE_GAME_DIAGNOSTICS) {
+                console.log(`🎮 [PREMIUM DEV MODE] Click em barraco: ${playerData.name} (${playerId})`);
+              }
               // 1) Abre imediatamente com dados básicos (UX otimista)
               setModalState(openOtherPlayerBarracoModal({
                 id:           playerData.id,
@@ -576,7 +649,9 @@ export default function GamePage() {
           (p) => `${p.tileX},${p.tileY}` === `${clickedTileX},${clickedTileY}`
         )
       ) {
-        console.log('⚠️ Tile ocupado por outro jogador');
+        if (ENABLE_GAME_DIAGNOSTICS) {
+          console.log('⚠️ [PREMIUM DEV MODE] Tile ocupado por outro jogador');
+        }
         return;
       }
 
@@ -585,7 +660,9 @@ export default function GamePage() {
       }));
 
       if (!isPlayerSpaceAvailable(clickedTileX, clickedTileY, currentOccupied, GRID_WIDTH, GRID_HEIGHT)) {
-        console.log('⚠️ Tile não está livre');
+        if (ENABLE_GAME_DIAGNOSTICS) {
+          console.log('⚠️ [PREMIUM DEV MODE] Tile não está livre');
+        }
         return;
       }
 
@@ -595,7 +672,9 @@ export default function GamePage() {
         pendingTeleportTile.tileX === clickedTileX &&
         pendingTeleportTile.tileY === clickedTileY
       ) {
-        console.log('✅ Confirmando teleporte:', clickedTileX, clickedTileY);
+        if (ENABLE_GAME_DIAGNOSTICS) {
+          console.log('✅ [PREMIUM DEV MODE] Confirmando teleporte:', clickedTileX, clickedTileY);
+        }
         pendingTeleportTile   = null;
         selectionMesh.visible = false;
 
@@ -632,7 +711,9 @@ export default function GamePage() {
       }
 
       // Primeiro clique → mostra seletor, aguarda confirmação
-      console.log('🎯 Selecionando tile:', clickedTileX, clickedTileY);
+      if (ENABLE_GAME_DIAGNOSTICS) {
+        console.log('🎯 [PREMIUM DEV MODE] Selecionando tile:', clickedTileX, clickedTileY);
+      }
       pendingTeleportTile = { tileX: clickedTileX, tileY: clickedTileY };
       selectionMesh.position.set(
         clickedTileX - GRID_WIDTH  / 2 + 0.5,
@@ -696,7 +777,7 @@ export default function GamePage() {
       scene.remove(clickPlane);
       scene.remove(selectionMesh);
 
-  renderer.dispose();
+      renderer.dispose();
       if (mountEl && renderer.domElement?.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }
