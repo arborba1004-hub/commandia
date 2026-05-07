@@ -822,7 +822,7 @@ export default function GamePage() {
       cameraRef.current   = null;
       rendererRef.current = null;
     };
-  }, [navigate, player?._id]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-40 bg-black overflow-hidden">
