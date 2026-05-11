@@ -1,0 +1,242 @@
+import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Send, Smile, Hash, Lock, Mail, HandCoins } from 'lucide-react';
+import { usePlayerStore } from '@/store/playerStore';
+import EmojiPicker from '@/components/chat/EmojiPicker';
+
+type ChannelType = 'complexo' | 'faccao' | 'mail';
+
+interface ChatComposerProps {
+  channel: ChannelType;
+  onSendMessage: (body: string) => Promise<boolean | void>;
+  isSending?: boolean;
+  mailReady?: boolean;
+  disabled?: boolean;
+  onRequestHelp?: () => void;
+  requestHelpDisabled?: boolean;
+}
+
+function channelPlaceholder(channel: ChannelType) {
+  if (channel === 'complexo') return 'Fale com todo o Complexo...';
+  if (channel === 'faccao') return 'Mensagem para a facção...';
+  return 'Escreva sua mensagem...';
+}
+
+function channelLabel(channel: ChannelType) {
+  if (channel === 'complexo') return 'Canal do Complexo';
+  if (channel === 'faccao') return 'Canal da Facção';
+  return 'Correio';
+}
+
+function channelIcon(channel: ChannelType) {
+  if (channel === 'complexo') return <Hash size={16} />;
+  if (channel === 'faccao') return <Lock size={16} />;
+  return <Mail size={16} />;
+}
+
+export default function ChatComposer({
+  channel,
+  onSendMessage,
+  isSending = false,
+  mailReady = true,
+  disabled = false,
+  onRequestHelp,
+  requestHelpDisabled = false,
+}: ChatComposerProps) {
+  const player = usePlayerStore((state) => state.player);
+
+  const [body, setBody] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const composerRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const senderId = player?._id || '';
+  const senderName = player?.name || 'Jogador';
+  const factionId = player?.factionId || '';
+
+  useEffect(() => {
+    setErrorMessage('');
+    setShowEmojiPicker(false);
+  }, [channel]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!composerRef.current) return;
+      if (!composerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    }
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
+
+  const addEmoji = (emoji: string) => {
+    setBody((prev) => `${prev}${emoji}`);
+    textareaRef.current?.focus();
+  };
+
+  const validateBeforeSend = () => {
+    if (disabled) {
+      setErrorMessage('Canal indisponível no momento.');
+      return false;
+    }
+
+    if (!body.trim()) {
+      setErrorMessage('Digite uma mensagem antes de enviar.');
+      return false;
+    }
+
+    if (!senderId || !senderName) {
+      setErrorMessage('Jogador não identificado.');
+      return false;
+    }
+
+    if (channel === 'faccao' && !factionId) {
+      setErrorMessage('Você precisa estar em uma facção para enviar aqui.');
+      return false;
+    }
+
+    if (channel === 'mail' && !mailReady) {
+      setErrorMessage('Preencha corretamente o destinatário do correio.');
+      return false;
+    }
+
+    setErrorMessage('');
+    return true;
+  };
+
+  const handleSend = async () => {
+    if (isSending) return;
+    if (!validateBeforeSend()) return;
+
+    try {
+      const ok = await onSendMessage(body.trim());
+
+      if (ok === false) {
+        setErrorMessage('Não foi possível enviar a mensagem agora.');
+        return;
+      }
+
+      setBody('');
+      setShowEmojiPicker(false);
+      setErrorMessage('');
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      setErrorMessage('Não foi possível enviar a mensagem agora.');
+    }
+  };
+
+  const handleTextareaKeyDown = async (
+    event: React.KeyboardEvent<HTMLTextAreaElement>
+  ) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      await handleSend();
+    }
+  };
+
+  return (
+    <div
+      ref={composerRef}
+      className="relative rounded-3xl border border-white/10 bg-black/35 p-3 shadow-2xl backdrop-blur-sm"
+    >
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.16em] text-white/80">
+          {channelIcon(channel)}
+          <span>{channelLabel(channel)}</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {channel === 'faccao' && onRequestHelp && (
+            <button
+              type="button"
+              onClick={onRequestHelp}
+              disabled={requestHelpDisabled}
+              className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/20 bg-yellow-500/10 px-3 py-2 text-xs font-black uppercase tracking-wide text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <HandCoins size={16} />
+              Pedir corre
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker((prev) => !prev)}
+            className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+            aria-label="Abrir emojis"
+          >
+            <Smile size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-end gap-3">
+        <div className="relative flex-1">
+          <textarea
+            ref={textareaRef}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={handleTextareaKeyDown}
+            placeholder={channelPlaceholder(channel)}
+            rows={4}
+            disabled={disabled}
+            className="min-h-[96px] w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/90 px-4 py-3 pr-12 text-white outline-none transition placeholder:text-white/30 focus:border-red-500/60 disabled:cursor-not-allowed disabled:opacity-60"
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker((prev) => !prev)}
+            className="absolute bottom-3 right-3 rounded-lg p-1 text-white/55 transition hover:bg-white/5 hover:text-white"
+            aria-label="Selecionar emoji"
+          >
+            <Smile size={18} />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={disabled || isSending || !body.trim()}
+          className="flex h-[56px] min-w-[56px] items-center justify-center rounded-2xl bg-gradient-to-r from-red-600 to-red-700 text-white transition hover:from-red-500 hover:to-red-600 disabled:cursor-not-allowed disabled:opacity-45"
+          aria-label="Enviar mensagem"
+        >
+          <Send size={20} />
+        </button>
+      </div>
+
+      {channel === 'faccao' && !factionId && (
+        <div className="mt-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          Você ainda não está em uma facção.
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {errorMessage}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showEmojiPicker && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.96 }}
+            transition={{ duration: 0.16 }}
+            className="absolute bottom-[calc(100%+12px)] left-0 z-50"
+          >
+            <EmojiPicker onSelectEmoji={addEmoji} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
