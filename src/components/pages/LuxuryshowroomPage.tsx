@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+// ... keep existing code (Header and Footer rendered by Router layout) ...
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';

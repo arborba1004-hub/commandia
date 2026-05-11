@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+// ... keep existing code (Header and Footer rendered by Router layout) ...
 
 function addHours(hours: number) {
   return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();

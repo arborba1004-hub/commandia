@@ -1,5 +1,4 @@
-import Header                from '@/components/Header';
-import Footer                from '@/components/Footer';
+// ... keep existing code (Header and Footer rendered by Router layout) ...
 import { Link, useNavigate } from 'react-router-dom';
 import { usePlayerStore }    from '@/store/playerStore';
 import { Image }             from '@/components/ui/image';
@@ -53,16 +52,14 @@ export default function ProfilePage() {
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
-    disconnectSocket();   // ← desconecta socket antes de limpar estado
+    disconnectSocket();
     clearPlayer();
     navigate('/');
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <section className="pt-32 pb-24">
+    <div className="w-full">
+      <section className="py-24">
         <div className="max-w-3xl mx-auto px-6">
           <div className="bg-custom4/30 border border-secondary/20 rounded-lg p-8 space-y-6">
             <h1 className="text-4xl font-bold">Meu Perfil</h1>
@@ -100,8 +97,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </section>
-
-      <Footer />
     </div>
   );
 }

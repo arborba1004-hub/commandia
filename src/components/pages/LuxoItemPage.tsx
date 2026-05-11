@@ -1,5 +1,4 @@
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+// ... keep existing code (Header and Footer rendered by Router layout) ...
 import { Image } from '@/components/ui/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMemo, useState } from 'react';
