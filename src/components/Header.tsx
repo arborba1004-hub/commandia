@@ -3,7 +3,6 @@ import { usePlayerStore } from '@/store/playerStore';
 import { useState } from 'react';
 import AvatarNameCustomizationModal from '@/components/AvatarNameCustomizationModal';
 import { Image } from '@/components/ui/image';
-import { disconnectSocket } from '@/socket';
 
 const COMMANDS_ICON = 'https://static.wixstatic.com/media/50f4bf_9bda4af1a12b47679336479a80b16eb8~mv2.png';
 const LOGO_URL      = 'https://static.wixstatic.com/media/50f4bf_9e06e6237b1c4e87997633edc2d94227~mv2.png';
@@ -20,7 +19,6 @@ export default function Header() {
   const navigate = useNavigate();
   const { player, clearPlayer, isLoaded } = usePlayerStore();
   const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
-  const [isNavOpen, setIsNavOpen] = useState(false);
 
   const isReady    = Boolean(isLoaded && ((player as any)?._id || player?.googleId));
   const avatarUrl  = (player as any)?.headerCustomization?.customAvatar || (player as any)?.avatar || '';
@@ -31,7 +29,6 @@ export default function Header() {
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
-    disconnectSocket();
     clearPlayer();
     navigate('/', { replace: true });
   };

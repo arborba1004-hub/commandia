@@ -33,7 +33,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: -52,
     z: -52,
     footprint: 7,
-    // isCT: handled via onCTClick callback — sem route
+    route: '/gang',
   },
   {
     key: 'ct_ne',
@@ -42,6 +42,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: 52,
     z: -52,
     footprint: 7,
+    route: '/gang',
   },
   {
     key: 'ct_sw',
@@ -50,6 +51,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: -52,
     z: 52,
     footprint: 7,
+    route: '/gang',
   },
   {
     key: 'ct_se',
@@ -58,6 +60,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: 52,
     z: 52,
     footprint: 7,
+    route: '/gang',
   },
 
   {
@@ -134,8 +137,6 @@ type MountFixedMapBuildingsParams = {
   container: HTMLDivElement;
   onNavigate: (path: string) => void;
   onMessage: (message: string) => void;
-  /** Chamado quando o jogador clica em um CT do mapa (chave começa com 'ct_') */
-  onCTClick?: (ctKey: string, ctName: string) => void;
 };
 
 export type FixedMapBuildingsLayer = {
@@ -247,7 +248,6 @@ export function mountFixedMapBuildings({
   container,
   onNavigate,
   onMessage,
-  onCTClick,
 }: MountFixedMapBuildingsParams): FixedMapBuildingsLayer {
   const buildings: THREE.Object3D[] = [];
   const labels: Array<THREE.Sprite | THREE.Group> = [];
@@ -312,13 +312,6 @@ export function mountFixedMapBuildings({
     const route = root.userData?.route as string | null;
     const comingSoon = Boolean(root.userData?.comingSoon);
     const buildingName = String(root.userData?.buildingName || 'Sistema');
-    const buildingKey  = String(root.userData?.buildingKey  || '');
-
-    // CT do mapa → abre modal de treinamento inline (sem sair do mapa)
-    if (buildingKey.startsWith('ct_') && onCTClick) {
-      onCTClick(buildingKey, buildingName);
-      return true;
-    }
 
     if (route) {
       onNavigate(route);

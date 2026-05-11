@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
@@ -29,20 +29,11 @@ const ProtectedRoute = lazy(() => import('@/components/routes/ProtectedRoute'));
 
 const LoadingFallback = () => <div className="flex items-center justify-center min-h-screen"><LoadingSpinner /></div>;
 
-function AppRouterLayout() {
-  return (
-    <>
-      <ScrollToTop />
-      <Layout />
-    </>
-  );
-}
-
 const router = createBrowserRouter(
   [
     {
       path: '/',
-      element: <AppRouterLayout />,
+      element: <Layout />,
       errorElement: <ErrorPage />,
       children: [
         { index: true, element: <Suspense fallback={<LoadingFallback />}><HomePage /></Suspense> },

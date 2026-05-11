@@ -23,10 +23,6 @@ import OtherPlayerBarracoModal, {
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
-import GangAttackModal from '@/components/gang/GangAttackModal';
-import CTMapTrainingModal from '@/components/game/CTMapTrainingModal';
-import { useMapAttack } from '@/hooks/useMapAttack';
-import { useGangStore }  from '@/store/gangStore';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -72,21 +68,6 @@ export default function GamePage() {
 
   const playerMapSpaceRef = useRef<any>(null);
 
-  // ── Refs Three.js (preenchidos no useEffect, lidos por handlers de ataque) ──
-  const sceneRef    = useRef<THREE.Scene             | null>(null);
-  const cameraRef   = useRef<THREE.PerspectiveCamera | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer     | null>(null);
-
-  // ── Tile do alvo no clique de barraco inimigo (capturado em handleClick) ───
-  const attackTargetRef = useRef<{
-    playerId:  string;
-    name:      string;
-    tileX:     number;
-    tileY:     number;
-    barracoLevel?: number;
-    factionId?:    string | null;
-  } | null>(null);
-
   // ── Modal: barraco de outro jogador
   const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
   const [isInviting,       setIsInviting]       = useState(false);
@@ -122,68 +103,15 @@ export default function GamePage() {
     []
   );
 
-  // ── Hook do ataque PVP no mapa (estimate → start → marcha 3D → resolve) ────
-  const attack = useMapAttack();
-
-  // ── CT Training Modal ────────────────────────────────────────────────────
-  const loadGang = useGangStore((s) => s.loadGang);
-  const [ctModal, setCtModal] = useState<{ open: boolean; key: string; name: string }>({
-    open: false, key: '', name: '',
-  });
-  // Ref para o callback de CT (evita recriar a cena Three.js ao mudar estado)
-  const onCTClickRef = useRef<(key: string, name: string) => void>(() => {});
-  onCTClickRef.current = (key: string, name: string) => {
-    setCtModal({ open: true, key, name });
-  };
-
   // ── Handler: atacar
   const handleAttack = useCallback(
     (_target: OtherPlayerBarracoTarget) => {
-      const t = attackTargetRef.current;
-      if (!t) {
-        console.warn('⚠️ handleAttack chamado sem attackTargetRef preenchido');
-        return;
-      }
-      if (!Number.isFinite(t.tileX) || !Number.isFinite(t.tileY)) {
-        console.warn('⚠️ handleAttack: tile inválido', t);
-        return;
-      }
-
-      // Fecha modal de barraco e abre o GangAttackModal pelo hook
       setModalState(closeOtherPlayerBarracoModal());
-
-      attack.initiateAttack({
-        playerId:     t.playerId,
-        playerName:   t.name,
-        tileX:        t.tileX,
-        tileY:        t.tileY,
-        barracoLevel: t.barracoLevel,
-        factionId:    t.factionId ?? null,
-      });
     },
-    [attack]
+    []
   );
 
-  // ── Handler: confirmar ataque (recebido pelo GangAttackModal) ──────────────
-  const handleConfirmAttack = useCallback(
-    (selection: any) => {
-      const scene  = sceneRef.current;
-      const camera = cameraRef.current;
-      if (!scene || !camera) {
-        console.warn('⚠️ handleConfirmAttack: scene/camera ainda não montados');
-        return;
-      }
-      void attack.confirmAttack(selection, scene, camera, GRID_WIDTH, GRID_HEIGHT);
-    },
-    [attack]
-  );
-
-  // ── Pré-carrega gang ao montar para CT modal abrir instantaneamente ──────
-  useEffect(() => {
-    void loadGang();
-  }, [loadGang]);
-
-  // ─────────────────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
   // EFEITO THREE.JS
   // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
@@ -208,11 +136,6 @@ export default function GamePage() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
     mountEl.appendChild(renderer.domElement);
-
-    // ── Expor scene/camera/renderer por ref para handlers fora do useEffect ──
-    sceneRef.current    = scene;
-    cameraRef.current   = camera;
-    rendererRef.current = renderer;
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping  = true;
@@ -265,7 +188,6 @@ export default function GamePage() {
       container: mountEl,
       onNavigate: (path: string) => navigate(path),
       onMessage:  () => {},
-      onCTClick:  (key, name) => onCTClickRef.current(key, name),
     });
 
     // Cache de posições dos outros jogadores
@@ -335,10 +257,8 @@ export default function GamePage() {
     try {
       if (typeof window !== 'undefined') {
         socket = getSocket();
-        console.log('✅ GamePage: Socket obtido com sucesso');
       }
-    } catch (err) {
-      console.error('❌ GamePage: Erro ao obter socket:', err);
+    } catch {
       // Socket unavailable during SSR/build
     }
 
@@ -354,8 +274,6 @@ export default function GamePage() {
     
     if (socket) {
       socket.on('playerInit', onPlayerInit);
-    } else {
-      console.warn('⚠️ GamePage: Socket não disponível, eventos em tempo real desabilitados');
     }
 
     async function processSnapshot(players: any[]) {
@@ -442,30 +360,30 @@ export default function GamePage() {
       void realtimePlayersLayer.refresh();
     }
 
-    // ── barracoInfo: enriquece modal ───────────────
-    const onBarracoInfo = (data: any) => {
-      if (!isMounted) return;
-      console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
-
-      // Atualiza modal com dados completos (avatar, factionName, etc.)
-      setModalState(
-        openOtherPlayerBarracoModal({
-          id:           String(data.playerId),
-          name:         data.playerName  || 'Jogador',
-          avatarUrl:    data.avatarUrl   ?? null,
-          factionId:    data.factionId   ?? null,
-          factionName:  data.factionName ?? null,
-          barracoLevel: Number(data.barracoLevel ?? 1),
-        })
-      );
-    };
-
     if (socket) {
       socket.on('mapSnapshot', handleMapSnapshot);
       socket.on('playerJoined', handlePlayerJoined);
       socket.on('playerMoved', handlePlayerMoved);
       socket.on('playerTeleported', handlePlayerTeleported);
       socket.on('playerLeft', handlePlayerLeft);
+
+      // ── barracoInfo: enriquece modal ───────────────
+      const onBarracoInfo = (data: any) => {
+        if (!isMounted) return;
+        console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
+
+        // Atualiza modal com dados completos (avatar, factionName, etc.)
+        setModalState(
+          openOtherPlayerBarracoModal({
+            id:           String(data.playerId),
+            name:         data.playerName  || 'Jogador',
+            avatarUrl:    data.avatarUrl   ?? null,
+            factionId:    data.factionId   ?? null,
+            factionName:  data.factionName ?? null,
+            barracoLevel: Number(data.barracoLevel ?? 1),
+          })
+        );
+      };
       socket.on('barracoInfo', onBarracoInfo);
 
       if (socket.connected) {
@@ -485,10 +403,6 @@ export default function GamePage() {
     let pendingTeleportTile: { tileX: number; tileY: number } | null = null;
 
     function handleClick(event: MouseEvent) {
-      // ── 0. Prédios fixos (CTs, delegacia, etc.) ──────────────────────────
-      // Deve ser checado ANTES do barraco próprio e teleporte
-      if (fixedBuildingsLayer.tryHandleBuildingClick(event.clientX, event.clientY)) return;
-
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
       mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
@@ -523,17 +437,6 @@ export default function GamePage() {
                 barracoLevel: playerData.barracoLevel,
                 factionId:    playerData.factionId,
               }));
-
-              // Guarda dados do alvo (incluindo tile) para handleAttack usar depois
-              attackTargetRef.current = {
-                playerId:     playerData.id,
-                name:         playerData.name || 'Jogador',
-                tileX:        Number(playerData.tileX),
-                tileY:        Number(playerData.tileY),
-                barracoLevel: playerData.barracoLevel,
-                factionId:    playerData.factionId ?? null,
-              };
-
               // 2) Solicita dados ricos → barracoInfo event atualizará modal + attackTarget
               socket.emit('requestBarracoInfo', { targetPlayerId: playerId });
             }
@@ -653,15 +556,13 @@ export default function GamePage() {
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('click', handleClick);
 
-      if (socket) {
-        socket.off('playerInit', onPlayerInit);
-        socket.off('mapSnapshot', handleMapSnapshot);
-        socket.off('playerJoined', handlePlayerJoined);
-        socket.off('playerMoved', handlePlayerMoved);
-        socket.off('playerTeleported', handlePlayerTeleported);
-        socket.off('playerLeft', handlePlayerLeft);
-        socket.off('barracoInfo', onBarracoInfo);
-      }
+      socket.off('playerInit', onPlayerInit);
+      socket.off('mapSnapshot', handleMapSnapshot);
+      socket.off('playerJoined', handlePlayerJoined);
+      socket.off('playerMoved', handlePlayerMoved);
+      socket.off('playerTeleported', handlePlayerTeleported);
+      socket.off('playerLeft', handlePlayerLeft);
+      socket.off('barracoInfo', onBarracoInfo);
 
       controls.dispose();
       realtimePlayersLayer.cleanup();
@@ -684,11 +585,6 @@ export default function GamePage() {
       if (mountEl && renderer.domElement?.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }
-
-      // Limpa refs (evita uso de objetos disposed em handlers tardios)
-      sceneRef.current    = null;
-      cameraRef.current   = null;
-      rendererRef.current = null;
     };
   }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
 
@@ -781,22 +677,6 @@ export default function GamePage() {
         isOpen={dmModalOpen}
         target={dmTarget}
         onClose={() => { setDmModalOpen(false); setDmTarget(null); }}
-      />
-
-      <GangAttackModal
-        isOpen={attack.isModalOpen}
-        target={attack.selectedTarget}
-        onClose={attack.cancelAttack}
-        onConfirm={handleConfirmAttack}
-        isSubmitting={attack.isSubmitting || attack.isResolving}
-      />
-
-      {/* ── CT Training Modal — treinamento inline sem sair do mapa ─────── */}
-      <CTMapTrainingModal
-        isOpen={ctModal.open}
-        ctKey={ctModal.key}
-        ctName={ctModal.name}
-        onClose={() => setCtModal((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );
