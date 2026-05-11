@@ -1,0 +1,629 @@
+import type { PlayerState } from '@/store/playerStore';
+
+const BACKEND_URL = 'https://comando-backend.onrender.com';
+const REQUEST_TIMEOUT_MS = 30000;
+
+// ==========================================
+// TIPOS AUXILIARES
+// ==========================================
+type ApiEnvelope<T> =
+  | T
+  | {
+      success?: boolean;
+      message?: string;
+      error?: string;
+      data?: T;
+      player?: T extends PlayerState ? PlayerState : never;
+      faction?: FactionApiPayload | null;
+    };
+
+type ApiError = Error & {
+  status?: number;
+  data?: unknown;
+  endpoint?: string;
+};
+
+export type FactionApiPayload = {
+  id: string;
+  name: string;
+  tag: string;
+  level?: number;
+  exp?: number;
+  expToNext?: number;
+  totalInvestmentLevel?: number;
+  investmentTierName?: string;
+  treasury?: {
+    dirtyMoney: number;
+    cleanMoney: number;
+    corre: number;
+  };
+  investmentBuffs?: {
+    attackPercent: number;
+    defensePercent: number;
+    hpPercent: number;
+    dirtyMoneyGainPercent: number;
+    cleanMoneyGainPercent: number;
+    agilityPercent: number;
+    intelligencePercent: number;
+    respectPercent: number;
+    baseDefensePercent: number;
+    donationEfficiencyPercent: number;
+    buffDurationPercent: number;
+  };
+  activeBuffs?: Array<Record<string, any>>;
+} | null;
+
+export type PlayerApiEnvelope = {
+  player: PlayerState;
+  faction: FactionApiPayload;
+};
+
+// ==========================================
+// HELPERS DE AUTH
+// ==========================================
+function getAuthToken(): string | null {
+  return localStorage.getItem('authToken');
+}
+
+// ==========================================
+// HELPERS DE URL / TIMEOUT / JSON
+// ==========================================
+function buildUrl(endpoint: string): string {
+  const normalizedBase = BACKEND_URL.replace(/\/+$/, '');
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${normalizedBase}${normalizedEndpoint}`;
+}
+
+function createTimeoutSignal(timeoutMs: number): AbortController {
+  const controller = new AbortController();
+  window.setTimeout(() => controller.abort(), timeoutMs);
+  return controller;
+}
+
+function isJsonResponse(contentType: string | null): boolean {
+  return !!contentType && contentType.toLowerCase().includes('application/json');
+}
+
+async function safeReadResponseBody(response: Response): Promise<unknown> {
+  const contentType = response.headers.get('content-type');
+
+  try {
+    if (isJsonResponse(contentType)) {
+      return await response.json();
+    }
+
+    const text = await response.text();
+
+    if (!text) return null;
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { raw: text };
+    }
+  } catch {
+    return null;
+  }
+}
+
+function buildApiError(
+  message: string,
+  status?: number,
+  data?: unknown,
+  endpoint?: string
+): ApiError {
+  const error = new Error(message) as ApiError;
+  error.status = status;
+  error.data = data;
+  error.endpoint = endpoint;
+  return error;
+}
+
+// ==========================================
+// HELPERS DE NORMALIZAÇÃO
+// ==========================================
+function ensureObject(value: unknown): Record<string, any> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, any>;
+}
+
+function extractPlayerPayload(payload: unknown): PlayerState {
+  const obj = ensureObject(payload);
+
+  if (!obj) {
+    throw buildApiError('Resposta inválida do backend: player ausente ou malformado');
+  }
+
+  if (obj.player && typeof obj.player === 'object') {
+    return obj.player as PlayerState;
+  }
+
+  if (obj.data && typeof obj.data === 'object') {
+    const dataObj = obj.data as Record<string, any>;
+
+    if (dataObj.player && typeof dataObj.player === 'object') {
+      return dataObj.player as PlayerState;
+    }
+
+    return dataObj as PlayerState;
+  }
+
+  return obj as PlayerState;
+}
+
+function extractFactionPayload(payload: unknown): FactionApiPayload {
+  const obj = ensureObject(payload);
+
+  if (!obj) return null;
+
+  if (obj.faction && typeof obj.faction === 'object') {
+    return obj.faction as FactionApiPayload;
+  }
+
+  if (obj.data && typeof obj.data === 'object') {
+    const dataObj = obj.data as Record<string, any>;
+    if (dataObj.faction && typeof dataObj.faction === 'object') {
+      return dataObj.faction as FactionApiPayload;
+    }
+  }
+
+  return null;
+}
+
+function extractEnvelope(payload: unknown): PlayerApiEnvelope {
+  return {
+    player: extractPlayerPayload(payload),
+    faction: extractFactionPayload(payload),
+  };
+}
+
+function extractArrayPayload<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload;
+
+  const obj = ensureObject(payload);
+
+  if (!obj) {
+    throw buildApiError('Resposta inválida do backend: array esperado');
+  }
+
+  if (Array.isArray(obj.data)) return obj.data as T[];
+  if (Array.isArray(obj.players)) return obj.players as T[];
+
+  throw buildApiError('Resposta inválida do backend: lista não encontrada');
+}
+
+// Remove campos undefined para evitar PATCH sujo
+function deepStripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => deepStripUndefined(item)) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      if (val !== undefined) {
+        result[key] = deepStripUndefined(val);
+      }
+    }
+
+    return result as T;
+  }
+
+  return value;
+}
+
+// ==========================================
+// CORE REQUEST
+// ==========================================
+async function makeRequest<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = getAuthToken();
+  const controller = createTimeoutSignal(REQUEST_TIMEOUT_MS);
+
+  const headers = new Headers(options.headers || {});
+  const hasBody = options.body !== undefined && options.body !== null;
+
+  if (hasBody && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  headers.set('Accept', 'application/json');
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(buildUrl(endpoint), {
+      ...options,
+      headers,
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw buildApiError(
+        `Tempo limite excedido ao acessar ${endpoint}`,
+        408,
+        null,
+        endpoint
+      );
+    }
+
+    throw buildApiError(
+      `Falha de conexão ao acessar ${endpoint}`,
+      0,
+      error,
+      endpoint
+    );
+  }
+
+  const data = await safeReadResponseBody(response);
+
+  if (!response.ok) {
+    const message =
+      (ensureObject(data)?.error as string) ||
+      (ensureObject(data)?.message as string) ||
+      `Erro na requisição: ${endpoint}`;
+
+    throw buildApiError(message, response.status, data, endpoint);
+  }
+
+  return data as T;
+}
+
+// ==========================================
+// PLAYER ENDPOINTS
+// ==========================================
+
+/**
+ * Busca os dados atuais do player do backend
+ * Endpoint: GET /player/me
+ */
+export async function fetchCurrentPlayer(): Promise<PlayerState> {
+  const data = await makeRequest<ApiEnvelope<PlayerState>>('/player/me', {
+    method: 'GET',
+  });
+
+  return extractPlayerPayload(data);
+}
+
+/**
+ * Busca player + faction do backend
+ * Endpoint: GET /player/me
+ */
+export async function fetchCurrentPlayerWithFaction(): Promise<PlayerApiEnvelope> {
+  const data = await makeRequest<ApiEnvelope<PlayerState>>('/player/me', {
+    method: 'GET',
+  });
+
+  return extractEnvelope(data);
+}
+
+/**
+ * Sincroniza os dados do player com o backend
+ * Endpoint: PATCH /player/update
+ *
+ * Regra:
+ * - envia apenas payload limpo
+ * - aceita backend retornando { player }, { data }, ou o player cru
+ */
+export async function syncPlayerUpdate(
+  player: Partial<PlayerState>
+): Promise<{ player: PlayerState }> {
+  const cleanPayload = deepStripUndefined(player);
+
+  const data = await makeRequest<ApiEnvelope<PlayerState>>('/player/update', {
+    method: 'PATCH',
+    body: JSON.stringify(cleanPayload),
+  });
+
+  return {
+    player: extractPlayerPayload(data),
+  };
+}
+
+/**
+ * Sincroniza player + faction quando o backend devolver ambos
+ * Endpoint: PATCH /player/update
+ */
+export async function syncPlayerUpdateWithFaction(
+  player: Partial<PlayerState>
+): Promise<PlayerApiEnvelope> {
+  const cleanPayload = deepStripUndefined(player);
+
+  const data = await makeRequest<ApiEnvelope<PlayerState>>('/player/update', {
+    method: 'PATCH',
+    body: JSON.stringify(cleanPayload),
+  });
+
+  return extractEnvelope(data);
+}
+
+/**
+ * Hidrata os dados do player do backend (compatibilidade)
+ */
+export async function hydratePlayerFromBackend(): Promise<PlayerState> {
+  return fetchCurrentPlayer();
+}
+
+/**
+ * Hidrata player + faction do backend
+ */
+export async function hydratePlayerFromBackendWithFaction(): Promise<PlayerApiEnvelope> {
+  return fetchCurrentPlayerWithFaction();
+}
+
+/**
+ * Busca todos os jogadores do servidor
+ * Endpoint: GET /players
+ */
+export async function fetchAllPlayers(): Promise<
+  Array<{
+    id: string;
+    tileX: number;
+    tileY: number;
+    worldX: number;
+    worldY: number;
+  }>
+> {
+  const data = await makeRequest<
+    | Array<{
+        id: string;
+        tileX: number;
+        tileY: number;
+        worldX: number;
+        worldY: number;
+      }>
+    | {
+        data?: Array<{
+          id: string;
+          tileX: number;
+          tileY: number;
+          worldX: number;
+          worldY: number;
+        }>;
+        players?: Array<{
+          id: string;
+          tileX: number;
+          tileY: number;
+          worldX: number;
+          worldY: number;
+        }>;
+      }
+  >('/players', {
+    method: 'GET',
+  });
+
+  return extractArrayPayload<{
+    id: string;
+    tileX: number;
+    tileY: number;
+    worldX: number;
+    worldY: number;
+  }>(data);
+}
+
+// ==========================================
+// LAUNDRY ENDPOINTS
+// ==========================================
+
+export async function laundryStart(payload: {
+  businessId: number;
+  businessName: string;
+  grossAmount: number;
+  feePercentage: number;
+  feeAmount: number;
+  netAmount: number;
+}): Promise<{ operationId: string; endsAt: string; player: PlayerState }> {
+  const data = await makeRequest<any>('/laundry/start', {
+    method: 'POST',
+    body: JSON.stringify(deepStripUndefined(payload)),
+  });
+
+  const obj = ensureObject(data);
+
+  if (!obj) {
+    throw buildApiError('Resposta inválida ao iniciar lavagem');
+  }
+
+  return {
+    operationId: String(obj.operationId || obj.data?.operationId || ''),
+    endsAt: String(obj.endsAt || obj.data?.endsAt || ''),
+    player: extractPlayerPayload(data),
+  };
+}
+
+export async function laundryStartWithFaction(payload: {
+  businessId: number;
+  businessName: string;
+  grossAmount: number;
+  feePercentage: number;
+  feeAmount: number;
+  netAmount: number;
+}): Promise<{
+  operationId: string;
+  endsAt: string;
+  durationSeconds?: number;
+  laundrySummary?: Record<string, any>;
+  player: PlayerState;
+  faction: FactionApiPayload;
+}> {
+  const data = await makeRequest<any>('/laundry/start', {
+    method: 'POST',
+    body: JSON.stringify(deepStripUndefined(payload)),
+  });
+
+  const obj = ensureObject(data);
+
+  if (!obj) {
+    throw buildApiError('Resposta inválida ao iniciar lavagem');
+  }
+
+  const envelope = extractEnvelope(data);
+
+  return {
+    operationId: String(obj.operationId || obj.data?.operationId || ''),
+    endsAt: String(obj.endsAt || obj.data?.endsAt || ''),
+    durationSeconds:
+      typeof obj.durationSeconds === 'number'
+        ? obj.durationSeconds
+        : typeof obj.data?.durationSeconds === 'number'
+          ? obj.data.durationSeconds
+          : undefined,
+    laundrySummary:
+      ensureObject(obj.laundrySummary) ||
+      ensureObject(obj.data?.laundrySummary) ||
+      undefined,
+    player: envelope.player,
+    faction: envelope.faction,
+  };
+}
+
+export async function laundryComplete(
+  operationId: string
+): Promise<{ player: PlayerState }> {
+  const data = await makeRequest<any>('/laundry/complete', {
+    method: 'POST',
+    body: JSON.stringify({ operationId }),
+  });
+
+  return {
+    player: extractPlayerPayload(data),
+  };
+}
+
+export async function laundryCompleteWithFaction(
+  operationId: string
+): Promise<{
+  completedOperation?: Record<string, any>;
+  player: PlayerState;
+  faction: FactionApiPayload;
+}> {
+  const data = await makeRequest<any>('/laundry/complete', {
+    method: 'POST',
+    body: JSON.stringify({ operationId }),
+  });
+
+  const obj = ensureObject(data);
+  const envelope = extractEnvelope(data);
+
+  return {
+    completedOperation:
+      ensureObject(obj?.completedOperation) ||
+      ensureObject(obj?.data?.completedOperation) ||
+      undefined,
+    player: envelope.player,
+    faction: envelope.faction,
+  };
+}
+
+export async function canOperateLaundry(
+  businessId: number
+): Promise<{ allowed: boolean }> {
+  const data = await makeRequest<any>(`/laundry/can-operate/${businessId}`, {
+    method: 'GET',
+  });
+
+  const obj = ensureObject(data);
+
+  return {
+    allowed: Boolean(obj?.allowed ?? obj?.data?.allowed),
+  };
+}
+
+// ==========================================
+// ARSENAL ENDPOINTS
+// ==========================================
+
+export async function arsenalUpgrade(payload: {
+  itemId: string;
+  level: number;
+}): Promise<{ player: PlayerState }> {
+  const data = await makeRequest<any>('/arsenal/upgrade', {
+    method: 'POST',
+    body: JSON.stringify(deepStripUndefined(payload)),
+  });
+
+  return {
+    player: extractPlayerPayload(data),
+  };
+}
+
+// ==========================================
+// GIRO ENDPOINTS
+// ==========================================
+
+export async function giroStart(payload: {
+  amount: number;
+  duration: number;
+}): Promise<{ player: PlayerState }> {
+  const data = await makeRequest<any>('/giro/start', {
+    method: 'POST',
+    body: JSON.stringify(deepStripUndefined(payload)),
+  });
+
+  return {
+    player: extractPlayerPayload(data),
+  };
+}
+
+// ==========================================
+// GAME ENDPOINTS
+// ==========================================
+
+export async function gameAction(payload: {
+  action: string;
+  data?: any;
+}): Promise<{ player: PlayerState; result?: Record<string, any> }> {
+  const data = await makeRequest<any>('/game/action', {
+    method: 'POST',
+    body: JSON.stringify(deepStripUndefined(payload)),
+  });
+
+  const obj = ensureObject(data);
+
+  return {
+    player: extractPlayerPayload(data),
+    result:
+      ensureObject(obj?.result) ||
+      ensureObject(obj?.data?.result) ||
+      undefined,
+  };
+}
+
+export async function gameActionWithFaction(payload: {
+  action: string;
+  data?: any;
+}): Promise<{
+  player: PlayerState;
+  faction: FactionApiPayload;
+  result?: Record<string, any>;
+  factionBuffs?: Record<string, any> | null;
+}> {
+  const data = await makeRequest<any>('/game/action', {
+    method: 'POST',
+    body: JSON.stringify(deepStripUndefined(payload)),
+  });
+
+  const obj = ensureObject(data);
+  const envelope = extractEnvelope(data);
+
+  return {
+    player: envelope.player,
+    faction: envelope.faction,
+    result:
+      ensureObject(obj?.result) ||
+      ensureObject(obj?.data?.result) ||
+      undefined,
+    factionBuffs:
+      ensureObject(obj?.factionBuffs) ||
+      ensureObject(obj?.data?.factionBuffs) ||
+      null,
+  };
+}
