@@ -26,18 +26,19 @@
         "src/components/*"
       ],
       "@/integrations/*": [
-        "src/integrations/*"
+        "integrations/*",
       ],
       "@/integrations": [
-        "src/integrations"
+        "integrations"
       ],
       "@wix/codegen-framework-packages": [
-        "src/integrations"
-      ]
+        "integrations"
+      ],
     }
   },
   "include": [
     "src",
+    "integrations",
     ".astro/types.d.ts"
   ]
 }
