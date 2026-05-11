@@ -102,7 +102,7 @@ class RealSocket implements Socket {
           const message = JSON.parse(event.data);
           const { event: eventName, data } = message;
 
-          if (eventName === 'mapSnapshot' || eventName === 'playerMoved' || eventName === 'playerJoined') {
+          if (eventName === 'mapSnapshot' || eventName === 'playerMoved' || eventName === 'playerJoined' || eventName === 'playerInit' || eventName === 'playerUpdate') {
             console.log(`📨 Socket recebeu evento: ${eventName}`, data);
           }
 

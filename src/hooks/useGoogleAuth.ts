@@ -185,6 +185,13 @@ export function useGoogleAuth() {
         reconnectSocket();
         console.log('🔵 useGoogleAuth: Socket reconectado');
 
+        // FALLBACK: Se o socket não enviar playerInit em 3s, hidrata manualmente
+        const hydrateTimeout = setTimeout(() => {
+          console.log('🟡 useGoogleAuth: Timeout aguardando playerInit, hidratando manualmente');
+          const playerStore = usePlayerStore.getState();
+          playerStore.hydratePlayerFromServer(normalizedPlayer);
+        }, 3000);
+
         setAuthState({
           authToken:      data.token,
           playerData:     normalizedPlayer,
@@ -194,7 +201,7 @@ export function useGoogleAuth() {
         });
 
         console.log('🟢 useGoogleAuth: Login bem-sucedido!');
-        return { ok: true, token: data.token, player: normalizedPlayer };
+        return { ok: true, token: data.token, player: normalizedPlayer, hydrateTimeout };
 
       } catch (err) {
         lastError = err instanceof Error ? err.message : 'Erro no login';

@@ -74,6 +74,12 @@ function HomePage() {
         console.log('🟢 HomePage: Google auth bem-sucedido, hidratando playerStore');
         // Popula playerStore com dados do Google auth
         hydratePlayerFromServer(result.player);
+        
+        // Limpa timeout de fallback se existir
+        if (result?.hydrateTimeout) {
+          clearTimeout(result.hydrateTimeout);
+        }
+        
         return result;
       }
       
