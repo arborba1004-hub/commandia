@@ -1,5 +1,5 @@
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -13,7 +13,6 @@ import ProtectedRoute from '@/components/routes/ProtectedRoute';
 import HomePage from '@/components/pages/HomePage';
 import GaleriaPage from '@/components/pages/GaleriaPage';
 import ProfilePage from '@/components/pages/ProfilePage';
-import GamePage from '@/components/pages/GamePage';
 import GiroPage from '@/components/pages/GiroPage';
 import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
 import SubornoIlustradoPage from '@/components/pages/SubornoIlustradoPage';
@@ -28,6 +27,9 @@ import TalentsPage from '@/components/pages/TalentsPage';
 import FactionPage from '@/components/pages/FactionPage';
 import RankingPage from '@/components/pages/RankingPage';
 import GangPage from '@/components/gang/GangPage';
+
+// Lazy load GamePage to prevent module fetch errors
+const GamePage = lazy(() => import('@/components/pages/GamePage'));
 
 function AppRouterLayout() {
   useEffect(() => {
@@ -69,7 +71,7 @@ const router = createBrowserRouter(
           ),
         },
         { path: 'profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
-        { path: 'game',    element: <ProtectedRoute><GamePage /></ProtectedRoute> },
+        { path: 'game',    element: <ProtectedRoute><Suspense fallback={<LoadingSpinner />}><GamePage /></Suspense></ProtectedRoute> },
         { path: 'chat',    element: <ProtectedRoute><ChatPage /></ProtectedRoute> },
         {
           path: 'giro',
