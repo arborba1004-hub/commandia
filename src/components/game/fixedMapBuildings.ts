@@ -33,7 +33,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: -52,
     z: -52,
     footprint: 7,
-    route: '/gang',
+    route: 'ct:ct_nw',
   },
   {
     key: 'ct_ne',
@@ -42,7 +42,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: 52,
     z: -52,
     footprint: 7,
-    route: '/gang',
+    route: 'ct:ct_ne',
   },
   {
     key: 'ct_sw',
@@ -51,7 +51,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: -52,
     z: 52,
     footprint: 7,
-    route: '/gang',
+    route: 'ct:ct_sw',
   },
   {
     key: 'ct_se',
@@ -60,7 +60,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: 52,
     z: 52,
     footprint: 7,
-    route: '/gang',
+    route: 'ct:ct_se',
   },
 
   {

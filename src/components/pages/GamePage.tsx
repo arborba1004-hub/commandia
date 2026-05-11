@@ -13,6 +13,7 @@ import { teleportPlayerMapSpace }                      from '@/components/game/p
 
 import { usePlayerStore }        from '@/store/playerStore';
 import { useChatStore }          from '@/store/chatStore';
+import { useGangStore }          from '@/store/gangStore';
 import { getSocket }             from '@/socket';
 import { invitePlayerToFaction } from '@/services/factionInviteService';
 
@@ -23,6 +24,7 @@ import OtherPlayerBarracoModal, {
   closeOtherPlayerBarracoModal,
 } from '@/components/game/OtherPlayerBarracoModal';
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
+import GangTrainingModal from '@/components/gang/GangTrainingModal';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -74,6 +76,12 @@ export default function GamePage() {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [dmModalOpen,      setDmModalOpen]      = useState(false);
   const [dmTarget,         setDmTarget]         = useState<DirectMessageTarget | null>(null);
+
+  // ── Modal: treinamento de gangue (CT)
+  const gang = useGangStore((s) => s.gang);
+  const [trainingModalOpen, setTrainingModalOpen] = useState(false);
+  const [selectedCT, setSelectedCT] = useState<string | null>(null);
+  const [isSubmittingTraining, setIsSubmittingTraining] = useState(false);
 
   // ── Handler: mensagem privada
   const handleSendPrivateMessage = useCallback(
@@ -186,7 +194,16 @@ export default function GamePage() {
       loader,
       camera,
       container: mountEl,
-      onNavigate: (path: string) => navigate(path),
+      onNavigate: (path: string) => {
+        // Intercepta cliques em CTs para abrir modal de treinamento
+        if (path.startsWith('ct:')) {
+          const ctKey = path.replace('ct:', '');
+          setSelectedCT(ctKey);
+          setTrainingModalOpen(true);
+        } else {
+          navigate(path);
+        }
+      },
       onMessage:  () => {},
     });
 
@@ -683,6 +700,41 @@ export default function GamePage() {
         isOpen={dmModalOpen}
         target={dmTarget}
         onClose={() => { setDmModalOpen(false); setDmTarget(null); }}
+      />
+
+      {/* ── Modal de Treinamento de Gangue (CT) ─────────────────────── */}
+      <GangTrainingModal
+        isOpen={trainingModalOpen}
+        slotKey={selectedCT as any}
+        player={player as any}
+        trainingState={gang?.trainingState ?? { slots: {} }}
+        isSubmitting={isSubmittingTraining}
+        onClose={() => {
+          setTrainingModalOpen(false);
+          setSelectedCT(null);
+        }}
+        onStartTraining={async (slotKey, memberType) => {
+          setIsSubmittingTraining(true);
+          try {
+            await useGangStore.getState().queueTraining(memberType);
+            console.log('✅ Treinamento iniciado:', memberType, 'no CT:', slotKey);
+          } catch (error) {
+            console.error('❌ Erro ao iniciar treinamento:', error);
+          } finally {
+            setIsSubmittingTraining(false);
+          }
+        }}
+        onCollectTraining={async (slotKey) => {
+          setIsSubmittingTraining(true);
+          try {
+            await useGangStore.getState().completeFinishedTrainings();
+            console.log('✅ Treinamento coletado do CT:', slotKey);
+          } catch (error) {
+            console.error('❌ Erro ao coletar treinamento:', error);
+          } finally {
+            setIsSubmittingTraining(false);
+          }
+        }}
       />
     </div>
   );
