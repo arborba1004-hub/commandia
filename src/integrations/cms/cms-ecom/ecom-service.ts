@@ -20,8 +20,5 @@
  */
 
 export const buyNow = async (items: Array<{ collectionId: string; itemId: string; quantity: number }>) => {
-  // TODO: Replace with your backend checkout API call
-  // Example: const response = await fetch('/api/checkout', { method: 'POST', body: JSON.stringify({ items }) });
-  console.warn('buyNow not implemented - connect to your backend checkout API', items);
-  throw new Error('buyNow functionality not available - implement backend integration');
+  throw new Error('buyNow functionality not available');
 };

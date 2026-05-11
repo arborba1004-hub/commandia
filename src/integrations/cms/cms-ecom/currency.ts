@@ -23,8 +23,6 @@ import { useMemo } from 'react';
 export const DEFAULT_CURRENCY = 'USD';
 
 export const useCurrency = () => {
-  // TODO: Replace with your backend currency API call
-  // Example: const currency = await fetch('/api/settings/currency');
   return useMemo(() => ({
     currency: DEFAULT_CURRENCY,
   }), []);
