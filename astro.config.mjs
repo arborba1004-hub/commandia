@@ -65,32 +65,6 @@ export default defineConfig({
         ],
       },
     } : undefined,
-    // Divide o bundle em chunks menores para evitar falha ao carregar
-    // arquivos grandes no CDN do Wix (erro: "Falha ao buscar módulo dinâmico")
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            // Three.js e todos os seus submódulos em chunk separado
-            if (id.includes('node_modules/three')) {
-              return 'vendor-three';
-            }
-            // Framer Motion em chunk separado
-            if (id.includes('node_modules/framer-motion')) {
-              return 'vendor-framer';
-            }
-            // Radix UI em chunk separado
-            if (id.includes('node_modules/@radix-ui')) {
-              return 'vendor-radix';
-            }
-            // Wix SDK em chunk separado
-            if (id.includes('node_modules/@wix')) {
-              return 'vendor-wix';
-            }
-          },
-        },
-      },
-    },
   },
   ...(isBuild && { adapter: cloudProviderFetchAdapter({}) }),
   devToolbar: {
