@@ -5,6 +5,8 @@ import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import type { GangMemberType, GangUnit } from '@/types/gangWar';
 import { Clock3, Plus, Shield, Swords, Zap } from 'lucide-react';
+import GangTrainingModal from '@/components/gang/GangTrainingModal';
+import type { QGSlotKey } from '@/components/gang/TreinamentoGang';
 
 const RECRUIT_TYPES: GangMemberType[] = [
   'capanga',
@@ -97,6 +99,8 @@ export default function GangPage() {
 
   const [recruiting, setRecruiting] = useState<GangMemberType | null>(null);
   const [queueing, setQueueing] = useState<GangMemberType | null>(null);
+  const [trainingModalOpen, setTrainingModalOpen] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<QGSlotKey | null>(null);
 
   useEffect(() => {
     void loadGang();
@@ -130,6 +134,16 @@ export default function GangPage() {
     } finally {
       setQueueing(null);
     }
+  }
+
+  function handleOpenTrainingModal(slotKey: QGSlotKey) {
+    setSelectedSlot(slotKey);
+    setTrainingModalOpen(true);
+  }
+
+  function handleCloseTrainingModal() {
+    setTrainingModalOpen(false);
+    setSelectedSlot(null);
   }
 
   return (
@@ -230,7 +244,7 @@ export default function GangPage() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-black uppercase">Filas de treino</h2>
-                <p className="mt-1 text-sm text-zinc-400">Os 7 slots simultâneos ficam visíveis aqui.</p>
+                <p className="mt-1 text-sm text-zinc-400">Os 7 slots simultâneos ficam visíveis aqui. Clique em um slot para treinar.</p>
               </div>
               <div className="rounded-2xl bg-zinc-900 px-3 py-2 text-sm text-zinc-300">{activeJobs.length} em andamento</div>
             </div>
@@ -240,8 +254,13 @@ export default function GangPage() {
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-zinc-500">Carregando slots...</div>
               ) : Array.from({ length: slotsTotal }).map((_, index) => {
                 const job = activeJobs[index];
+                const slotKey = `q${index + 1}` as QGSlotKey;
                 return (
-                  <div key={index} className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <button
+                    key={index}
+                    onClick={() => handleOpenTrainingModal(slotKey)}
+                    className="w-full rounded-2xl border border-white/10 bg-black/30 p-4 text-left transition hover:border-red-500/30 hover:bg-red-500/5"
+                  >
                     {job ? (
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -260,10 +279,10 @@ export default function GangPage() {
                           <div className="text-sm uppercase text-zinc-500">Slot {index + 1}</div>
                           <div className="mt-1 font-bold text-zinc-300">Livre</div>
                         </div>
-                        <div className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-zinc-500">Disponível</div>
+                        <div className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-zinc-500">Clique para treinar</div>
                       </div>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -358,6 +377,26 @@ export default function GangPage() {
           </div>
         </section>
       </main>
+
+      {trainingModalOpen && selectedSlot && player && gang && (
+        <GangTrainingModal
+          isOpen={trainingModalOpen}
+          slotKey={selectedSlot}
+          player={player}
+          trainingState={gang}
+          onClose={handleCloseTrainingModal}
+          onStartTraining={async (slot, memberType) => {
+            await queueTraining(memberType);
+            handleCloseTrainingModal();
+          }}
+          onCollectTraining={async (slot) => {
+            await completeFinishedTrainings();
+            handleCloseTrainingModal();
+          }}
+          isSubmitting={isSubmitting}
+        />
+      )}
+
       <Footer />
     </div>
   );
