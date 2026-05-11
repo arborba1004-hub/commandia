@@ -74,12 +74,6 @@ function HomePage() {
         console.log('🟢 HomePage: Google auth bem-sucedido, hidratando playerStore');
         // Popula playerStore com dados do Google auth
         hydratePlayerFromServer(result.player);
-        
-        // Limpa timeout de fallback se existir
-        if (result?.hydrateTimeout) {
-          clearTimeout(result.hydrateTimeout);
-        }
-        
         return result;
       }
       
@@ -108,14 +102,14 @@ function HomePage() {
       console.error('Erro ao carregar achievements do localStorage:', error);
       localStorage.removeItem('unlockedAchievements');
     }
-  }, []); // Only run once on mount
+  }, [loadAchievements]);
 
   // Check for achievement unlocks when player data changes
   useEffect(() => {
     if (player?._id) {
       checkAndUnlockAchievements(player);
     }
-  }, [player?._id]); // Only depend on player ID to prevent infinite loops
+  }, [player, checkAndUnlockAchievements]);
 
   useEffect(() => {
     // GSI já está no <head> da página Astro — apenas aguarda estar disponível
@@ -183,19 +177,6 @@ function HomePage() {
     navigate,
     handleGoogleResponse,
   ]);
-
-  // Cleanup: remove Google Sign-In listeners on unmount
-  useEffect(() => {
-    return () => {
-      if (window.google?.accounts?.id) {
-        try {
-          window.google.accounts.id.cancel();
-        } catch (e) {
-          // Silently ignore if cancel fails
-        }
-      }
-    };
-  }, []);
 
   const scrollToManifesto = () => {
     manifestoRef.current?.scrollIntoView({ behavior: 'smooth' });

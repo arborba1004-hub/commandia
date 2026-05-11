@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { BaseCrudService } from '@/integrations';
 import { usePlayerStore } from '@/store/playerStore';
 import { useNavigate } from 'react-router-dom';
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Image } from '@/components/ui/image';
 import { motion, AnimatePresence } from 'framer-motion';

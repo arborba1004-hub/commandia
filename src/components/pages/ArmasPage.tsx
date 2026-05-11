@@ -1,4 +1,5 @@
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { WEAPONS } from '@/data/armas';
 import { Model3D } from '@/components/Model3D';

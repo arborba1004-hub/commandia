@@ -137,11 +137,7 @@ export default function Map3D() {
     });
 
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(
-      isMobile
-        ? 1
-        : Math.min(window.devicePixelRatio, 1.5)
-    );
+    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.8));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -576,20 +572,14 @@ export default function Map3D() {
       }
     };
 
-    // Pure animation loop - no side effects, only rendering
     let animationId = 0;
-    const scheduleNextFrame = (callback: FrameRequestCallback) => {
-      animationId = requestAnimationFrame(callback);
-    };
-
-    const animate: FrameRequestCallback = () => {
+    const animate = () => {
       updateHorizonParallax();
       controls.update();
       renderer.render(scene, camera);
-      scheduleNextFrame(animate);
+      animationId = requestAnimationFrame(animate);
     };
-
-    scheduleNextFrame(animate);
+    animate();
 
     const handleResize = () => {
       if (!containerRef.current) return;

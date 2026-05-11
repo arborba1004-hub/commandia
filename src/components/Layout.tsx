@@ -1,21 +1,15 @@
 import { Outlet } from 'react-router-dom';
-import { useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import AchievementNotification from '@/components/AchievementNotification';
-import GameSocketBootstrap from '@/components/GameSocketBootstrap';
-import { applyGPUOptimizations } from '@/utils/gpuOptimization';
+import { useGameSocket } from '@/hooks/useGameSocket';
 
 export default function Layout() {
-  useEffect(() => {
-    // Apply GPU optimizations on app load
-    applyGPUOptimizations();
-  }, []);
+  // Always call hooks unconditionally (React rule)
+  useGameSocket();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <GameSocketBootstrap />
-      
       <Header />
       <AchievementNotification />
       

@@ -219,18 +219,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       if (typeof window === 'undefined') return; // Prevent during SSR
       const socket = getSocket();
-      
-      const handleNewChatMessage = (msg: ChatMessage) => {
+      socket.off('newChatMessage');
+      socket.on('newChatMessage', (msg: ChatMessage) => {
         if (!msg?.channel) return;
         // Força refresh do canal que recebeu a mensagem
         get().fetchMessages(msg.channel as ChatChannelType, true);
         // Se for facção, atualiza pedidos de corre também
         if (msg.channel === 'faccao') get().fetchFactionHelpRequests(true);
-      };
-      
-      // Remove any existing listener first
-      socket.off('newChatMessage');
-      socket.on('newChatMessage', handleNewChatMessage);
+      });
     } catch {
       // Socket indisponível — polling cobre
     }

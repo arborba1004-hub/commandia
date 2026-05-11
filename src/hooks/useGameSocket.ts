@@ -1,72 +1,128 @@
 /**
- * useGameSocket.ts — Hook que escuta eventos do socket e hidrata o playerStore
+ * useGameSocket.ts
+ *
+ * Hook que gerencia o ciclo de vida completo do socket de jogo.
+ * Deve ser montado UMA VEZ no topo da árvore (ex: em Layout).
  *
  * Responsabilidades:
- *   - Escuta 'playerInit' → hydratePlayerFromServer (primeira vez)
- *   - Escuta 'playerUpdate' → hydratePlayerFromServer (atualizações)
- *   - Escuta 'gangUpdate' → atualiza gang no store
- *   - Cleanup: remove listeners ao desmontar
+ *   - Conecta/desconecta o socket conforme o token
+ *   - Ouve 'playerInit'   → hydrata o playerStore (substitui loadPlayer + polling)
+ *   - Ouve 'playerUpdate' → hydrata o playerStore após qualquer mutação
+ *   - Ouve 'gangUpdate'   → atualiza o gangStore
+ *   - Expõe o socket para uso em outros componentes via getSocket()
  */
 
-import { useEffect } from 'react';
-import { usePlayerStore } from '@/store/playerStore';
-import { getSocket } from '@/socket';
+import { useEffect, useRef } from 'react';
+import { usePlayerStore }    from '@/store/playerStore';
+import { useFactionStore }   from '@/store/factionStore';
+import { reconnectSocket, disconnectSocket } from '@/socket';
 
 export function useGameSocket() {
-  const hydratePlayerFromServer = usePlayerStore((state) => state.hydratePlayerFromServer);
+  const hydratePlayerFromServer = usePlayerStore((s) => s.hydratePlayerFromServer);
+  const setFaction              = useFactionStore((s) => s.setFaction);
+  const socketInitializedRef    = useRef(false);
+  const mountedRef              = useRef(true);
 
   useEffect(() => {
-    // Só roda no cliente
-    if (typeof window === 'undefined') return;
-
-    let socket: any = null;
-
-    try {
-      socket = getSocket();
-    } catch (err) {
-      // Sem token = usuário não autenticado, é normal
-      console.log('🔵 useGameSocket: Sem token, usuário não autenticado');
+    // Prevent socket initialization during SSR/build
+    if (typeof window === 'undefined') {
+      console.log('⚠️ useGameSocket skipped during SSR/build');
       return;
     }
 
-    if (!socket) return;
+    // Evita múltiplas inicializações do socket
+    if (socketInitializedRef.current) return;
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      console.log('⚠️ No auth token available - socket initialization skipped');
+      return;
+    }
 
-    // ── Listener para playerInit (primeira hidratação) ──
-    const handlePlayerInit = (player: any) => {
-      console.log('🟢 useGameSocket: playerInit recebido', { id: player?._id, name: player?.name });
-      hydratePlayerFromServer(player);
-    };
+    try {
+      socketInitializedRef.current = true;
+      mountedRef.current = true;
 
-    // ── Listener para playerUpdate (atualizações contínuas) ──
-    const handlePlayerUpdate = (player: any) => {
-      console.log('🟢 useGameSocket: playerUpdate recebido', { id: player?._id });
-      hydratePlayerFromServer(player);
-    };
+      // Garante socket autenticado com token atual
+      const socket = reconnectSocket();
 
-    // ── Listener para gangUpdate ──
-    const handleGangUpdate = (gangData: any) => {
-      console.log('🟢 useGameSocket: gangUpdate recebido', { gangId: gangData?.gangId });
-      // Atualiza gang no playerStore
-      usePlayerStore.setState((state) => ({
-        ...state,
-        gangMembers: gangData?.members || [],
-        gangStats: gangData?.stats || {},
-      }));
-    };
+      // ── playerInit: estado completo do jogador ao conectar ────────────────────
+      // Substitui completamente o loadPlayer() + polling do playerStore
+      const handlePlayerInit = (data: { player: any; faction?: any }) => {
+        if (!mountedRef.current) return;
+        hydratePlayerFromServer(data.player);
+        if (data.faction !== undefined) {
+          setFaction(data.faction);
+        }
+      };
 
-    // Registra listeners
-    socket.on('playerInit', handlePlayerInit);
-    socket.on('playerUpdate', handlePlayerUpdate);
-    socket.on('gangUpdate', handleGangUpdate);
+      // ── playerUpdate: estado atualizado após qualquer mutação backend ─────────
+      // Emitido por todos os controllers após player.save()
+      const handlePlayerUpdate = (data: { player: any; faction?: any }) => {
+        if (!mountedRef.current) return;
+        hydratePlayerFromServer(data.player);
+        if (data.faction !== undefined) {
+          setFaction(data.faction);
+        }
+      };
 
-    console.log('🔵 useGameSocket: Listeners registrados');
+      // ── gangUpdate: quando gang muda (treinamento, recrutamento) ─────────────
+      const handleGangUpdate = (data: { gang: any }) => {
+        if (!mountedRef.current || !data?.gang) return;
+        // Atualiza gang dentro do playerStore
+        usePlayerStore.getState().applyPlayerUpdate((p) => (
+          {
+            ...p,
+            gang: data.gang,
+            gangMembers: data.gang?.members ?? p.gangMembers,
+            gangStats:   data.gang?.stats   ?? p.gangStats,
+          }
+        ));
+      };
 
-    // ── Cleanup: remove listeners ao desmontar ──
-    return () => {
-      console.log('🔵 useGameSocket: Removendo listeners');
-      socket.off('playerInit', handlePlayerInit);
-      socket.off('playerUpdate', handlePlayerUpdate);
-      socket.off('gangUpdate', handleGangUpdate);
-    };
-  }, [hydratePlayerFromServer]);
+      const handleConnect = () => {
+        console.log('🟢 Socket conectado');
+      };
+
+      const handleConnectError = (err: Error) => {
+        console.error('🔴 Socket connection error:', err.message);
+      };
+
+      socket.on('playerInit', handlePlayerInit);
+      socket.on('playerUpdate', handlePlayerUpdate);
+      socket.on('gangUpdate', handleGangUpdate);
+      socket.on('connect', handleConnect);
+      socket.on('connect_error', handleConnectError);
+
+      return () => {
+        mountedRef.current = false;
+        socket.off('playerInit', handlePlayerInit);
+        socket.off('playerUpdate', handlePlayerUpdate);
+        socket.off('gangUpdate', handleGangUpdate);
+        socket.off('connect', handleConnect);
+        socket.off('connect_error', handleConnectError);
+        // Não desconecta o socket aqui — ele é singleton e pode ser usado por outros componentes
+      };
+    } catch (error) {
+      console.error('Erro ao conectar socket:', error);
+      socketInitializedRef.current = false;
+      return;
+    }
+  }, []); // Apenas na montagem — o socket é singleton
+}
+
+/**
+ * Hook de logout: desconecta socket e limpa estado.
+ * Chame no handler de logout.
+ */
+export function useSocketLogout() {
+  const clearPlayer = usePlayerStore((s) => s.clearPlayer);
+  const setFaction  = useFactionStore((s) => s.setFaction);
+
+  return () => {
+    localStorage.removeItem('authToken');
+    disconnectSocket();
+    clearPlayer();
+    setFaction(null);
+  };
 }

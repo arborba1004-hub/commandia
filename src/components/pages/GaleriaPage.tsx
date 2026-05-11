@@ -7,6 +7,8 @@ import {
   getLuxuryPriceWithInsurance,
   getSkillByItemId,
 } from '@/data/luxoItems';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import PurchaseInsuranceModal from '@/components/PurchaseInsuranceModal';
 import CardTransactionModal from '@/components/CardTransactionModal';
 import PurchaseResultModal from '@/components/PurchaseResultModal';
@@ -250,15 +252,21 @@ export default function GaleriaPage() {
 
   if (!isLoaded || !player?._id) {
     return (
-      <div className="min-h-screen bg-background text-white flex items-center justify-center">
-        Carregando...
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen bg-background text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando...
+        </div>
+        <Footer />
+      </>
     );
   }
 
   return (
-    <div className="w-full">
-      <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden py-20 px-4">
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header />
+
+      <main className="flex-1 flex flex-col relative bg-[#01020bff] overflow-hidden py-20 px-4 pt-[140px] md:pt-[160px]">
         <div className="max-w-[100rem] mx-auto w-full">
           <motion.div
             className="text-center mb-24 mt-12"
@@ -364,6 +372,8 @@ export default function GaleriaPage() {
         skillBonusPercent={skillBonus?.skillBonusPercent}
         onClose={handleCloseResult}
       />
+
+      <Footer />
     </div>
   );
 }

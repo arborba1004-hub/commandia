@@ -1,51 +1,40 @@
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
-import { useEffect, lazy, Suspense } from 'react';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import AchievementNotification from '@/components/AchievementNotification';
-import GameSocketBootstrap from '@/components/GameSocketBootstrap';
-import { applyGPUOptimizations } from '@/utils/gpuOptimization';
-import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
-import ProtectedRoute from '@/components/routes/ProtectedRoute';
-import HomePage from '@/components/pages/HomePage';
-import GaleriaPage from '@/components/pages/GaleriaPage';
-import ProfilePage from '@/components/pages/ProfilePage';
-import GiroPage from '@/components/pages/GiroPage';
-import LavagemDeDinheiroPage from '@/components/pages/LavagemDeDinheiroPage';
-import SubornoIlustradoPage from '@/components/pages/SubornoIlustradoPage';
-import DelacaoPremiadaPage from '@/components/pages/DelacaoPremiadaPage';
-import ArsenalPage from '@/components/pages/ArsenalPage';
-import ArmasPage from '@/components/pages/ArmasPage';
-import LuxoItemPage from '@/components/pages/LuxoItemPage';
-import BarracoPage from '@/components/pages/BarracoPage';
-import FugaIlustradaPage from '@/components/pages/FugaIlustradaPage';
-import ChatPage from '@/components/pages/ChatPage';
-import TalentsPage from '@/components/pages/TalentsPage';
-import FactionPage from '@/components/pages/FactionPage';
-import RankingPage from '@/components/pages/RankingPage';
-import GangPage from '@/components/gang/GangPage';
+import Layout from '@/components/Layout';
 
-// Lazy load GamePage to prevent module fetch errors
+// Lazy load all page components
+const HomePage = lazy(() => import('@/components/pages/HomePage'));
+const GaleriaPage = lazy(() => import('@/components/pages/GaleriaPage'));
+const ProfilePage = lazy(() => import('@/components/pages/ProfilePage'));
 const GamePage = lazy(() => import('@/components/pages/GamePage'));
+const GiroPage = lazy(() => import('@/components/pages/GiroPage'));
+const LavagemDeDinheiroPage = lazy(() => import('@/components/pages/LavagemDeDinheiroPage'));
+const SubornoIlustradoPage = lazy(() => import('@/components/pages/SubornoIlustradoPage'));
+const DelacaoPremiadaPage = lazy(() => import('@/components/pages/DelacaoPremiadaPage'));
+const ArsenalPage = lazy(() => import('@/components/pages/ArsenalPage'));
+const ArmasPage = lazy(() => import('@/components/pages/ArmasPage'));
+const LuxoItemPage = lazy(() => import('@/components/pages/LuxoItemPage'));
+const BarracoPage = lazy(() => import('@/components/pages/BarracoPage'));
+const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPage'));
+const ChatPage = lazy(() => import('@/components/pages/ChatPage'));
+const TalentsPage = lazy(() => import('@/components/pages/TalentsPage'));
+const FactionPage = lazy(() => import('@/components/pages/FactionPage'));
+const RankingPage = lazy(() => import('@/components/pages/RankingPage'));
+const GangPage = lazy(() => import('@/components/gang/GangPage'));
+const FeatureGateRoute = lazy(() => import('@/components/routes/FeatureGateRoute'));
+const ProtectedRoute = lazy(() => import('@/components/routes/ProtectedRoute'));
+
+const LoadingFallback = () => <div className="flex items-center justify-center min-h-screen"><LoadingSpinner /></div>;
 
 function AppRouterLayout() {
-  useEffect(() => {
-    applyGPUOptimizations();
-  }, []);
-
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <GameSocketBootstrap />
-      <Header />
-      <AchievementNotification />
-      <main className="flex-1 pt-20">
-        <Outlet />
-      </main>
-      <Footer />
-    </div>
+    <>
+      <ScrollToTop />
+      <Layout />
+    </>
   );
 }
 
@@ -53,98 +42,119 @@ const router = createBrowserRouter(
   [
     {
       path: '/',
-      element: (
-        <>
-          <ScrollToTop />
-          <AppRouterLayout />
-        </>
-      ),
+      element: <AppRouterLayout />,
       errorElement: <ErrorPage />,
       children: [
-        { index: true, element: <HomePage /> },
+        { index: true, element: <Suspense fallback={<LoadingFallback />}><HomePage /></Suspense> },
+
         {
           path: 'galeria',
           element: (
-            <FeatureGateRoute branch="luxury">
-              <GaleriaPage />
-            </FeatureGateRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <FeatureGateRoute branch="luxury">
+                <GaleriaPage />
+              </FeatureGateRoute>
+            </Suspense>
           ),
         },
-        { path: 'profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
-        { path: 'game',    element: <ProtectedRoute><Suspense fallback={<LoadingSpinner />}><GamePage /></Suspense></ProtectedRoute> },
-        { path: 'chat',    element: <ProtectedRoute><ChatPage /></ProtectedRoute> },
+
+        { path: 'profile', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ProfilePage /></ProtectedRoute></Suspense> },
+        { path: 'game',    element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GamePage /></ProtectedRoute></Suspense> },
+        { path: 'chat',    element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ChatPage /></ProtectedRoute></Suspense> },
+
         {
           path: 'giro',
           element: (
-            <ProtectedRoute>
-              <FeatureGateRoute branch="giro">
-                <GiroPage />
-              </FeatureGateRoute>
-            </ProtectedRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <ProtectedRoute>
+                <FeatureGateRoute branch="giro">
+                  <GiroPage />
+                </FeatureGateRoute>
+              </ProtectedRoute>
+            </Suspense>
           ),
         },
+
         {
           path: 'lavagem-de-dinheiro',
           element: (
-            <ProtectedRoute>
-              <FeatureGateRoute branch="lavagem">
-                <LavagemDeDinheiroPage />
-              </FeatureGateRoute>
-            </ProtectedRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <ProtectedRoute>
+                <FeatureGateRoute branch="lavagem">
+                  <LavagemDeDinheiroPage />
+                </FeatureGateRoute>
+              </ProtectedRoute>
+            </Suspense>
           ),
         },
+
         {
           path: 'suborno-ilustrado',
           element: (
-            <ProtectedRoute>
-              <FeatureGateRoute branch="bribery">
-                <SubornoIlustradoPage />
-              </FeatureGateRoute>
-            </ProtectedRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <ProtectedRoute>
+                <FeatureGateRoute branch="bribery">
+                  <SubornoIlustradoPage />
+                </FeatureGateRoute>
+              </ProtectedRoute>
+            </Suspense>
           ),
         },
-        { path: 'delacao-premiada', element: <ProtectedRoute><DelacaoPremiadaPage /></ProtectedRoute> },
+
+        { path: 'delacao-premiada', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><DelacaoPremiadaPage /></ProtectedRoute></Suspense> },
+
         {
           path: 'arsenal',
           element: (
-            <ProtectedRoute>
-              <FeatureGateRoute branch="arsenal">
-                <ArsenalPage />
-              </FeatureGateRoute>
-            </ProtectedRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <ProtectedRoute>
+                <FeatureGateRoute branch="arsenal">
+                  <ArsenalPage />
+                </FeatureGateRoute>
+              </ProtectedRoute>
+            </Suspense>
           ),
         },
-        { path: 'armas',     element: <ProtectedRoute><ArmasPage /></ProtectedRoute> },
-        { path: 'luxo-item', element: <ProtectedRoute><LuxoItemPage /></ProtectedRoute> },
-        { path: 'barraco',   element: <ProtectedRoute><BarracoPage /></ProtectedRoute> },
+
+        { path: 'armas',     element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ArmasPage /></ProtectedRoute></Suspense> },
+        { path: 'luxo-item', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><LuxoItemPage /></ProtectedRoute></Suspense> },
+        { path: 'barraco',   element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><BarracoPage /></ProtectedRoute></Suspense> },
+
         {
           path: 'fuga-ilustrada',
           element: (
-            <ProtectedRoute>
-              <FeatureGateRoute branch="fuga">
-                <FugaIlustradaPage />
-              </FeatureGateRoute>
-            </ProtectedRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <ProtectedRoute>
+                <FeatureGateRoute branch="fuga">
+                  <FugaIlustradaPage />
+                </FeatureGateRoute>
+              </ProtectedRoute>
+            </Suspense>
           ),
         },
+
         {
           path: 'talentos',
           element: (
-            <ProtectedRoute>
-              <FeatureGateRoute branch="talents">
-                <TalentsPage />
-              </FeatureGateRoute>
-            </ProtectedRoute>
+            <Suspense fallback={<LoadingFallback />}>
+              <ProtectedRoute>
+                <FeatureGateRoute branch="talents">
+                  <TalentsPage />
+                </FeatureGateRoute>
+              </ProtectedRoute>
+            </Suspense>
           ),
         },
-        { path: 'faccao',  element: <ProtectedRoute><FactionPage /></ProtectedRoute> },
-        { path: 'ranking', element: <ProtectedRoute><RankingPage /></ProtectedRoute> },
-        { path: 'gang',    element: <ProtectedRoute><GangPage /></ProtectedRoute> },
+
+        { path: 'faccao',  element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><FactionPage /></ProtectedRoute></Suspense> },
+        { path: 'ranking', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><RankingPage /></ProtectedRoute></Suspense> },
+        { path: 'gang',    element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GangPage /></ProtectedRoute></Suspense> },
         { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
         { path: 'lavagemdedinheiro', element: <Navigate to="/lavagem-de-dinheiro" replace /> },
         { path: 'subornoilustrado', element: <Navigate to="/suborno-ilustrado" replace /> },
         { path: 'delacaopremiada', element: <Navigate to="/delacao-premiada" replace /> },
         { path: 'fuga', element: <Navigate to="/fuga-ilustrada" replace /> },
+
         { path: '*', element: <Navigate to="/" replace /> },
       ],
     },

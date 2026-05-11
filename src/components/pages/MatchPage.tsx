@@ -7,7 +7,8 @@ import { useParams } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 export default function MatchPage() {
   const { matchId } = useParams<{ matchId: string }>();

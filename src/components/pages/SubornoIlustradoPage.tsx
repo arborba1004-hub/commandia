@@ -1,4 +1,5 @@
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Footer from '@/components/Footer';
+import Header from '@/components/Header';
 import SafeVaultModal from '@/components/SafeVaultModal';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';

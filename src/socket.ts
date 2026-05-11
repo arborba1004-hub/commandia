@@ -102,7 +102,7 @@ class RealSocket implements Socket {
           const message = JSON.parse(event.data);
           const { event: eventName, data } = message;
 
-          if (eventName === 'mapSnapshot' || eventName === 'playerMoved' || eventName === 'playerJoined' || eventName === 'playerInit' || eventName === 'playerUpdate') {
+          if (eventName === 'mapSnapshot' || eventName === 'playerMoved' || eventName === 'playerJoined') {
             console.log(`📨 Socket recebeu evento: ${eventName}`, data);
           }
 
@@ -185,14 +185,10 @@ class RealSocket implements Socket {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    const listeners = this.listeners.get(event);
-    if (listeners && !listeners.has(callback)) {
-      listeners.add(callback);
-      if (event === 'mapSnapshot' || event === 'playerMoved' || event === 'playerJoined' || event === 'connect') {
-        console.log(`📌 Listener registrado para evento: ${event} (total: ${listeners.size})`);
-      }
-    } else if (listeners?.has(callback)) {
-      console.warn(`⚠️ Listener duplicado detectado para evento: ${event}`);
+    this.listeners.get(event)?.add(callback);
+
+    if (event === 'mapSnapshot' || event === 'playerMoved' || event === 'playerJoined' || event === 'connect') {
+      console.log(`📌 Listener registrado para evento: ${event}`);
     }
   }
 

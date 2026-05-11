@@ -26,12 +26,7 @@ export function Model3D({ modelUrl }: Model3DProps) {
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    renderer.setPixelRatio(
-      isMobile
-        ? 1
-        : Math.min(window.devicePixelRatio, 1.5)
-    );
+    renderer.setPixelRatio(window.devicePixelRatio);
     containerRef.current.appendChild(renderer.domElement);
 
     // Lighting
@@ -72,22 +67,19 @@ export function Model3D({ modelUrl }: Model3DProps) {
       }
     );
 
-    // Pure animation loop - no side effects, only rendering
-    const scheduleNextFrame = (callback: FrameRequestCallback) => {
-      requestAnimationFrame(callback);
-    };
+    // Animation loop
+    const animate = () => {
+      requestAnimationFrame(animate);
 
-    const animate: FrameRequestCallback = () => {
       if (model) {
         model.rotation.x += 0.005;
         model.rotation.y += 0.01;
       }
 
       renderer.render(scene, camera);
-      scheduleNextFrame(animate);
     };
 
-    scheduleNextFrame(animate);
+    animate();
 
     // Handle resize
     const handleResize = () => {

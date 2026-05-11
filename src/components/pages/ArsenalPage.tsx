@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { usePlayerStore } from '@/store/playerStore';
 import { BaseCrudService } from '@/integrations';
 import { Button } from '@/components/ui/button';

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useFactionStore } from '@/store/factionStore';
 import { useFactionInviteStore } from '@/store/factionInviteStore';
 import { usePlayerStore } from '@/store/playerStore';

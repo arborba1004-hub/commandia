@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { getBarracoName, getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
 
 export default function BarracoPage() {

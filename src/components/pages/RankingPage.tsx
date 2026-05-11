@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { BaseCrudService } from '@/integrations';
 import { PlayerProfiles } from '@/entities';
 import { usePlayerStore } from '@/store/playerStore';

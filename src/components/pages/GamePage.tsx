@@ -24,7 +24,9 @@ import OtherPlayerBarracoModal, {
 } from '@/components/game/OtherPlayerBarracoModal';
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
 import GangAttackModal from '@/components/gang/GangAttackModal';
+import CTMapTrainingModal from '@/components/game/CTMapTrainingModal';
 import { useMapAttack } from '@/hooks/useMapAttack';
+import { useGangStore }  from '@/store/gangStore';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -123,6 +125,17 @@ export default function GamePage() {
   // ── Hook do ataque PVP no mapa (estimate → start → marcha 3D → resolve) ────
   const attack = useMapAttack();
 
+  // ── CT Training Modal ────────────────────────────────────────────────────
+  const loadGang = useGangStore((s) => s.loadGang);
+  const [ctModal, setCtModal] = useState<{ open: boolean; key: string; name: string }>({
+    open: false, key: '', name: '',
+  });
+  // Ref para o callback de CT (evita recriar a cena Three.js ao mudar estado)
+  const onCTClickRef = useRef<(key: string, name: string) => void>(() => {});
+  onCTClickRef.current = (key: string, name: string) => {
+    setCtModal({ open: true, key, name });
+  };
+
   // ── Handler: atacar
   const handleAttack = useCallback(
     (_target: OtherPlayerBarracoTarget) => {
@@ -165,7 +178,12 @@ export default function GamePage() {
     [attack]
   );
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ── Pré-carrega gang ao montar para CT modal abrir instantaneamente ──────
+  useEffect(() => {
+    void loadGang();
+  }, [loadGang]);
+
+  // ─────────────────────────────────────────────────────────────────────────
   // EFEITO THREE.JS
   // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
@@ -247,6 +265,7 @@ export default function GamePage() {
       container: mountEl,
       onNavigate: (path: string) => navigate(path),
       onMessage:  () => {},
+      onCTClick:  (key, name) => onCTClickRef.current(key, name),
     });
 
     // Cache de posições dos outros jogadores
@@ -466,6 +485,10 @@ export default function GamePage() {
     let pendingTeleportTile: { tileX: number; tileY: number } | null = null;
 
     function handleClick(event: MouseEvent) {
+      // ── 0. Prédios fixos (CTs, delegacia, etc.) ──────────────────────────
+      // Deve ser checado ANTES do barraco próprio e teleporte
+      if (fixedBuildingsLayer.tryHandleBuildingClick(event.clientX, event.clientY)) return;
+
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
       mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
@@ -766,6 +789,14 @@ export default function GamePage() {
         onClose={attack.cancelAttack}
         onConfirm={handleConfirmAttack}
         isSubmitting={attack.isSubmitting || attack.isResolving}
+      />
+
+      {/* ── CT Training Modal — treinamento inline sem sair do mapa ─────── */}
+      <CTMapTrainingModal
+        isOpen={ctModal.open}
+        ctKey={ctModal.key}
+        ctName={ctModal.name}
+        onClose={() => setCtModal((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

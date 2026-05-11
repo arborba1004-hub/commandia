@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
@@ -54,7 +55,7 @@ export default function LuxuryshowroomPage() {
 
     video.addEventListener('timeupdate', handleTime);
     return () => video.removeEventListener('timeupdate', handleTime);
-  }, []); // Only set up listener once on mount
+  }, [showDialog, showButton]);
 
   return (
     <div className="w-full min-h-screen bg-black overflow-hidden flex flex-col">

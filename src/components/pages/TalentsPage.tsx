@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-// ... keep existing code (Header and Footer rendered by Router layout) ...
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TalentsMenu from '@/components/TalentsMenu';
 import TalentSystemGuide from '@/components/TalentSystemGuide';
@@ -16,9 +17,13 @@ export default function TalentsPage() {
 
   if (!isLoaded || !player?._id) {
     return (
-      <div className="bg-black text-white flex items-center justify-center py-20">
-        Carregando talentos...
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen bg-black text-white flex items-center justify-center pt-[140px] md:pt-[160px]">
+          Carregando talentos...
+        </div>
+        <Footer />
+      </>
     );
   }
 
@@ -26,8 +31,10 @@ export default function TalentsPage() {
   const currentRank = player?.currentRank || 'Atividade';
 
   return (
-    <div className="w-full">
-      <main className="flex-1 px-4 pb-20">
+    <div className="min-h-screen bg-black text-white flex flex-col">
+      <Header />
+
+      <main className="flex-1 px-4 pt-[140px] md:pt-[160px] pb-20">
         <div className="max-w-6xl mx-auto">
           <section className="mb-8 rounded-3xl border border-primary/20 bg-gradient-to-r from-primary/10 to-pink-600/10 p-6 md:p-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -98,6 +105,8 @@ export default function TalentsPage() {
           </section>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -51,11 +51,11 @@ export type RealtimeMapPlayersLayerOptions = {
 
 export type RealtimeMapPlayersLayer = {
   group: THREE.Group;
-  refreshNow: () => Promise<void>;
+  refresh: () => Promise<void>;
   start: () => void;
   stop: () => void;
   cleanup: () => void;
-  getPlayers: () => MapPlayerSnapshot[];
+  players: () => MapPlayerSnapshot[];
   tileToWorld: (tileX: number, tileY: number) => { worldX: number; worldZ: number };
   upsertPlayer: (snapshot: MapPlayerSnapshot) => Promise<void>;
 };
@@ -383,7 +383,7 @@ export function mountRealtimeMapPlayersLayer({
     }
   }
 
-  async function refreshNow() {
+  async function refresh() {
     if (disposed || refreshInFlight) return;
     refreshInFlight = true;
     try {
@@ -399,8 +399,8 @@ export function mountRealtimeMapPlayersLayer({
 
   function start() {
     if (pollingHandle || disposed) return;
-    void refreshNow();
-    pollingHandle = setInterval(() => { void refreshNow(); }, pollingMs);
+    void refresh();
+    pollingHandle = setInterval(() => { void refresh(); }, pollingMs);
   }
 
   function stop() {
@@ -489,5 +489,5 @@ export function mountRealtimeMapPlayersLayer({
     console.log('✅ upsertPlayer concluído para:', playerId, '| Total:', entries.size);
   }
 
-  return { group, refreshNow, start, stop, cleanup, getPlayers, tileToWorld, upsertPlayer };
+  return { group, refresh, start, stop, cleanup, players: getPlayers, tileToWorld, upsertPlayer };
 }
