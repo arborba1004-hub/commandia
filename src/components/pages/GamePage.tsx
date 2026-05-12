@@ -25,6 +25,7 @@ import OtherPlayerBarracoModal, {
 } from '@/components/game/OtherPlayerBarracoModal';
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
 import GangTrainingModal from '@/components/gang/GangTrainingModal';
+import MapAttackWithGangModal from '@/components/game/MapAttackWithGangModal';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -124,8 +125,19 @@ export default function GamePage() {
 
   // ── Handler: atacar
   const handleAttack = useCallback(
-    (_target: OtherPlayerBarracoTarget) => {
+    (target: OtherPlayerBarracoTarget) => {
       setModalState(closeOtherPlayerBarracoModal());
+      setAttackTarget({
+        playerId: target.id,
+        playerName: target.name,
+        tileX: 0,
+        tileY: 0,
+        barracoLevel: target.barracoLevel,
+        power: 0,
+        dirtyMoney: 0,
+        factionId: target.factionId,
+      });
+      setAttackModalOpen(true);
     },
     []
   );
@@ -757,6 +769,21 @@ export default function GamePage() {
           }}
         />
       )}
+
+      {/* ── Modal de Ataque com Gangue ─────────────────────────────── */}
+      <MapAttackWithGangModal
+        isOpen={attackModalOpen}
+        onClose={() => {
+          setAttackModalOpen(false);
+          setAttackTarget(null);
+        }}
+        target={attackTarget}
+        onAttackConfirmed={(result) => {
+          console.log('✅ Ataque confirmado:', result);
+          setAttackModalOpen(false);
+          setAttackTarget(null);
+        }}
+      />
     </div>
   );
 }
