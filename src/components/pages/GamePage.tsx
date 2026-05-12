@@ -123,11 +123,73 @@ export default function GamePage() {
   );
 
   // ── Handler: atacar
+  const [isAttacking, setIsAttacking] = useState(false);
   const handleAttack = useCallback(
-    (_target: OtherPlayerBarracoTarget) => {
-      setModalState(closeOtherPlayerBarracoModal());
+    async (target: OtherPlayerBarracoTarget) => {
+      if (!target?.id || isAttacking) return;
+      
+      setIsAttacking(true);
+      try {
+        // Importa dinamicamente para evitar circular dependency
+        const { estimateBattle, startBattle, resolveBattle } = await import('@/api/attackApi');
+        
+        // 1. Estima o ataque
+        const estimation = await estimateBattle({
+          targetId: target.id,
+        });
+        
+        console.log('✅ Estimativa de ataque:', estimation);
+        
+        // 2. Inicia o ataque
+        const startResponse = await startBattle({
+          targetId: target.id,
+          targetName: target.name,
+          targetTileX: 0, // Será preenchido pelo backend
+          targetTileY: 0,
+          originTileX: Number(player?.mapPosition?.tileX ?? 0),
+          originTileY: Number(player?.mapPosition?.tileY ?? 0),
+        });
+        
+        console.log('✅ Ataque iniciado:', startResponse);
+        
+        // 3. Aguarda o tempo de viagem
+        const arriveAt = new Date(startResponse.arriveAtIso).getTime();
+        const now = Date.now();
+        const waitTime = Math.max(0, arriveAt - now);
+        
+        console.log(`⏳ Aguardando ${waitTime}ms para resolução...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime + 500));
+        
+        // 4. Resolve o ataque
+        const report = await resolveBattle(startResponse.battleId);
+        
+        console.log('✅ Batalha resolvida:', report);
+        
+        // 5. Atualiza o store do jogador com os espólios
+        if (report.resolution.success && report.resolution.spoils) {
+          usePlayerStore.getState().applyPlayerUpdate((p) => ({
+            ...p,
+            balances: {
+              ...p.balances,
+              dirtyMoney: (p.balances?.dirtyMoney ?? 0) + report.resolution.spoils.dirtyMoneyLoot,
+              corre: (p.balances?.corre ?? 0) + report.resolution.spoils.correLoot,
+            },
+          }));
+        }
+        
+        // 6. Fecha o modal
+        setModalState(closeOtherPlayerBarracoModal());
+        
+        // 7. Mostra notificação de sucesso
+        console.log('🎉 Ataque concluído!', report.resolution.message);
+        
+      } catch (error) {
+        console.error('❌ Erro ao atacar:', error);
+      } finally {
+        setIsAttacking(false);
+      }
     },
-    []
+    [player?.mapPosition?.tileX, player?.mapPosition?.tileY, isAttacking]
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -709,6 +771,7 @@ export default function GamePage() {
         myFactionId={myFactionId}
         isInviting={isInviting}
         isSendingMessage={isSendingMessage}
+        isAttacking={isAttacking}
         onClose={() => setModalState(closeOtherPlayerBarracoModal())}
         onSendPrivateMessage={handleSendPrivateMessage}
         onInviteToFaction={handleInviteToFaction}
