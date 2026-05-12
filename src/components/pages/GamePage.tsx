@@ -434,6 +434,15 @@ export default function GamePage() {
     let pendingTeleportTile: { tileX: number; tileY: number } | null = null;
 
     function handleClick(event: MouseEvent) {
+      if (
+        fixedBuildingsLayer.tryHandleBuildingClick(
+          event.clientX,
+          event.clientY
+        )
+      ) {
+        return;
+      }
+
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
       mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
