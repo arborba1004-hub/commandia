@@ -264,16 +264,6 @@ export async function getBattleReport(battleId: string): Promise<BattleReportRes
 }
 
 /**
- * Alias para resolveBattle — mantém compatibilidade com código existente.
- */
-export async function resolveBattleById(
-  battleId: string,
-  options?: { maxAttempts?: number; intervalMs?: number }
-): Promise<BattleReportResponse> {
-  return resolveBattle(battleId, options);
-}
-
-/**
  * Histórico de batalhas do jogador autenticado.
  */
 export async function getBattleHistory(): Promise<BattleReportResponse[]> {
