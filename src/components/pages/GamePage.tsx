@@ -83,6 +83,15 @@ export default function GamePage() {
   const [selectedCT, setSelectedCT] = useState<string | null>(null);
   const [isSubmittingTraining, setIsSubmittingTraining] = useState(false);
 
+  // ── Automatic training completion check
+  useEffect(() => {
+    const interval = setInterval(() => {
+      useGangStore.getState().completeFinishedTrainings();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Mapeia CT keys para QG slot keys
   const mapCTToSlot = (ctKey: string): string => {
     const mapping: Record<string, string> = {
