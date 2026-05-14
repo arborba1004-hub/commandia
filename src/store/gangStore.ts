@@ -24,6 +24,7 @@ import {
   setGangFormation,
   applyGangBattleLosses,
 } from '@/api/gangApi';
+import { persistTrainingState } from '@/api/training';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS DO STORE
@@ -53,6 +54,7 @@ type GangStore = {
   recruitMember: (type: GangMemberType) => Promise<boolean>;
   queueTraining: (troopType: GangMemberType) => void;
   completeFinishedTrainings: () => Promise<boolean>;
+  updateFinishedTrainings: () => void;
   upgradeCT: () => Promise<boolean>;
   payMaintenance: () => Promise<boolean>;
   setFormation: (formation: GangFormationType) => Promise<boolean>;
@@ -182,8 +184,17 @@ export const useGangStore = create<GangStore>((set, get) => ({
       cost,
     };
 
+    const updatedSlots = [...state.trainingSlots, slot];
     set({
-      trainingSlots: [...state.trainingSlots, slot],
+      trainingSlots: updatedSlots,
+    });
+
+    // Persist training state to backend
+    persistTrainingState({
+      trainingState: updatedSlots,
+      gangMembers: state.gang?.members ?? [],
+    }).catch((err) => {
+      console.error('Erro ao persistir estado de treinamento:', err);
     });
   },
 
@@ -198,6 +209,34 @@ export const useGangStore = create<GangStore>((set, get) => ({
       set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao coletar treinos' });
       return false;
     }
+  },
+
+  // Local function to update training slots when they complete
+  updateFinishedTrainings: () => {
+    const now = Date.now();
+    const state = get();
+
+    const updated = state.trainingSlots.map((slot) => {
+      if (slot.status === 'training' && now >= slot.endsAt) {
+        return {
+          ...slot,
+          status: 'completed' as const,
+        };
+      }
+      return slot;
+    });
+
+    set({
+      trainingSlots: updated,
+    });
+
+    // Persist updated training state to backend
+    persistTrainingState({
+      trainingState: updated,
+      gangMembers: state.gang?.members ?? [],
+    }).catch((err) => {
+      console.error('Erro ao persistir estado de treinamento atualizado:', err);
+    });
   },
 
   upgradeCT: async () => {
