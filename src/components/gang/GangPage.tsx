@@ -101,6 +101,8 @@ export default function GangPage() {
   const [queueing, setQueueing] = useState<GangMemberType | null>(null);
   const [trainingModalOpen, setTrainingModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<QGSlotKey | null>(null);
+  const trainingSlots = useGangStore((state) => state.trainingSlots);
+  const collectTraining = useGangStore((state) => state.collectTraining);
 
   useEffect(() => {
     void loadGang();
@@ -383,14 +385,17 @@ export default function GangPage() {
           isOpen={trainingModalOpen}
           slotKey={selectedSlot}
           player={player}
-          trainingState={gang}
+          trainingState={{ ...gang, trainingSlots }}
           onClose={handleCloseTrainingModal}
           onStartTraining={async (slot, memberType) => {
             await queueTraining(memberType);
             handleCloseTrainingModal();
           }}
           onCollectTraining={async (slot) => {
-            await completeFinishedTrainings();
+            const slotToCollect = trainingSlots.find(s => s.status === 'completed');
+            if (slotToCollect) {
+              collectTraining(slotToCollect.id);
+            }
             handleCloseTrainingModal();
           }}
           isSubmitting={isSubmitting}

@@ -24,7 +24,7 @@ import {
   setGangFormation,
   applyGangBattleLosses,
 } from '@/api/gangApi';
-import { persistTrainingState } from '@/api/training';
+import { persistTrainingState, getGangStatus } from '@/api/training';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS DO STORE
@@ -137,6 +137,17 @@ export const useGangStore = create<GangStore>((set, get) => ({
       if (data.gang?.formation) {
         syncFormacaoToEstatisticas(data.gang.formation);
       }
+      
+      // Carrega estado persistido de treinamento
+      try {
+        const gangStatus = await getGangStatus();
+        if (gangStatus?.trainingSlots) {
+          set({ trainingSlots: gangStatus.trainingSlots });
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar estado de treinamento persistido:', err);
+      }
+      
       return true;
     } catch (err) {
       set({
@@ -197,6 +208,13 @@ export const useGangStore = create<GangStore>((set, get) => ({
     }).catch((err) => {
       console.error('Erro ao persistir estado de treinamento:', err);
     });
+
+    // Atualiza UI para mostrar treino em andamento
+    set((prevState) => ({
+      trainingSlots: prevState.trainingSlots.map((s) =>
+        s.id === slot.id ? { ...s, status: 'training' as const } : s
+      ),
+    }));
   },
 
   completeFinishedTrainings: async () => {

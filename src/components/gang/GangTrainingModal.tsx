@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import type { GangMemberType } from '@/components/gang/GangMembros';
@@ -65,9 +65,31 @@ export default function GangTrainingModal({
   onCollectTraining,
   isSubmitting = false,
 }: Props) {
+  const [trainingSlots, setTrainingSlots] = useState(trainingState.trainingSlots || []);
+
+  useEffect(() => {
+    setTrainingSlots(trainingState.trainingSlots || []);
+  }, [trainingState.trainingSlots]);
+
+  // Atualiza slots completados a cada segundo
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTrainingSlots((prev) =>
+        prev.map((slot) => {
+          if (slot.status === 'training' && Date.now() >= slot.endsAt) {
+            return { ...slot, status: 'completed' as const };
+          }
+          return slot;
+        })
+      );
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const operation = useMemo(() => {
     if (!slotKey) return null;
-    return trainingState.slots[slotKey] ?? null;
+    return trainingState.slots?.[slotKey] ?? null;
   }, [slotKey, trainingState]);
 
   const quantityPerOperation = getGangTrainingQuantityPerOperation(player);
@@ -111,6 +133,47 @@ export default function GangTrainingModal({
             </div>
           </div>
         </div>
+
+        {/* Exibir slots de treinamento */}
+        {trainingSlots.length > 0 && (
+          <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
+            <div className="mb-4 text-sm uppercase tracking-[0.2em] text-zinc-500">
+              Slots em treinamento
+            </div>
+            <div className="space-y-3">
+              {trainingSlots.map((slot) => (
+                <div key={slot.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-black">{getMemberName(slot.troopType)}</div>
+                      <div className="mt-1 text-sm text-zinc-400">
+                        {slot.quantity} membros
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className={`rounded-lg px-3 py-1 text-xs font-bold ${
+                        slot.status === 'completed'
+                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                          : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
+                      }`}>
+                        {slot.status === 'completed' ? 'PRONTO' : `FALTA ${formatRemaining(slot)}`}
+                      </div>
+                      {slot.status === 'completed' && (
+                        <Button
+                          onClick={() => onCollectTraining(slotKey)}
+                          disabled={isSubmitting}
+                          className="bg-amber-500 px-3 py-1 text-xs font-black text-black hover:bg-amber-400 disabled:opacity-50"
+                        >
+                          Coletar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {operation ? (
           <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
