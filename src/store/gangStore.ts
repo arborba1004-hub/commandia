@@ -3,16 +3,20 @@
  * Store Zustand unificado da gangue.
  * Refatorado para usar os tipos canônicos de @/types/gang.
  * Integrado com gangEstatisticasStore para atualizar estatísticas ao mudar formação.
+ * 
+ * REFACTORING ETAPA 4: O store mantém APENAS gang.members[]
+ * Sem troopSummary, sem contadores separados.
  */
 
 import { create } from 'zustand';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGangEstatisticasStore, getFormacaoBonusPayload } from '@/store/gangEstatisticasStore';
 import type {
-  GangStateSnapshot,
+  Gang,
   GangFormationType,
   GangMemberType,
   GangBattleStats,
+  GangMember,
 } from '@/types/gang';
 import {
   fetchMyGang,
@@ -41,7 +45,7 @@ type TrainingSlot = {
 };
 
 type GangStore = {
-  gang: GangStateSnapshot | null;
+  gang: Gang | null;
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
@@ -85,6 +89,35 @@ const EMPTY_BY_TYPE: Record<GangMemberType, number> = {
   capanga: 0, frente: 0, executor: 0, assassino: 0,
   muralha: 0, certeiro: 0, motorista: 0, nitro: 0,
 };
+
+/**
+ * Calcula contadores de membros por tipo e status a partir do array members.
+ * Retorna { byType, activeByType, totalMembers, activeMembers, injuredMembers, deadMembers }
+ */
+function calculateTroopSummary(members: GangMember[]) {
+  const byType: Record<GangMemberType, number> = { ...EMPTY_BY_TYPE };
+  const activeByType: Record<GangMemberType, number> = { ...EMPTY_BY_TYPE };
+  let totalMembers = 0;
+  let activeMembers = 0;
+  let injuredMembers = 0;
+  let deadMembers = 0;
+
+  for (const member of members) {
+    byType[member.type] = (byType[member.type] ?? 0) + 1;
+    totalMembers++;
+
+    if (member.status === 'ativo') {
+      activeByType[member.type] = (activeByType[member.type] ?? 0) + 1;
+      activeMembers++;
+    } else if (member.status === 'ferido') {
+      injuredMembers++;
+    } else if (member.status === 'morto') {
+      deadMembers++;
+    }
+  }
+
+  return { byType, activeByType, totalMembers, activeMembers, injuredMembers, deadMembers };
+}
 
 /** Sincroniza os saldos do player retornados pela API da gangue. */
 function syncBalances(playerBalances?: {
@@ -241,7 +274,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
       await persistTrainingState({
         trainingState: updatedSlots,
         gangMembers: state.gang?.members ?? [],
-      });
+      }) as any;
 
       // Atualiza UI para mostrar treino em andamento
       set((prevState) => ({
@@ -291,7 +324,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
       await persistTrainingState({
         trainingState: updated,
         gangMembers: state.gang?.members ?? [],
-      });
+      }) as any;
 
       // Step 4: Sync with backend to get updated gang data
       const data = await completeGangTrainings();
@@ -343,7 +376,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
       await persistTrainingState({
         trainingState: remainingSlots,
         gangMembers: updatedMembers,
-      });
+      }) as any;
 
       set({
         gang: updatedGang,
@@ -408,7 +441,8 @@ export const useGangStore = create<GangStore>((set, get) => ({
     const { gang } = get();
     if (!gang) return EMPTY_BATTLE_STATS;
 
-    const active = gang.troopSummary.activeByType;
+    const summary = calculateTroopSummary(gang.members);
+    const active = summary.activeByType;
 
     // Pesos de poder por tipo (igual ao backend gangWarService.js)
     const totalPower =
@@ -422,10 +456,10 @@ export const useGangStore = create<GangStore>((set, get) => ({
       active.nitro     * 16;
 
     return {
-      totalMembers: gang.troopSummary.totalMembers,
-      ativos:       gang.troopSummary.activeMembers,
-      feridos:      gang.troopSummary.injuredMembers,
-      mortos:       gang.troopSummary.deadMembers,
+      totalMembers: summary.totalMembers,
+      ativos:       summary.activeMembers,
+      feridos:      summary.injuredMembers,
+      mortos:       summary.deadMembers,
       // Os valores abaixo são somados dos atributos dos membros ativos.
       // Para atributos detalhados por tipo+nível use gangAtributos.ts + gangEstatisticasStore.
       rajada:    active.capanga * 9  + active.frente  * 12 + active.executor  * 11 + active.assassino * 12,
@@ -440,11 +474,17 @@ export const useGangStore = create<GangStore>((set, get) => ({
   },
 
   getAvailableByType: () => {
-    return get().gang?.troopSummary.activeByType ?? { ...EMPTY_BY_TYPE };
+    const { gang } = get();
+    if (!gang) return { ...EMPTY_BY_TYPE };
+    const summary = calculateTroopSummary(gang.members);
+    return summary.activeByType;
   },
 
   getActiveMemberCount: (type) => {
-    return get().gang?.troopSummary.activeByType?.[type] ?? 0;
+    const { gang } = get();
+    if (!gang) return 0;
+    const summary = calculateTroopSummary(gang.members);
+    return summary.activeByType[type] ?? 0;
   },
 
   getTrainingConfig: () => {

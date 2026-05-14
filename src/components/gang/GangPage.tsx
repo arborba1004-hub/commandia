@@ -96,6 +96,7 @@ export default function GangPage() {
   const completeFinishedTrainings = useGangStore((state) => state.completeFinishedTrainings);
   const upgradeCT = useGangStore((state) => state.upgradeCT);
   const setFormation = useGangStore((state) => state.setFormation);
+  const getAvailableByType = useGangStore((state) => state.getAvailableByType);
 
   const [recruiting, setRecruiting] = useState<GangMemberType | null>(null);
   const [queueing, setQueueing] = useState<GangMemberType | null>(null);
@@ -118,7 +119,7 @@ export default function GangPage() {
   const slotsFree = Math.max(0, slotsTotal - slotsUsed);
   const qtyPerOrder = gang?.trainingConfig?.quantityPerOrder || 10;
   const duration = gang?.trainingConfig?.durationSeconds || 10;
-  const activeByType = gang?.troopSummary?.activeByType;
+  const activeByType = getAvailableByType();
 
   async function handleRecruit(type: GangMemberType) {
     setRecruiting(type);
@@ -132,7 +133,7 @@ export default function GangPage() {
   async function handleQueue(type: GangMemberType) {
     setQueueing(type);
     try {
-      await queueTraining(type, qtyPerOrder);
+      await queueTraining(type);
     } finally {
       setQueueing(null);
     }
@@ -177,7 +178,7 @@ export default function GangPage() {
               </div>
               <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
                 <div className="text-xs uppercase text-red-300">Capacidade</div>
-                <div className="mt-1 text-2xl font-black">{gang?.troopSummary?.totalMembers || 0}/{gang?.maxMembers || 0}</div>
+                <div className="mt-1 text-2xl font-black">{gang?.members?.length || 0}/{gang?.maxMembers || 0}</div>
               </div>
             </div>
           </div>
