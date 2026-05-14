@@ -29,18 +29,29 @@ import {
 // TIPOS DO STORE
 // ═════════════════════════════════════════════════════════════════════════════
 
+type TrainingSlot = {
+  id: string;
+  troopType: GangMemberType;
+  quantity: number;
+  startedAt: number;
+  endsAt: number;
+  status: 'training' | 'completed';
+  cost: number;
+};
+
 type GangStore = {
   gang: GangStateSnapshot | null;
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
+  trainingSlots: TrainingSlot[];
 
   // ── Carregamento ──────────────────────────────────────────────────────────
   loadGang: () => Promise<boolean>;
 
   // ── Mutações ──────────────────────────────────────────────────────────────
   recruitMember: (type: GangMemberType) => Promise<boolean>;
-  queueTraining: (type: GangMemberType, quantity?: number) => Promise<boolean>;
+  queueTraining: (troopType: GangMemberType) => void;
   completeFinishedTrainings: () => Promise<boolean>;
   upgradeCT: () => Promise<boolean>;
   payMaintenance: () => Promise<boolean>;
@@ -109,6 +120,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
   isLoading: false,
   isSubmitting: false,
   error: null,
+  trainingSlots: [],
 
   // ── Carregamento ──────────────────────────────────────────────────────────
 
@@ -147,18 +159,32 @@ export const useGangStore = create<GangStore>((set, get) => ({
     }
   },
 
-  queueTraining: async (type, quantity) => {
-    try {
-      set({ isSubmitting: true, error: null });
-      const qty = quantity ?? get().gang?.trainingConfig.quantityPerOrder ?? 10;
-      const data = await queueGangTraining(type, qty);
-      syncBalances(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false });
-      return true;
-    } catch (err) {
-      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao treinar' });
-      return false;
+  queueTraining: (troopType) => {
+    const state = get();
+
+    if (state.trainingSlots.length >= 4) {
+      return;
     }
+
+    const quantity = state.gang?.trainingConfig.quantityPerOrder ?? 10;
+    const durationSeconds = state.gang?.trainingConfig.durationSeconds ?? 10;
+    const duration = durationSeconds * 1000;
+
+    const cost = Math.floor(1000 * (state.gang?.level ?? 1) * 1.1);
+
+    const slot: TrainingSlot = {
+      id: crypto.randomUUID(),
+      troopType,
+      quantity,
+      startedAt: Date.now(),
+      endsAt: Date.now() + duration,
+      status: 'training',
+      cost,
+    };
+
+    set({
+      trainingSlots: [...state.trainingSlots, slot],
+    });
   },
 
   completeFinishedTrainings: async () => {
@@ -269,7 +295,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
   },
 
   clearGang: () => {
-    set({ gang: null, isLoading: false, isSubmitting: false, error: null });
+    set({ gang: null, isLoading: false, isSubmitting: false, error: null, trainingSlots: [] });
     useGangEstatisticasStore.getState().resetAll();
   },
 }));
