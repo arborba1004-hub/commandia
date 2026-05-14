@@ -60,3 +60,13 @@ export async function getGangStatus() {
     method: 'GET',
   });
 }
+
+// ===== CARREGAR ESTADO DE TREINAMENTO PERSISTIDO =====
+export async function loadTrainingState() {
+  return request<{
+    trainingState: any[];
+    gangMembers: any[];
+  }>('/api/training/load', {
+    method: 'GET',
+  });
+}

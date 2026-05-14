@@ -394,7 +394,7 @@ export default function GangPage() {
           onCollectTraining={async (slot) => {
             const slotToCollect = trainingSlots.find(s => s.status === 'completed');
             if (slotToCollect) {
-              collectTraining(slotToCollect.id);
+              await collectTraining(slotToCollect.id);
             }
             handleCloseTrainingModal();
           }}
