@@ -3,7 +3,7 @@
  * Tipos canônicos do sistema de gangue e ataque PVP.
  * Substitui: gangWar.ts, mapAttack.ts
  *
- * Regra de ouro: nenhum outro arquivo define GangMemberType, GangUnit, etc.
+ * Regra de ouro: nenhum outro arquivo define GangMemberType, GangMember, etc.
  * Todos importam daqui.
  */
 
@@ -33,15 +33,23 @@ export type GangMemberType =
 export type GangMemberStatus = 'ativo' | 'ferido' | 'morto' | 'treinando';
 
 /** Unidade individual de membro (análogo ao "crew member" do Mafia City). */
-export type GangUnit = {
+export type GangMember = {
   id: string;
   type: GangMemberType;
   level: number;            // 1–10
   status: GangMemberStatus;
-  recruitedAt: string;      // ISO
-  trainingEndsAt: string | null;
-  injuryEndsAt: string | null;
-  lastBattleAt?: string | null;
+  recruitedAt?: number;     // timestamp
+  trainingEndsAt?: number | null;
+  injuryEndsAt?: number | null;
+  lastBattleAt?: number | null;
+};
+
+/** Alias para compatibilidade com código legado. */
+export type GangUnit = GangMember;
+
+/** Tipo principal da gangue — contém APENAS membros. */
+export type Gang = {
+  members: GangMember[];
 };
 
 // ═════════════════════════════════════════════════════════════════════════════

@@ -1,15 +1,9 @@
+import { GangAttackSelection } from '@/types/gang';
+
 const BACKEND_URL = 'https://comando-backend.onrender.com';
 
-export type AttackSelection = {
-  capanga: number;
-  frente: number;
-  executor: number;
-  assassino: number;
-  muralha: number;
-  certeiro: number;
-  motorista: number;
-  nitro: number;
-};
+/** Alias para compatibilidade com código legado. */
+export type AttackSelection = GangAttackSelection;
 
 export type StartAttackPayload = {
   targetId: string;
