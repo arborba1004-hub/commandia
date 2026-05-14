@@ -1,14 +1,39 @@
+import { motion, AnimatePresence } from 'framer-motion';
 import { useMemo, useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Clock3,
+  Flame,
+  Shield,
+  Skull,
+  Zap,
+  Swords,
+  Car,
+  Target,
+  Crown,
+  TimerReset,
+  Sparkles,
+} from 'lucide-react';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+
 import { Button } from '@/components/ui/button';
+
 import type { GangMemberType } from '@/components/gang/GangMembros';
+
 import GANG_MEMBROS from '@/components/gang/GangMembros';
+
 import type {
   GangTrainingOperation,
   GangTrainingPlayerLike,
   GangTrainingState,
   QGSlotKey,
 } from '@/components/gang/TreinamentoGang';
+
 import {
   getGangTrainingCostDirty,
   getGangTrainingDurationMinutes,
@@ -22,8 +47,13 @@ type Props = {
   player: GangTrainingPlayerLike;
   trainingState: GangTrainingState;
   onClose: () => void;
-  onStartTraining: (slotKey: QGSlotKey, memberType: GangMemberType) => void;
-  onCollectTraining: (slotKey: QGSlotKey) => void;
+  onStartTraining: (
+    slotKey: QGSlotKey,
+    memberType: GangMemberType
+  ) => void;
+  onCollectTraining: (
+    slotKey: QGSlotKey
+  ) => void;
   isSubmitting?: boolean;
 };
 
@@ -38,21 +68,97 @@ const TRAINABLE_MEMBER_TYPES: GangMemberType[] = [
   'nitro',
 ];
 
-function getMemberName(type: GangMemberType) {
-  return GANG_MEMBROS[type]?.nome ?? type;
+const ICONS = {
+  capanga: Skull,
+  frente: Shield,
+  executor: Crown,
+  assassino: Swords,
+  muralha: Shield,
+  certeiro: Target,
+  motorista: Car,
+  nitro: Zap,
+};
+
+const COLORS = {
+  capanga:
+    'from-red-900/70 to-red-500/20',
+  frente:
+    'from-orange-900/70 to-orange-500/20',
+  executor:
+    'from-yellow-900/70 to-yellow-500/20',
+  assassino:
+    'from-purple-900/70 to-purple-500/20',
+  muralha:
+    'from-blue-900/70 to-blue-500/20',
+  certeiro:
+    'from-cyan-900/70 to-cyan-500/20',
+  motorista:
+    'from-green-900/70 to-green-500/20',
+  nitro:
+    'from-pink-900/70 to-pink-500/20',
+};
+
+function getMemberName(
+  type: GangMemberType
+) {
+  return (
+    GANG_MEMBROS[type]?.nome ??
+    type
+  );
 }
 
-function formatSlotLabel(slotKey: QGSlotKey) {
+function formatSlotLabel(
+  slotKey: QGSlotKey
+) {
   return slotKey.toUpperCase();
 }
 
-function formatRemaining(operation: GangTrainingOperation) {
-  const remainingMs = Math.max(0, operation.endsAt - Date.now());
-  const totalSeconds = Math.ceil(remainingMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
+function formatRemaining(
+  operation: GangTrainingOperation
+) {
+  const remainingMs = Math.max(
+    0,
+    operation.endsAt - Date.now()
+  );
 
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  const totalSeconds = Math.ceil(
+    remainingMs / 1000
+  );
+
+  const minutes = Math.floor(
+    totalSeconds / 60
+  );
+
+  const seconds =
+    totalSeconds % 60;
+
+  return `${String(minutes).padStart(
+    2,
+    '0'
+  )}:${String(seconds).padStart(
+    2,
+    '0'
+  )}`;
+}
+
+function calculateProgress(
+  operation: GangTrainingOperation
+) {
+  const total =
+    operation.endsAt -
+    operation.startedAt;
+
+  const elapsed =
+    Date.now() -
+    operation.startedAt;
+
+  return Math.min(
+    100,
+    Math.max(
+      0,
+      (elapsed / total) * 100
+    )
+  );
 }
 
 export default function GangTrainingModal({
@@ -65,191 +171,508 @@ export default function GangTrainingModal({
   onCollectTraining,
   isSubmitting = false,
 }: Props) {
-  const [trainingSlots, setTrainingSlots] = useState(trainingState.trainingSlots || []);
+  const [trainingSlots, setTrainingSlots] =
+    useState(
+      trainingState.trainingSlots ||
+        []
+    );
 
   useEffect(() => {
-    setTrainingSlots(trainingState.trainingSlots || []);
+    setTrainingSlots(
+      trainingState.trainingSlots ||
+        []
+    );
   }, [trainingState.trainingSlots]);
 
-  // Atualiza slots completados a cada segundo
   useEffect(() => {
     const interval = setInterval(() => {
-      setTrainingSlots((prev) =>
-        prev.map((slot) => {
-          if (slot.status === 'training' && Date.now() >= slot.endsAt) {
-            return { ...slot, status: 'completed' as const };
+      setTrainingSlots(prev =>
+        prev.map(slot => {
+          if (
+            slot.status ===
+              'training' &&
+            Date.now() >=
+              slot.endsAt
+          ) {
+            return {
+              ...slot,
+              status:
+                'completed' as const,
+            };
           }
+
           return slot;
         })
       );
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
   }, []);
 
   const operation = useMemo(() => {
     if (!slotKey) return null;
-    return trainingState.slots?.[slotKey] ?? null;
+
+    return (
+      trainingState.slots?.[
+        slotKey
+      ] ?? null
+    );
   }, [slotKey, trainingState]);
 
-  const quantityPerOperation = getGangTrainingQuantityPerOperation(player);
-  const durationMinutes = getGangTrainingDurationMinutes(player);
-  const dirtyCost = getGangTrainingCostDirty(player);
+  const quantityPerOperation =
+    getGangTrainingQuantityPerOperation(
+      player
+    );
+
+  const durationMinutes =
+    getGangTrainingDurationMinutes(
+      player
+    );
+
+  const dirtyCost =
+    getGangTrainingCostDirty(
+      player
+    );
 
   if (!slotKey) return null;
 
   const isReady = operation
-    ? getGangTrainingOperationStatus(operation) === 'ready'
+    ? getGangTrainingOperationStatus(
+        operation
+      ) === 'ready'
     : false;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
-      <DialogContent className="max-w-3xl border-white/10 bg-[#090909] text-white">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-black uppercase tracking-[0.08em]">
-            Treinamento {formatSlotLabel(slotKey)}
-          </DialogTitle>
-        </DialogHeader>
+    <AnimatePresence>
+      {isOpen && (
+        <Dialog
+          open={isOpen}
+          onOpenChange={open =>
+            !open
+              ? onClose()
+              : undefined
+          }
+        >
+          <DialogContent className="overflow-hidden border-white/10 bg-[#050505] p-0 text-white shadow-[0_0_80px_rgba(255,0,0,0.15)] sm:max-w-6xl">
+            <motion.div
+              initial={{
+                opacity: 0,
+                scale: 0.96,
+                y: 30,
+              }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+                y: 0,
+              }}
+              exit={{
+                opacity: 0,
+                scale: 0.96,
+                y: 30,
+              }}
+              transition={{
+                duration: 0.25,
+              }}
+              className="relative"
+            >
+              {/* BACKGROUND */}
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,0,0,0.18),transparent_55%)]" />
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-            <div className="text-xs uppercase text-amber-300">Quantidade</div>
-            <div className="mt-1 text-2xl font-black">
-              +{quantityPerOperation}
-            </div>
-          </div>
+                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.02),transparent)]" />
 
-          <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
-            <div className="text-xs uppercase text-cyan-300">Duração</div>
-            <div className="mt-1 text-2xl font-black">
-              {durationMinutes} min
-            </div>
-          </div>
+                <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-red-500/10 blur-3xl" />
 
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-            <div className="text-xs uppercase text-emerald-300">Custo</div>
-            <div className="mt-1 text-2xl font-black">
-              {dirtyCost.toLocaleString('pt-BR')} sujo
-            </div>
-          </div>
-        </div>
+                <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+              </div>
 
-        {/* Exibir slots de treinamento */}
-        {trainingSlots.length > 0 && (
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
-            <div className="mb-4 text-sm uppercase tracking-[0.2em] text-zinc-500">
-              Slots em treinamento
-            </div>
-            <div className="space-y-3">
-              {trainingSlots.map((slot) => (
-                <div key={slot.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-center justify-between gap-3">
+              {/* HEADER */}
+              <div className="relative border-b border-white/10 px-8 py-6">
+                <DialogHeader>
+                  <div className="flex items-center justify-between gap-6">
                     <div>
-                      <div className="font-black">{getMemberName(slot.troopType)}</div>
-                      <div className="mt-1 text-sm text-zinc-400">
-                        {slot.quantity} membros
+                      <DialogTitle className="flex items-center gap-3 text-4xl font-black uppercase tracking-[0.12em]">
+                        <Sparkles className="h-8 w-8 text-red-400" />
+
+                        Centro de Recrutamento
+                      </DialogTitle>
+
+                      <div className="mt-2 text-sm uppercase tracking-[0.25em] text-zinc-500">
+                        {formatSlotLabel(
+                          slotKey
+                        )}{' '}
+                        • Operações clandestinas
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <div className={`rounded-lg px-3 py-1 text-xs font-bold ${
-                        slot.status === 'completed'
-                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                          : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
-                      }`}>
-                        {slot.status === 'completed' ? 'PRONTO' : `FALTA ${formatRemaining(slot)}`}
+
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-3">
+                        <div className="text-xs uppercase text-red-300">
+                          Poder
+                        </div>
+
+                        <div className="mt-1 text-2xl font-black">
+                          +
+                          {quantityPerOperation *
+                            16}
+                        </div>
                       </div>
-                      {slot.status === 'completed' && (
-                        <Button
-                          onClick={() => onCollectTraining(slotKey)}
-                          disabled={isSubmitting}
-                          className="bg-amber-500 px-3 py-1 text-xs font-black text-black hover:bg-amber-400 disabled:opacity-50"
-                        >
-                          Coletar
-                        </Button>
+
+                      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-3">
+                        <div className="text-xs uppercase text-amber-300">
+                          Custo
+                        </div>
+
+                        <div className="mt-1 text-2xl font-black">
+                          {dirtyCost.toLocaleString(
+                            'pt-BR'
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </DialogHeader>
+              </div>
+
+              {/* BODY */}
+              <div className="relative p-8">
+                {/* ACTIVE TRAININGS */}
+                {trainingSlots.length >
+                  0 && (
+                  <div className="mb-8">
+                    <div className="mb-4 flex items-center gap-3">
+                      <TimerReset className="h-5 w-5 text-cyan-400" />
+
+                      <div className="text-sm font-black uppercase tracking-[0.22em] text-cyan-300">
+                        Operações em andamento
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4">
+                      {trainingSlots.map(
+                        slot => {
+                          const Icon =
+                            ICONS[
+                              slot.troopType
+                            ];
+
+                          const progress =
+                            calculateProgress(
+                              slot
+                            );
+
+                          return (
+                            <motion.div
+                              key={slot.id}
+                              initial={{
+                                opacity: 0,
+                                y: 20,
+                              }}
+                              animate={{
+                                opacity: 1,
+                                y: 0,
+                              }}
+                              className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${COLORS[slot.troopType]} p-5`}
+                            >
+                              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+
+                              <div className="relative flex items-center justify-between gap-6">
+                                <div className="flex items-center gap-5">
+                                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-black/30">
+                                    <Icon className="h-10 w-10 text-white" />
+                                  </div>
+
+                                  <div>
+                                    <div className="text-2xl font-black uppercase">
+                                      {getMemberName(
+                                        slot.troopType
+                                      )}
+                                    </div>
+
+                                    <div className="mt-1 text-sm text-zinc-300">
+                                      {
+                                        slot.quantity
+                                      }{' '}
+                                      soldados recrutados
+                                    </div>
+
+                                    <div className="mt-4 h-2 w-72 overflow-hidden rounded-full bg-black/40">
+                                      <motion.div
+                                        initial={{
+                                          width: 0,
+                                        }}
+                                        animate={{
+                                          width: `${progress}%`,
+                                        }}
+                                        className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-cyan-200"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col items-end gap-3">
+                                  <div className="rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-center">
+                                    <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                      Status
+                                    </div>
+
+                                    <div className="mt-1 text-xl font-black">
+                                      {slot.status ===
+                                      'completed'
+                                        ? 'PRONTO'
+                                        : formatRemaining(
+                                            slot
+                                          )}
+                                    </div>
+                                  </div>
+
+                                  {slot.status ===
+                                    'completed' && (
+                                    <Button
+                                      onClick={() =>
+                                        onCollectTraining(
+                                          slotKey
+                                        )
+                                      }
+                                      disabled={
+                                        isSubmitting
+                                      }
+                                      className="h-12 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-300 px-6 text-sm font-black uppercase tracking-[0.14em] text-black transition-all hover:scale-105 hover:from-amber-300 hover:to-yellow-200"
+                                    >
+                                      Coletar tropas
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        }
                       )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                )}
 
-        {operation ? (
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                  Em andamento
-                </div>
-                <div className="mt-1 text-2xl font-black">
-                  {getMemberName(operation.memberType)}
-                </div>
-                <div className="mt-2 text-sm text-zinc-400">
-                  {operation.quantity} membros • iniciado em{' '}
-                  {new Date(operation.startedAt).toLocaleString('pt-BR')}
-                </div>
-                <div className="mt-1 text-sm text-zinc-400">
-                  termina em {new Date(operation.endsAt).toLocaleString('pt-BR')}
-                </div>
-                <div className="mt-1 text-sm text-zinc-400">
-                  barraco no início: nível {operation.barracoLevelAtStart}
+                {/* CURRENT OPERATION */}
+                {operation ? (
+                  <motion.div
+                    initial={{
+                      opacity: 0,
+                      y: 20,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                    }}
+                    className="relative overflow-hidden rounded-3xl border border-red-500/20 bg-gradient-to-br from-red-950/50 to-black p-8"
+                  >
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,0,0,0.15),transparent_40%)]" />
+
+                    <div className="relative flex flex-col justify-between gap-8 lg:flex-row">
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <Flame className="h-6 w-6 text-red-400" />
+
+                          <div className="text-sm font-black uppercase tracking-[0.22em] text-red-300">
+                            Operação ativa
+                          </div>
+                        </div>
+
+                        <div className="mt-5 text-5xl font-black uppercase leading-none">
+                          {getMemberName(
+                            operation.memberType
+                          )}
+                        </div>
+
+                        <div className="mt-6 space-y-2 text-sm text-zinc-400">
+                          <div>
+                            •{' '}
+                            {
+                              operation.quantity
+                            }{' '}
+                            soldados
+                          </div>
+
+                          <div>
+                            • nível do
+                            barraco:{' '}
+                            {
+                              operation.barracoLevelAtStart
+                            }
+                          </div>
+
+                          <div>
+                            • início:{' '}
+                            {new Date(
+                              operation.startedAt
+                            ).toLocaleString(
+                              'pt-BR'
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end justify-between gap-6">
+                        <div className="rounded-3xl border border-white/10 bg-black/40 px-8 py-6 text-center">
+                          <div className="flex items-center justify-center gap-2 text-zinc-400">
+                            <Clock3 className="h-4 w-4" />
+
+                            Tempo restante
+                          </div>
+
+                          <div className="mt-3 text-5xl font-black tracking-wider">
+                            {isReady
+                              ? 'PRONTO'
+                              : formatRemaining(
+                                  operation
+                                )}
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={() =>
+                            onCollectTraining(
+                              slotKey
+                            )
+                          }
+                          disabled={
+                            isSubmitting ||
+                            !isReady
+                          }
+                          className="h-14 rounded-2xl bg-gradient-to-r from-red-500 to-amber-400 px-10 text-lg font-black uppercase tracking-[0.12em] text-white shadow-[0_0_30px_rgba(255,0,0,0.3)] transition-all hover:scale-105 disabled:opacity-40"
+                        >
+                          Recolher soldados
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <div>
+                    <div className="mb-5 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-black uppercase tracking-[0.22em] text-zinc-500">
+                          Escolha uma unidade
+                        </div>
+
+                        <div className="mt-1 text-3xl font-black uppercase">
+                          Recrutar tropas
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-3">
+                        <div className="text-xs uppercase text-cyan-300">
+                          Duração
+                        </div>
+
+                        <div className="mt-1 text-2xl font-black">
+                          {durationMinutes}{' '}
+                          min
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                      {TRAINABLE_MEMBER_TYPES.map(
+                        memberType => {
+                          const Icon =
+                            ICONS[
+                              memberType
+                            ];
+
+                          return (
+                            <motion.button
+                              key={memberType}
+                              whileHover={{
+                                scale: 1.02,
+                              }}
+                              whileTap={{
+                                scale: 0.98,
+                              }}
+                              onClick={() =>
+                                onStartTraining(
+                                  slotKey,
+                                  memberType
+                                )
+                              }
+                              disabled={
+                                isSubmitting
+                              }
+                              className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${COLORS[memberType]} p-6 text-left transition-all`}
+                            >
+                              <div className="absolute inset-0 bg-black/50 transition-all group-hover:bg-black/35" />
+
+                              <div className="relative flex items-start justify-between">
+                                <div>
+                                  <div className="text-3xl font-black uppercase">
+                                    {getMemberName(
+                                      memberType
+                                    )}
+                                  </div>
+
+                                  <div className="mt-2 max-w-sm text-sm text-zinc-300">
+                                    {
+                                      GANG_MEMBROS[
+                                        memberType
+                                      ]
+                                        ?.descricao
+                                    }
+                                  </div>
+
+                                  <div className="mt-6 flex items-center gap-5 text-sm">
+                                    <div>
+                                      <div className="text-zinc-500">
+                                        Quantidade
+                                      </div>
+
+                                      <div className="font-black text-white">
+                                        +
+                                        {
+                                          quantityPerOperation
+                                        }
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <div className="text-zinc-500">
+                                        Poder
+                                      </div>
+
+                                      <div className="font-black text-red-300">
+                                        +
+                                        {quantityPerOperation *
+                                          16}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-white/10 bg-black/30">
+                                  <Icon className="h-10 w-10 text-white" />
+                                </div>
+                              </div>
+                            </motion.button>
+                          );
+                        }
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* FOOTER */}
+                <div className="mt-10 flex justify-end border-t border-white/10 pt-6">
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    className="h-12 rounded-2xl border-white/10 bg-white/5 px-6 text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:bg-white/10"
+                  >
+                    Fechar
+                  </Button>
                 </div>
               </div>
-
-              <div className="flex flex-col items-start gap-3 md:items-end">
-                <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-zinc-200">
-                  {isReady ? 'PRONTO PARA COLETAR' : `FALTA ${formatRemaining(operation)}`}
-                </div>
-
-                <Button
-                  onClick={() => onCollectTraining(slotKey)}
-                  disabled={isSubmitting || !isReady}
-                  className="bg-amber-500 font-black text-black hover:bg-amber-400 disabled:opacity-50"
-                >
-                  Coletar membros
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-zinc-400">
-              Escolha o tipo de membro para treinar neste QG. Cada operação usa esse slot
-              apenas para este jogador e não bloqueia o QG de outros jogadores.
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {TRAINABLE_MEMBER_TYPES.map((memberType) => (
-                <button
-                  key={memberType}
-                  onClick={() => onStartTraining(slotKey, memberType)}
-                  disabled={isSubmitting}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:border-red-500/30 hover:bg-red-500/5 disabled:opacity-50"
-                >
-                  <div className="text-lg font-black">{getMemberName(memberType)}</div>
-                  <div className="mt-1 text-sm text-zinc-400">
-                    {GANG_MEMBROS[memberType]?.descricao}
-                  </div>
-                  <div className="mt-3 text-xs uppercase tracking-[0.16em] text-red-300">
-                    Treinar neste {formatSlotLabel(slotKey)}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-white/10 bg-white/5 text-white hover:bg-white/10"
-          >
-            Fechar
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </motion.div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </AnimatePresence>
   );
 }
