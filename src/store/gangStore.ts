@@ -54,7 +54,6 @@ type GangStore = {
   recruitMember: (type: GangMemberType) => Promise<boolean>;
   queueTraining: (troopType: GangMemberType) => void;
   completeFinishedTrainings: () => Promise<boolean>;
-  updateFinishedTrainings: () => void;
   collectTraining: (slotId: string) => void;
   upgradeCT: () => Promise<boolean>;
   payMaintenance: () => Promise<boolean>;
@@ -217,9 +216,39 @@ export const useGangStore = create<GangStore>((set, get) => ({
     }));
   },
 
+  /**
+   * Consolidado: Verifica timestamps localmente, atualiza status para 'completed',
+   * persiste no backend e sincroniza dados da gangue.
+   */
   completeFinishedTrainings: async () => {
     try {
       set({ isSubmitting: true, error: null });
+      const now = Date.now();
+      const state = get();
+
+      // Step 1: Check for locally completed trainings based on timestamps
+      const updated = state.trainingSlots.map((slot) => {
+        if (slot.status === 'training' && now >= slot.endsAt) {
+          return {
+            ...slot,
+            status: 'completed' as const,
+          };
+        }
+        return slot;
+      });
+
+      // Step 2: Update local state with completed trainings
+      set({
+        trainingSlots: updated,
+      });
+
+      // Step 3: Persist updated training state to backend
+      await persistTrainingState({
+        trainingState: updated,
+        gangMembers: state.gang?.members ?? [],
+      });
+
+      // Step 4: Sync with backend to get updated gang data
       const data = await completeGangTrainings();
       syncBalances(data.playerBalances);
       set({ gang: data.gang, isSubmitting: false });
@@ -228,34 +257,6 @@ export const useGangStore = create<GangStore>((set, get) => ({
       set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao coletar treinos' });
       return false;
     }
-  },
-
-  // Local function to update training slots when they complete
-  updateFinishedTrainings: () => {
-    const now = Date.now();
-    const state = get();
-
-    const updated = state.trainingSlots.map((slot) => {
-      if (slot.status === 'training' && now >= slot.endsAt) {
-        return {
-          ...slot,
-          status: 'completed' as const,
-        };
-      }
-      return slot;
-    });
-
-    set({
-      trainingSlots: updated,
-    });
-
-    // Persist updated training state to backend
-    persistTrainingState({
-      trainingState: updated,
-      gangMembers: state.gang?.members ?? [],
-    }).catch((err) => {
-      console.error('Erro ao persistir estado de treinamento atualizado:', err);
-    });
   },
 
   collectTraining: (slotId) => {
