@@ -53,7 +53,7 @@ type GangStore = {
 
   // ── Mutações ──────────────────────────────────────────────────────────────
   recruitMember: (type: GangMemberType) => Promise<boolean>;
-  queueTraining: (troopType: GangMemberType) => void;
+  queueTraining: (troopType: GangMemberType) => Promise<boolean>;
   completeFinishedTrainings: () => Promise<boolean>;
   collectTraining: (slotId: string) => Promise<boolean>;
   upgradeCT: () => Promise<boolean>;
@@ -188,66 +188,77 @@ export const useGangStore = create<GangStore>((set, get) => ({
     }
   },
 
-  queueTraining: (troopType) => {
-    const state = get();
+  queueTraining: async (troopType) => {
+    try {
+      set({ isSubmitting: true, error: null });
+      const state = get();
 
-    if (state.trainingSlots.length >= 4) {
-      return;
+      if (state.trainingSlots.length >= 4) {
+        set({ isSubmitting: false, error: 'Limite de slots de treinamento atingido' });
+        return false;
+      }
+
+      const quantity = state.gang?.trainingConfig.quantityPerOrder ?? 10;
+      const durationSeconds = state.gang?.trainingConfig.durationSeconds ?? 10;
+      const duration = durationSeconds * 1000;
+
+      const cost = Math.floor(1000 * (state.gang?.level ?? 1) * 1.1);
+
+      // Validate sufficient dirtyMoney
+      const playerState = usePlayerStore.getState();
+      const currentDirtyMoney = playerState.player?.balances.dirtyMoney ?? 0;
+      if (currentDirtyMoney < cost) {
+        set({ isSubmitting: false, error: 'Saldo insuficiente para treinar' });
+        return false;
+      }
+
+      const slot: TrainingSlot = {
+        id: crypto.randomUUID(),
+        troopType,
+        quantity,
+        startedAt: Date.now(),
+        endsAt: Date.now() + duration,
+        status: 'training',
+        cost,
+      };
+
+      const updatedSlots = [...state.trainingSlots, slot];
+      
+      // Deduct cost from dirtyMoney
+      usePlayerStore.getState().applyPlayerUpdate((p) => ({
+        ...p,
+        balances: {
+          ...p.balances,
+          dirtyMoney: p.balances.dirtyMoney - cost,
+        },
+      }));
+
+      set({
+        trainingSlots: updatedSlots,
+      });
+
+      // Persist training state to backend
+      await persistTrainingState({
+        trainingState: updatedSlots,
+        gangMembers: state.gang?.members ?? [],
+      });
+
+      // Atualiza UI para mostrar treino em andamento
+      set((prevState) => ({
+        trainingSlots: prevState.trainingSlots.map((s) =>
+          s.id === slot.id ? { ...s, status: 'training' as const } : s
+        ),
+        isSubmitting: false,
+      }));
+
+      return true;
+    } catch (err) {
+      set({
+        isSubmitting: false,
+        error: err instanceof Error ? err.message : 'Erro ao enfileirar treinamento',
+      });
+      return false;
     }
-
-    const quantity = state.gang?.trainingConfig.quantityPerOrder ?? 10;
-    const durationSeconds = state.gang?.trainingConfig.durationSeconds ?? 10;
-    const duration = durationSeconds * 1000;
-
-    const cost = Math.floor(1000 * (state.gang?.level ?? 1) * 1.1);
-
-    // Validate sufficient dirtyMoney
-    const playerState = usePlayerStore.getState();
-    const currentDirtyMoney = playerState.player?.balances.dirtyMoney ?? 0;
-    if (currentDirtyMoney < cost) {
-      set({ error: 'Saldo insuficiente para treinar' });
-      return;
-    }
-
-    const slot: TrainingSlot = {
-      id: crypto.randomUUID(),
-      troopType,
-      quantity,
-      startedAt: Date.now(),
-      endsAt: Date.now() + duration,
-      status: 'training',
-      cost,
-    };
-
-    const updatedSlots = [...state.trainingSlots, slot];
-    
-    // Deduct cost from dirtyMoney
-    usePlayerStore.getState().applyPlayerUpdate((p) => ({
-      ...p,
-      balances: {
-        ...p.balances,
-        dirtyMoney: p.balances.dirtyMoney - cost,
-      },
-    }));
-
-    set({
-      trainingSlots: updatedSlots,
-    });
-
-    // Persist training state to backend
-    persistTrainingState({
-      trainingState: updatedSlots,
-      gangMembers: state.gang?.members ?? [],
-    }).catch((err) => {
-      console.error('Erro ao persistir estado de treinamento:', err);
-    });
-
-    // Atualiza UI para mostrar treino em andamento
-    set((prevState) => ({
-      trainingSlots: prevState.trainingSlots.map((s) =>
-        s.id === slot.id ? { ...s, status: 'training' as const } : s
-      ),
-    }));
   },
 
   /**
