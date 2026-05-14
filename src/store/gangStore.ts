@@ -55,6 +55,7 @@ type GangStore = {
   queueTraining: (troopType: GangMemberType) => void;
   completeFinishedTrainings: () => Promise<boolean>;
   updateFinishedTrainings: () => void;
+  collectTraining: (slotId: string) => void;
   upgradeCT: () => Promise<boolean>;
   payMaintenance: () => Promise<boolean>;
   setFormation: (formation: GangFormationType) => Promise<boolean>;
@@ -236,6 +237,38 @@ export const useGangStore = create<GangStore>((set, get) => ({
       gangMembers: state.gang?.members ?? [],
     }).catch((err) => {
       console.error('Erro ao persistir estado de treinamento atualizado:', err);
+    });
+  },
+
+  collectTraining: (slotId) => {
+    const state = get();
+
+    const slot = state.trainingSlots.find((s) => s.id === slotId);
+
+    if (!slot) return;
+
+    if (slot.status !== 'completed') {
+      return;
+    }
+
+    const updatedGang = {
+      ...state.gang,
+      [slot.troopType]: state.gang?.[slot.troopType]
+        ? state.gang[slot.troopType] + slot.quantity
+        : slot.quantity,
+    };
+
+    set({
+      gang: updatedGang,
+      trainingSlots: state.trainingSlots.filter((s) => s.id !== slotId),
+    });
+
+    // Persist updated training state to backend
+    persistTrainingState({
+      trainingState: state.trainingSlots.filter((s) => s.id !== slotId),
+      gangMembers: updatedGang?.members ?? [],
+    }).catch((err) => {
+      console.error('Erro ao persistir coleta de treinamento:', err);
     });
   },
 
