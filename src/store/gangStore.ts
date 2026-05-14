@@ -270,11 +270,20 @@ export const useGangStore = create<GangStore>((set, get) => ({
       return;
     }
 
+    // Update gang.members array instead of direct properties
+    const updatedMembers = state.gang?.members?.map((member) => {
+      if (member.type === slot.troopType) {
+        return {
+          ...member,
+          quantity: member.quantity + slot.quantity,
+        };
+      }
+      return member;
+    }) ?? [];
+
     const updatedGang = {
       ...state.gang,
-      [slot.troopType]: state.gang?.[slot.troopType]
-        ? state.gang[slot.troopType] + slot.quantity
-        : slot.quantity,
+      members: updatedMembers,
     };
 
     set({
