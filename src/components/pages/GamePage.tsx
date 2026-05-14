@@ -92,9 +92,10 @@ export default function GamePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // ── Load persisted training state on mount
+  // ── Load persisted training state and gang data on mount
   useEffect(() => {
     useGangStore.getState().loadTrainingState();
+    useGangStore.getState().loadGang();
   }, []);
 
   // Mapeia CT keys para QG slot keys
