@@ -28,7 +28,7 @@ import {
   setGangFormation,
   applyGangBattleLosses,
 } from '@/api/gangApi';
-import { persistTrainingState, getGangStatus, loadTrainingState } from '@/api/training';
+import { persistTrainingState, getGangStatus, loadTrainingState, collectTrainingMembers } from '@/api/training';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS DO STORE
@@ -354,37 +354,25 @@ export const useGangStore = create<GangStore>((set, get) => ({
         return false;
       }
 
-      // Update gang.members array with collected members
-      const updatedMembers = state.gang?.members?.map((member) => {
-        if (member.type === slot.troopType) {
-          return {
-            ...member,
-            quantity: member.quantity + slot.quantity,
-          };
-        }
-        return member;
-      }) ?? [];
+      const playerId = usePlayerStore.getState().player?.id;
+      if (!playerId) {
+        set({ isSubmitting: false, error: 'Player ID não encontrado' });
+        return false;
+      }
 
-      const updatedGang = {
-        ...state.gang,
-        members: updatedMembers,
-      };
-
-      const remainingSlots = state.trainingSlots.filter((s) => s.id !== slotId);
-
-      // Persist updated training state to backend with complete gang structure
-      await persistTrainingState({
-        trainingState: remainingSlots,
-        gangMembers: updatedMembers,
-      }) as any;
-
-      set({
-        gang: updatedGang,
-        trainingSlots: remainingSlots,
-        isSubmitting: false,
+      // Call backend to collect training members
+      await collectTrainingMembers({
+        slotKey: slotId,
+        trainingState: state.trainingSlots,
+        memberType: slot.troopType,
+        quantity: slot.quantity,
       });
 
-      return true;
+      // Reload gang state from backend
+      const success = await get().loadGang();
+
+      set({ isSubmitting: false });
+      return success;
     } catch (err) {
       set({
         isSubmitting: false,
