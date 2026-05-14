@@ -3,6 +3,7 @@ import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { estimateBattle, startBattle, resolveBattleById } from '@/api/attackApi';
+import { getActiveMembers } from '@/utils/gangHelpers';
 import type { AttackTarget } from '@/store/mapAttackStore';
 
 export function useMapAttackWithGang() {
@@ -36,7 +37,7 @@ export function useMapAttackWithGang() {
           estimatedChance: data.estimatedChance / 100,
           estimatedLoot: data.estimatedLoot,
           estimatedCasualties: Math.ceil(
-            (gang?.members.filter((m) => m.status === 'ativo').length || 0) * 0.15
+            (gang?.members ? getActiveMembers(gang.members).length : 0) * 0.15
           ),
         };
       } catch {

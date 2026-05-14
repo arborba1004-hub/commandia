@@ -29,6 +29,7 @@ import {
   applyGangBattleLosses,
 } from '@/api/gangApi';
 import { persistTrainingState, getGangStatus, loadTrainingState, collectTrainingMembers } from '@/api/training';
+import { countMembersByType } from '@/utils/gangHelpers';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS DO STORE
@@ -433,15 +434,24 @@ export const useGangStore = create<GangStore>((set, get) => ({
     const active = summary.activeByType;
 
     // Pesos de poder por tipo (igual ao backend gangWarService.js)
+    const capangaCount = countMembersByType(gang.members, 'capanga');
+    const frenteCount = countMembersByType(gang.members, 'frente');
+    const executorCount = countMembersByType(gang.members, 'executor');
+    const assassinoCount = countMembersByType(gang.members, 'assassino');
+    const muralhaCount = countMembersByType(gang.members, 'muralha');
+    const certeroCount = countMembersByType(gang.members, 'certeiro');
+    const motoristaCount = countMembersByType(gang.members, 'motorista');
+    const nitroCount = countMembersByType(gang.members, 'nitro');
+
     const totalPower =
-      active.capanga   * 14 +
-      active.frente    * 18 +
-      active.executor  * 22 +
-      active.assassino * 20 +
-      active.muralha   * 16 +
-      active.certeiro  * 18 +
-      active.motorista * 12 +
-      active.nitro     * 16;
+      capangaCount   * 14 +
+      frenteCount    * 18 +
+      executorCount  * 22 +
+      assassinoCount * 20 +
+      muralhaCount   * 16 +
+      certeroCount   * 18 +
+      motoristaCount * 12 +
+      nitroCount     * 16;
 
     return {
       totalMembers: summary.totalMembers,
@@ -450,13 +460,13 @@ export const useGangStore = create<GangStore>((set, get) => ({
       mortos:       summary.deadMembers,
       // Os valores abaixo são somados dos atributos dos membros ativos.
       // Para atributos detalhados por tipo+nível use gangAtributos.ts + gangEstatisticasStore.
-      rajada:    active.capanga * 9  + active.frente  * 12 + active.executor  * 11 + active.assassino * 12,
-      blindagem: active.muralha * 15 + active.motorista * 14 + active.nitro   * 13 + active.certeiro * 10,
-      folego:    active.muralha * 16 + active.nitro    * 15 + active.motorista * 14 + active.capanga * 12,
-      quebra:    active.frente  * 12 + active.executor * 12 + active.assassino * 13 + active.certeiro * 8,
+      rajada:    capangaCount * 9  + frenteCount  * 12 + executorCount  * 11 + assassinoCount * 12,
+      blindagem: muralhaCount * 15 + motoristaCount * 14 + nitroCount   * 13 + certeroCount * 10,
+      folego:    muralhaCount * 16 + nitroCount    * 15 + motoristaCount * 14 + capangaCount * 12,
+      quebra:    frenteCount  * 12 + executorCount * 12 + assassinoCount * 13 + certeroCount * 8,
       medicalPower: 0,
       lootPower:    0,
-      mobilityPower: active.motorista * 8 + active.nitro * 6,
+      mobilityPower: motoristaCount * 8 + nitroCount * 6,
       totalPower,
     };
   },

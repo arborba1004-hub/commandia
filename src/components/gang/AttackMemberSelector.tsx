@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertCircle, Users, Zap } from 'lucide-react';
+import { getActiveMembers } from '@/utils/gangHelpers';
 import type { GangMemberType } from '@/types/gangWar';
 
 interface AttackMemberSelectorProps {
@@ -70,7 +71,7 @@ export default function AttackMemberSelector({
 
   const members = useMemo(() => {
     if (!gang?.members) return [];
-    return gang.members.filter((m) => m.status === 'ativo');
+    return getActiveMembers(gang.members);
   }, [gang?.members]);
 
   const selectedCount = selectedIds.size;

@@ -10,6 +10,7 @@ import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { estimateBattle, startBattle, resolveBattleById } from '@/api/attackApi';
+import { getActiveMembers } from '@/utils/gangHelpers';
 import {
   AlertTriangle,
   Swords,
@@ -45,11 +46,10 @@ export default function MapAttackWithGangModal({
 
   const buildSelectedTroopsFromMemberIds = useCallback(
     (memberIds: string[]) => {
-      const selectedMembers =
-        gang?.members.filter(
-          (member) =>
-            member.status === 'ativo' && memberIds.includes(member.id)
-        ) || [];
+      const activeMembers = gang?.members ? getActiveMembers(gang.members) : [];
+      const selectedMembers = activeMembers.filter(
+        (member) => memberIds.includes(member.id)
+      );
 
       const grouped = selectedMembers.reduce<Record<string, number>>(
         (acc, member) => {
@@ -154,7 +154,7 @@ export default function MapAttackWithGangModal({
     onClose();
   };
 
-  const activeMembers = gang?.members.filter((m) => m.status === 'ativo') || [];
+  const activeMembers = gang?.members ? getActiveMembers(gang.members) : [];
 
   return (
     <>
