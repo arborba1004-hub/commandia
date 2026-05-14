@@ -185,6 +185,14 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
     const cost = Math.floor(1000 * (state.gang?.level ?? 1) * 1.1);
 
+    // Validate sufficient dirtyMoney
+    const playerState = usePlayerStore.getState();
+    const currentDirtyMoney = playerState.player?.balances.dirtyMoney ?? 0;
+    if (currentDirtyMoney < cost) {
+      set({ error: 'Saldo insuficiente para treinar' });
+      return;
+    }
+
     const slot: TrainingSlot = {
       id: crypto.randomUUID(),
       troopType,
@@ -196,6 +204,16 @@ export const useGangStore = create<GangStore>((set, get) => ({
     };
 
     const updatedSlots = [...state.trainingSlots, slot];
+    
+    // Deduct cost from dirtyMoney
+    usePlayerStore.getState().applyPlayerUpdate((p) => ({
+      ...p,
+      balances: {
+        ...p.balances,
+        dirtyMoney: p.balances.dirtyMoney - cost,
+      },
+    }));
+
     set({
       trainingSlots: updatedSlots,
     });
