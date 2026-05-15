@@ -88,7 +88,7 @@ export default function GamePage() {
   useEffect(() => {
     const interval = setInterval(() => {
       useGangStore.getState().completeFinishedTrainings();
-    }, 1000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
