@@ -309,7 +309,9 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const state = get();
 
-      const slot = state.trainingSlots.find((s) => s.id === slotId);
+      const slot = state.trainingSlots.find(
+        (s) => s.id === slotId
+      );
 
       if (!slot) {
         set({
@@ -329,26 +331,31 @@ export const useGangStore = create<GangStore>((set, get) => ({
         return false;
       }
 
+      const now = Date.now();
+
       const newMembers: GangMember[] = Array.from(
         { length: slot.quantity },
         (_, index) => ({
-          id: `${slot.troopType}-${Date.now()}-${index}`,
+          id: `${slot.troopType}-${now}-${index}`,
           type: slot.troopType,
           level: 1,
           status: 'ativo',
-          recruitedAt: Date.now(),
+          recruitedAt: now,
         })
       );
 
       const updatedGang: Gang = {
-        ...(state.gang ?? { members: [] }),
+        ...(state.gang ?? { members: [] } as Gang),
         members: [
           ...(state.gang?.members ?? []),
           ...newMembers,
         ],
       };
 
-      const updatedSlots = state.trainingSlots.filter((s) => s.id !== slotId);
+      const updatedSlots =
+        state.trainingSlots.filter(
+          (s) => s.id !== slotId
+        );
 
       set({
         gang: updatedGang,
