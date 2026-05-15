@@ -21,7 +21,6 @@ import type {
 import {
   fetchMyGang,
   recruitGangMember,
-  queueGangTraining,
   completeGangTrainings,
   upgradeGangCT,
   payGangMaintenance,
@@ -35,8 +34,20 @@ import { countMembersByType } from '@/utils/gangHelpers';
 // TIPOS DO STORE
 // ═════════════════════════════════════════════════════════════════════════════
 
+type TrainingSlot = {
+  id: string;
+  troopType: GangMemberType;
+  quantity: number;
+  startedAt: number;
+  endsAt: number;
+  status: 'training' | 'completed';
+  cost: number;
+};
+
 type GangStore = {
   gang: Gang | null;
+  player: any;
+  trainingSlots: TrainingSlot[];
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
@@ -67,6 +78,17 @@ type GangStore = {
 // ═════════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Persiste o estado de treinamento localmente.
+ */
+async function persistTrainingState(data: {
+  trainingState: TrainingSlot[];
+  gangMembers: GangMember[];
+}) {
+  // Implementar persistência conforme necessário
+  // Por enquanto, apenas um placeholder
+}
 
 const EMPTY_BATTLE_STATS: GangBattleStats = {
   totalMembers: 0, ativos: 0, feridos: 0, mortos: 0,
@@ -143,6 +165,8 @@ function syncFormacaoToEstatisticas(formation: GangFormationType) {
 
 export const useGangStore = create<GangStore>((set, get) => ({
   gang: null,
+  player: null,
+  trainingSlots: [],
   isLoading: false,
   isSubmitting: false,
   error: null,
@@ -194,23 +218,61 @@ export const useGangStore = create<GangStore>((set, get) => ({
       set({ isSubmitting: true, error: null });
 
       const state = get();
-      const quantity =
-        state.gang?.trainingConfig?.quantityPerOrder ?? 10;
 
-      const data = await queueGangTraining(troopType, quantity);
+      const activeSlots = state.trainingSlots.filter(
+        (slot) => slot.status === 'training'
+      );
 
-      syncBalances(data.playerBalances);
+      if (activeSlots.length >= 4) {
+        set({
+          isSubmitting: false,
+          error: 'Todos os CTs já estão treinando.',
+        });
+
+        return false;
+      }
+
+      const barracoLevel =
+        state.gang?.barracoLevel ??
+        state.player?.niveis?.barracoLevel ??
+        1;
+
+      const quantity = barracoLevel * 10;
+
+      const durationMs = barracoLevel * 2 * 60 * 1000;
+
+      const cost = Math.floor(1000 * barracoLevel * 1.1);
+
+      const slot = {
+        id: crypto.randomUUID(),
+        troopType,
+        quantity,
+        startedAt: Date.now(),
+        endsAt: Date.now() + durationMs,
+        status: 'training' as const,
+        cost,
+      };
+
+      const updatedSlots = [...state.trainingSlots, slot];
 
       set({
-        gang: data.gang,
+        trainingSlots: updatedSlots,
         isSubmitting: false,
+      });
+
+      await persistTrainingState({
+        trainingState: updatedSlots,
+        gangMembers: state.gang?.members ?? [],
       });
 
       return true;
     } catch (err) {
       set({
         isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao iniciar treinamento',
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Erro ao iniciar treinamento',
       });
 
       return false;
