@@ -189,13 +189,25 @@ export const useGangStore = create<GangStore>((set, get) => ({
       set({ isLoading: true, error: null });
 
       const data = await fetchMyGang();
-
       syncBalances(data.playerBalances);
 
       const apiGang = data.gang ?? null;
 
+      // Source of truth para `members` é Player.gang.members (Sistema A).
+      // GangWar.members é legado e fica desatualizado em relação aos
+      // treinamentos feitos pelos CTs do mapa.
+      const playerStore = usePlayerStore.getState();
+      const playerGangMembers =
+        (playerStore.player as any)?.gang?.members ??
+        playerStore.player?.gangMembers ??
+        [];
+
+      const unifiedGang = apiGang
+        ? { ...apiGang, members: playerGangMembers }
+        : null;
+
       set({
-        gang: apiGang,
+        gang: unifiedGang,
         isLoading: false,
       });
 
@@ -209,7 +221,6 @@ export const useGangStore = create<GangStore>((set, get) => ({
         isLoading: false,
         error: err instanceof Error ? err.message : 'Erro ao carregar gangue',
       });
-
       return false;
     }
   },
@@ -219,13 +230,16 @@ export const useGangStore = create<GangStore>((set, get) => ({
       set({ isLoading: true, error: null });
 
       const data = await fetchTrainingStatus();
-
       syncBalances(data.balances);
 
-      set({
+      set((state) => ({
         trainingSlots: data.trainingSlots,
+        gang:
+          state.gang && (data as any).gang?.members
+            ? { ...state.gang, members: (data as any).gang.members }
+            : state.gang,
         isLoading: false,
-      });
+      }));
 
       return true;
     } catch (err) {
@@ -236,7 +250,6 @@ export const useGangStore = create<GangStore>((set, get) => ({
             ? err.message
             : 'Erro ao carregar treinamentos',
       });
-
       return false;
     }
   },
@@ -272,13 +285,16 @@ export const useGangStore = create<GangStore>((set, get) => ({
       set({ isSubmitting: true, error: null });
 
       const data = await startTraining(ctKey, troopType);
-
       syncBalances(data.balances);
 
-      set({
+      set((state) => ({
         trainingSlots: data.trainingSlots,
+        gang:
+          state.gang && (data as any).gang?.members
+            ? { ...state.gang, members: (data as any).gang.members }
+            : state.gang,
         isSubmitting: false,
-      });
+      }));
 
       return true;
     } catch (err) {
@@ -289,7 +305,6 @@ export const useGangStore = create<GangStore>((set, get) => ({
             ? err.message
             : 'Erro ao iniciar treinamento',
       });
-
       return false;
     }
   },
@@ -333,13 +348,16 @@ export const useGangStore = create<GangStore>((set, get) => ({
       set({ isSubmitting: true, error: null });
 
       const data = await collectTrainingApi(slotId);
-
       syncBalances(data.balances);
 
-      set({
+      set((state) => ({
         trainingSlots: data.trainingSlots,
+        gang:
+          state.gang && (data as any).gang?.members
+            ? { ...state.gang, members: (data as any).gang.members }
+            : state.gang,
         isSubmitting: false,
-      });
+      }));
 
       return true;
     } catch (err) {
@@ -350,7 +368,6 @@ export const useGangStore = create<GangStore>((set, get) => ({
             ? err.message
             : 'Erro ao coletar treinamento',
       });
-
       return false;
     }
   },
