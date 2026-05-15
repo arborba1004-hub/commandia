@@ -49,7 +49,7 @@ type Props = {
     memberType: GangMemberType
   ) => void;
   onCollectTraining: (
-    slotKey: QGSlotKey
+    slotId: string
   ) => void;
   isSubmitting?: boolean;
 };
