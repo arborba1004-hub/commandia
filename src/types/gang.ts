@@ -95,7 +95,7 @@ export type CTKey = 'ct_nw' | 'ct_ne' | 'ct_sw' | 'ct_se';
 export type GangTrainingJob = {
   id: string;
   batchId: string;
-  ctKey: CTKey;             // qual CT está sendo usado
+  memberIds?: string[];
   memberType: GangMemberType;
   quantity: number;
   fromLevel: number;
