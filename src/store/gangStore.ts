@@ -337,7 +337,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
         return false;
       }
 
-      if (slot.status !== 'completed') {
+      if (slot.status !== 'completed' && Date.now() < slot.endsAt) {
         set({
           isSubmitting: false,
           error: 'Treino ainda não terminou.',
