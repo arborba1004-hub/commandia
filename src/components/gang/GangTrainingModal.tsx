@@ -442,8 +442,86 @@ export default function GangTrainingModal({
                     </div>
                   </div>
                 )}
+<div>
+  <div className="mb-5 flex items-center justify-between">
+    <div>
+      <div className="text-sm font-black uppercase tracking-[0.22em] text-zinc-500">
+        Escolha uma unidade
+      </div>
 
-                {/* ... keep existing code (CURRENT OPERATION section removed) */}
+      <div className="mt-1 text-3xl font-black uppercase">
+        Recrutar tropas
+      </div>
+    </div>
+
+    <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-3">
+      <div className="text-xs uppercase text-cyan-300">
+        Duração
+      </div>
+
+      <div className="mt-1 text-2xl font-black">
+        {durationMinutes} min
+      </div>
+    </div>
+  </div>
+
+  <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+    {TRAINABLE_MEMBER_TYPES.map((memberType) => {
+      const Icon = ICONS[memberType];
+
+      return (
+        <motion.button
+          key={memberType}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => onStartTraining(slotKey, memberType)}
+          disabled={isSubmitting}
+          className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${COLORS[memberType]} p-6 text-left transition-all disabled:opacity-50`}
+        >
+          <div className="absolute inset-0 bg-black/50 transition-all group-hover:bg-black/35" />
+
+          <div className="relative flex items-start justify-between">
+            <div>
+              <div className="text-3xl font-black uppercase">
+                {getMemberName(memberType)}
+              </div>
+
+              <div className="mt-2 max-w-sm text-sm text-zinc-300">
+                {GANG_MEMBROS[memberType]?.descricao}
+              </div>
+
+              <div className="mt-6 flex items-center gap-5 text-sm">
+                <div>
+                  <div className="text-zinc-500">
+                    Quantidade
+                  </div>
+
+                  <div className="font-black text-white">
+                    +{quantityPerOperation}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-zinc-500">
+                    Poder
+                  </div>
+
+                  <div className="font-black text-red-300">
+                    +{quantityPerOperation * 16}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-white/10 bg-black/30">
+              <Icon className="h-10 w-10 text-white" />
+            </div>
+          </div>
+        </motion.button>
+      );
+    })}
+  </div>
+</div>
 
                 {/* FOOTER */}
                 <div className="mt-10 flex justify-end border-t border-white/10 pt-6">
