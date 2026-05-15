@@ -60,7 +60,7 @@ type GangStore = {
   recruitMember: (type: GangMemberType) => Promise<boolean>;
   queueTraining: (troopType: GangMemberType) => Promise<boolean>;
   completeFinishedTrainings: () => Promise<boolean>;
-  collectTraining: () => Promise<boolean>;
+  collectTraining: (slotId: string) => Promise<boolean>;
   upgradeCT: () => Promise<boolean>;
   payMaintenance: () => Promise<boolean>;
   setFormation: (formation: GangFormationType) => Promise<boolean>;
@@ -303,8 +303,76 @@ export const useGangStore = create<GangStore>((set, get) => ({
     }
   },
 
-  collectTraining: async () => {
-    return get().completeFinishedTrainings();
+  collectTraining: async (slotId) => {
+    try {
+      set({ isSubmitting: true, error: null });
+
+      const state = get();
+
+      const slot = state.trainingSlots.find((s) => s.id === slotId);
+
+      if (!slot) {
+        set({
+          isSubmitting: false,
+          error: 'Treino não encontrado.',
+        });
+
+        return false;
+      }
+
+      if (slot.status !== 'completed') {
+        set({
+          isSubmitting: false,
+          error: 'Treino ainda não terminou.',
+        });
+
+        return false;
+      }
+
+      const newMembers: GangMember[] = Array.from(
+        { length: slot.quantity },
+        (_, index) => ({
+          id: `${slot.troopType}-${Date.now()}-${index}`,
+          type: slot.troopType,
+          level: 1,
+          status: 'ativo',
+          recruitedAt: Date.now(),
+        })
+      );
+
+      const updatedGang: Gang = {
+        ...(state.gang ?? { members: [] }),
+        members: [
+          ...(state.gang?.members ?? []),
+          ...newMembers,
+        ],
+      };
+
+      const updatedSlots = state.trainingSlots.filter((s) => s.id !== slotId);
+
+      set({
+        gang: updatedGang,
+        trainingSlots: updatedSlots,
+        isSubmitting: false,
+      });
+
+      await persistTrainingState({
+        trainingState: updatedSlots,
+        gangMembers: updatedGang.members,
+      });
+
+      return true;
+    } catch (err) {
+      set({
+        isSubmitting: false,
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Erro ao coletar treinamento',
+      });
+
+      return false;
+    }
   },
 
   upgradeCT: async () => {
