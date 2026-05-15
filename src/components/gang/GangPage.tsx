@@ -40,6 +40,15 @@ const ATTACK_ORDER: GangMemberType[] = [
   'negociador',
 ];
 
+const CT_KEYS = ['ct_nw', 'ct_ne', 'ct_sw', 'ct_se'] as const;
+
+function pickAvailableCT(
+  occupied: { ctKey: string }[]
+): string | null {
+  const taken = new Set(occupied.map((s) => s.ctKey));
+  return CT_KEYS.find((k) => !taken.has(k)) ?? null;
+}
+
 function label(type: GangMemberType) {
   return {
     capanga: 'Capanga',
@@ -133,7 +142,12 @@ export default function GangPage() {
   async function handleQueue(type: GangMemberType) {
     setQueueing(type);
     try {
-      await queueTraining(type);
+      const ctKey = pickAvailableCT(trainingSlots);
+      if (!ctKey) {
+        console.error('[GangPage] Todos os CTs estão ocupados');
+        return;
+      }
+      await queueTraining(ctKey, type);
     } finally {
       setQueueing(null);
     }
@@ -388,8 +402,14 @@ export default function GangPage() {
           player={player}
           trainingState={{ ...gang, trainingSlots }}
           onClose={handleCloseTrainingModal}
-          onStartTraining={async (slot, memberType) => {
-            await queueTraining(memberType);
+          onStartTraining={async (_slot, memberType) => {
+            const ctKey = pickAvailableCT(trainingSlots);
+            if (!ctKey) {
+              console.error('[GangPage] Todos os CTs estão ocupados');
+              handleCloseTrainingModal();
+              return;
+            }
+            await queueTraining(ctKey, memberType);
             handleCloseTrainingModal();
           }}
           onCollectTraining={async (slot) => {
