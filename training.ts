@@ -1,62 +1,87 @@
-const BACKEND_URL = 'https://comando-backend.onrender.com';
+import type { GangMemberType } from '@/components/gang/GangMembros';
+
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  'https://comando-backend.onrender.com';
 
 function getAuthToken() {
   return localStorage.getItem('authToken');
 }
 
-async function request<T>(path: string, init: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
   const token = getAuthToken();
 
-  if (!token) {
-    throw new Error('Token não encontrado');
-  }
-
-  const response = await fetch(`${BACKEND_URL}${path}`, {
-    ...init,
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(init.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
     },
   });
 
-  const data = await response.json();
+  const data = await res.json().catch(() => null);
 
-  if (!response.ok) {
-    const message = data?.error || 'Erro na requisição';
-    throw new Error(message);
+  if (!res.ok) {
+    throw new Error(
+      data?.error ||
+      data?.message ||
+      `Erro HTTP ${res.status}`
+    );
   }
 
   return data as T;
 }
 
-// ===== PERSISTIR TREINAMENTO =====
-export async function persistTrainingState(payload: {
-  trainingState: any;
-  gangMembers: any[];
-}) {
-  return request('/api/training/persist', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-// ===== COLETAR MEMBROS TREINADOS =====
-export async function collectTrainingMembers(payload: {
-  slotKey: string;
-  trainingState: any;
-  memberType: string;
+export type TrainingSlot = {
+  id: string;
+  ctKey: string;
+  troopType: GangMemberType;
   quantity: number;
-}) {
-  return request('/api/training/collect', {
-    method: 'POST',
-    body: JSON.stringify(payload),
+  startedAt: number;
+  endsAt: number;
+  status: 'training' | 'completed';
+  cost: number;
+};
+
+export type TrainingApiResponse = {
+  ok: boolean;
+  gang: any;
+  trainingSlots: TrainingSlot[];
+  balances: {
+    dirtyMoney: number;
+    cleanMoney: number;
+    corre: number;
+  };
+};
+
+export async function fetchTrainingStatus() {
+  return request<TrainingApiResponse>('/api/training/status', {
+    method: 'GET',
   });
 }
 
-// ===== OBTER STATUS DO GANG =====
-export async function getGangStatus() {
-  return request('/api/training/status', {
-    method: 'GET',
+export async function startTraining(
+  ctKey: string,
+  troopType: GangMemberType
+) {
+  return request<TrainingApiResponse>('/api/training/start', {
+    method: 'POST',
+    body: JSON.stringify({
+      ctKey,
+      troopType,
+    }),
+  });
+}
+
+export async function collectTraining(slotId: string) {
+  return request<TrainingApiResponse>('/api/training/collect', {
+    method: 'POST',
+    body: JSON.stringify({
+      slotId,
+    }),
   });
 }
