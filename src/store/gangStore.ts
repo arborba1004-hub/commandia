@@ -36,7 +36,7 @@ import { countMembersByType } from '@/utils/gangHelpers';
 
 type TrainingSlot = {
   id: string;
-  ctKey: string;
+  ctKey: GangMemberType;
   troopType: GangMemberType;
   quantity: number;
   startedAt: number;
