@@ -382,25 +382,23 @@ queueTraining: async (ctKey, troopType) => {
         (slot) => slot.status === 'training'
       );
 
-      if (activeSlots.length >= 4) {
+      const ctAlreadyBusy = activeSlots.some(
+        (slot) => slot.ctKey === troopType
+      );
+
+      if (ctAlreadyBusy) {
         set({
           isSubmitting: false,
-          error: 'Todos os CTs já estão treinando.',
+          error: 'Este CT já está treinando.',
         });
 
         return false;
       }
 
-      const ctAlreadyTraining = state.trainingSlots.some(
-        (slot) =>
-          slot.ctKey === ctKey &&
-          slot.status === 'training'
-      );
-
-      if (ctAlreadyTraining) {
+      if (activeSlots.length >= 4) {
         set({
           isSubmitting: false,
-          error: 'Este CT já está treinando uma tropa.',
+          error: 'Todos os CTs já estão treinando.',
         });
 
         return false;
