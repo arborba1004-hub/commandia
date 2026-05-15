@@ -40,6 +40,7 @@ export type TrainingSlot = {
   id: string;
   ctKey: string;
   troopType: GangMemberType;
+  troopLevel: number;
   quantity: number;
   startedAt: number;
   endsAt: number;
@@ -56,7 +57,33 @@ export type TrainingApiResponse = {
     cleanMoney: number;
     corre: number;
   };
+  config?: {
+    barracoLevel: number;
+    maxTroopLevel: number;
+  };
 };
+
+export type TrainingPreview =
+  | {
+      ok: true;
+      unlocked: false;
+      barracoLevel: number;
+      maxLevel: number;
+      level: number;
+      message: string;
+    }
+  | {
+      ok: true;
+      unlocked: true;
+      barracoLevel: number;
+      maxLevel: number;
+      troopType: GangMemberType;
+      level: number;
+      quantity: number;
+      cost: number;
+      durationMs: number;
+      durationMinutes: number;
+    };
 
 export async function fetchTrainingStatus() {
   return request<TrainingApiResponse>('/api/training/status', {
@@ -64,24 +91,33 @@ export async function fetchTrainingStatus() {
   });
 }
 
+export async function fetchTrainingPreview(
+  troopType: GangMemberType,
+  troopLevel: number
+) {
+  const qs = new URLSearchParams({
+    troopType: String(troopType),
+    troopLevel: String(troopLevel),
+  });
+  return request<TrainingPreview>(`/api/training/preview?${qs}`, {
+    method: 'GET',
+  });
+}
+
 export async function startTraining(
   ctKey: string,
-  troopType: GangMemberType
+  troopType: GangMemberType,
+  troopLevel: number
 ) {
   return request<TrainingApiResponse>('/api/training/start', {
     method: 'POST',
-    body: JSON.stringify({
-      ctKey,
-      troopType,
-    }),
+    body: JSON.stringify({ ctKey, troopType, troopLevel }),
   });
 }
 
 export async function collectTraining(slotId: string) {
   return request<TrainingApiResponse>('/api/training/collect', {
     method: 'POST',
-    body: JSON.stringify({
-      slotId,
-    }),
+    body: JSON.stringify({ slotId }),
   });
 }
