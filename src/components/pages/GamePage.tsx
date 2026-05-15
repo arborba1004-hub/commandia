@@ -806,18 +806,18 @@ export default function GamePage() {
             setTrainingModalOpen(false);
             setSelectedCT(null);
           }}
-          onStartTraining={async (_slotKey, memberType) => {
+          onStartTraining={async (_slotKey, memberType, troopLevel) => {
             setIsSubmittingTraining(true);
 
             try {
-              const ok = await useGangStore.getState().queueTraining(_slotKey, memberType);
+              const ok = await useGangStore.getState().queueTraining(_slotKey, memberType, troopLevel);
 
               if (!ok) {
                 console.error(useGangStore.getState().error);
                 return;
               }
 
-              console.log('✅ Treinamento iniciado:', memberType, 'no CT:', selectedCT);
+              console.log('✅ Treinamento iniciado:', memberType, 'lvl', troopLevel, 'no CT:', selectedCT);
             } catch (error) {
               console.error('❌ Erro ao iniciar treinamento:', error);
             } finally {
