@@ -1,46 +1,23 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Shield,
-  Skull,
-  Zap,
-  Swords,
-  Car,
-  Target,
-  Crown,
-  TimerReset,
-  Sparkles,
+  Shield, Skull, Zap, Swords, Car, Target, Crown, TimerReset, Sparkles, Lock,
 } from 'lucide-react';
 
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-
 import { Button } from '@/components/ui/button';
 
 import type { GangMemberType } from '@/components/gang/GangMembros';
-
 import GANG_MEMBROS from '@/components/gang/GangMembros';
-
-import type {
-  GangTrainingPlayerLike,
-  GangTrainingState,
-  QGSlotKey,
-} from '@/components/gang/TreinamentoGang';
-
-import {
-  getGangTrainingCostDirty,
-  getGangTrainingDurationMinutes,
-  getGangTrainingQuantityPerOperation,
-} from '@/components/gang/TreinamentoGang';
+import { fetchTrainingPreview, type TrainingPreview } from '@/api/training';
 
 type TrainingSlot = {
   id: string;
   ctKey: string;
   troopType: GangMemberType;
+  troopLevel: number;
   quantity: number;
   startedAt: number;
   endsAt: number;
@@ -48,44 +25,34 @@ type TrainingSlot = {
   cost: number;
 };
 
-type GangTrainingStateWithSlots = GangTrainingState & {
-  trainingSlots?: TrainingSlot[];
+type GangTrainingPlayerLike = {
+  niveis?: { barracoLevel?: number };
+  balances?: { dirtyMoney?: number };
 };
 
 type Props = {
   isOpen: boolean;
-  slotKey: QGSlotKey | null;
+  slotKey: string | null;
   player: GangTrainingPlayerLike;
-  trainingState: GangTrainingStateWithSlots;
+  trainingState: { trainingSlots?: TrainingSlot[] };
   onClose: () => void;
   onStartTraining: (
-    slotKey: QGSlotKey,
-    memberType: GangMemberType
+    slotKey: string,
+    memberType: GangMemberType,
+    troopLevel: number
   ) => void;
   onCollectTraining: (slotId: string) => void;
   isSubmitting?: boolean;
 };
 
 const TRAINABLE_MEMBER_TYPES: GangMemberType[] = [
-  'capanga',
-  'frente',
-  'executor',
-  'assassino',
-  'muralha',
-  'certeiro',
-  'motorista',
-  'nitro',
+  'capanga', 'frente', 'executor', 'assassino',
+  'muralha', 'certeiro', 'motorista', 'nitro',
 ];
 
 const ICONS: Record<GangMemberType, typeof Skull> = {
-  capanga: Skull,
-  frente: Shield,
-  executor: Crown,
-  assassino: Swords,
-  muralha: Shield,
-  certeiro: Target,
-  motorista: Car,
-  nitro: Zap,
+  capanga: Skull, frente: Shield, executor: Crown, assassino: Swords,
+  muralha: Shield, certeiro: Target, motorista: Car, nitro: Zap,
 };
 
 const COLORS: Record<GangMemberType, string> = {
@@ -103,124 +70,115 @@ function getMemberName(type: GangMemberType) {
   return GANG_MEMBROS[type]?.nome ?? type;
 }
 
-function formatSlotLabel(slotKey: QGSlotKey) {
-  return slotKey.toUpperCase();
+function getMaxTroopLevel(barracoLevel: number) {
+  return Math.max(1, Math.min(10, Math.floor(barracoLevel / 10) + 1));
 }
 
-function formatRemaining(operation: TrainingSlot) {
-  const remainingMs = Math.max(0, operation.endsAt - Date.now());
-  const totalSeconds = Math.ceil(remainingMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
+function formatDuration(ms: number) {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
 
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return `${seconds}s`;
 }
 
-function calculateProgress(operation: TrainingSlot) {
+function calculateProgress(operation: TrainingSlot, now: number) {
   const total = operation.endsAt - operation.startedAt;
-
-  if (total <= 0) {
-    return 100;
-  }
-
-  const elapsed = Date.now() - operation.startedAt;
-
+  if (total <= 0) return 100;
+  const elapsed = now - operation.startedAt;
   return Math.min(100, Math.max(0, (elapsed / total) * 100));
 }
 
 export default function GangTrainingModal({
-  isOpen,
-  slotKey,
-  player,
-  trainingState,
-  onClose,
-  onStartTraining,
-  onCollectTraining,
+  isOpen, slotKey, player, trainingState,
+  onClose, onStartTraining, onCollectTraining,
   isSubmitting = false,
 }: Props) {
-  const [trainingSlots, setTrainingSlots] = useState<TrainingSlot[]>(
-    trainingState.trainingSlots ?? []
+  const barracoLevel = Math.max(1, Number(player?.niveis?.barracoLevel || 1));
+  const maxLevel = getMaxTroopLevel(barracoLevel);
+  const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
+
+  const [selectedType, setSelectedType] = useState<GangMemberType | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<number>(1);
+  const [preview, setPreview] = useState<TrainingPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  // ── Tick de 1s para o countdown
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isOpen]);
+
+  // ── Carrega preview quando o jogador escolhe tipo/nível
+  useEffect(() => {
+    if (!selectedType) {
+      setPreview(null);
+      return;
+    }
+    let cancelled = false;
+    setPreviewLoading(true);
+    fetchTrainingPreview(selectedType, selectedLevel)
+      .then((p) => { if (!cancelled) setPreview(p); })
+      .catch(() => { if (!cancelled) setPreview(null); })
+      .finally(() => { if (!cancelled) setPreviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedType, selectedLevel]);
+
+  // ── Reset selection ao trocar de CT
+  useEffect(() => {
+    setSelectedType(null);
+    setSelectedLevel(1);
+    setPreview(null);
+  }, [slotKey]);
+
+  const trainingSlots = trainingState.trainingSlots ?? [];
+  const slotForThisCt = useMemo(
+    () => trainingSlots.find((s) => s.ctKey === slotKey) ?? null,
+    [trainingSlots, slotKey]
   );
 
-  useEffect(() => {
-    setTrainingSlots(trainingState.trainingSlots ?? []);
-  }, [trainingState.trainingSlots]);
-
-  const quantityPerOperation = getGangTrainingQuantityPerOperation(player);
-  const durationMinutes = getGangTrainingDurationMinutes(player);
-  const dirtyCost = getGangTrainingCostDirty(player);
-
   if (!slotKey) return null;
+
+  const canAfford = preview?.unlocked ? dirtyMoney >= preview.cost : false;
+  const canStart =
+    !slotForThisCt && selectedType !== null && preview?.unlocked === true && canAfford && !isSubmitting;
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <Dialog
-          open={isOpen}
-          onOpenChange={open => (!open ? onClose() : undefined)}
-        >
-          <DialogContent className="overflow-hidden border-white/10 bg-[#050505] p-0 text-white shadow-[0_0_80px_rgba(255,0,0,0.15)] sm:max-w-6xl">
+        <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
+          <DialogContent className="overflow-hidden border-white/10 bg-[#050505] p-0 text-white sm:max-w-5xl">
             <motion.div
-              initial={{
-                opacity: 0,
-                scale: 0.96,
-                y: 30,
-              }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                y: 0,
-              }}
-              exit={{
-                opacity: 0,
-                scale: 0.96,
-                y: 30,
-              }}
-              transition={{
-                duration: 0.25,
-              }}
+              initial={{ opacity: 0, scale: 0.96, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 30 }}
+              transition={{ duration: 0.25 }}
               className="relative"
             >
-              <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,0,0,0.18),transparent_55%)]" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.02),transparent)]" />
-                <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-red-500/10 blur-3xl" />
-                <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
-              </div>
-
+              {/* Header */}
               <div className="relative border-b border-white/10 px-8 py-6">
                 <DialogHeader>
                   <div className="flex items-center justify-between gap-6">
                     <div>
-                      <DialogTitle className="flex items-center gap-3 text-4xl font-black uppercase tracking-[0.12em]">
-                        <Sparkles className="h-8 w-8 text-red-400" />
+                      <DialogTitle className="flex items-center gap-3 text-3xl font-black uppercase tracking-[0.12em]">
+                        <Sparkles className="h-7 w-7 text-red-400" />
                         Centro de Recrutamento
                       </DialogTitle>
-
-                      <div className="mt-2 text-sm uppercase tracking-[0.25em] text-zinc-500">
-                        {formatSlotLabel(slotKey)} • Operações clandestinas
+                      <div className="mt-2 text-xs uppercase tracking-[0.25em] text-zinc-500">
+                        {slotKey.toUpperCase()} • Barraco lvl {barracoLevel} • Liberado até tropa nível {maxLevel}
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-4">
-                      <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-3">
-                        <div className="text-xs uppercase text-red-300">
-                          Poder
-                        </div>
-
-                        <div className="mt-1 text-2xl font-black">
-                          +{quantityPerOperation * 16}
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-3">
-                        <div className="text-xs uppercase text-amber-300">
-                          Custo
-                        </div>
-
-                        <div className="mt-1 text-2xl font-black">
-                          {dirtyCost.toLocaleString('pt-BR')}
-                        </div>
+                    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-3">
+                      <div className="text-xs uppercase text-emerald-300">Dinheiro sujo</div>
+                      <div className="mt-1 text-2xl font-black">
+                        {dirtyMoney.toLocaleString('pt-BR')}
                       </div>
                     </div>
                   </div>
@@ -228,193 +186,227 @@ export default function GangTrainingModal({
               </div>
 
               <div className="relative p-8">
-                {trainingSlots.length > 0 && (
-                  <div className="mb-8">
-                    <div className="mb-4 flex items-center gap-3">
-                      <TimerReset className="h-5 w-5 text-cyan-400" />
+                {/* Slot ativo */}
+                {slotForThisCt && (
+                  <ActiveTrainingCard
+                    slot={slotForThisCt}
+                    now={now}
+                    onCollect={() => onCollectTraining(slotForThisCt.id)}
+                    isSubmitting={isSubmitting}
+                  />
+                )}
 
-                      <div className="text-sm font-black uppercase tracking-[0.22em] text-cyan-300">
-                        Operações em andamento
-                      </div>
+                {/* Seleção de tipo */}
+                {!slotForThisCt && (
+                  <>
+                    <div className="mb-4 text-sm font-black uppercase tracking-[0.22em] text-zinc-500">
+                      1 — Escolha o tipo
                     </div>
-
-                    <div className="grid gap-4">
-{trainingSlots
-  .filter((slot) => slot.ctKey === slotKey)
-  .map(slot => {
-                        const Icon = ICONS[slot.troopType];
-                        const progress = calculateProgress(slot);
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                      {TRAINABLE_MEMBER_TYPES.map((memberType) => {
+                        const Icon = ICONS[memberType];
+                        const isSelected = selectedType === memberType;
 
                         return (
-                          <motion.div
-                            key={slot.id}
-                            initial={{
-                              opacity: 0,
-                              y: 20,
-                            }}
-                            animate={{
-                              opacity: 1,
-                              y: 0,
-                            }}
-                            className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${COLORS[slot.troopType]} p-5`}
+                          <button
+                            key={memberType}
+                            onClick={() => setSelectedType(memberType)}
+                            className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition-all ${
+                              isSelected
+                                ? 'border-red-500 bg-red-500/10'
+                                : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                            }`}
                           >
-                            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-
-                            <div className="relative flex items-center justify-between gap-6">
-                              <div className="flex items-center gap-5">
-                                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-black/30">
-                                  <Icon className="h-10 w-10 text-white" />
-                                </div>
-
-                                <div>
-                                  <div className="text-2xl font-black uppercase">
-                                    {getMemberName(slot.troopType)}
-                                  </div>
-
-                                  <div className="mt-1 text-sm text-zinc-300">
-                                    {slot.quantity} soldados recrutados
-                                  </div>
-
-                                  <div className="mt-4 h-2 w-72 overflow-hidden rounded-full bg-black/40">
-                                    <motion.div
-                                      initial={{
-                                        width: 0,
-                                      }}
-                                      animate={{
-                                        width: `${progress}%`,
-                                      }}
-                                      className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-cyan-200"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-col items-end gap-3">
-                                <div className="rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-center">
-                                  <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                                    Status
-                                  </div>
-
-                                  <div className="mt-1 text-xl font-black">
-                                    {slot.status === 'completed'
-                                      ? 'PRONTO'
-                                      : formatRemaining(slot)}
-                                  </div>
-                                </div>
-
-                                {slot.status === 'completed' && (
-                                  <Button
-                                    onClick={() => onCollectTraining(slot.id)}
-                                    disabled={isSubmitting}
-                                    className="h-12 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-300 px-6 text-sm font-black uppercase tracking-[0.14em] text-black transition-all hover:scale-105 hover:from-amber-300 hover:to-yellow-200 disabled:opacity-50"
-                                  >
-                                    Coletar tropas
-                                  </Button>
-                                )}
+                            <div className={`absolute inset-0 bg-gradient-to-br ${COLORS[memberType]} opacity-30`} />
+                            <div className="relative flex items-center gap-3">
+                              <Icon className="h-7 w-7 text-white" />
+                              <div className="text-base font-black uppercase">
+                                {getMemberName(memberType)}
                               </div>
                             </div>
-                          </motion.div>
+                          </button>
                         );
                       })}
                     </div>
-                  </div>
+
+                    {/* Seleção de nível */}
+                    {selectedType && (
+                      <>
+                        <div className="mt-8 mb-4 text-sm font-black uppercase tracking-[0.22em] text-zinc-500">
+                          2 — Escolha o nível (até {maxLevel})
+                        </div>
+                        <div className="grid grid-cols-5 gap-2 sm:grid-cols-10">
+                          {Array.from({ length: 10 }, (_, i) => i + 1).map((lvl) => {
+                            const locked = lvl > maxLevel;
+                            const active = selectedLevel === lvl;
+
+                            return (
+                              <button
+                                key={lvl}
+                                disabled={locked}
+                                onClick={() => setSelectedLevel(lvl)}
+                                className={`relative aspect-square rounded-xl border text-lg font-black transition-all ${
+                                  active
+                                    ? 'border-red-500 bg-red-500/20 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)]'
+                                    : locked
+                                      ? 'cursor-not-allowed border-white/5 bg-white/[0.02] text-zinc-700'
+                                      : 'border-white/10 bg-white/[0.03] text-zinc-300 hover:border-white/30'
+                                }`}
+                              >
+                                {locked && <Lock className="absolute right-1 top-1 h-3 w-3" />}
+                                {lvl}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Preview */}
+                        <div className="mt-6 grid grid-cols-1 gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:grid-cols-3">
+                          {previewLoading || !preview ? (
+                            <div className="col-span-3 text-center text-sm text-zinc-500">
+                              Calculando…
+                            </div>
+                          ) : !preview.unlocked ? (
+                            <div className="col-span-3 text-center text-sm text-amber-400">
+                              {preview.message}
+                            </div>
+                          ) : (
+                            <>
+                              <PreviewStat label="Quantidade" value={preview.quantity.toString()} />
+                              <PreviewStat
+                                label="Custo"
+                                value={preview.cost.toLocaleString('pt-BR')}
+                                warning={!canAfford}
+                              />
+                              <PreviewStat
+                                label="Duração"
+                                value={formatDuration(preview.durationMs)}
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        {/* Botão de iniciar */}
+                        <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-6">
+                          <Button
+                            variant="outline"
+                            onClick={onClose}
+                            className="h-12 rounded-2xl border-white/10 bg-white/5 px-6 text-sm font-black uppercase"
+                          >
+                            Fechar
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              if (canStart && selectedType) {
+                                onStartTraining(slotKey, selectedType, selectedLevel);
+                              }
+                            }}
+                            disabled={!canStart}
+                            className="h-12 rounded-2xl bg-gradient-to-r from-red-500 to-red-600 px-8 text-sm font-black uppercase tracking-[0.12em] text-white disabled:opacity-40"
+                          >
+                            {!canAfford && preview?.unlocked
+                              ? 'Dinheiro insuficiente'
+                              : 'Iniciar treinamento'}
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
-
-                <div>
-                  <div className="mb-5 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-black uppercase tracking-[0.22em] text-zinc-500">
-                        Escolha uma unidade
-                      </div>
-
-                      <div className="mt-1 text-3xl font-black uppercase">
-                        Recrutar tropas
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-3">
-                      <div className="text-xs uppercase text-cyan-300">
-                        Duração
-                      </div>
-
-                      <div className="mt-1 text-2xl font-black">
-                        {durationMinutes} min
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                    {TRAINABLE_MEMBER_TYPES.map(memberType => {
-                      const Icon = ICONS[memberType];
-
-                      return (
-                        <motion.button
-                          key={memberType}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => onStartTraining(slotKey, memberType)}
-                          disabled={isSubmitting}
-                          className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${COLORS[memberType]} p-6 text-left transition-all disabled:opacity-50`}
-                        >
-                          <div className="absolute inset-0 bg-black/50 transition-all group-hover:bg-black/35" />
-
-                          <div className="relative flex items-start justify-between">
-                            <div>
-                              <div className="text-3xl font-black uppercase">
-                                {getMemberName(memberType)}
-                              </div>
-
-                              <div className="mt-2 max-w-sm text-sm text-zinc-300">
-                                {GANG_MEMBROS[memberType]?.descricao}
-                              </div>
-
-                              <div className="mt-6 flex items-center gap-5 text-sm">
-                                <div>
-                                  <div className="text-zinc-500">
-                                    Quantidade
-                                  </div>
-
-                                  <div className="font-black text-white">
-                                    +{quantityPerOperation}
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <div className="text-zinc-500">
-                                    Poder
-                                  </div>
-
-                                  <div className="font-black text-red-300">
-                                    +{quantityPerOperation * 16}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-white/10 bg-black/30">
-                              <Icon className="h-10 w-10 text-white" />
-                            </div>
-                          </div>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="mt-10 flex justify-end border-t border-white/10 pt-6">
-                  <Button
-                    variant="outline"
-                    onClick={onClose}
-                    className="h-12 rounded-2xl border-white/10 bg-white/5 px-6 text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:bg-white/10"
-                  >
-                    Fechar
-                  </Button>
-                </div>
               </div>
             </motion.div>
           </DialogContent>
         </Dialog>
       )}
     </AnimatePresence>
+  );
+}
+
+function PreviewStat({
+  label, value, warning = false,
+}: {
+  label: string;
+  value: string;
+  warning?: boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-black/30 p-4 text-center">
+      <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</div>
+      <div className={`mt-2 text-2xl font-black ${warning ? 'text-red-400' : 'text-white'}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ActiveTrainingCard({
+  slot, now, onCollect, isSubmitting,
+}: {
+  slot: TrainingSlot;
+  now: number;
+  onCollect: () => void;
+  isSubmitting: boolean;
+}) {
+  const Icon = ICONS[slot.troopType];
+  const isDone = slot.status === 'completed' || now >= slot.endsAt;
+  const remainingMs = Math.max(0, slot.endsAt - now);
+  const progress = calculateProgress(slot, now);
+
+  return (
+    <div className="mb-8">
+      <div className="mb-4 flex items-center gap-3">
+        <TimerReset className="h-5 w-5 text-cyan-400" />
+        <div className="text-sm font-black uppercase tracking-[0.22em] text-cyan-300">
+          Treinamento em andamento
+        </div>
+      </div>
+
+      <div className={`relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${COLORS[slot.troopType]} p-5`}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        <div className="relative flex items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-black/30">
+              <Icon className="h-10 w-10 text-white" />
+            </div>
+            <div>
+              <div className="text-2xl font-black uppercase">
+                {getMemberName(slot.troopType)} <span className="text-zinc-400">nível {slot.troopLevel}</span>
+              </div>
+              <div className="mt-1 text-sm text-zinc-300">
+                {slot.quantity} soldados em treino
+              </div>
+              <div className="mt-4 h-2 w-72 overflow-hidden rounded-full bg-black/40">
+                <motion.div
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.5 }}
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-cyan-200"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-center">
+              <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                {isDone ? 'Status' : 'Tempo restante'}
+              </div>
+              <div className="mt-1 text-xl font-black">
+                {isDone ? 'PRONTO' : formatDuration(remainingMs)}
+              </div>
+            </div>
+
+            {isDone && (
+              <Button
+                onClick={onCollect}
+                disabled={isSubmitting}
+                className="h-12 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-300 px-6 text-sm font-black uppercase tracking-[0.14em] text-black hover:scale-105 disabled:opacity-50"
+              >
+                Coletar tropas
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
