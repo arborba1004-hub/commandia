@@ -532,7 +532,7 @@ export default function GangTrainingModal({
                         <Button
                           onClick={() =>
                             onCollectTraining(
-                              slot.id
+                              operation.id
                             )
                           }
                           disabled={
