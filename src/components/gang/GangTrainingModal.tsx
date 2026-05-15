@@ -1,8 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMemo, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Clock3,
-  Flame,
   Shield,
   Skull,
   Zap,
@@ -37,7 +35,6 @@ import type {
 import {
   getGangTrainingCostDirty,
   getGangTrainingDurationMinutes,
-  getGangTrainingOperationStatus,
   getGangTrainingQuantityPerOperation,
 } from '@/components/gang/TreinamentoGang';
 
@@ -226,12 +223,6 @@ export default function GangTrainingModal({
     );
 
   if (!slotKey) return null;
-
-  const isReady = operation
-    ? getGangTrainingOperationStatus(
-        operation
-      ) === 'ready'
-    : false;
 
   return (
     <AnimatePresence>
