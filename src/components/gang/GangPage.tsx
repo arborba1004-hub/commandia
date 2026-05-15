@@ -49,6 +49,10 @@ function pickAvailableCT(
   return CT_KEYS.find((k) => !taken.has(k)) ?? null;
 }
 
+function getMaxTroopLevel(barracoLevel: number) {
+  return Math.max(1, Math.min(10, Math.floor(barracoLevel / 10) + 1));
+}
+
 function label(type: GangMemberType) {
   return {
     capanga: 'Capanga',
@@ -114,6 +118,9 @@ export default function GangPage() {
   const trainingSlots = useGangStore((state) => state.trainingSlots);
   const collectTraining = useGangStore((state) => state.collectTraining);
 
+  const barracoLevel = Math.max(1, Number(player?.niveis?.barracoLevel || 1));
+  const maxTroopLevel = getMaxTroopLevel(barracoLevel);
+
   useEffect(() => {
     void loadGang();
   }, [loadGang]);
@@ -147,7 +154,7 @@ export default function GangPage() {
         console.error('[GangPage] Todos os CTs estão ocupados');
         return;
       }
-      await queueTraining(ctKey, type);
+      await queueTraining(ctKey, type, maxTroopLevel);
     } finally {
       setQueueing(null);
     }
@@ -409,7 +416,7 @@ export default function GangPage() {
               handleCloseTrainingModal();
               return;
             }
-            await queueTraining(ctKey, memberType);
+            await queueTraining(ctKey, memberType, maxTroopLevel);
             handleCloseTrainingModal();
           }}
           onCollectTraining={async (slot) => {
