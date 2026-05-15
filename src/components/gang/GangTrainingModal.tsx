@@ -39,6 +39,7 @@ import {
 
 type TrainingSlot = {
   id: string;
+  ctKey: string;
   troopType: GangMemberType;
   quantity: number;
   startedAt: number;
@@ -257,7 +258,9 @@ export default function GangTrainingModal({
                     </div>
 
                     <div className="grid gap-4">
-{trainingSlots.map(slot => {
+{trainingSlots
+  .filter((slot) => slot.ctKey === slotKey)
+  .map(slot => {
                         const Icon = ICONS[slot.troopType];
                         const progress = calculateProgress(slot);
 

@@ -810,7 +810,7 @@ export default function GamePage() {
             setIsSubmittingTraining(true);
 
             try {
-              const ok = await useGangStore.getState().queueTraining(memberType);
+              const ok = await useGangStore.getState().queueTraining(_slotKey, memberType);
 
               if (!ok) {
                 console.error(useGangStore.getState().error);

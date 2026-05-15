@@ -36,6 +36,7 @@ import { countMembersByType } from '@/utils/gangHelpers';
 
 type TrainingSlot = {
   id: string;
+  ctKey: string;
   troopType: GangMemberType;
   quantity: number;
   startedAt: number;
@@ -63,7 +64,7 @@ type GangStore = {
 
   // ── Mutações ──────────────────────────────────────────────────────────────
   recruitMember: (type: GangMemberType) => Promise<boolean>;
-  queueTraining: (troopType: GangMemberType) => Promise<boolean>;
+  queueTraining: (ctKey: string, troopType: GangMemberType) => Promise<boolean>;
   completeFinishedTrainings: () => Promise<boolean>;
   collectTraining: (slotId: string) => Promise<boolean>;
   upgradeCT: () => Promise<boolean>;
@@ -371,20 +372,22 @@ export const useGangStore = create<GangStore>((set, get) => ({
       return false;
     }
   },
-queueTraining: async (troopType) => {
+queueTraining: async (ctKey, troopType) => {
     try {
       set({ isSubmitting: true, error: null });
 
       const state = get();
 
-      const activeSlots = state.trainingSlots.filter(
-        (slot) => slot.status === 'training'
+      const ctAlreadyTraining = state.trainingSlots.some(
+        (slot) =>
+          slot.ctKey === ctKey &&
+          slot.status === 'training'
       );
 
-      if (activeSlots.length >= 4) {
+      if (ctAlreadyTraining) {
         set({
           isSubmitting: false,
-          error: 'Todos os CTs já estão treinando.',
+          error: 'Este CT já está treinando uma tropa.',
         });
 
         return false;
@@ -396,12 +399,15 @@ queueTraining: async (troopType) => {
       const durationMs = barracoLevel * 2 * 60 * 1000;
       const cost = Math.floor(1000 * barracoLevel * 1.1);
 
+      const now = Date.now();
+
       const slot: TrainingSlot = {
         id: crypto.randomUUID(),
+        ctKey,
         troopType,
         quantity,
-        startedAt: Date.now(),
-        endsAt: Date.now() + durationMs,
+        startedAt: now,
+        endsAt: now + durationMs,
         status: 'training',
         cost,
       };
