@@ -15,6 +15,7 @@
 import { useEffect, useRef } from 'react';
 import { usePlayerStore }    from '@/store/playerStore';
 import { useFactionStore }   from '@/store/factionStore';
+import { useGangStore }      from '@/store/gangStore';
 import { reconnectSocket, disconnectSocket } from '@/socket';
 
 export function useGameSocket() {
@@ -69,15 +70,27 @@ export function useGameSocket() {
       // ── gangUpdate: quando gang muda (treinamento, recrutamento) ─────────────
       const handleGangUpdate = (data: { gang: any }) => {
         if (!mountedRef.current || !data?.gang) return;
-        // Atualiza gang dentro do playerStore
-        usePlayerStore.getState().applyPlayerUpdate((p) => (
-          {
-            ...p,
-            gang: data.gang,
-            gangMembers: data.gang?.members ?? p.gangMembers,
-            gangStats:   data.gang?.stats   ?? p.gangStats,
-          }
-        ));
+
+        // Atualiza playerStore (comportamento existente)
+        usePlayerStore.getState().applyPlayerUpdate((p) => ({
+          ...p,
+          gang: data.gang,
+          gangMembers: data.gang?.members ?? p.gangMembers,
+          gangStats:   data.gang?.stats   ?? p.gangStats,
+        }));
+
+        // Propaga members/stats para gangStore para que GangPage,
+        // MapAttackWithGangModal, AttackMemberSelector, usePowerSync etc.
+        // reflitam o estado em tempo real após training:updated.
+        const currentGang = useGangStore.getState().gang;
+        if (currentGang) {
+          useGangStore.setState({
+            gang: {
+              ...currentGang,
+              members: data.gang?.members ?? currentGang.members,
+            },
+          });
+        }
       };
 
       const handleConnect = () => {
