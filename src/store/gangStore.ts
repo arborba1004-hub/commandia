@@ -54,7 +54,11 @@ type GangStore = {
 
   // ── Mutações ──────────────────────────────────────────────────────────────
   recruitMember: (type: GangMemberType) => Promise<boolean>;
-  queueTraining: (ctKey: string, troopType: GangMemberType) => Promise<boolean>;
+  queueTraining: (
+    ctKey: string,
+    troopType: GangMemberType,
+    troopLevel: number
+  ) => Promise<boolean>;
   completeFinishedTrainings: () => Promise<boolean>;
   collectTraining: (slotId: string) => Promise<boolean>;
   upgradeCT: () => Promise<boolean>;
@@ -280,11 +284,11 @@ export const useGangStore = create<GangStore>((set, get) => ({
     }
   },
 
-  queueTraining: async (ctKey, troopType) => {
+  queueTraining: async (ctKey, troopType, troopLevel) => {
     try {
       set({ isSubmitting: true, error: null });
 
-      const data = await startTraining(ctKey, troopType);
+      const data = await startTraining(ctKey, troopType, troopLevel);
       syncBalances(data.balances);
 
       set((state) => ({
