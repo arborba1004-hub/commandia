@@ -378,6 +378,19 @@ queueTraining: async (ctKey, troopType) => {
 
       const state = get();
 
+      const activeSlots = state.trainingSlots.filter(
+        (slot) => slot.status === 'training'
+      );
+
+      if (activeSlots.length >= 4) {
+        set({
+          isSubmitting: false,
+          error: 'Todos os CTs já estão treinando.',
+        });
+
+        return false;
+      }
+
       const ctAlreadyTraining = state.trainingSlots.some(
         (slot) =>
           slot.ctKey === ctKey &&
@@ -399,6 +412,18 @@ queueTraining: async (ctKey, troopType) => {
       const durationMs = barracoLevel * 2 * 60 * 1000;
       const cost = Math.floor(1000 * barracoLevel * 1.1);
 
+      const dirtyMoney =
+        usePlayerStore.getState().player?.balances?.dirtyMoney ?? 0;
+
+      if (dirtyMoney < cost) {
+        set({
+          isSubmitting: false,
+          error: 'Dinheiro sujo insuficiente para iniciar o treinamento.',
+        });
+
+        return false;
+      }
+
       const now = Date.now();
 
       const slot: TrainingSlot = {
@@ -413,6 +438,17 @@ queueTraining: async (ctKey, troopType) => {
       };
 
       const updatedSlots = [...state.trainingSlots, slot];
+
+      usePlayerStore.getState().applyPlayerUpdate((player) => ({
+        ...player,
+        balances: {
+          ...player.balances,
+          dirtyMoney: Math.max(
+            0,
+            (player.balances?.dirtyMoney ?? 0) - cost
+          ),
+        },
+      }));
 
       set({
         trainingSlots: updatedSlots,
