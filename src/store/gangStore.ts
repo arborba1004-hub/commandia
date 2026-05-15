@@ -281,22 +281,37 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
   completeFinishedTrainings: async () => {
     try {
-      set({ isSubmitting: true, error: null });
+      const now = Date.now();
 
-      const data = await completeGangTrainings();
+      const state = get();
 
-      syncBalances(data.playerBalances);
+      const updatedSlots = state.trainingSlots.map((slot) => {
+        if (slot.status === 'training' && now >= slot.endsAt) {
+          return {
+            ...slot,
+            status: 'completed' as const,
+          };
+        }
+
+        return slot;
+      });
 
       set({
-        gang: data.gang,
-        isSubmitting: false,
+        trainingSlots: updatedSlots,
+      });
+
+      await persistTrainingState({
+        trainingState: updatedSlots,
+        gangMembers: state.gang?.members ?? [],
       });
 
       return true;
     } catch (err) {
       set({
-        isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao concluir treinamentos',
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Erro ao atualizar treinamentos',
       });
 
       return false;
