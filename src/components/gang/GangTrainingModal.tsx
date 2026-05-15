@@ -146,25 +146,6 @@ export default function GangTrainingModal({
     setTrainingSlots(trainingState.trainingSlots ?? []);
   }, [trainingState.trainingSlots]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTrainingSlots(prev =>
-        prev.map(slot => {
-          if (slot.status === 'training' && Date.now() >= slot.endsAt) {
-            return {
-              ...slot,
-              status: 'completed' as const,
-            };
-          }
-
-          return slot;
-        })
-      );
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const quantityPerOperation = getGangTrainingQuantityPerOperation(player);
   const durationMinutes = getGangTrainingDurationMinutes(player);
   const dirtyCost = getGangTrainingCostDirty(player);

@@ -28,27 +28,17 @@ import {
   payGangMaintenance,
   setGangFormation,
 } from '@/api/gangApi';
+import {
+  fetchTrainingStatus,
+  startTraining,
+  collectTraining as collectTrainingApi,
+  type TrainingSlot,
+} from '@/api/training';
 import { countMembersByType } from '@/utils/gangHelpers';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS DO STORE
 // ═════════════════════════════════════════════════════════════════════════════
-
-type TrainingSlot = {
-  id: string;
-  ctKey: GangMemberType;
-  troopType: GangMemberType;
-  quantity: number;
-  startedAt: number;
-  endsAt: number;
-  status: 'training' | 'completed';
-  cost: number;
-};
-
-type PersistedTrainingState = {
-  trainingSlots: TrainingSlot[];
-  gangMembers: GangMember[];
-};
 
 type GangStore = {
   gang: Gang | null;
@@ -88,77 +78,6 @@ type GangStore = {
 // ═════════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═════════════════════════════════════════════════════════════════════════════
-
-const TRAINING_STORAGE_KEY = 'gang_training_state';
-
-function loadPersistedTrainingState(): PersistedTrainingState {
-  try {
-    const raw = localStorage.getItem(TRAINING_STORAGE_KEY);
-
-    if (!raw) {
-      return {
-        trainingSlots: [],
-        gangMembers: [],
-      };
-    }
-
-    const parsed = JSON.parse(raw);
-
-    return {
-      trainingSlots: Array.isArray(parsed?.trainingSlots)
-        ? parsed.trainingSlots
-        : [],
-      gangMembers: Array.isArray(parsed?.gangMembers)
-        ? parsed.gangMembers
-        : [],
-    };
-  } catch {
-    return {
-      trainingSlots: [],
-      gangMembers: [],
-    };
-  }
-}
-
-/**
- * Persiste o estado de treinamento localmente.
- */
-async function persistTrainingState(data: {
-  trainingState: TrainingSlot[];
-  gangMembers: GangMember[];
-}) {
-  try {
-    const payload: PersistedTrainingState = {
-      trainingSlots: data.trainingState,
-      gangMembers: data.gangMembers,
-    };
-
-    localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(payload));
-  } catch {
-    // Evita quebrar o jogo se o localStorage falhar.
-  }
-}
-
-function mergeGangMembers(
-  apiMembers: GangMember[],
-  persistedMembers: GangMember[]
-): GangMember[] {
-  const map = new Map<string, GangMember>();
-
-  for (const member of apiMembers) {
-    if (member?.id) {
-      map.set(member.id, member);
-    }
-  }
-
-  for (const member of persistedMembers) {
-    if (member?.id && !map.has(member.id)) {
-      map.set(member.id, member);
-    }
-  }
-
-  return Array.from(map.values());
-}
 
 const EMPTY_BATTLE_STATS: GangBattleStats = {
   totalMembers: 0,
@@ -270,32 +189,18 @@ export const useGangStore = create<GangStore>((set, get) => ({
       set({ isLoading: true, error: null });
 
       const data = await fetchMyGang();
-      const persisted = loadPersistedTrainingState();
 
       syncBalances(data.playerBalances);
 
       const apiGang = data.gang ?? null;
-      const apiMembers = apiGang?.members ?? [];
-      const persistedMembers = persisted.gangMembers ?? [];
-      const mergedMembers = mergeGangMembers(apiMembers, persistedMembers);
-
-      const mergedGang: Gang | null = apiGang
-        ? {
-            ...apiGang,
-            members: mergedMembers,
-          }
-        : ({
-            members: mergedMembers,
-          } as Gang);
 
       set({
-        gang: mergedGang,
-        trainingSlots: persisted.trainingSlots,
+        gang: apiGang,
         isLoading: false,
       });
 
-      if (mergedGang?.formation) {
-        syncFormacaoToEstatisticas(mergedGang.formation);
+      if (apiGang?.formation) {
+        syncFormacaoToEstatisticas(apiGang.formation);
       }
 
       return true;
@@ -311,32 +216,21 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
   loadTrainingState: async () => {
     try {
-      const persisted = loadPersistedTrainingState();
+      set({ isLoading: true, error: null });
 
-      const currentGang = get().gang;
+      const data = await fetchTrainingStatus();
 
-      if (currentGang) {
-        const mergedMembers = mergeGangMembers(
-          currentGang.members ?? [],
-          persisted.gangMembers ?? []
-        );
+      syncBalances(data.balances);
 
-        set({
-          trainingSlots: persisted.trainingSlots,
-          gang: {
-            ...currentGang,
-            members: mergedMembers,
-          },
-        });
-      } else {
-        set({
-          trainingSlots: persisted.trainingSlots,
-        });
-      }
+      set({
+        trainingSlots: data.trainingSlots,
+        isLoading: false,
+      });
 
       return true;
     } catch (err) {
       set({
+        isLoading: false,
         error:
           err instanceof Error
             ? err.message
@@ -372,90 +266,18 @@ export const useGangStore = create<GangStore>((set, get) => ({
       return false;
     }
   },
-queueTraining: async (ctKey, troopType) => {
+
+  queueTraining: async (ctKey, troopType) => {
     try {
       set({ isSubmitting: true, error: null });
 
-      const state = get();
+      const data = await startTraining(ctKey, troopType);
 
-      const activeSlots = state.trainingSlots.filter(
-        (slot) => slot.status === 'training'
-      );
-
-      const ctAlreadyBusy = activeSlots.some(
-        (slot) => slot.ctKey === troopType
-      );
-
-      if (ctAlreadyBusy) {
-        set({
-          isSubmitting: false,
-          error: 'Este CT já está treinando.',
-        });
-
-        return false;
-      }
-
-      if (activeSlots.length >= 4) {
-        set({
-          isSubmitting: false,
-          error: 'Todos os CTs já estão treinando.',
-        });
-
-        return false;
-      }
-
-      const barracoLevel = state.gang?.barracoLevel ?? 1;
-
-      const quantity = barracoLevel * 10;
-      const durationMs = barracoLevel * 2 * 60 * 1000;
-      const cost = Math.floor(1000 * barracoLevel * 1.1);
-
-      const dirtyMoney =
-        usePlayerStore.getState().player?.balances?.dirtyMoney ?? 0;
-
-      if (dirtyMoney < cost) {
-        set({
-          isSubmitting: false,
-          error: 'Dinheiro sujo insuficiente para iniciar o treinamento.',
-        });
-
-        return false;
-      }
-
-      const now = Date.now();
-
-      const slot: TrainingSlot = {
-        id: crypto.randomUUID(),
-        ctKey,
-        troopType,
-        quantity,
-        startedAt: now,
-        endsAt: now + durationMs,
-        status: 'training',
-        cost,
-      };
-
-      const updatedSlots = [...state.trainingSlots, slot];
-
-      usePlayerStore.getState().applyPlayerUpdate((player) => ({
-        ...player,
-        balances: {
-          ...player.balances,
-          dirtyMoney: Math.max(
-            0,
-            (player.balances?.dirtyMoney ?? 0) - cost
-          ),
-        },
-      }));
+      syncBalances(data.balances);
 
       set({
-        trainingSlots: updatedSlots,
+        trainingSlots: data.trainingSlots,
         isSubmitting: false,
-      });
-
-      await persistTrainingState({
-        trainingState: updatedSlots,
-        gangMembers: state.gang?.members ?? [],
       });
 
       return true;
@@ -474,8 +296,9 @@ queueTraining: async (ctKey, troopType) => {
 
   completeFinishedTrainings: async () => {
     try {
-      const now = Date.now();
       const state = get();
+
+      const now = Date.now();
 
       const updatedSlots = state.trainingSlots.map((slot) => {
         if (slot.status === 'training' && now >= slot.endsAt) {
@@ -490,11 +313,6 @@ queueTraining: async (ctKey, troopType) => {
 
       set({
         trainingSlots: updatedSlots,
-      });
-
-      await persistTrainingState({
-        trainingState: updatedSlots,
-        gangMembers: state.gang?.members ?? [],
       });
 
       return true;
@@ -514,57 +332,13 @@ queueTraining: async (ctKey, troopType) => {
     try {
       set({ isSubmitting: true, error: null });
 
-      const state = get();
+      const data = await collectTrainingApi(slotId);
 
-      const slot = state.trainingSlots.find((s) => s.id === slotId);
-
-      if (!slot) {
-        set({
-          isSubmitting: false,
-          error: 'Treino não encontrado.',
-        });
-
-        return false;
-      }
-
-      if (slot.status !== 'completed' && Date.now() < slot.endsAt) {
-        set({
-          isSubmitting: false,
-          error: 'Treino ainda não terminou.',
-        });
-
-        return false;
-      }
-
-      const now = Date.now();
-
-      const newMembers: GangMember[] = Array.from(
-        { length: slot.quantity },
-        (_, index) => ({
-          id: `${slot.troopType}-${now}-${index}`,
-          type: slot.troopType,
-          level: 1,
-          status: 'ativo',
-          recruitedAt: now,
-        })
-      );
-
-      const updatedGang: Gang = {
-        ...((state.gang ?? { members: [] }) as Gang),
-        members: [...(state.gang?.members ?? []), ...newMembers],
-      };
-
-      const updatedSlots = state.trainingSlots.filter((s) => s.id !== slotId);
+      syncBalances(data.balances);
 
       set({
-        gang: updatedGang,
-        trainingSlots: updatedSlots,
+        trainingSlots: data.trainingSlots,
         isSubmitting: false,
-      });
-
-      await persistTrainingState({
-        trainingState: updatedSlots,
-        gangMembers: updatedGang.members,
       });
 
       return true;
@@ -749,8 +523,6 @@ queueTraining: async (ctKey, troopType) => {
   },
 
   clearGang: () => {
-    localStorage.removeItem(TRAINING_STORAGE_KEY);
-
     set({
       gang: null,
       trainingSlots: [],
