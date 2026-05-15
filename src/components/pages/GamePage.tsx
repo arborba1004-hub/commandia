@@ -79,6 +79,7 @@ export default function GamePage() {
 
   // ── Modal: treinamento de gangue (CT)
   const gang = useGangStore((s) => s.gang);
+  const trainingSlots = useGangStore((s) => s.trainingSlots);
   const [trainingModalOpen, setTrainingModalOpen] = useState(false);
   const [selectedCT, setSelectedCT] = useState<string | null>(null);
   const [isSubmittingTraining, setIsSubmittingTraining] = useState(false);
@@ -98,16 +99,7 @@ export default function GamePage() {
     useGangStore.getState().loadGang();
   }, []);
 
-  // Mapeia CT keys para QG slot keys
-  const mapCTToSlot = (ctKey: string): string => {
-    const mapping: Record<string, string> = {
-      'ct_nw': 'qg_nw',
-      'ct_ne': 'qg_ne',
-      'ct_sw': 'qg_sw',
-      'ct_se': 'qg_se',
-    };
-    return mapping[ctKey] || ctKey;
-  };
+
 
   // ── Handler: mensagem privada
   const handleSendPrivateMessage = useCallback(
@@ -803,18 +795,28 @@ export default function GamePage() {
       {trainingModalOpen && selectedCT && (
         <GangTrainingModal
           isOpen={trainingModalOpen}
-          slotKey={mapCTToSlot(selectedCT) as any}
+          slotKey={selectedCT as any}
           player={player as any}
-          trainingState={gang?.trainingState ?? { slots: {} }}
+          trainingState={{
+            slots: {},
+            trainingSlots,
+          } as any}
           isSubmitting={isSubmittingTraining}
           onClose={() => {
             setTrainingModalOpen(false);
             setSelectedCT(null);
           }}
-          onStartTraining={async (slotKey, memberType) => {
+          onStartTraining={async (_slotKey, memberType) => {
             setIsSubmittingTraining(true);
+
             try {
-              await useGangStore.getState().queueTraining(memberType);
+              const ok = await useGangStore.getState().queueTraining(memberType);
+
+              if (!ok) {
+                console.error(useGangStore.getState().error);
+                return;
+              }
+
               console.log('✅ Treinamento iniciado:', memberType, 'no CT:', selectedCT);
             } catch (error) {
               console.error('❌ Erro ao iniciar treinamento:', error);
@@ -822,11 +824,18 @@ export default function GamePage() {
               setIsSubmittingTraining(false);
             }
           }}
-          onCollectTraining={async (slotKey) => {
+          onCollectTraining={async (slotId) => {
             setIsSubmittingTraining(true);
+
             try {
-              await useGangStore.getState().completeFinishedTrainings();
-              console.log('✅ Treinamento coletado do CT:', selectedCT);
+              const ok = await useGangStore.getState().collectTraining(slotId);
+
+              if (!ok) {
+                console.error(useGangStore.getState().error);
+                return;
+              }
+
+              console.log('✅ Treinamento coletado:', slotId);
             } catch (error) {
               console.error('❌ Erro ao coletar treinamento:', error);
             } finally {
