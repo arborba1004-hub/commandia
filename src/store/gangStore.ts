@@ -28,29 +28,18 @@ import {
   setGangFormation,
   applyGangBattleLosses,
 } from '@/api/gangApi';
-import { persistTrainingState, getGangStatus, loadTrainingState, collectTrainingMembers } from '@/api/training';
+// ... keep existing code (other imports)
 import { countMembersByType } from '@/utils/gangHelpers';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS DO STORE
 // ═════════════════════════════════════════════════════════════════════════════
 
-type TrainingSlot = {
-  id: string;
-  troopType: GangMemberType;
-  quantity: number;
-  startedAt: number;
-  endsAt: number;
-  status: 'training' | 'completed';
-  cost: number;
-};
-
 type GangStore = {
   gang: Gang | null;
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
-  trainingSlots: TrainingSlot[];
 
   // ── Carregamento ──────────────────────────────────────────────────────────
   loadGang: () => Promise<boolean>;
@@ -60,7 +49,7 @@ type GangStore = {
   recruitMember: (type: GangMemberType) => Promise<boolean>;
   queueTraining: (troopType: GangMemberType) => Promise<boolean>;
   completeFinishedTrainings: () => Promise<boolean>;
-  collectTraining: (slotId: string) => Promise<boolean>;
+  collectTraining: () => Promise<boolean>;
   upgradeCT: () => Promise<boolean>;
   payMaintenance: () => Promise<boolean>;
   setFormation: (formation: GangFormationType) => Promise<boolean>;
@@ -157,7 +146,6 @@ export const useGangStore = create<GangStore>((set, get) => ({
   isLoading: false,
   isSubmitting: false,
   error: null,
-  trainingSlots: [],
 
   // ── Carregamento ──────────────────────────────────────────────────────────
 
@@ -172,16 +160,6 @@ export const useGangStore = create<GangStore>((set, get) => ({
         syncFormacaoToEstatisticas(data.gang.formation);
       }
       
-      // Carrega estado persistido de treinamento
-      try {
-        const gangStatus = await getGangStatus();
-        if (gangStatus?.trainingSlots) {
-          set({ trainingSlots: gangStatus.trainingSlots });
-        }
-      } catch (err) {
-        console.warn('Erro ao carregar estado de treinamento persistido:', err);
-      }
-      
       return true;
     } catch (err) {
       set({
@@ -193,18 +171,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
   },
 
   loadTrainingState: async () => {
-    try {
-      set({ isLoading: true, error: null });
-      const data = await loadTrainingState();
-      if (data?.trainingState && Array.isArray(data.trainingState)) {
-        set({ trainingSlots: data.trainingState, isLoading: false });
-      }
-      return true;
-    } catch (err) {
-      console.warn('Erro ao carregar estado de treinamento persistido:', err);
-      set({ isLoading: false });
-      return false;
-    }
+    return get().loadGang();
   },
 
   // ── Mutações ──────────────────────────────────────────────────────────────
@@ -225,162 +192,57 @@ export const useGangStore = create<GangStore>((set, get) => ({
   queueTraining: async (troopType) => {
     try {
       set({ isSubmitting: true, error: null });
+
       const state = get();
+      const quantity =
+        state.gang?.trainingConfig?.quantityPerOrder ?? 10;
 
-      if (state.trainingSlots.length >= 4) {
-        set({ isSubmitting: false, error: 'Limite de slots de treinamento atingido' });
-        return false;
-      }
+      const data = await queueGangTraining(troopType, quantity);
 
-      const quantity = state.gang?.trainingConfig.quantityPerOrder ?? 10;
-      const durationSeconds = state.gang?.trainingConfig.durationSeconds ?? 10;
-      const duration = durationSeconds * 1000;
-
-      const cost = Math.floor(1000 * (state.gang?.level ?? 1) * 1.1);
-
-      // Validate sufficient dirtyMoney
-      const playerState = usePlayerStore.getState();
-      const currentDirtyMoney = playerState.player?.balances.dirtyMoney ?? 0;
-      if (currentDirtyMoney < cost) {
-        set({ isSubmitting: false, error: 'Saldo insuficiente para treinar' });
-        return false;
-      }
-
-      const slot: TrainingSlot = {
-        id: crypto.randomUUID(),
-        troopType,
-        quantity,
-        startedAt: Date.now(),
-        endsAt: Date.now() + duration,
-        status: 'training',
-        cost,
-      };
-
-      const updatedSlots = [...state.trainingSlots, slot];
-      
-      // Deduct cost from dirtyMoney
-      usePlayerStore.getState().applyPlayerUpdate((p) => ({
-        ...p,
-        balances: {
-          ...p.balances,
-          dirtyMoney: p.balances.dirtyMoney - cost,
-        },
-      }));
+      syncBalances(data.playerBalances);
 
       set({
-        trainingSlots: updatedSlots,
-      });
-
-      // Persist training state to backend
-      await persistTrainingState({
-        trainingState: updatedSlots,
-        gangMembers: state.gang?.members ?? [],
-      }) as any;
-
-      // Atualiza UI para mostrar treino em andamento
-      set((prevState) => ({
-        trainingSlots: prevState.trainingSlots.map((s) =>
-          s.id === slot.id ? { ...s, status: 'training' as const } : s
-        ),
+        gang: data.gang,
         isSubmitting: false,
-      }));
+      });
 
       return true;
     } catch (err) {
       set({
         isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao enfileirar treinamento',
+        error: err instanceof Error ? err.message : 'Erro ao iniciar treinamento',
       });
+
       return false;
     }
   },
 
-  /**
-   * Consolidado: Verifica timestamps localmente, atualiza status para 'completed',
-   * persiste no backend e sincroniza dados da gangue.
-   */
   completeFinishedTrainings: async () => {
     try {
       set({ isSubmitting: true, error: null });
-      const now = Date.now();
-      const state = get();
 
-      // Step 1: Check for locally completed trainings based on timestamps
-      const updated = state.trainingSlots.map((slot) => {
-        if (slot.status === 'training' && now >= slot.endsAt) {
-          return {
-            ...slot,
-            status: 'completed' as const,
-          };
-        }
-        return slot;
-      });
-
-      // Step 2: Update local state with completed trainings
-      set({
-        trainingSlots: updated,
-      });
-
-      // Step 3: Persist updated training state to backend
-      await persistTrainingState({
-        trainingState: updated,
-        gangMembers: state.gang?.members ?? [],
-      }) as any;
-
-      // Step 4: Sync with backend to get updated gang data
       const data = await completeGangTrainings();
+
       syncBalances(data.playerBalances);
-      set({ gang: data.gang, isSubmitting: false });
+
+      set({
+        gang: data.gang,
+        isSubmitting: false,
+      });
+
       return true;
     } catch (err) {
-      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao coletar treinos' });
+      set({
+        isSubmitting: false,
+        error: err instanceof Error ? err.message : 'Erro ao concluir treinamentos',
+      });
+
       return false;
     }
   },
 
-  collectTraining: async (slotId) => {
-    try {
-      set({ isSubmitting: true, error: null });
-      const state = get();
-
-      const slot = state.trainingSlots.find((s) => s.id === slotId);
-
-      if (!slot) {
-        set({ isSubmitting: false });
-        return false;
-      }
-
-      if (slot.status !== 'completed') {
-        set({ isSubmitting: false });
-        return false;
-      }
-
-      const playerId = usePlayerStore.getState().player?.id;
-      if (!playerId) {
-        set({ isSubmitting: false, error: 'Player ID não encontrado' });
-        return false;
-      }
-
-      // Call backend to collect training members
-      await collectTrainingMembers({
-        slotKey: slotId,
-        trainingState: state.trainingSlots,
-        memberType: slot.troopType,
-        quantity: slot.quantity,
-      });
-
-      // Reload gang state from backend
-      const success = await get().loadGang();
-
-      set({ isSubmitting: false });
-      return success;
-    } catch (err) {
-      set({
-        isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao coletar treinamento',
-      });
-      return false;
-    }
+  collectTraining: async () => {
+    return get().completeFinishedTrainings();
   },
 
   upgradeCT: async () => {
@@ -494,7 +356,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
   },
 
   clearGang: () => {
-    set({ gang: null, isLoading: false, isSubmitting: false, error: null, trainingSlots: [] });
+    set({ gang: null, isLoading: false, isSubmitting: false, error: null });
     useGangEstatisticasStore.getState().resetAll();
   },
 }));
