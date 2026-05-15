@@ -432,7 +432,7 @@ export default function GangTrainingModal({
                                     <Button
                                       onClick={() =>
                                         onCollectTraining(
-                                          slotKey
+                                          slot.id
                                         )
                                       }
                                       disabled={
@@ -532,7 +532,7 @@ export default function GangTrainingModal({
                         <Button
                           onClick={() =>
                             onCollectTraining(
-                              slotKey
+                              slot.id
                             )
                           }
                           disabled={
