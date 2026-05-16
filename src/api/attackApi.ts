@@ -255,7 +255,7 @@ export type CanAttackResponse = {
   reason: 'self_attack' | 'same_faction' | 'shield_active' | 'cooldown' | 'target_not_found' | 'no_target' | 'server_error' | null;
   message: string | null;
   shieldExpiresAt: number | null;
-  shieldSource: 'novato' | 'derrota' | 'pacote' | null;
+  shieldSource: 'novato' | 'derrota' | 'pacote' | 'unknown' | null;
   cooldownExpiresAt: number | null;
 };
 
