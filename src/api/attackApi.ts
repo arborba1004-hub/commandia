@@ -38,7 +38,7 @@ export type StartBattlePayload = {
 export type StartBattleResponse = {
   battleId: string;
   success: boolean;
-  message: string;
+  message?: string;
   /** Tempo estimado de viagem em ms (para sincronizar animação) */
   totalDurationMs: number;
   arriveAtIso: string;
