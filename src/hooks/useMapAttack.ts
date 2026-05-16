@@ -158,9 +158,15 @@ export function useMapAttack(): UseMapAttackReturn {
 
     try {
       // Verificar se pode atacar
-      const attackCheck = await canAttack({
-        targetId: target.playerId,
-      }).catch(() => ({ canAttack: false, reason: 'Erro ao verificar ataque' }));
+      const attackCheck = await canAttack(target.playerId)
+        .catch(() => ({
+          canAttack: false,
+          reason: 'server_error',
+          message: 'Erro ao verificar ataque',
+          shieldExpiresAt: null,
+          shieldSource: null,
+          cooldownExpiresAt: null,
+        }));
 
       setCanAttackInfo(attackCheck);
 
