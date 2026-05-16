@@ -11,7 +11,7 @@
  *   5. getBattleReport()→ busca relatório de batalha já resolvida
  */
 
-import type { BattleResolution, AttackTarget, GangAttackSelection } from '@/types/gang';
+import type { BattleResolution, GangAttackSelection } from '@/types/gang';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // CONFIG
