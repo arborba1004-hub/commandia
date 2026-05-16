@@ -297,14 +297,14 @@ export function useMapAttack(): UseMapAttackReturn {
       });
       animationRef.current = animation;
 
-      // Sincronizar com tempo real de viagem do backend
-      const travelMs = startResp.totalDurationMs ?? animation.totalDurationMs;
+      // Calcular tempo de espera baseado em arriveAtIso
+      const arriveAtMs = new Date(startResp.arriveAtIso).getTime();
+      const waitMs = Math.max(0, arriveAtMs - Date.now());
 
       // Iniciar animação em paralelo com o timer de viagem
       const animPromise = animation.start();
 
-      // Aguardar o tempo de viagem (o backend usa isso para aceitar o resolve)
-      const waitMs = Math.max(0, travelMs - 500);
+      // Aguardar até o tempo de chegada calculado
       await new Promise<void>((res) => setTimeout(res, waitMs));
 
       store.setPhase('arriving');
