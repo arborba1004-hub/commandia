@@ -86,11 +86,15 @@ function buildRoute(
 
   const route: Array<{ tileX: number; tileY: number }> = [{ tileX: x, tileY: y }];
 
-  while (x !== tx || y !== ty) {
-    if (x < tx) x++;
-    else if (x > tx) x--;
-    if (y < ty) y++;
-    else if (y > ty) y--;
+  // Manhattan real: primeiro move no eixo X até chegar em tx
+  while (x !== tx) {
+    x += x < tx ? 1 : -1;
+    route.push({ tileX: x, tileY: y });
+  }
+
+  // Depois move no eixo Y até chegar em ty
+  while (y !== ty) {
+    y += y < ty ? 1 : -1;
     route.push({ tileX: x, tileY: y });
   }
 
