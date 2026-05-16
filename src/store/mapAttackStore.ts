@@ -1,137 +1,282 @@
 /**
  * store/mapAttackStore.ts
- * Store Zustand para gerenciar estado de ataques no mapa.
- * Mantém informações sobre o ataque em progresso, animações, e resultados.
+ *
+ * Store de UX do fluxo de ataque PvP no mapa.
+ *
+ * Responsabilidade: orquestrar o estado visual do ataque em tempo real:
+ *   - preview aberto/fechado (modal de seleção de tropas)
+ *   - tropas selecionadas pelo jogador antes de confirmar
+ *   - rota da viagem ida+volta e progresso no mapa
+ *   - posição do squad no mundo 3D
+ *   - resultado final (recebido do backend)
+ *
+ * NÃO faz cálculo de batalha — isso é 100% backend (resolveAttack.js).
+ * NÃO persiste — recarrega a página = reseta. O ataque continua no backend.
+ *
+ * Eventos que alimentam este store:
+ *   - usuário clica em barraco inimigo no mapa → openPreview(target, origin)
+ *   - usuário ajusta sliders de tropas no modal → updateTroopSelection(type, qty)
+ *   - usuário confirma ataque → useMapAttack chama startBattle e atualiza phase
+ *   - socket 'attackResolved' chega → setResolution(...)
+ *   - jogador fecha tela de resultado → resetAttack()
  */
 
 import { create } from 'zustand';
-import type { AttackTarget, AttackOrigin, AttackResolution, MapAttackPhase, RouteTile } from '@/types/mapAttack';
+import type {
+  MapAttackState,
+  MapAttackPhase,
+  RouteTile,
+  AttackTarget,
+  AttackOrigin,
+  AttackResolution,
+  SquadWorldPosition,
+} from '@/types/mapAttack';
 
-// ═════════════════════════════════════════════════════════════════════════════
-// TIPOS
-// ═════════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
+// Tipo da tropa selecionada (não está em types/mapAttack.ts; é só de UX)
+// ─────────────────────────────────────────────────────────────────────────────
 
-export type { AttackTarget, AttackOrigin, AttackResolution, MapAttackPhase, RouteTile } from '@/types/mapAttack';
-
-type MapAttackStore = {
-  // Estado do ataque
-  active: boolean;
-  phase: MapAttackPhase;
-  origin: AttackOrigin | null;
-  target: AttackTarget | null;
-
-  // Preview
-  previewOpen: boolean;
-  estimatedLoot: number;
-  estimatedChance: number;
-
-  // Rota e animação
-  routeToTarget: RouteTile[];
-  routeBack: RouteTile[];
-  currentRoute: RouteTile[];
-  currentStep: number;
-
-  // Seleção de tropas
-  selectedTroops: Record<string, number>;
-
-  // Resultado
-  resolution: AttackResolution | null;
-
-  // Timestamps
-  startedAt: number | null;
-  finishedAt: number | null;
-
-  // Ações
-  startAttack: (data: { origin: AttackOrigin; target: AttackTarget; routeToTarget: RouteTile[] }) => void;
-  setPhase: (phase: MapAttackPhase) => void;
-  setCurrentStep: (step: number) => void;
-  setResolution: (resolution: AttackResolution) => void;
-  startReturn: () => void;
-  finishAttack: () => void;
-  resetAttack: () => void;
-
-  // Preview actions
-  openPreview: (target: AttackTarget) => void;
-  closePreview: () => void;
-  setEstimation: (loot: number, chance: number) => void;
-
-  // Troop selection
-  updateTroopSelection: (troops: Record<string, number>) => void;
-  clearSelectedTroops: () => void;
+export type SelectedTroop = {
+  type: string;        // GangMemberType (capanga, frente, ...)
+  quantity: number;    // qtd selecionada nesse tipo
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-// STORE
-// ═════════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
+// Estado completo
+// ─────────────────────────────────────────────────────────────────────────────
 
-export const useMapAttackStore = create<MapAttackStore>((set) => ({
+export type MapAttackStoreState = MapAttackState & {
+  selectedTroops: SelectedTroop[];
+};
+
+export type MapAttackStoreActions = {
+  /** Abre o modal de preview/seleção de tropas para um alvo */
+  openPreview: (target: AttackTarget, origin: AttackOrigin) => void;
+
+  /** Fecha o modal de preview sem iniciar ataque */
+  closePreview: () => void;
+
+  /** Atualiza a quantidade de um tipo de tropa selecionado.
+   *  Quantity = 0 remove a entrada. */
+  updateTroopSelection: (type: string, quantity: number) => void;
+
+  /** Substitui a seleção inteira (usado quando o modal de membros agrega) */
+  setSelectedTroops: (troops: SelectedTroop[]) => void;
+
+  /** Limpa toda a seleção */
+  clearSelectedTroops: () => void;
+
+  /** Define a estimativa retornada pelo backend (chance e loot esperado) */
+  setEstimation: (estimatedChance: number, estimatedLoot: number) => void;
+
+  /** Define a rota completa ida e (opcionalmente) volta */
+  setRoute: (toTarget: RouteTile[], back?: RouteTile[]) => void;
+
+  /** Avança o passo atual na rota corrente (chamado pela animação) */
+  setCurrentStep: (step: number) => void;
+
+  /** Posição mundo do squad (para sincronizar overlay/HUD com o 3D) */
+  setSquadWorldPosition: (pos: SquadWorldPosition | null) => void;
+
+  /** Mostra/oculta o squad no mapa (após resolução, antes de voltar) */
+  setSquadVisible: (visible: boolean) => void;
+
+  /** Muda a fase do ataque */
+  setPhase: (phase: MapAttackPhase) => void;
+
+  /** Define a resolução final (chega via socket attackResolved ou resolveBattle) */
+  setResolution: (resolution: AttackResolution) => void;
+
+  /** Reset completo — volta ao estado idle */
+  resetAttack: () => void;
+};
+
+export type MapAttackStore = MapAttackStoreState & MapAttackStoreActions;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Estado inicial
+// ─────────────────────────────────────────────────────────────────────────────
+
+const INITIAL_STATE: MapAttackStoreState = {
   active: false,
   phase: 'idle',
+
   origin: null,
   target: null,
+
   previewOpen: false,
   estimatedLoot: 0,
   estimatedChance: 0,
+
   routeToTarget: [],
   routeBack: [],
+
   currentRoute: [],
   currentStep: 0,
-  selectedTroops: {},
+
+  squadWorldPosition: null,
+  squadVisible: false,
+
   resolution: null,
+
   startedAt: null,
   finishedAt: null,
 
-  startAttack: (data) =>
+  selectedTroops: [],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Store
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const useMapAttackStore = create<MapAttackStore>((set, get) => ({
+  ...INITIAL_STATE,
+
+  openPreview: (target, origin) => {
     set({
       active: true,
-      phase: 'moving',
-      origin: data.origin,
-      target: data.target,
-      routeToTarget: data.routeToTarget,
-      currentRoute: data.routeToTarget,
-      currentStep: 0,
-      startedAt: Date.now(),
-    }),
+      phase: 'preview',
+      target,
+      origin,
+      previewOpen: true,
+      // Não limpa selectedTroops aqui — alguns fluxos pré-carregam
+    });
+  },
 
-  setPhase: (phase) => set({ phase }),
+  closePreview: () => {
+    const phase = get().phase;
+    // Só fecha se estiver realmente em preview. Não corta um ataque em andamento.
+    if (phase === 'preview') {
+      set({
+        ...INITIAL_STATE,
+      });
+    } else {
+      set({ previewOpen: false });
+    }
+  },
 
-  setCurrentStep: (step) => set({ currentStep: step }),
+  updateTroopSelection: (type, quantity) => {
+    const q = Math.max(0, Math.floor(Number(quantity) || 0));
+    const current = get().selectedTroops;
+    const idx = current.findIndex((t) => t.type === type);
 
-  setResolution: (resolution) => set({ resolution, phase: 'resolving' }),
+    if (q === 0) {
+      // Remove
+      if (idx >= 0) {
+        const next = [...current];
+        next.splice(idx, 1);
+        set({ selectedTroops: next });
+      }
+      return;
+    }
 
-  startReturn: () => set({ phase: 'returning' }),
+    if (idx >= 0) {
+      const next = [...current];
+      next[idx] = { type, quantity: q };
+      set({ selectedTroops: next });
+    } else {
+      set({ selectedTroops: [...current, { type, quantity: q }] });
+    }
+  },
 
-  finishAttack: () =>
+  setSelectedTroops: (troops) => {
+    const sanitized = (troops || [])
+      .map((t) => ({
+        type: String(t.type),
+        quantity: Math.max(0, Math.floor(Number(t.quantity) || 0)),
+      }))
+      .filter((t) => t.quantity > 0);
+    set({ selectedTroops: sanitized });
+  },
+
+  clearSelectedTroops: () => {
+    set({ selectedTroops: [] });
+  },
+
+  setEstimation: (estimatedChance, estimatedLoot) => {
     set({
-      active: false,
-      phase: 'finished',
-      finishedAt: Date.now(),
-    }),
+      estimatedChance: Math.max(0, Math.min(100, Number(estimatedChance) || 0)),
+      estimatedLoot: Math.max(0, Math.floor(Number(estimatedLoot) || 0)),
+    });
+  },
 
-  resetAttack: () =>
+  setRoute: (toTarget, back) => {
+    const safeToTarget = Array.isArray(toTarget) ? toTarget : [];
+    const safeBack = Array.isArray(back) ? back : [];
     set({
-      active: false,
-      phase: 'idle',
-      origin: null,
-      target: null,
-      previewOpen: false,
-      routeToTarget: [],
-      routeBack: [],
-      currentRoute: [],
+      routeToTarget: safeToTarget,
+      routeBack: safeBack,
+      currentRoute: safeToTarget,
       currentStep: 0,
-      selectedTroops: {},
-      resolution: null,
-      startedAt: null,
-      finishedAt: null,
-    }),
+    });
+  },
 
-  openPreview: (target) => set({ previewOpen: true, target }),
+  setCurrentStep: (step) => {
+    const route = get().currentRoute;
+    const max = Math.max(0, route.length - 1);
+    set({ currentStep: Math.max(0, Math.min(max, Math.floor(step))) });
+  },
 
-  closePreview: () => set({ previewOpen: false, target: null }),
+  setSquadWorldPosition: (pos) => {
+    set({ squadWorldPosition: pos });
+  },
 
-  setEstimation: (loot, chance) => set({ estimatedLoot: loot, estimatedChance: chance }),
+  setSquadVisible: (visible) => {
+    set({ squadVisible: !!visible });
+  },
 
-  updateTroopSelection: (troops) => set({ selectedTroops: troops }),
+  setPhase: (phase) => {
+    const updates: Partial<MapAttackStoreState> = { phase };
 
-  clearSelectedTroops: () => set({ selectedTroops: {} }),
+    if (phase === 'moving' && !get().startedAt) {
+      updates.startedAt = Date.now();
+    }
+    if (phase === 'finished' && !get().finishedAt) {
+      updates.finishedAt = Date.now();
+    }
+    // Quando começa a voltar, troca a rota corrente
+    if (phase === 'returning') {
+      const back = get().routeBack;
+      if (back.length > 0) {
+        updates.currentRoute = back;
+        updates.currentStep = 0;
+      }
+    }
+
+    set(updates);
+  },
+
+  setResolution: (resolution) => {
+    set({
+      resolution: {
+        success:        !!resolution?.success,
+        loot:           Math.max(0, Math.floor(Number(resolution?.loot) || 0)),
+        chance:         Math.max(0, Math.min(100, Number(resolution?.chance) || 0)),
+        attackerPower:  Math.max(0, Math.floor(Number(resolution?.attackerPower) || 0)),
+        defenderPower:  Math.max(0, Math.floor(Number(resolution?.defenderPower) || 0)),
+        message:        String(resolution?.message || ''),
+        critical:       !!resolution?.critical,
+      },
+      phase: get().phase === 'moving' || get().phase === 'arriving'
+        ? 'resolving'
+        : get().phase,
+    });
+  },
+
+  resetAttack: () => {
+    set({ ...INITIAL_STATE });
+  },
 }));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS de leitura síncrona (uso fora de hooks React)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function getMapAttackSnapshot() {
+  return useMapAttackStore.getState();
+}
+
+export function isAttackInFlight(): boolean {
+  const phase = useMapAttackStore.getState().phase;
+  return phase === 'moving' || phase === 'arriving' || phase === 'resolving' || phase === 'returning';
+}
