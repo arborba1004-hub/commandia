@@ -272,3 +272,16 @@ export async function getBattleHistory(): Promise<BattleReportResponse[]> {
     normalizeReportResponse(item, item?.battleId ?? '')
   );
 }
+
+export type CanAttackResponse = {
+  canAttack: boolean;
+  reason: 'self_attack' | 'same_faction' | 'shield_active' | 'cooldown' | 'target_not_found' | 'no_target' | 'server_error' | null;
+  message: string | null;
+  shieldExpiresAt: number | null;
+  shieldSource: 'novato' | 'derrota' | 'pacote' | null;
+  cooldownExpiresAt: number | null;
+};
+
+export async function canAttack(targetId: string): Promise<CanAttackResponse> {
+  return request(`/battle/can-attack/${encodeURIComponent(targetId)}`, { method: 'GET' });
+}
