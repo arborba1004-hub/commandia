@@ -101,11 +101,24 @@ export function useGameSocket() {
         console.error('🔴 Socket connection error:', err.message);
       };
 
+      // ── attackReceived: quando o jogador recebe um ataque ──────────────────────
+      const handleAttackReceived = (data: {
+        attackerName: string;
+        loot: number | null;
+        critical: boolean;
+        message: string;
+      }) => {
+        if (!mountedRef.current) return;
+        // Por enquanto só loga. O AttackIncomingToast será conectado no P1-3.
+        console.log('[ATTACK_RECEIVED]', data);
+      };
+
       socket.on('playerInit', handlePlayerInit);
       socket.on('playerUpdate', handlePlayerUpdate);
       socket.on('gangUpdate', handleGangUpdate);
       socket.on('connect', handleConnect);
       socket.on('connect_error', handleConnectError);
+      socket.on('attackReceived', handleAttackReceived);
 
       return () => {
         mountedRef.current = false;
@@ -114,6 +127,7 @@ export function useGameSocket() {
         socket.off('gangUpdate', handleGangUpdate);
         socket.off('connect', handleConnect);
         socket.off('connect_error', handleConnectError);
+        socket.off('attackReceived', handleAttackReceived);
         // Não desconecta o socket aqui — ele é singleton e pode ser usado por outros componentes
       };
     } catch (error) {
