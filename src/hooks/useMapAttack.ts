@@ -306,7 +306,6 @@ export function useMapAttack(): UseMapAttackReturn {
         pvpProtectionUntil: null,
       });
 
-      usePlayerStore.getState().removeCorre?.(10);
       await useGangStore.getState().loadGang();
 
       // ── Animação de retorno ─────────────────────────────────────────────
