@@ -138,17 +138,7 @@ export function useMapAttack(): UseMapAttackReturn {
 
   const animationRef = useRef<ReturnType<typeof mountGangSquadAnimation> | null>(null);
 
-  // ── 1. initiateAttack: abre modal de seleção ao clicar no barraco inimigo ──
-
-  const initiateAttack = useCallback((target: AttackTarget) => {
-    setPreviewData(null);
-    setEstimation(null);
-    setResolution(null);
-    setBlockedPreviewMessage(null);
-    setIsPreviewing(false);
-  }, []);
-
-  // ── 2. previewTarget: chama canAttack + estimateBattle pra mostrar preview ──
+  // ── 1. previewTarget: chama canAttack + estimateBattle pra mostrar preview ──
 
   const previewTarget = useCallback(async (target: AttackTarget) => {
     if (!player) return;
@@ -190,6 +180,12 @@ export function useMapAttack(): UseMapAttackReturn {
       setIsPreviewing(false);
     }
   }, [player]);
+
+  // ── 2. initiateAttack: chama previewTarget ──────────────────────────────────
+
+  const initiateAttack = useCallback((target: AttackTarget) => {
+    void previewTarget(target);
+  }, [previewTarget]);
 
   // ── 3. cancelAttack: fecha preview ──────────────────────────────────────────
 
