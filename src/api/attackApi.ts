@@ -32,7 +32,7 @@ export type StartBattlePayload = {
   originTileX?: number;
   originTileY?: number;
   /** Seleção de tropas por quantidade por tipo (Mafia City style) */
-  selection?: Partial<GangAttackSelection>;
+  selection: Partial<GangAttackSelection>;
 };
 
 export type StartBattleResponse = {
