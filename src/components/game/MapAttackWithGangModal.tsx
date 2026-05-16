@@ -18,7 +18,7 @@ import {
   TrendingUp,
   Coins,
 } from 'lucide-react';
-import type { AttackTarget } from '@/store/mapAttackStore';
+import type { AttackTarget } from '@/types/mapAttack';
 
 interface MapAttackWithGangModalProps {
   isOpen: boolean;

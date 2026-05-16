@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
+import { useGangEstatisticasStore } from '@/store/gangEstatisticasStore';
 import { estimateBattle, startBattle, resolveBattle } from '@/api/attackApi';
 import { mountGangSquadAnimation } from '@/3d/gangSquadAnimation';
 import { playImpactEffect } from '@/3d/gangAttackEffects';

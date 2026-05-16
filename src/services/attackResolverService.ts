@@ -1,6 +1,6 @@
 import { resolveMapAttack } from '@/components/game/mapAttackResolver';
 import { buildGangBattleCompositionStats } from '@/services/gangWarCalculationService';
-import type { AttackResolution } from '@/store/mapAttackStore';
+import type { AttackResolution } from '@/types/mapAttack';
 import type { GangStateSnapshot } from '@/types/gangWar';
 
 export interface PlayerAttackData {

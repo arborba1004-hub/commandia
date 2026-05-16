@@ -4,7 +4,7 @@ import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { estimateBattle, startBattle, resolveBattleById } from '@/api/attackApi';
 import { getActiveMembers } from '@/utils/gangHelpers';
-import type { AttackTarget } from '@/store/mapAttackStore';
+import type { AttackTarget } from '@/types/mapAttack';
 
 export function useMapAttackWithGang() {
   const { gang } = useGangStore();

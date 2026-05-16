@@ -12,7 +12,7 @@ import {
   Coins,
   AlertTriangle,
 } from 'lucide-react';
-import type { AttackResolution } from '@/store/mapAttackStore';
+import type { AttackResolution } from '@/types/mapAttack';
 
 interface AttackResultDisplayProps {
   result: AttackResolution;
