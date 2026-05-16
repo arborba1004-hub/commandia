@@ -109,8 +109,15 @@ export function useGameSocket() {
         message: string;
       }) => {
         if (!mountedRef.current) return;
-        // Por enquanto só loga. O AttackIncomingToast será conectado no P1-3.
-        console.log('[ATTACK_RECEIVED]', data);
+        usePlayerStore.getState().addNotification({
+          id: `attack_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          type: 'attack_received',
+          attackerName: data.attackerName,
+          success: Boolean(data.loot && data.loot > 0),
+          loot: Number(data.loot || 0),
+          createdAt: new Date().toISOString(),
+          read: false,
+        });
       };
 
       socket.on('playerInit', handlePlayerInit);
