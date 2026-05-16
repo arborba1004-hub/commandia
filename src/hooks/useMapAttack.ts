@@ -179,20 +179,6 @@ export function useMapAttack(): UseMapAttackReturn {
         return;
       }
 
-      // Estimar batalha
-      const est = await estimateBattle({
-        targetId: target.playerId,
-        selection: {}, // Seleção vazia para preview genérico
-      }).catch(() => null);
-
-      if (est) {
-        setEstimation({
-          estimatedChance:     est.estimatedChance / (est.estimatedChance > 1 ? 100 : 1),
-          estimatedLoot:       est.estimatedLoot,
-          estimatedCasualties: 0, // Será calculado com seleção real
-        });
-      }
-
       setPreviewData({
         target,
         canAttackInfo: attackCheck,
@@ -243,21 +229,6 @@ export function useMapAttack(): UseMapAttackReturn {
     const originTileY = Number(player?.mapPosition?.tileY ?? 0);
 
     try {
-      // ── Estimar com seleção real ────────────────────────────────────────
-      const est = await estimateBattle({
-        targetId:  selectedTarget.playerId,
-        selection,
-      }).catch(() => null);
-
-      if (est) {
-        const activeTotal = Object.values(selection).reduce((a, b) => a + b, 0);
-        setEstimation({
-          estimatedChance:     est.estimatedChance / (est.estimatedChance > 1 ? 100 : 1),
-          estimatedLoot:       est.estimatedLoot,
-          estimatedCasualties: Math.ceil(activeTotal * 0.15),
-        });
-      }
-
       // ── Registrar batalha no backend ────────────────────────────────────
       const startResp = await startBattle({
         targetId:    selectedTarget.playerId,
