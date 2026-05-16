@@ -270,16 +270,9 @@ export function useMapAttack(): UseMapAttackReturn {
         gridWidth, gridHeight
       );
 
-      store.startAttack({
-        origin: {
-          playerId:   String(player._id ?? player.id ?? ''),
-          playerName: player.name ?? 'Você',
-          tileX:      originTileX,
-          tileY:      originTileY,
-        },
-        target:        selectedTarget,
-        routeToTarget: route,
-      });
+      // Configurar rota de ida e volta
+      store.setRoute(route, [...route].reverse());
+      store.setPhase('moving');
 
       // ── Animar deslocamento do squad ────────────────────────────────────
       const memberCount = Object.values(selection).reduce((a, b) => a + b, 0);
@@ -344,9 +337,9 @@ export function useMapAttack(): UseMapAttackReturn {
       await useGangStore.getState().loadGang();
 
       // ── Animação de retorno ─────────────────────────────────────────────
-      setTimeout(() => store.startReturn(),  3000);
+      setTimeout(() => store.setPhase('returning'),  3000);
       setTimeout(() => {
-        store.finishAttack();
+        store.setPhase('finished');
         animationRef.current?.cleanup();
         animationRef.current = null;
       }, 6500);
