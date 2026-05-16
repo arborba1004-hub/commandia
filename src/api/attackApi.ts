@@ -4,10 +4,10 @@
  * Substitui: attackApi.ts (novo), attack.ts (antigo)
  *
  * Fluxo do ataque:
- *   1. estimateBattle() → mostra probabilidade antes de confirmar
- *   2. startBattle()    → backend cria registro, retorna battleId + tempo de viagem
+ *   1. canAttack()      → verifica escudo/cooldown/facção
+ *   2. startBattle()    → backend cria registro, retorna battleId + arriveAtIso
  *   3. (frontend anima deslocamento durante o tempo de viagem)
- *   4. resolveBattle()  → backend calcula resultado, persiste espólios, envia e-mail
+ *   4. resolveBattle()  → backend calcula resultado, persiste espólios e envia notificação
  *   5. getBattleReport()→ busca relatório de batalha já resolvida
  */
 
@@ -52,16 +52,6 @@ export type StartBattleResponse = {
     toTileX: number;
     toTileY: number;
   };
-};
-
-export type EstimateBattleResponse = {
-  estimatedLoot: number;
-  estimatedChance: number;
-  attackerPower: number;
-  defenderPower: number;
-  correCost: number;
-  attackerGangPower?: number;
-  defenderGangPower?: number;
 };
 
 export type BattleReportResponse = {
@@ -195,19 +185,6 @@ function normalizeReportResponse(raw: any, battleId: string): BattleReportRespon
 // ═════════════════════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ═════════════════════════════════════════════════════════════════════════════
-
-/**
- * Estima resultado sem criar batalha.
- * Usado no preview antes do jogador confirmar o ataque.
- */
-export async function estimateBattle(
-  payload: Pick<StartBattlePayload, 'targetId' | 'selection'>
-): Promise<EstimateBattleResponse> {
-  return request('/battle/estimate', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
 
 /**
  * Inicia o ataque — backend cria registro e retorna tempo de viagem.
