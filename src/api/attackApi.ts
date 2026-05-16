@@ -42,10 +42,15 @@ export type StartBattleResponse = {
   /** Tempo estimado de viagem em ms (para sincronizar animação) */
   totalDurationMs: number;
   arriveAtIso: string;
-  estimatedLoot: number;
-  estimatedChance: number;
-  attackerPower: number;
-  defenderPower: number;
+  status: string;
+  attackerId: string;
+  attackerName: string;
+  defenderId: string;
+  defenderName: string;
+  routeDistanceTiles: number;
+  timePerTileMs: number;
+  launchedAtIso: string;
+  report: unknown | null;
   route?: {
     fromTileX: number;
     fromTileY: number;
