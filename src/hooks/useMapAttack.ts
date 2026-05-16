@@ -4,11 +4,11 @@
  * Substitui: useMapAttackWithGang.ts, MapAttackWithGangModal.tsx (lógica)
  *
  * Responsabilidades:
- *   1. Abrir/fechar modal de seleção de tropas (GangAttackModal)
- *   2. Chamar estimateBattle para preview
- *   3. Chamar startBattle + sincronizar animação
- *   4. Chamar resolveBattle e atualizar stores
- *   5. Exibir overlay de resultado + navegar para BattleReportPanel
+ *   1. previewTarget(target) — chama canAttack + estimateBattle pra mostrar preview
+ *   2. cancelAttack() — fecha preview
+ *   3. confirmAttack(selection, scene, ...) — chama startBattle, dispara animação 3D, aguarda chegada, chama resolveBattle
+ *   4. dismissResult() — fecha tela de resultado
+ *   5. Estados expostos: isPreviewing, previewData, estimation, canAttackInfo, isResolving, resolution, blockedPreviewMessage
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -30,10 +30,21 @@ import type {
 // TIPOS
 // ═════════════════════════════════════════════════════════════════════════════
 
+export type CanAttackInfo = {
+  canAttack: boolean;
+  reason?: string;
+};
+
+export type PreviewData = {
+  target: AttackTarget;
+  canAttackInfo: CanAttackInfo;
+};
+
 export type UseMapAttackReturn = {
-  // Modal de seleção
-  isModalOpen:  boolean;
-  selectedTarget: AttackTarget | null;
+  // Estados de preview
+  isPreviewing: boolean;
+  previewData: PreviewData | null;
+  blockedPreviewMessage: string | null;
 
   // Estimativa
   estimation: {
@@ -41,6 +52,9 @@ export type UseMapAttackReturn = {
     estimatedLoot:      number;
     estimatedCasualties: number;
   } | null;
+
+  // Informações de ataque
+  canAttackInfo: CanAttackInfo | null;
 
   // Estado de envio
   isResolving: boolean;
@@ -50,6 +64,7 @@ export type UseMapAttackReturn = {
 
   // Ações
   initiateAttack:  (target: AttackTarget) => void;
+  previewTarget:   (target: AttackTarget) => Promise<void>;
   cancelAttack:    () => void;
   confirmAttack:   (selection: GangAttackSelection, scene: THREE.Scene, camera: THREE.Camera, gridWidth: number, gridHeight: number) => Promise<void>;
   dismissResult:   () => void;
@@ -83,6 +98,15 @@ function buildRoute(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// HELPER: formata mensagem de bloqueio de ataque
+// ═════════════════════════════════════════════════════════════════════════════
+
+function formatBlockedMessage(reason?: string): string {
+  if (!reason) return 'Não é possível atacar este alvo no momento.';
+  return reason;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // HOOK
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -91,38 +115,106 @@ export function useMapAttack(): UseMapAttackReturn {
   const { player } = usePlayerStore();
   const store      = useMapAttackStore();
 
-  const [isModalOpen,    setIsModalOpen]    = useState(false);
-  const [selectedTarget, setSelectedTarget] = useState<AttackTarget | null>(null);
+  // Estados de preview
+  const [isPreviewing,         setIsPreviewing]         = useState(false);
+  const [previewData,          setPreviewData]          = useState<PreviewData | null>(null);
+  const [blockedPreviewMessage, setBlockedPreviewMessage] = useState<string | null>(null);
+
+  // Estimativa
   const [estimation,     setEstimation]     = useState<UseMapAttackReturn['estimation']>(null);
+
+  // Informações de ataque
+  const [canAttackInfo,  setCanAttackInfo]  = useState<CanAttackInfo | null>(null);
+
+  // Estado de envio
   const [isResolving,    setIsResolving]    = useState(false);
+
+  // Resultado final
   const [resolution,     setResolution]     = useState<BattleResolution | null>(null);
 
   const animationRef = useRef<ReturnType<typeof mountGangSquadAnimation> | null>(null);
 
-  // ── 1. Abrir modal de seleção ao clicar no barraco inimigo ───────────────
+  // ── 1. initiateAttack: abre modal de seleção ao clicar no barraco inimigo ──
 
   const initiateAttack = useCallback((target: AttackTarget) => {
-    setSelectedTarget(target);
+    setPreviewData(null);
     setEstimation(null);
     setResolution(null);
-    setIsModalOpen(true);
+    setBlockedPreviewMessage(null);
+    setIsPreviewing(false);
   }, []);
 
+  // ── 2. previewTarget: chama canAttack + estimateBattle pra mostrar preview ──
+
+  const previewTarget = useCallback(async (target: AttackTarget) => {
+    if (!player) return;
+
+    setIsPreviewing(true);
+    setBlockedPreviewMessage(null);
+
+    try {
+      // Verificar se pode atacar
+      const attackCheck = await canAttack({
+        targetId: target.playerId,
+      }).catch(() => ({ canAttack: false, reason: 'Erro ao verificar ataque' }));
+
+      setCanAttackInfo(attackCheck);
+
+      if (!attackCheck.canAttack) {
+        setBlockedPreviewMessage(formatBlockedMessage(attackCheck.reason));
+        setPreviewData({
+          target,
+          canAttackInfo: attackCheck,
+        });
+        return;
+      }
+
+      // Estimar batalha
+      const est = await estimateBattle({
+        targetId: target.playerId,
+        selection: {}, // Seleção vazia para preview genérico
+      }).catch(() => null);
+
+      if (est) {
+        setEstimation({
+          estimatedChance:     est.estimatedChance / (est.estimatedChance > 1 ? 100 : 1),
+          estimatedLoot:       est.estimatedLoot,
+          estimatedCasualties: 0, // Será calculado com seleção real
+        });
+      }
+
+      setPreviewData({
+        target,
+        canAttackInfo: attackCheck,
+      });
+    } catch (err) {
+      console.error('[useMapAttack] Erro ao fazer preview:', err);
+      setBlockedPreviewMessage('Erro ao carregar preview do ataque');
+    } finally {
+      setIsPreviewing(false);
+    }
+  }, [player]);
+
+  // ── 3. cancelAttack: fecha preview ──────────────────────────────────────────
+
   const cancelAttack = useCallback(() => {
-    setIsModalOpen(false);
-    setSelectedTarget(null);
+    setPreviewData(null);
     setEstimation(null);
+    setBlockedPreviewMessage(null);
+    setCanAttackInfo(null);
     animationRef.current?.cancel();
     animationRef.current = null;
     store.resetAttack();
   }, [store]);
+
+  // ── 4. dismissResult: fecha tela de resultado ───────────────────────────────
 
   const dismissResult = useCallback(() => {
     setResolution(null);
     store.resetAttack();
   }, [store]);
 
-  // ── 2. Confirmar seleção → estimar → iniciar → animar → resolver ─────────
+  // ── 5. confirmAttack: chama startBattle, dispara animação 3D, aguarda chegada, chama resolveBattle ──
 
   const confirmAttack = useCallback(async (
     selection:  GangAttackSelection,
@@ -131,15 +223,17 @@ export function useMapAttack(): UseMapAttackReturn {
     gridWidth:  number,
     gridHeight: number,
   ) => {
-    if (!selectedTarget || !player) return;
+    if (!previewData || !player) return;
+
+    const selectedTarget = previewData.target;
     setIsResolving(true);
-    setIsModalOpen(false);
+    setPreviewData(null);
 
     const originTileX = Number(player?.mapPosition?.tileX ?? 0);
     const originTileY = Number(player?.mapPosition?.tileY ?? 0);
 
     try {
-      // ── Estimar (preview rápido antes da animação) ──────────────────────
+      // ── Estimar com seleção real ────────────────────────────────────────
       const est = await estimateBattle({
         targetId:  selectedTarget.playerId,
         selection,
@@ -259,15 +353,29 @@ export function useMapAttack(): UseMapAttackReturn {
     } finally {
       setIsResolving(false);
     }
-  }, [selectedTarget, player, store, cancelAttack]);
+  }, [previewData, player, store, cancelAttack]);
 
   return {
-    isModalOpen,
-    selectedTarget,
+    // Estados de preview
+    isPreviewing,
+    previewData,
+    blockedPreviewMessage,
+
+    // Estimativa
     estimation,
+
+    // Informações de ataque
+    canAttackInfo,
+
+    // Estado de envio
     isResolving,
+
+    // Resultado final
     resolution,
+
+    // Ações
     initiateAttack,
+    previewTarget,
     cancelAttack,
     confirmAttack,
     dismissResult,
