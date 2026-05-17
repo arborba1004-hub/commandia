@@ -1,8 +1,17 @@
+/**
+ * socket.ts — Gerenciador de WebSocket para comunicação em tempo real
+ *
+ * Mudanças desta versão:
+ *   - Keep-alive automático: pinga /health a cada 14 min para evitar
+ *     hibernação do Render free tier (sem precisar de plano pago)
+ *   - startKeepAlive() chamado ao conectar, stopKeepAlive() ao desconectar
+ *   - Resto da lógica preservada integralmente
+ */
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
-const RECONNECTDELAYMS = 3000;
-const MAXRECONNECTATTEMPTS = 5;
-const KEEPALIVEINTERVAL_MS = 14  60  1000; // 14 minutos (Render hiberna em 15)
+const RECONNECT_DELAY_MS = 3000;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const KEEP_ALIVE_INTERVAL_MS = 14 * 60 * 1000; // 14 minutos (Render hiberna em 15)
 
 // ─── Event Listeners ──────────────────────────────────────────────────────
 type EventListener = (...args: any[]) => void;
@@ -29,12 +38,12 @@ function startKeepAlive(): void {
 
   _keepAliveInterval = setInterval(async () => {
     try {
-      await fetch(${BACKEND_URL}/health, { method: 'GET' });
+      await fetch(`${BACKEND_URL}/health`, { method: 'GET' });
       console.log('💓 Keep-alive: backend acordado');
     } catch {
       // Silencioso — o servidor pode estar voltando do sleep
     }
-  }, KEEPALIVEINTERVAL_MS);
+  }, KEEP_ALIVE_INTERVAL_MS);
 
   console.log('💓 Keep-alive iniciado (ping a cada 14 minutos)');
 }
@@ -73,7 +82,7 @@ class RealSocket implements Socket {
 
     const protocol = BACKEND_URL.startsWith('https') ? 'wss' : 'ws';
     const wsUrl = BACKEND_URL.replace(/^https?/, protocol).replace(/\/$/, '');
-    const url = ${wsUrl}/socket?token=${encodeURIComponent(this.token || '')};
+    const url = `${wsUrl}/socket?token=${encodeURIComponent(this.token || '')}`;
 
     try {
       this.ws = new WebSocket(url);
@@ -94,7 +103,7 @@ class RealSocket implements Socket {
           const { event: eventName, data } = message;
 
           if (eventName === 'mapSnapshot' || eventName === 'playerMoved' || eventName === 'playerJoined') {
-            console.log(📨 Socket recebeu evento: ${eventName}, data);
+            console.log(`📨 Socket recebeu evento: ${eventName}`, data);
           }
 
           if (eventName && this.listeners.has(eventName)) {
@@ -104,7 +113,7 @@ class RealSocket implements Socket {
                 try {
                   callback(data);
                 } catch (err) {
-                  console.error(Erro ao executar listener para ${eventName}:, err);
+                  console.error(`Erro ao executar listener para ${eventName}:`, err);
                 }
               });
             }
@@ -131,7 +140,7 @@ class RealSocket implements Socket {
   }
 
   private attemptReconnect(): void {
-    if (this.isReconnecting || this.reconnectAttempts >= MAXRECONNECTATTEMPTS) {
+    if (this.isReconnecting || this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       console.error('❌ Máximo de tentativas de reconexão atingido');
       return;
     }
@@ -143,8 +152,8 @@ class RealSocket implements Socket {
       clearTimeout(this.reconnectTimeout);
     }
 
-    const delay = RECONNECTDELAYMS * Math.pow(1.5, this.reconnectAttempts - 1);
-    console.log(⏳ Tentando reconectar em ${Math.round(delay)}ms (tentativa ${this.reconnectAttempts}));
+    const delay = RECONNECT_DELAY_MS * Math.pow(1.5, this.reconnectAttempts - 1);
+    console.log(`⏳ Tentando reconectar em ${Math.round(delay)}ms (tentativa ${this.reconnectAttempts})`);
 
     this.reconnectTimeout = setTimeout(() => {
       this.connect();
@@ -168,7 +177,7 @@ class RealSocket implements Socket {
       const message = JSON.stringify({ event, data: args.length === 1 ? args[0] : args });
       this.ws.send(message);
     } catch (err) {
-      console.error(Erro ao enviar evento ${event}:, err);
+      console.error(`Erro ao enviar evento ${event}:`, err);
     }
   }
 
@@ -179,7 +188,7 @@ class RealSocket implements Socket {
     this.listeners.get(event)?.add(callback);
 
     if (event === 'mapSnapshot' || event === 'playerMoved' || event === 'playerJoined' || event === 'connect') {
-      console.log(📌 Listener registrado para evento: ${event});
+      console.log(`📌 Listener registrado para evento: ${event}`);
     }
   }
 
@@ -235,7 +244,7 @@ class RealSocket implements Socket {
 
   isConnected(): boolean {
     const connected = this.ws?.readyState === WebSocket.OPEN;
-    console.log(🔌 isConnected() chamado: ${connected});
+    console.log(`🔌 isConnected() chamado: ${connected}`);
     return connected;
   }
 
@@ -256,7 +265,7 @@ function getAuthToken(): string | null {
   }
 }
 
-/ Retorna o socket ativo. Cria um novo se necessário. */
+/** Retorna o socket ativo. Cria um novo se necessário. */
 export function getSocket(): Socket {
   const token = getAuthToken();
 
@@ -275,7 +284,7 @@ export function getSocket(): Socket {
   return _socket;
 }
 
-/
+/**
  * Força reconexão com o token atual do localStorage.
  * Chame após login Google ou após renovação de token.
  */
@@ -310,7 +319,7 @@ export function reconnectSocket(): Socket {
   return _socket;
 }
 
-/ Desconecta o socket e para o keep-alive (chamado no logout). */
+/** Desconecta o socket e para o keep-alive (chamado no logout). */
 export function disconnectSocket(): void {
   stopKeepAlive();
   if (_socket) {
