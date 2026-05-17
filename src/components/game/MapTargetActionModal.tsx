@@ -23,6 +23,7 @@ import { useMapFactionInvite } from '@/components/game/useMapFactionInvite';
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { canAttack, type CanAttackResponse } from '@/api/attackApi';
+import { getPlayerCentralTileFromOrigin } from '@/components/game/playerMapSpace';
 import type { GangMemberType } from '@/types/gang';
 
 interface MapTargetActionModalProps {
@@ -193,8 +194,13 @@ export default function MapTargetActionModal({
   // ── Cálculo de viagem (Manhattan + curva do barraco) ─────────────────────
   const travel = useMemo(() => {
     if (!previewTarget || !player?.mapPosition) return null;
-    const fromX = Number(player.mapPosition.tileX || 0);
-    const fromY = Number(player.mapPosition.tileY || 0);
+    const originCenter = getPlayerCentralTileFromOrigin(
+      Number(player.mapPosition.tileX || 0),
+      Number(player.mapPosition.tileY || 0)
+    );
+
+    const fromX = originCenter.tileX;
+    const fromY = originCenter.tileY;
     const toX   = Number(previewTarget.tileX || 0);
     const toY   = Number(previewTarget.tileY || 0);
     const tiles = manhattanDistance(fromX, fromY, toX, toY);
