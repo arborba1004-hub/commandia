@@ -31,6 +31,7 @@ import AttackIncomingToast        from '@/components/game/AttackIncomingToast';
 import { useMapAttack }           from '@/hooks/useMapAttack';
 import { useMapAttackStore }      from '@/store/mapAttackStore';
 import { useActiveMapBattles }    from '@/hooks/useActiveMapBattles';
+import { useRemoteSquadAnimations } from '@/hooks/useRemoteSquadAnimations';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -734,6 +735,13 @@ export default function GamePage() {
 
   // ── Recuperar batalhas ativas ao montar (após scene estar pronta) ──────────
   useActiveMapBattles({
+    scene: threeReady ? sceneRef.current : null,
+    camera: threeReady ? cameraRef.current : null,
+    gridWidth: GRID_WIDTH,
+    gridHeight: GRID_HEIGHT,
+  });
+
+  useRemoteSquadAnimations({
     scene: threeReady ? sceneRef.current : null,
     camera: threeReady ? cameraRef.current : null,
     gridWidth: GRID_WIDTH,
