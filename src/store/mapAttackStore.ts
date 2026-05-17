@@ -47,6 +47,11 @@ export type SelectedTroop = {
 
 export type MapAttackStoreState = MapAttackState & {
   selectedTroops: SelectedTroop[];
+  battleId?: string;
+  arriveAtIso?: string;
+  launchedAtIso?: string;
+  role?: 'attacker' | 'defender' | null;
+  isRecovered?: boolean;
 };
 
 export type MapAttackStoreActions = {
@@ -123,6 +128,11 @@ const INITIAL_STATE: MapAttackStoreState = {
   finishedAt: null,
 
   selectedTroops: [],
+  battleId: undefined,
+  arriveAtIso: undefined,
+  launchedAtIso: undefined,
+  role: null,
+  isRecovered: false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -30,6 +30,7 @@ import AttackResultOverlay        from '@/components/game/AttackResultOverlay';
 import AttackIncomingToast        from '@/components/game/AttackIncomingToast';
 import { useMapAttack }           from '@/hooks/useMapAttack';
 import { useMapAttackStore }      from '@/store/mapAttackStore';
+import { useActiveMapBattles }    from '@/hooks/useActiveMapBattles';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -726,6 +727,14 @@ export default function GamePage() {
       cameraRef.current = null;
     };
   }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
+
+  // ── Recuperar batalhas ativas ao montar (após scene estar pronta) ──────────
+  useActiveMapBattles({
+    scene: sceneRef.current,
+    camera: cameraRef.current,
+    gridWidth: GRID_WIDTH,
+    gridHeight: GRID_HEIGHT,
+  });
 
   return (
     <div className="fixed inset-0 z-40 bg-black overflow-hidden">
