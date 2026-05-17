@@ -30,7 +30,7 @@ export type GangMemberType =
   | 'motorista'
   | 'nitro';
 
-export type GangMemberStatus = 'ativo' | 'ferido' | 'morto' | 'treinando';
+export type GangMemberStatus = 'ativo' | 'ferido' | 'morto' | 'treinando' | 'marchando';
 
 /** Unidade individual de membro (análogo ao "crew member" do Mafia City). */
 export type GangMember = {
@@ -42,6 +42,8 @@ export type GangMember = {
   trainingEndsAt?: number | null;
   injuryEndsAt?: number | null;
   lastBattleAt?: number | null;
+  activeAttackId?: string | null;
+  marchingUntil?: string | null;
 };
 
 /** Alias para compatibilidade com código legado. */
