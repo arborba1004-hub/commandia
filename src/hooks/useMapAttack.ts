@@ -279,7 +279,9 @@ export function useMapAttack(): UseMapAttackReturn {
         gridHeight,
         barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
         memberCount,
-        color: '#ef4444',
+        color: '#ff3b30',
+        timePerTileMs: startResp.timePerTileMs,
+        totalDurationMs: startResp.totalDurationMs,
         onStep: (stepIdx) => {
           store.setCurrentStep(stepIdx);
         },
