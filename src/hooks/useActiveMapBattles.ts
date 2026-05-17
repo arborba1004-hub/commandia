@@ -1,9 +1,23 @@
 /**
  * hooks/useActiveMapBattles.ts
  *
- * Recupera batalhas ativas quando a GamePage monta com a cena 3D pronta.
- * Não calcula batalha. Só refaz a animação visual de marchas pendentes e chama resolveBattle
- * quando o backend informar que a marcha já chegou.
+ * Hook para recuperar batalhas ativas do jogador (reload da página durante
+ * ataque em curso). Cobre BOTH os papéis:
+ *
+ *   - role === 'attacker': anima a marcha de IDA com o tempo restante.
+ *     Quando chega, chama resolveBattle() — o backend responde com a
+ *     resolução e dispara o broadcast 'attack:squadResolved'. A animação
+ *     de retorno é montada via useRemoteSquadAnimations (que escuta o
+ *     broadcast — o atacante é incluído porque já não há contexto local
+ *     na recuperação).
+ *
+ *   - role === 'defender': anima a marcha de IDA com o tempo restante,
+ *     visualizando o squad inimigo se aproximando. Não chama resolveBattle
+ *     (responsabilidade do atacante / autoResolve do backend). A volta é
+ *     animada quando o broadcast 'attack:squadResolved' chegar.
+ *
+ * Persistência: mapAttackStore guarda dados da batalha (battleId, role,
+ * arriveAtIso) para que o overlay/HUD reflita o ataque.
  */
 
 import { useEffect, useRef } from 'react';
@@ -11,8 +25,12 @@ import * as THREE from 'three';
 import { getActiveBattles, resolveBattle } from '@/api/attackApi';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { usePlayerStore } from '@/store/playerStore';
-import { mountGangSquadAnimation } from '@/3d/gangSquadAnimation';
+import { mountGangSquadAnimation, type MountedSquadAnimation } from '@/3d/gangSquadAnimation';
 
+/**
+ * Constrói uma rota entre dois pontos no grid usando movimento ortogonal.
+ * Primeiro move horizontalmente, depois verticalmente.
+ */
 function buildRoute(
   fromTileX: number,
   fromTileY: number,
@@ -42,30 +60,14 @@ function buildRoute(
   return route;
 }
 
-function getSelectedConvoySkinId(player: unknown): string {
+
+function getFallbackConvoySkinId(player: unknown): string {
   const p = player as any;
   return (
     p?.convoySkins?.selected ??
     p?.cosmetics?.convoySkins?.selected ??
     'comboio_padrao'
   );
-}
-
-function getRemainingRoute<T>(routeTiles: T[], totalDurationMs: number, remainingMs: number): T[] {
-  if (!Array.isArray(routeTiles) || routeTiles.length <= 1) return routeTiles;
-
-  const total = Number(totalDurationMs);
-  const remaining = Number(remainingMs);
-
-  if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(remaining)) {
-    return routeTiles;
-  }
-
-  const elapsed = Math.max(0, total - Math.max(0, remaining));
-  const progress = Math.max(0, Math.min(1, elapsed / total));
-  const startIndex = Math.max(0, Math.min(routeTiles.length - 2, Math.floor((routeTiles.length - 1) * progress)));
-
-  return routeTiles.slice(startIndex);
 }
 
 export type UseActiveMapBattlesOptions = {
@@ -75,32 +77,38 @@ export type UseActiveMapBattlesOptions = {
   gridHeight?: number;
 };
 
+/**
+ * Hook para recuperar e gerenciar batalhas ativas ao montar GamePage.
+ * Deve ser chamado após scene, camera, gridWidth e gridHeight estarem disponíveis.
+ */
 export function useActiveMapBattles(options: UseActiveMapBattlesOptions) {
   const { scene, camera, gridWidth = 120, gridHeight = 120 } = options;
 
   const player = usePlayerStore((s) => s.player);
   const playerId = (player as any)?._id;
 
-  const initializedKeyRef = useRef<string | null>(null);
-  const activeAnimationsRef = useRef<Array<ReturnType<typeof mountGangSquadAnimation>>>([]);
+  const hasInitialized = useRef(false);
+  // Mantém referência das animações criadas pelo hook para cleanup no unmount.
+  const recoveredAnimsRef = useRef<Map<string, MountedSquadAnimation>>(new Map());
 
   useEffect(() => {
-    if (!scene || !camera || !playerId) return;
+    // Só executa uma vez, quando scene e camera estão prontos
+    if (!scene || !camera || !playerId || hasInitialized.current) {
+      return;
+    }
 
-    const initKey = `${String(playerId)}:${scene.uuid}`;
-    if (initializedKeyRef.current === initKey) return;
-    initializedKeyRef.current = initKey;
-
-    let cancelled = false;
+    hasInitialized.current = true;
 
     (async () => {
       try {
         const battles = await getActiveBattles();
-        if (cancelled || !Array.isArray(battles) || battles.length === 0) return;
 
+        if (!Array.isArray(battles) || battles.length === 0) {
+          return;
+        }
+
+        // Processa cada batalha ativa
         for (const battle of battles) {
-          if (cancelled) return;
-
           const {
             battleId,
             role,
@@ -110,105 +118,107 @@ export function useActiveMapBattles(options: UseActiveMapBattlesOptions) {
             route,
             origin,
             target,
+            memberCount,
+            attackerConvoySkinId,
           } = battle;
 
+          // Armazena dados da batalha no store
           useMapAttackStore.setState({
             battleId,
             arriveAtIso,
             launchedAtIso,
             role: role as 'attacker' | 'defender' | null,
-            isRecovered: true,
+            isRecovered: true, // Marca como recuperada do backend
           });
 
-          if (role === 'attacker') {
-            const remaining = Number(remainingMs ?? 0);
-
-            if (remaining > 0) {
-              const fullRoute = buildRoute(
-                Number(route?.fromTileX ?? origin?.tileX ?? 0),
-                Number(route?.fromTileY ?? origin?.tileY ?? 0),
-                Number(route?.toTileX ?? target?.tileX ?? 0),
-                Number(route?.toTileY ?? target?.tileY ?? 0),
-                gridWidth,
-                gridHeight
-              );
-
-              const routeTiles = getRemainingRoute(
-                fullRoute,
-                Number((battle as any).totalDurationMs ?? 0),
-                remaining
-              );
-
-              if (routeTiles.length > 0) {
-                useMapAttackStore.getState().setRoute(routeTiles);
-                useMapAttackStore.getState().setPhase('moving');
-
-                const routeDistanceTiles = Math.max(1, routeTiles.length - 1);
-                const msPerTile = remaining / routeDistanceTiles;
-
-                const animation = mountGangSquadAnimation({
-                  scene,
-                  route: routeTiles,
-                  gridWidth,
-                  gridHeight,
-                  barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
-                  memberCount: Number((battle as any).memberCount ?? 100),
-                  color: '#ff3b30',
-                  convoySkinId: getSelectedConvoySkinId(player),
-                  totalDurationMs: remaining,
-                  timePerTileMs: Number.isFinite(msPerTile) ? msPerTile : Number(battle.timePerTileMs ?? 0),
-                  onStep: (stepIdx) => {
-                    useMapAttackStore.getState().setCurrentStep(stepIdx);
-                  },
-                });
-
-                activeAnimationsRef.current.push(animation);
-
-                void animation.start().then(async () => {
-                  if (cancelled) {
-                    animation.cleanup();
-                    activeAnimationsRef.current = activeAnimationsRef.current.filter((item) => item !== animation);
-                    return;
-                  }
-
-                  useMapAttackStore.getState().setPhase('arriving');
-
-                  try {
-                    const report = await resolveBattle(battleId);
-                    useMapAttackStore.getState().setResolution(report.resolution);
-                    useMapAttackStore.getState().setPhase('finished');
-                  } catch (err) {
-                    console.error(`Erro ao resolver batalha recuperada ${battleId}:`, err);
-                  } finally {
-                    animation.cleanup();
-                    activeAnimationsRef.current = activeAnimationsRef.current.filter((item) => item !== animation);
-                  }
-                });
-              }
-            } else {
+          // ─ Caso 1: tempo já estourou → resolver no backend (apenas se for atacante)
+          if (remainingMs <= 0) {
+            if (role === 'attacker') {
               try {
                 await resolveBattle(battleId);
               } catch (err) {
-                console.error(`Erro ao resolver batalha ${battleId}:`, err);
+                console.error(`Erro ao resolver batalha vencida ${battleId}:`, err);
               }
             }
-          } else if (role === 'defender') {
-            console.log(`[Defensor] Ataque chegando em ${arriveAtIso}`, {
-              attackerId: battle.attackerId,
-              attackerName: battle.attackerName,
-              remainingMs,
-            });
+            continue;
           }
+
+          // ─ Caso 2: ainda há tempo → animar marcha de IDA ─────────────────
+          const routeTiles = buildRoute(
+            Number(route?.fromTileX ?? origin?.tileX ?? 0),
+            Number(route?.fromTileY ?? origin?.tileY ?? 0),
+            Number(route?.toTileX   ?? target?.tileX ?? 0),
+            Number(route?.toTileY   ?? target?.tileY ?? 0),
+            gridWidth,
+            gridHeight,
+          );
+
+          if (routeTiles.length === 0) continue;
+
+          useMapAttackStore.getState().setRoute(routeTiles);
+          useMapAttackStore.getState().setPhase('moving');
+
+          const totalSteps = Math.max(1, routeTiles.length - 1);
+          const msPerStep  = Math.max(1, remainingMs / totalSteps);
+
+          const convoySkinId =
+            (typeof attackerConvoySkinId === 'string' && attackerConvoySkinId.trim())
+              ? attackerConvoySkinId.trim()
+              : getFallbackConvoySkinId(player);
+
+          const animation = mountGangSquadAnimation({
+            scene,
+            route: routeTiles,
+            gridWidth,
+            gridHeight,
+            barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
+            memberCount: Number(memberCount ?? 100),
+            color: '#ff3b30',
+            convoySkinId,
+            totalDurationMs: Number(remainingMs),
+            timePerTileMs:   Number(msPerStep),
+            onStep: (stepIdx) => {
+              useMapAttackStore.getState().setCurrentStep(stepIdx);
+            },
+          });
+
+          recoveredAnimsRef.current.set(battleId, animation);
+
+          void animation.start().then(async () => {
+            useMapAttackStore.getState().setPhase('arriving');
+
+            // Atacante: resolve no backend. Defensor: espera o broadcast
+            // 'attack:squadResolved' (tratado por useRemoteSquadAnimations).
+            if (role === 'attacker') {
+              try {
+                const report = await resolveBattle(battleId);
+                useMapAttackStore.getState().setResolution(report.resolution);
+              } catch (err) {
+                console.error(`Erro ao resolver batalha recuperada ${battleId}:`, err);
+              }
+            } else {
+              // Defensor — apenas marca a fase. A volta vem por broadcast.
+              console.log(`[useActiveMapBattles] Defensor: marcha de ${battle.attackerName} chegou. Aguardando resolução…`);
+            }
+
+            // A animação de IDA fica parada no alvo até o broadcast da
+            // resolução montar a volta. O cleanup é feito pelo hook de
+            // broadcasts quando montar a animação de retorno (ou no unmount).
+          }).catch((err) => {
+            console.error(`Erro na animação de batalha recuperada ${battleId}:`, err);
+          });
         }
       } catch (err) {
         console.error('Erro ao recuperar batalhas ativas:', err);
       }
     })();
 
+    // Cleanup: cancela todas as animações recuperadas no unmount do componente.
     return () => {
-      cancelled = true;
-      activeAnimationsRef.current.forEach((animation) => animation.cancel());
-      activeAnimationsRef.current = [];
+      for (const anim of recoveredAnimsRef.current.values()) {
+        try { anim.cancel(); } catch { /* noop */ }
+      }
+      recoveredAnimsRef.current.clear();
     };
   }, [scene, camera, playerId, gridWidth, gridHeight, player]);
 }
