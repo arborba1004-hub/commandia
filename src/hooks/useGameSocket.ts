@@ -55,6 +55,16 @@ export function useGameSocket() {
         if (data.faction !== undefined) {
           setFaction(data.faction);
         }
+        if (data.player?.gang) {
+          useGangStore.setState((state) => ({
+            gang: {
+              ...(state.gang ?? {}),
+              ...data.player.gang,
+              members: data.player.gang.members ?? state.gang?.members ?? [],
+              stats: data.player.gang.stats ?? state.gang?.stats,
+            }
+          }))
+        }
       };
 
       // ── playerUpdate: estado atualizado após qualquer mutação backend ─────────
@@ -64,6 +74,16 @@ export function useGameSocket() {
         hydratePlayerFromServer(data.player);
         if (data.faction !== undefined) {
           setFaction(data.faction);
+        }
+        if (data.player?.gang) {
+          useGangStore.setState((state) => ({
+            gang: {
+              ...(state.gang ?? {}),
+              ...data.player.gang,
+              members: data.player.gang.members ?? state.gang?.members ?? [],
+              stats: data.player.gang.stats ?? state.gang?.stats,
+            }
+          }))
         }
       };
 
