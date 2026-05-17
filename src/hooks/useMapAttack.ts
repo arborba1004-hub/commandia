@@ -6,9 +6,12 @@
  * Responsabilidades:
  *   1. previewTarget(target) — chama canAttack + estimateBattle pra mostrar preview
  *   2. cancelAttack() — fecha preview
- *   3. confirmAttack(selection, scene, ...) — chama startBattle, dispara animação 3D, aguarda chegada, chama resolveBattle
+ *   3. confirmAttack(selection, scene, ...) — chama startBattle, dispara animação 3D,
+ *      aguarda chegada, chama resolveBattle, anima retorno até a posição ATUAL do
+ *      atacante, finaliza.
  *   4. dismissResult() — fecha tela de resultado
- *   5. Estados expostos: isPreviewing, previewData, estimation, canAttackInfo, isResolving, resolution, blockedPreviewMessage
+ *   5. Estados expostos: isPreviewing, previewData, estimation, canAttackInfo,
+ *      isResolving, resolution, blockedPreviewMessage
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -147,7 +150,10 @@ export function useMapAttack(): UseMapAttackReturn {
   // Resultado final
   const [resolution,     setResolution]     = useState<BattleResolution | null>(null);
 
-  const animationRef = useRef<ReturnType<typeof mountGangSquadAnimation> | null>(null);
+  // Refs separadas para a animação de ida e de volta — assim cada fase
+  // tem cleanup próprio e não atropela a outra.
+  const forwardAnimRef = useRef<ReturnType<typeof mountGangSquadAnimation> | null>(null);
+  const returnAnimRef  = useRef<ReturnType<typeof mountGangSquadAnimation> | null>(null);
 
   // ── 1. previewTarget: chama canAttack + abre o modal de seleção ──────────────
 
@@ -214,15 +220,17 @@ export function useMapAttack(): UseMapAttackReturn {
     void previewTarget(target);
   }, [previewTarget]);
 
-  // ── 3. cancelAttack: fecha preview ──────────────────────────────────────────
+  // ── 3. cancelAttack: fecha preview e limpa qualquer animação em curso ──────
 
   const cancelAttack = useCallback(() => {
     setPreviewData(null);
     setEstimation(null);
     setBlockedPreviewMessage(null);
     setCanAttackInfo(null);
-    animationRef.current?.cancel();
-    animationRef.current = null;
+    forwardAnimRef.current?.cancel();
+    forwardAnimRef.current = null;
+    returnAnimRef.current?.cancel();
+    returnAnimRef.current = null;
     store.resetAttack();
   }, [store]);
 
@@ -233,7 +241,9 @@ export function useMapAttack(): UseMapAttackReturn {
     store.resetAttack();
   }, [store]);
 
-  // ── 5. confirmAttack: chama startBattle, dispara animação 3D, aguarda chegada, chama resolveBattle ──
+  // ── 5. confirmAttack ────────────────────────────────────────────────────────
+  // Orquestra: startBattle → anima ida → resolveBattle → impacto → anima volta
+  // até a posição ATUAL do atacante → finaliza.
 
   const confirmAttack = useCallback(async (
     selection:  GangAttackSelection,
@@ -255,6 +265,7 @@ export function useMapAttack(): UseMapAttackReturn {
 
     const originTileX = originCenter.tileX;
     const originTileY = originCenter.tileY;
+    const convoySkinId = getSelectedConvoySkinId(player);
 
     try {
       // ── Registrar batalha no backend ────────────────────────────────────
@@ -266,71 +277,63 @@ export function useMapAttack(): UseMapAttackReturn {
         originTileX,
         originTileY,
         selection,
+        convoySkinId,
       });
 
-      // Rota de tiles para animação
-      const routeSource = startResp.route;
+      // Rota de tiles para a animação de ida (já com tiles centralizados)
+      const fwdFromX = Number(startResp.route?.fromTileX ?? originTileX);
+      const fwdFromY = Number(startResp.route?.fromTileY ?? originTileY);
+      const fwdToX   = Number(startResp.route?.toTileX   ?? selectedTarget.tileX);
+      const fwdToY   = Number(startResp.route?.toTileY   ?? selectedTarget.tileY);
 
-      const routeToTarget = buildRoute(
-        Number(routeSource?.fromTileX ?? originTileX),
-        Number(routeSource?.fromTileY ?? originTileY),
-        Number(routeSource?.toTileX ?? selectedTarget.tileX),
-        Number(routeSource?.toTileY ?? selectedTarget.tileY),
-        gridWidth,
-        gridHeight
-      );
+      const forwardRoute = buildRoute(fwdFromX, fwdFromY, fwdToX, fwdToY, gridWidth, gridHeight);
+      const reverseStub  = [...forwardRoute].reverse();
 
-      const route = routeToTarget;
-
-      // Configurar rota de ida e volta
-      store.setRoute(route, [...route].reverse());
+      store.setRoute(forwardRoute, reverseStub);
       store.setPhase('moving');
       store.closePreview();   // fecha o MapTargetActionModal (mantém o ataque em curso)
 
-      // ── Animar deslocamento do squad ────────────────────────────────────
+      // ── Animação de IDA ────────────────────────────────────────────────
       const memberCount = Object.values(selection).reduce((a, b) => a + b, 0);
-      const animation   = mountGangSquadAnimation({
+      const forwardAnimation = mountGangSquadAnimation({
         scene,
-        route,
+        route: forwardRoute,
         gridWidth,
         gridHeight,
         barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
         memberCount,
         color: '#ff3b30',
-        convoySkinId: getSelectedConvoySkinId(player),
+        convoySkinId,
         timePerTileMs: startResp.timePerTileMs,
         totalDurationMs: startResp.totalDurationMs,
         onStep: (stepIdx) => {
           store.setCurrentStep(stepIdx);
         },
       });
-      animationRef.current = animation;
+      forwardAnimRef.current = forwardAnimation;
 
       // Calcular tempo de espera baseado em arriveAtIso
       const arriveAtMs = new Date(startResp.arriveAtIso).getTime();
-      const waitMs = Math.max(0, arriveAtMs - Date.now());
+      const waitMs     = Math.max(0, arriveAtMs - Date.now());
 
-      // Iniciar animação em paralelo com o timer de viagem
-      const animPromise = animation.start();
+      // Iniciar animação de ida em paralelo com o timer de viagem
+      const forwardPromise = forwardAnimation.start();
 
       // Aguardar até o tempo de chegada calculado
       await new Promise<void>((res) => setTimeout(res, waitMs));
-
       store.setPhase('arriving');
 
-      // Garantir que a animação terminou
-      await animPromise;
-
-      // ── Efeito de impacto ao chegar ─────────────────────────────────────
-      const targetWorldX = (selectedTarget.tileX - gridWidth  / 2) + 0.5;
-      const targetWorldZ = (selectedTarget.tileY - gridHeight / 2) + 0.5;
-
-      store.setPhase('resolving');
+      // Garantir que a animação de ida terminou
+      await forwardPromise;
 
       // ── Resolver no backend ─────────────────────────────────────────────
+      store.setPhase('resolving');
       const report = await resolveBattle(startResp.battleId);
 
-      // Dispara efeito visual após ter o resultado
+      // ── Efeito de impacto ao chegar ─────────────────────────────────────
+      const targetWorldX = (fwdToX - gridWidth  / 2) + 0.5;
+      const targetWorldZ = (fwdToY - gridHeight / 2) + 0.5;
+
       playImpactEffect({
         position:  new THREE.Vector3(targetWorldX, 1.35, targetWorldZ),
         scene,
@@ -342,23 +345,62 @@ export function useMapAttack(): UseMapAttackReturn {
       setResolution(report.resolution);
       store.setResolution(report.resolution);
 
-      // ── Aguardar playerUpdate do socket e opcionalmente recarregar dados ─────
-      // O frontend mostra report.resolution e aguarda playerUpdate do socket
-      // Opcionalmente pode chamar loadGang() ou loadPlayer/me se houver fallback HTTP
-      // Sem somar dinheiro localmente
+      // Recarregar gang e aguardar playerUpdate do socket para refletir
+      // posição/saldos atualizados do atacante.
       try {
         await useGangStore.getState().loadGang();
       } catch (err) {
         console.warn('[useMapAttack] Erro ao recarregar gang:', err);
       }
 
-      // ── Animação de retorno ─────────────────────────────────────────────
-      setTimeout(() => store.setPhase('returning'),  3000);
-      setTimeout(() => {
-        store.setPhase('finished');
-        animationRef.current?.cleanup();
-        animationRef.current = null;
-      }, 6500);
+      // Espera curta para o impacto/socket playerUpdate chegar antes de
+      // calcular a posição de retorno.
+      await new Promise<void>((res) => setTimeout(res, 1800));
+
+      // ── Animação de RETORNO ────────────────────────────────────────────
+      // Lê a posição ATUAL do atacante (pode ter mudado durante o ataque).
+      const currentPlayer = usePlayerStore.getState().player;
+      const updatedOrigin = getPlayerCentralTileFromOrigin(
+        Number(currentPlayer?.mapPosition?.tileX ?? player?.mapPosition?.tileX ?? 0),
+        Number(currentPlayer?.mapPosition?.tileY ?? player?.mapPosition?.tileY ?? 0),
+      );
+
+      const returnRoute = buildRoute(
+        fwdToX, fwdToY,
+        updatedOrigin.tileX, updatedOrigin.tileY,
+        gridWidth, gridHeight,
+      );
+
+      // Limpa a animação de ida (squad parado no alvo) antes de montar a volta.
+      forwardAnimation.cleanup();
+      forwardAnimRef.current = null;
+
+      store.setRoute(forwardRoute, returnRoute);
+      store.setPhase('returning');
+
+      const returnAnimation = mountGangSquadAnimation({
+        scene,
+        route: returnRoute,
+        gridWidth,
+        gridHeight,
+        barracoLevel: Number(currentPlayer?.niveis?.barracoLevel ?? player?.niveis?.barracoLevel ?? 1),
+        memberCount,
+        color: '#ff3b30',
+        convoySkinId,
+        timePerTileMs: startResp.timePerTileMs,
+        // Sem totalDurationMs explícito → usa timePerTileMs × tiles.
+        onStep: (stepIdx) => {
+          store.setCurrentStep(stepIdx);
+        },
+      });
+      returnAnimRef.current = returnAnimation;
+
+      await returnAnimation.start();
+
+      // ── Finalização ────────────────────────────────────────────────────
+      store.setPhase('finished');
+      returnAnimation.cleanup();
+      returnAnimRef.current = null;
 
     } catch (err) {
       console.error('[useMapAttack] Erro no fluxo de ataque:', err);
