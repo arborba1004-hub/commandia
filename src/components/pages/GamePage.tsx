@@ -234,14 +234,15 @@ export default function GamePage() {
     );
     cameraRef.current = camera;  // exposto para o sistema de ataque
 
-    setThreeReady(true);
-
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
     mountEl.appendChild(renderer.domElement);
+
+    // Sinaliza que scene/camera estão prontas APÓS renderer estar no DOM
+    setThreeReady(true);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping  = true;
