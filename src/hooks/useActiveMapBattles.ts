@@ -71,18 +71,6 @@ export function useActiveMapBattles(options: UseActiveMapBattlesOptions) {
   const player = usePlayerStore((s) => s.player);
   const playerId = (player as any)?._id;
 
-  // Store de ataque
-  const setBattleData = useMapAttackStore((s) => ({
-    setBattleId: (id: string) => useMapAttackStore.setState({ battleId: id }),
-    setArriveAtIso: (iso: string) => useMapAttackStore.setState({ arriveAtIso: iso }),
-    setLaunchedAtIso: (iso: string) => useMapAttackStore.setState({ launchedAtIso: iso }),
-    setRole: (role: 'attacker' | 'defender' | null) => useMapAttackStore.setState({ role }),
-    setIsRecovered: (recovered: boolean) => useMapAttackStore.setState({ isRecovered: recovered }),
-    setRoute: useMapAttackStore.getState().setRoute,
-    setPhase: useMapAttackStore.getState().setPhase,
-    setResolution: useMapAttackStore.getState().setResolution,
-  }));
-
   const hasInitialized = useRef(false);
 
   useEffect(() => {

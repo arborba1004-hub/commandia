@@ -91,13 +91,21 @@ export function useGameSocket() {
       const handleGangUpdate = (data: { gang: any }) => {
         if (!mountedRef.current || !data?.gang) return;
 
-        // Atualiza playerStore (comportamento existente)
-        usePlayerStore.getState().applyPlayerUpdate((p) => ({
-          ...p,
-          gang: data.gang,
-          gangMembers: data.gang?.members ?? p.gangMembers,
-          gangStats:   data.gang?.stats   ?? p.gangStats,
-        }));
+        // Atualiza playerStore diretamente sem scheduleSync
+        const currentPlayer = usePlayerStore.getState().player;
+
+        usePlayerStore.setState({
+          player: {
+            ...currentPlayer,
+            gang: data.gang,
+            gangMembers: data.gang?.members ?? currentPlayer.gangMembers,
+            gangStats: data.gang?.stats ?? currentPlayer.gangStats,
+          },
+          isLoaded: true,
+          lastSyncAt: Date.now(),
+          lastServerHydrationAt: Date.now(),
+          pendingLocalChanges: false,
+        });
 
         // Propaga members/stats para gangStore para que GangPage,
         // MapAttackWithGangModal, AttackMemberSelector, usePowerSync etc.

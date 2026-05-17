@@ -59,6 +59,7 @@ function getStoredAuthToken(): string | null {
 
 function stripGangState<T extends Partial<PlayerState>>(playerData: T): T {
   const clone = { ...(playerData as any) };
+  delete clone.gang;
   delete clone.gangMembers;
   delete clone.gangStats;
   return clone as T;
