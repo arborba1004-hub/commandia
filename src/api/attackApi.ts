@@ -33,6 +33,8 @@ export type StartBattlePayload = {
   originTileY?: number;
   /** Seleção de tropas por quantidade por tipo (Mafia City style) */
   selection: Partial<GangAttackSelection>;
+  /** ID da skin de comboio escolhida (fallback: 'comboio_padrao') */
+  convoySkinId?: string;
 };
 
 export type StartBattleResponse = {
@@ -57,6 +59,8 @@ export type StartBattleResponse = {
     toTileX: number;
     toTileY: number;
   };
+  memberCount?: number;
+  attackerConvoySkinId?: string;
 };
 
 export type BattleReportResponse = {
@@ -289,6 +293,7 @@ export type ActiveBattleResponse = {
   targetId?: string;
   targetName?: string;
   memberCount?: number;
+  attackerConvoySkinId?: string;
   launchedAtIso: string;
   arriveAtIso: string;
   remainingMs: number;
