@@ -331,15 +331,15 @@ export function useMapAttack(): UseMapAttackReturn {
       setResolution(report.resolution);
       store.setResolution(report.resolution);
 
-      // ── Sincronizar saldos e gangue ─────────────────────────────────────
-      const lootDelta = report.resolution.success ? report.resolution.loot : 0;
-      usePlayerStore.getState().applyRemoteAttackResult?.({
-        dirtyMoneyDelta:    lootDelta,
-        pvpProtectionUntil: null,
-      });
-
-      // (Ataque é gratuito — sem custo de corre)
-      await useGangStore.getState().loadGang();
+      // ── Aguardar playerUpdate do socket e opcionalmente recarregar dados ─────
+      // O frontend mostra report.resolution e aguarda playerUpdate do socket
+      // Opcionalmente pode chamar loadGang() ou loadPlayer/me se houver fallback HTTP
+      // Sem somar dinheiro localmente
+      try {
+        await useGangStore.getState().loadGang();
+      } catch (err) {
+        console.warn('[useMapAttack] Erro ao recarregar gang:', err);
+      }
 
       // ── Animação de retorno ─────────────────────────────────────────────
       setTimeout(() => store.setPhase('returning'),  3000);
