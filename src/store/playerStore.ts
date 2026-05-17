@@ -81,8 +81,8 @@ type LaundryProgress   = { activeOperations: ActiveOperation[]; dailyOperations:
 type PunishmentsState  = { active: { type: 'fiscal' | 'arsenal' | 'militia' | 'blitz' | 'threat'; expiresAt: string }[]; delacao: { active: boolean; expiresAt: string | null } | null; inventoryBlocked: boolean; dirtyMoneyBlocked: boolean; cleanMoneyBlocked: boolean; levelProgressionBlocked: boolean; inventoryBonusReductionPercent: number; pvpProtectionUntil: string | null; delacaoRewardPending: boolean; delacaoRewardUnlockAt: string | null; pendingSkillBoost: number; lastVehicleLost?: boolean };
 type PurchasedAccessory = { accessoryId: string; skillType: string; purchasedAt: string };
 type Accessories       = { vehicles?: Record<string, string[]>; weapons?: Record<string, string[]> };
-type GangMember        = { id: string; type: string; level: number; status: 'ativo' | 'ferido' | 'morto' | 'treinando'; recruitedAt: string; trainingEndsAt?: string | null; injuryEndsAt?: string | null };
-type GangStats         = { totalMembers: number; activeMembers: number; injuredMembers: number; deadMembers: number; trainingMembers: number; totalPower: number; averageLevel: number };
+type GangMember        = { id: string; type: string; level: number; status: 'ativo' | 'ferido' | 'morto' | 'treinando' | 'marchando'; recruitedAt: string; trainingEndsAt?: string | null; injuryEndsAt?: string | null };
+type GangStats         = { totalMembers: number; activeMembers: number; injuredMembers: number; deadMembers: number; trainingMembers: number; marchingMembers: number; totalPower: number; averageLevel: number };
 type AttackNotification = { id: string; type: 'attack_received' | 'attack_success' | 'attack_failed' | 'revenge_available'; attackerId?: string; attackerName?: string; targetId?: string; targetName?: string; success: boolean; loot: number; createdAt: string; read: boolean };
 type AttackHistoryItem  = { id: string; attackerId: string; attackerName: string; targetId: string; targetName: string; success: boolean; loot: number; createdAt: string; attackerGangLosses?: Record<string, number>; defenderGangLosses?: Record<string, number> };
 
@@ -97,6 +97,12 @@ export type PlayerState = {
   accessories?: Accessories; notifications?: AttackNotification[];
   attackHistory?: AttackHistoryItem[]; factionId?: string | null; gangId?: string | null;
   gangMembers?: GangMember[]; gangStats?: GangStats;
+  gang?: {
+    members?: GangMember[];
+    trainingSlots?: any[];
+    stats?: GangStats;
+    updatedAtIso?: string | null;
+  };
   lastAttackAt?: string | null; pvpProtectionUntil?: string | null;
 };
 
@@ -249,6 +255,7 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   const headerCust   = (inc.headerCustomization && typeof inc.headerCustomization === 'object') ? inc.headerCustomization : {};
   const laundryProg  = (inc.laundryProgress     && typeof inc.laundryProgress     === 'object') ? inc.laundryProgress     : {};
   const punishments  = (inc.punishments         && typeof inc.punishments         === 'object') ? inc.punishments         : {};
+  const incomingGang = inc.gang && typeof inc.gang === 'object' ? inc.gang : null;
 
   return {
     ...initialPlayer,
@@ -272,8 +279,9 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     attackHistory: inc?.attackHistory || [],
     factionId:     inc?.factionId ?? null,
     gangId:        inc?.gangId    ?? null,
-    gangMembers:   initialPlayer.gangMembers,
-    gangStats:     { ...initialPlayer.gangStats! },
+    gang:          incomingGang ?? inc.gang ?? initialPlayer.gang,
+    gangMembers:   incomingGang?.members ?? inc.gangMembers ?? initialPlayer.gangMembers,
+    gangStats:     incomingGang?.stats ?? inc.gangStats ?? initialPlayer.gangStats,
     lastAttackAt:  inc?.lastAttackAt  ?? null,
     pvpProtectionUntil: inc?.pvpProtectionUntil ?? (punishments as any)?.pvpProtectionUntil ?? null,
   };
