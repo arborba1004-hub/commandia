@@ -259,11 +259,18 @@ export function useMapAttack(): UseMapAttackReturn {
       });
 
       // Rota de tiles para animação
-      const route = buildRoute(
-        originTileX, originTileY,
-        selectedTarget.tileX, selectedTarget.tileY,
-        gridWidth, gridHeight
+      const routeSource = startResp.route;
+
+      const routeToTarget = buildRoute(
+        Number(routeSource?.fromTileX ?? originTileX),
+        Number(routeSource?.fromTileY ?? originTileY),
+        Number(routeSource?.toTileX ?? selectedTarget.tileX),
+        Number(routeSource?.toTileY ?? selectedTarget.tileY),
+        gridWidth,
+        gridHeight
       );
+
+      const route = routeToTarget;
 
       // Configurar rota de ida e volta
       store.setRoute(route, [...route].reverse());
