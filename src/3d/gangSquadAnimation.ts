@@ -623,15 +623,23 @@ export function mountGangSquadAnimation({
   }
 
   async function start(): Promise<void> {
+    console.log('[GANG_SQUAD_ANIMATION_START]', { routeDistanceTiles, skinId: skin.id, memberCount });
     if (isRunning || isCancelled || isCleaned) return;
     isRunning = true;
 
     // Fallback imediato: a marcha começa na hora, sem depender dos 6 GLBs remotos.
-    replaceConvoy(createImmediateFallbackConvoy(skin));
+    const fallbackConvoy = createImmediateFallbackConvoy(skin);
+    fallbackConvoy.visible = true;
+    fallbackConvoy.matrixWorldNeedsUpdate = true;
+    replaceConvoy(fallbackConvoy);
 
     // GLBs carregam em paralelo. Quando terminarem, substituem o fallback se a marcha ainda existir.
     void createConvoyGroup(skin)
-      .then((loaded) => replaceConvoy(loaded))
+      .then((loaded) => {
+        loaded.visible = true;
+        loaded.matrixWorldNeedsUpdate = true;
+        replaceConvoy(loaded);
+      })
       .catch((err) => {
         // Não quebra a marcha. Mantém fallback imediato.
         console.error('[GANG_SQUAD_CONVOY_LOAD_FATAL]', err);
