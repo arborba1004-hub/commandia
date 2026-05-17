@@ -1,13 +1,19 @@
 /**
  * 3d/gangSquadAnimation.ts
  * Animação de deslocamento do squad no mapa.
- * Refatorado de: gangAttackAnimation.ts + animateSquadOnRoute.ts
  *
- * Responsabilidade única: animar um grupo Three.js ao longo de uma rota de tiles.
- * Os efeitos visuais (explosão, shockwave, etc.) são de gangAttackEffects.ts.
+ * Responsabilidade única: animar um comboio Three.js ao longo de uma rota de tiles.
+ * O visual do comboio vem de src/data/convoySkins.ts para permitir skins futuras.
  */
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+import {
+  getConvoySkinById,
+  type ConvoySkinAsset,
+  type ConvoySkinDefinition,
+} from '@/data/convoySkins';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS
@@ -39,15 +45,17 @@ export type GangSquadAnimationParams = {
   onArrived?:    () => void;
   timePerTileMs?: number;
   totalDurationMs?: number;
+  /** Skin visual do comboio. Se vier ausente/inválida, usa comboio_padrao. */
+  convoySkinId?: string | null;
 };
 
 export type MountedSquadAnimation = {
-  group:             THREE.Group;
+  group:              THREE.Group;
   routeDistanceTiles: number;
-  totalDurationMs:   number;
-  start:             () => Promise<void>;
-  cancel:            () => void;
-  cleanup:           () => void;
+  totalDurationMs:    number;
+  start:              () => Promise<void>;
+  cancel:             () => void;
+  cleanup:            () => void;
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -56,7 +64,19 @@ export type MountedSquadAnimation = {
 
 /** Tempo base por tile em ms. Dividido pelo nível do barraco. */
 const BASE_MS_PER_TILE = 5000;
-const MARKER_HEIGHT    = 1.35;
+const CONVOY_HEIGHT    = 0.06;
+const LABEL_HEIGHT     = 1.65;
+const MODEL_BASE_SIZE  = 0.95;
+
+// Cache por URL, não por skin. Skins futuras podem reaproveitar os mesmos GLBs.
+const convoyModelCache = new Map<string, THREE.Object3D>();
+const convoyModelPending = new Map<string, Promise<THREE.Object3D>>();
+
+const sharedDracoLoader = new DRACOLoader();
+sharedDracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+
+const sharedGltfLoader = new GLTFLoader();
+sharedGltfLoader.setDRACOLoader(sharedDracoLoader);
 
 // ═════════════════════════════════════════════════════════════════════════════
 // CONVERSÃO TILE → MUNDO
@@ -84,60 +104,192 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
+function normalizeAngle(angle: number) {
+  while (angle > Math.PI) angle -= Math.PI * 2;
+  while (angle < -Math.PI) angle += Math.PI * 2;
+  return angle;
+}
+
+function lerpAngle(a: number, b: number, t: number) {
+  return a + normalizeAngle(b - a) * t;
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
-// MARCADOR VISUAL DO SQUAD (esfera + halo + label de quantidade)
+// MODELOS DO COMBOIO
 // ═════════════════════════════════════════════════════════════════════════════
 
-function buildSquadMarker(options: SquadMarkerOptions): {
+function applyModelShadows(root: THREE.Object3D) {
+  root.traverse((obj: any) => {
+    if (obj?.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      if (obj.material) obj.material.needsUpdate = true;
+    }
+  });
+}
+
+function normalizeModel(root: THREE.Object3D, desiredSize = MODEL_BASE_SIZE) {
+  root.updateMatrixWorld(true);
+
+  const box = new THREE.Box3().setFromObject(root);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  const maxAxis = Math.max(size.x || 1, size.y || 1, size.z || 1);
+  const scale = desiredSize / maxAxis;
+  root.scale.multiplyScalar(scale);
+
+  root.updateMatrixWorld(true);
+
+  const scaledBox = new THREE.Box3().setFromObject(root);
+  const center = new THREE.Vector3();
+  scaledBox.getCenter(center);
+
+  root.position.x -= center.x;
+  root.position.z -= center.z;
+  root.position.y -= scaledBox.min.y;
+
+  return root;
+}
+
+function createFallbackVehicle(index: number) {
+  const group = new THREE.Group();
+  group.name = `convoy-fallback-${index}`;
+
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.72, 0.34, 1.15),
+    new THREE.MeshStandardMaterial({ color: 0x3f3f46, roughness: 0.55, metalness: 0.15 })
+  );
+  body.castShadow = true;
+  body.receiveShadow = true;
+  body.position.y = 0.25;
+  group.add(body);
+
+  const cabin = new THREE.Mesh(
+    new THREE.BoxGeometry(0.52, 0.28, 0.45),
+    new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.45, metalness: 0.2 })
+  );
+  cabin.castShadow = true;
+  cabin.receiveShadow = true;
+  cabin.position.set(0, 0.55, -0.08);
+  group.add(cabin);
+
+  return group;
+}
+
+async function loadBaseModel(url: string, index: number): Promise<THREE.Object3D> {
+  if (convoyModelCache.has(url)) {
+    return convoyModelCache.get(url)!;
+  }
+
+  if (convoyModelPending.has(url)) {
+    return convoyModelPending.get(url)!;
+  }
+
+  const pending = (async () => {
+    try {
+      const gltf = await sharedGltfLoader.loadAsync(url);
+      const scene = gltf.scene || gltf.scenes?.[0];
+
+      if (!scene) {
+        const fallback = createFallbackVehicle(index);
+        convoyModelCache.set(url, fallback);
+        return fallback;
+      }
+
+      const base = scene.clone(true);
+      applyModelShadows(base);
+      normalizeModel(base, MODEL_BASE_SIZE);
+      convoyModelCache.set(url, base);
+      return base;
+    } catch (err) {
+      console.error('[CONVOY_GLB_LOAD_ERROR]', url, err);
+      const fallback = createFallbackVehicle(index);
+      convoyModelCache.set(url, fallback);
+      return fallback;
+    } finally {
+      convoyModelPending.delete(url);
+    }
+  })();
+
+  convoyModelPending.set(url, pending);
+  return pending;
+}
+
+function cloneModelForMarch(base: THREE.Object3D) {
+  const clone = base.clone(true);
+  applyModelShadows(clone);
+  return clone;
+}
+
+async function createConvoyVehiclesGroup(skin: ConvoySkinDefinition) {
+  const group = new THREE.Group();
+  group.name = `convoy-skin-${skin.id}`;
+
+  const assets = Array.isArray(skin.assets) ? skin.assets : [];
+
+  await Promise.all(
+    assets.map(async (asset: ConvoySkinAsset, index: number) => {
+      const base = await loadBaseModel(asset.url, index);
+      const model = cloneModelForMarch(base);
+      const slot = asset.position ?? { x: 0, y: 0, z: -index };
+
+      model.position.set(slot.x, slot.y, slot.z);
+
+      if (Number.isFinite(asset.scale)) {
+        model.scale.multiplyScalar(Number(asset.scale));
+      }
+
+      if (Number.isFinite(asset.rotationY)) {
+        model.rotation.y += Number(asset.rotationY);
+      }
+
+      group.add(model);
+    })
+  );
+
+  if (group.children.length === 0) {
+    group.add(createFallbackVehicle(0));
+  }
+
+  return group;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// LABEL E EFEITOS VISUAIS DO COMBOIO
+// ═════════════════════════════════════════════════════════════════════════════
+
+function buildConvoyLabel(options: SquadMarkerOptions): {
   group: THREE.Group;
   animatePulse: (elapsedMs: number) => void;
   dispose: () => void;
 } {
-  const color     = new THREE.Color(options.color ?? '#ef4444');
-  const group     = new THREE.Group();
-  const toDispose: THREE.BufferGeometry[]  = [];
-  const toDisposeM: THREE.Material[]       = [];
+  const color = new THREE.Color(options.color ?? '#ef4444');
+  const group = new THREE.Group();
+  const toDisposeGeo: THREE.BufferGeometry[] = [];
+  const toDisposeMat: THREE.Material[] = [];
 
-  // Núcleo
-  const coreGeo = new THREE.SphereGeometry(0.32, 20, 20);
-  const coreMat = new THREE.MeshStandardMaterial({
-    color,
-    emissive: color.clone().multiplyScalar(0.35),
-    emissiveIntensity: 1.2,
-    roughness:  0.3,
-    metalness:  0.1,
-    transparent: true,
-    opacity:     0.95,
-  });
-  const core = new THREE.Mesh(coreGeo, coreMat);
-  core.castShadow = true;
-  group.add(core);
-  toDispose.push(coreGeo);
-  toDisposeM.push(coreMat);
-
-  // Halo orbital
-  const haloGeo = new THREE.RingGeometry(0.50, 0.76, 32);
+  const haloGeo = new THREE.RingGeometry(0.95, 1.38, 40);
   const haloMat = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity:     0.38,
-    side:        THREE.DoubleSide,
-    depthWrite:  false,
+    opacity: 0.32,
+    side: THREE.DoubleSide,
+    depthWrite: false,
   });
   const halo = new THREE.Mesh(haloGeo, haloMat);
   halo.rotation.x = -Math.PI / 2;
-  halo.position.y = -0.30;
+  halo.position.y = 0.02;
   group.add(halo);
-  toDispose.push(haloGeo);
-  toDisposeM.push(haloMat);
+  toDisposeGeo.push(haloGeo);
+  toDisposeMat.push(haloMat);
 
-  // Label de quantidade via canvas
-  const canvas  = document.createElement('canvas');
-  canvas.width  = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
   canvas.height = 128;
-  const ctx     = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d')!;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.fillStyle = 'rgba(0,0,0,0.68)';
   if (typeof (ctx as any).roundRect === 'function') {
     (ctx as any).roundRect(0, 0, 512, 128, 18);
     ctx.fill();
@@ -145,39 +297,35 @@ function buildSquadMarker(options: SquadMarkerOptions): {
     ctx.fillRect(0, 0, 512, 128);
   }
 
-  ctx.textAlign    = 'center';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font         = 'bold 48px Oswald, Arial';
-  ctx.fillStyle    = '#ffffff';
+  ctx.font = 'bold 46px Oswald, Arial';
+  ctx.fillStyle = '#ffffff';
   ctx.fillText(`${options.memberCount.toLocaleString('pt-BR')} membros`, 256, 64);
 
-  const texture      = new THREE.CanvasTexture(canvas);
+  const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
 
   const spriteMat = new THREE.SpriteMaterial({
-    map:         texture,
+    map: texture,
     transparent: true,
-    depthWrite:  false,
+    depthWrite: false,
   });
   const sprite = new THREE.Sprite(spriteMat);
-  sprite.scale.set(5.2, 1.3, 1);
-  sprite.position.set(0, 1.30, 0);
+  sprite.scale.set(4.8, 1.2, 1);
+  sprite.position.set(0, LABEL_HEIGHT, 0);
   group.add(sprite);
 
   function animatePulse(elapsedMs: number) {
     const t = elapsedMs / 1000;
-    // Núcleo flutua levemente
-    core.position.y = Math.sin(t * 4.2) * 0.07;
-    // Halo pulsa
-    halo.scale.setScalar(1 + Math.sin(t * 5.5) * 0.07);
-    haloMat.opacity = 0.28 + (Math.sin(t * 5.2) + 1) * 0.08;
-    // Label acompanha flutuação
-    sprite.position.y = 1.30 + Math.sin(t * 3.6) * 0.04;
+    halo.scale.setScalar(1 + Math.sin(t * 4.8) * 0.045);
+    haloMat.opacity = 0.23 + (Math.sin(t * 4.2) + 1) * 0.055;
+    sprite.position.y = LABEL_HEIGHT + Math.sin(t * 3.4) * 0.035;
   }
 
   function dispose() {
-    toDispose.forEach((g)  => g.dispose());
-    toDisposeM.forEach((m) => m.dispose());
+    toDisposeGeo.forEach((g) => g.dispose());
+    toDisposeMat.forEach((m) => m.dispose());
     texture.dispose();
     spriteMat.dispose();
   }
@@ -202,8 +350,8 @@ export function mountGangSquadAnimation({
   onArrived,
   timePerTileMs,
   totalDurationMs,
+  convoySkinId,
 }: GangSquadAnimationParams): MountedSquadAnimation {
-
   const routeDistanceTiles = Math.max(0, route.length - 1);
 
   const fallbackMsPerTile = getMsPerTile(barracoLevel);
@@ -226,43 +374,69 @@ export function mountGangSquadAnimation({
       ? Math.max(1, effectiveTotalDurationMs / routeDistanceTiles)
       : fallbackMsPerTile;
 
+  const convoySkin = getConvoySkinById(convoySkinId);
+
   // Root group na cena
   const root = new THREE.Group();
-  root.name  = 'gang-squad-animation';
+  root.name = 'gang-squad-animation';
 
   // Trilha
   const trailPoints = route.map((step) => {
     const { worldX, worldZ } = tileToWorld(step.tileX, step.tileY, gridWidth, gridHeight, tileSize);
-    return new THREE.Vector3(worldX, MARKER_HEIGHT - 0.7, worldZ);
+    return new THREE.Vector3(worldX, CONVOY_HEIGHT + 0.02, worldZ);
   });
-  const trailGeo  = new THREE.BufferGeometry().setFromPoints(trailPoints);
-  const trailMat  = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.45 });
+  const trailGeo = new THREE.BufferGeometry().setFromPoints(trailPoints);
+  const trailMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.45 });
   const trailLine = new THREE.Line(trailGeo, trailMat);
   root.add(trailLine);
 
-  // Marcador do squad
-  const marker = buildSquadMarker({ memberCount, color });
-  root.add(marker.group);
+  const label = buildConvoyLabel({ memberCount, color });
+  root.add(label.group);
+
+  let convoyGroup: THREE.Group | null = null;
+  let isCancelled = false;
+  let isRunning = false;
+  let frameId = 0;
+  let didCleanup = false;
+  let currentRotationY = 0;
+
   scene.add(root);
 
-  // Posição inicial
+  // Posição inicial antes dos GLBs terminarem de carregar.
   if (route.length > 0) {
-    const { worldX, worldZ } = tileToWorld(
-      route[0].tileX, route[0].tileY, gridWidth, gridHeight, tileSize
-    );
-    marker.group.position.set(worldX, MARKER_HEIGHT, worldZ);
+    const { worldX, worldZ } = tileToWorld(route[0].tileX, route[0].tileY, gridWidth, gridHeight, tileSize);
+    root.position.set(worldX, CONVOY_HEIGHT, worldZ);
   }
 
-  let isCancelled = false;
-  let isRunning   = false;
-  let frameId     = 0;
+  function setRootRotationTowards(from: RouteTile, to: RouteTile, instant = false) {
+    const fw = tileToWorld(from.tileX, from.tileY, gridWidth, gridHeight, tileSize);
+    const tw = tileToWorld(to.tileX, to.tileY, gridWidth, gridHeight, tileSize);
+    const dx = tw.worldX - fw.worldX;
+    const dz = tw.worldZ - fw.worldZ;
+
+    if (Math.abs(dx) < 0.0001 && Math.abs(dz) < 0.0001) return;
+
+    // A formação do comboio foi montada apontando para +Z.
+    const targetRotationY = Math.atan2(dx, dz);
+    currentRotationY = instant ? targetRotationY : lerpAngle(currentRotationY, targetRotationY, 0.22);
+    root.rotation.y = currentRotationY;
+  }
 
   function cleanup() {
+    if (didCleanup) return;
+    didCleanup = true;
+
     cancelAnimationFrame(frameId);
     scene.remove(root);
+
     trailGeo.dispose();
     trailMat.dispose();
-    marker.dispose();
+    label.dispose();
+
+    if (convoyGroup) {
+      root.remove(convoyGroup);
+      convoyGroup = null;
+    }
   }
 
   function cancel() {
@@ -279,32 +453,45 @@ export function mountGangSquadAnimation({
       return;
     }
 
+    const loadedConvoy = await createConvoyVehiclesGroup(convoySkin);
+    if (isCancelled || didCleanup) {
+      return;
+    }
+
+    convoyGroup = loadedConvoy;
+    root.add(convoyGroup);
+
+    if (route.length > 1) {
+      setRootRotationTowards(route[0], route[1], true);
+    }
+
     return new Promise<void>((resolve) => {
       const startedAt = performance.now();
-      let lastStep    = -1;
+      let lastStep = -1;
 
       function tick(now: number) {
         if (isCancelled) { resolve(); return; }
 
-        const elapsed      = now - startedAt;
-        const capped       = Math.min(elapsed, effectiveTotalDurationMs);
+        const elapsed = now - startedAt;
+        const capped = Math.min(elapsed, effectiveTotalDurationMs);
         const progressTiles = capped / effectiveMsPerTile;
-        const segIdx       = Math.min(routeDistanceTiles - 1, Math.floor(progressTiles));
-        const segAlpha     = Math.min(1, Math.max(0, progressTiles - segIdx));
+        const segIdx = Math.min(routeDistanceTiles - 1, Math.floor(progressTiles));
+        const segAlpha = Math.min(1, Math.max(0, progressTiles - segIdx));
 
         const from = route[segIdx];
-        const to   = route[Math.min(route.length - 1, segIdx + 1)];
+        const to = route[Math.min(route.length - 1, segIdx + 1)];
 
         const fw = tileToWorld(from.tileX, from.tileY, gridWidth, gridHeight, tileSize);
-        const tw = tileToWorld(to.tileX,   to.tileY,   gridWidth, gridHeight, tileSize);
+        const tw = tileToWorld(to.tileX, to.tileY, gridWidth, gridHeight, tileSize);
 
-        marker.group.position.set(
+        root.position.set(
           lerp(fw.worldX, tw.worldX, segAlpha),
-          MARKER_HEIGHT,
+          CONVOY_HEIGHT,
           lerp(fw.worldZ, tw.worldZ, segAlpha),
         );
 
-        marker.animatePulse(elapsed);
+        setRootRotationTowards(from, to);
+        label.animatePulse(elapsed);
 
         // Notifica mudança de tile
         if (segIdx !== lastStep) {
@@ -314,8 +501,10 @@ export function mountGangSquadAnimation({
 
         if (capped >= effectiveTotalDurationMs) {
           const last = route[route.length - 1];
-          const lw   = tileToWorld(last.tileX, last.tileY, gridWidth, gridHeight, tileSize);
-          marker.group.position.set(lw.worldX, MARKER_HEIGHT, lw.worldZ);
+          const prev = route[Math.max(0, route.length - 2)];
+          const lw = tileToWorld(last.tileX, last.tileY, gridWidth, gridHeight, tileSize);
+          root.position.set(lw.worldX, CONVOY_HEIGHT, lw.worldZ);
+          setRootRotationTowards(prev, last, false);
           onArrived?.();
           resolve();
           return;
@@ -331,7 +520,7 @@ export function mountGangSquadAnimation({
   return {
     group: root,
     routeDistanceTiles,
-    totalDurationMs,
+    totalDurationMs: effectiveTotalDurationMs,
     start,
     cancel,
     cleanup,
