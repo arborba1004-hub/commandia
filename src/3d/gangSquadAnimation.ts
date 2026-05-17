@@ -1,9 +1,16 @@
 /**
  * 3d/gangSquadAnimation.ts
- * Animação de deslocamento do comboio de ataque no mapa.
  *
- * Responsabilidade única: renderizar e animar um comboio 3D ao longo de uma rota de tiles.
- * Não calcula batalha, não altera estado de jogador e não chama backend.
+ * Renderiza e anima o comboio de ataque no mapa.
+ * Responsabilidade única: visual da marcha. Não calcula batalha, não altera player e não chama backend.
+ *
+ * Garantias importantes:
+ * - start() começa imediatamente e nunca espera GLB remoto para iniciar a marcha;
+ * - GLBs carregam em paralelo, com timeout e fallback individual;
+ * - se um GLB falhar, só aquele asset vira fallback;
+ * - não existe círculo/halo/trilha translúcida cobrindo os modelos;
+ * - materiais dos GLBs ficam sólidos/opacos para evitar visual de overlay lavado;
+ * - tamanhos são proporcionais por classe visual: vehicle, character ou prop.
  */
 
 import * as THREE from 'three';
@@ -33,11 +40,9 @@ export type GangSquadAnimationParams = {
   gridWidth: number;
   gridHeight: number;
   tileSize?: number;
-  /** Nível do barraco determina velocidade local quando o backend não envia duração. */
   barracoLevel?: number;
   memberCount?: number;
   color?: string;
-  /** Skin visual do comboio. Se não vier ou for inválida, usa comboio_padrao. */
   convoySkinId?: string | null;
   onStep?: (stepIndex: number, tile: RouteTile) => void;
   onArrived?: () => void;
@@ -55,17 +60,19 @@ export type MountedSquadAnimation = {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-// CONFIGURAÇÃO
+// CONFIG
 // ═════════════════════════════════════════════════════════════════════════════
 
 const BASE_MS_PER_TILE = 5000;
-const GROUND_Y = 0.08;
-const LABEL_Y = 2.25;
-const DEFAULT_CHARACTER_HEIGHT = 1.55;
-const DEFAULT_VEHICLE_LENGTH = 2.15;
-const DEFAULT_PROP_SIZE = 1.45;
+const GROUND_Y = 0.11;
+const LABEL_Y = 2.55;
+const MODEL_LOAD_TIMEOUT_MS = 7000;
 
-// Modelos GLB ficam no cache por URL. Nunca adicionar o objeto do cache direto na cena.
+const DEFAULT_CHARACTER_HEIGHT = 1.7;
+const DEFAULT_VEHICLE_LENGTH = 2.75;
+const DEFAULT_PROP_SIZE = 1.55;
+
+// Cache por URL. Nunca adicionar o objeto do cache diretamente na cena.
 const convoyModelCache = new Map<string, THREE.Object3D>();
 const convoyModelPromises = new Map<string, Promise<THREE.Object3D>>();
 
@@ -73,7 +80,7 @@ let sharedGLTFLoader: GLTFLoader | null = null;
 let sharedDRACOLoader: DRACOLoader | null = null;
 
 // ═════════════════════════════════════════════════════════════════════════════
-// CONVERSÃO TILE → MUNDO
+// HELPERS BÁSICOS
 // ═════════════════════════════════════════════════════════════════════════════
 
 function tileToWorld(
@@ -102,6 +109,24 @@ function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(new Error(`Timeout carregando ${label}`));
+    }, ms);
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      })
+      .catch((err) => {
+        window.clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // LOADERS / CACHE
 // ═════════════════════════════════════════════════════════════════════════════
@@ -121,11 +146,10 @@ async function loadModelBase(url: string): Promise<THREE.Object3D> {
   const cached = convoyModelCache.get(url);
   if (cached) return cached;
 
-  const existingPromise = convoyModelPromises.get(url);
-  if (existingPromise) return existingPromise;
+  const existing = convoyModelPromises.get(url);
+  if (existing) return existing;
 
-  const promise = getSharedGLTFLoader()
-    .loadAsync(url)
+  const promise = withTimeout(getSharedGLTFLoader().loadAsync(url), MODEL_LOAD_TIMEOUT_MS, url)
     .then((gltf) => {
       const root = gltf.scene || gltf.scenes?.[0];
       if (!root) throw new Error(`GLB sem scene: ${url}`);
@@ -161,8 +185,14 @@ function getMaterials(material: THREE.Material | THREE.Material[] | undefined): 
   return Array.isArray(material) ? material : [material];
 }
 
-function materialProbablyUsesAlpha(mat: any) {
-  return Boolean(mat?.alphaMap || mat?.transparent || (typeof mat?.opacity === 'number' && mat.opacity < 1));
+function materialHasCutoutData(mat: any) {
+  return Boolean(
+    mat?.alphaMap ||
+    mat?.map?.format === THREE.RGBAFormat ||
+    mat?.map?.source?.data?.hasAlpha ||
+    mat?.transparent ||
+    (typeof mat?.opacity === 'number' && mat.opacity < 1)
+  );
 }
 
 function prepareModelMaterials(root: THREE.Object3D) {
@@ -179,29 +209,28 @@ function prepareModelMaterials(root: THREE.Object3D) {
     materials.forEach((mat: any) => {
       if (!mat) return;
 
-      // Mantém a textura/material original do GLB, mas elimina aparência de overlay semitransparente.
-      // Para modelos recortados por PNG, alphaTest mantém o recorte sem deixar o objeto lavado.
-      const usesAlpha = materialProbablyUsesAlpha(mat);
+      // Mantém o material original do GLB, mas impede visual de overlay/lavado.
+      // alphaTest preserva recortes de textura sem tornar o modelo semitransparente.
+      const cutout = materialHasCutoutData(mat);
       mat.transparent = false;
       mat.opacity = 1;
-      mat.alphaTest = usesAlpha ? Math.max(Number(mat.alphaTest || 0), 0.32) : 0;
+      mat.alphaTest = cutout ? Math.max(Number(mat.alphaTest || 0), 0.28) : 0;
       mat.depthWrite = true;
       mat.depthTest = true;
 
       if ('envMapIntensity' in mat) mat.envMapIntensity = Math.min(Number(mat.envMapIntensity ?? 1), 1);
-      if ('emissiveIntensity' in mat) mat.emissiveIntensity = Math.min(Number(mat.emissiveIntensity ?? 0), 0.2);
+      if ('emissiveIntensity' in mat) mat.emissiveIntensity = Math.min(Number(mat.emissiveIntensity ?? 0), 0.18);
       if ('toneMapped' in mat) mat.toneMapped = true;
-
-      mat.needsUpdate = true;
+      if ('needsUpdate' in mat) mat.needsUpdate = true;
     });
   });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// TAMANHO PROPORCIONAL / NORMALIZAÇÃO
+// TAMANHO PROPORCIONAL
 // ═════════════════════════════════════════════════════════════════════════════
 
-function getBoxSize(root: THREE.Object3D) {
+function getBox(root: THREE.Object3D) {
   const box = new THREE.Box3().setFromObject(root);
   const size = new THREE.Vector3();
   box.getSize(size);
@@ -215,16 +244,12 @@ function detectVisualClass(size: THREE.Vector3, forced?: ConvoySkinVisualClass):
   const horizontal = Math.max(size.x, size.z, 0.0001);
   const maxAxis = Math.max(size.x, size.y, size.z, 0.0001);
 
-  // Veículos e cards horizontais costumam ser bem mais largos/compridos do que altos.
   if (horizontal / height >= 1.25 || (height / maxAxis <= 0.55 && horizontal > height)) {
     return 'vehicle';
   }
-
-  // Personagens/capangas normalmente têm altura dominante.
   if (height >= horizontal * 0.9) {
     return 'character';
   }
-
   return 'prop';
 }
 
@@ -232,7 +257,6 @@ function getTargetSize(asset: ConvoySkinAsset, visualClass: Exclude<ConvoySkinVi
   if (typeof asset.fitSize === 'number' && Number.isFinite(asset.fitSize) && asset.fitSize > 0) {
     return asset.fitSize;
   }
-
   if (visualClass === 'vehicle') return DEFAULT_VEHICLE_LENGTH;
   if (visualClass === 'character') return DEFAULT_CHARACTER_HEIGHT;
   return DEFAULT_PROP_SIZE;
@@ -244,7 +268,7 @@ function normalizeModelInstance(model: THREE.Object3D, asset: ConvoySkinAsset): 
 
   prepareModelMaterials(model);
 
-  const { size } = getBoxSize(model);
+  const { size } = getBox(model);
   const visualClass = detectVisualClass(size, asset.visualClass);
   const targetSize = getTargetSize(asset, visualClass);
 
@@ -254,8 +278,6 @@ function normalizeModelInstance(model: THREE.Object3D, asset: ConvoySkinAsset): 
 
   let baseScale = 1;
   if (visualClass === 'vehicle') {
-    // Carros estavam pequenos quando normalizados igual a personagem.
-    // Para veículo, o tamanho visual é controlado pelo comprimento/largura horizontal.
     baseScale = targetSize / horizontal;
   } else if (visualClass === 'character') {
     baseScale = targetSize / height;
@@ -266,12 +288,11 @@ function normalizeModelInstance(model: THREE.Object3D, asset: ConvoySkinAsset): 
   const finalScale = baseScale * (Number.isFinite(Number(asset.scale)) ? Number(asset.scale) : 1);
   model.scale.multiplyScalar(finalScale);
 
-  // Depois da escala, centraliza no X/Z e encosta a base no chão sem afundar.
-  const boxAfterScale = new THREE.Box3().setFromObject(model);
+  const after = new THREE.Box3().setFromObject(model);
   const center = new THREE.Vector3();
   const min = new THREE.Vector3();
-  boxAfterScale.getCenter(center);
-  boxAfterScale.getMin(min);
+  after.getCenter(center);
+  after.getMin(min);
 
   model.position.x -= center.x;
   model.position.z -= center.z;
@@ -286,82 +307,115 @@ function normalizeModelInstance(model: THREE.Object3D, asset: ConvoySkinAsset): 
   return wrapper;
 }
 
+function placeAsset(model: THREE.Object3D, asset: ConvoySkinAsset, index: number) {
+  const slot = asset.position ?? { x: 0, y: 0, z: -index * 1.25 };
+  model.position.x += Number(slot.x) || 0;
+  model.position.y += Number(slot.y) || 0;
+  model.position.z += Number(slot.z) || 0;
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
-// FALLBACK SÓLIDO SE ALGUM GLB FALHAR
+// FALLBACK IMEDIATO E FALLBACK POR ASSET
 // ═════════════════════════════════════════════════════════════════════════════
 
-function createFallbackVehicle(index: number) {
+function createFallbackVehicle(index: number, asset?: ConvoySkinAsset) {
   const group = new THREE.Group();
   group.name = `convoy-fallback-${index}`;
 
-  const bodyGeo = new THREE.BoxGeometry(1.5, 0.42, 0.82);
+  const vehicleLike = asset?.visualClass === 'vehicle' || index < 2;
+
+  const bodyGeo = vehicleLike
+    ? new THREE.BoxGeometry(1.55, 0.42, 0.82)
+    : new THREE.BoxGeometry(0.58, 1.15, 0.36);
+
   const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0x222222,
-    roughness: 0.48,
-    metalness: 0.25,
+    color: vehicleLike ? 0x242424 : 0x3a2c24,
+    roughness: 0.52,
+    metalness: vehicleLike ? 0.18 : 0.04,
   });
+
   const body = new THREE.Mesh(bodyGeo, bodyMat);
   body.castShadow = true;
   body.receiveShadow = true;
-  body.position.y = 0.3;
+  body.position.y = vehicleLike ? 0.32 : 0.6;
   group.add(body);
 
-  const cabinGeo = new THREE.BoxGeometry(0.72, 0.38, 0.68);
-  const cabinMat = new THREE.MeshStandardMaterial({
-    color: 0x444444,
-    roughness: 0.55,
-    metalness: 0.18,
-  });
-  const cabin = new THREE.Mesh(cabinGeo, cabinMat);
-  cabin.castShadow = true;
-  cabin.receiveShadow = true;
-  cabin.position.set(-0.1, 0.68, 0);
-  group.add(cabin);
+  let cabinGeo: THREE.BufferGeometry | null = null;
+  let cabinMat: THREE.Material | null = null;
+
+  if (vehicleLike) {
+    cabinGeo = new THREE.BoxGeometry(0.72, 0.34, 0.62);
+    cabinMat = new THREE.MeshStandardMaterial({ color: 0x3f3f3f, roughness: 0.58, metalness: 0.12 });
+    const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+    cabin.castShadow = true;
+    cabin.receiveShadow = true;
+    cabin.position.set(-0.1, 0.67, 0);
+    group.add(cabin);
+  }
 
   group.userData.disposeFallback = () => {
     bodyGeo.dispose();
     bodyMat.dispose();
-    cabinGeo.dispose();
-    cabinMat.dispose();
+    cabinGeo?.dispose();
+    cabinMat?.dispose();
   };
 
-  return group;
+  return normalizeModelInstance(group, {
+    ...asset,
+    visualClass: asset?.visualClass && asset.visualClass !== 'auto' ? asset.visualClass : (vehicleLike ? 'vehicle' : 'character'),
+    fitSize: asset?.fitSize ?? (vehicleLike ? DEFAULT_VEHICLE_LENGTH : DEFAULT_CHARACTER_HEIGHT),
+  });
+}
+
+function createImmediateFallbackConvoy(skin: ConvoySkinDefinition) {
+  const convoy = new THREE.Group();
+  convoy.name = `attack-convoy-placeholder:${skin.id}`;
+
+  const assets = Array.isArray(skin.assets) && skin.assets.length > 0
+    ? skin.assets
+    : getConvoySkinById(DEFAULT_CONVOY_SKIN_ID).assets;
+
+  assets.forEach((asset, index) => {
+    const fallback = createFallbackVehicle(index, asset);
+    placeAsset(fallback, asset, index);
+    convoy.add(fallback);
+  });
+
+  return convoy;
+}
+
+function disposeFallbacks(root: THREE.Object3D) {
+  root.traverse((obj: any) => {
+    if (typeof obj?.userData?.disposeFallback === 'function') {
+      obj.userData.disposeFallback();
+    }
+  });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// COMBOIO 3D
+// COMBOIO GLB
 // ═════════════════════════════════════════════════════════════════════════════
 
 function addConvoyLights(convoy: THREE.Group) {
-  // Luz controlada: suficiente para ver os GLBs, sem lavar textura/contraste.
-  const ambient = new THREE.AmbientLight(0xffffff, 0.42);
+  // Luz local controlada. Não exagerar para não lavar os modelos.
+  const ambient = new THREE.AmbientLight(0xffffff, 0.38);
   convoy.add(ambient);
 
-  const key = new THREE.DirectionalLight(0xffffff, 1.1);
+  const key = new THREE.DirectionalLight(0xffffff, 1.05);
   key.position.set(4, 7, 3);
   key.castShadow = false;
   convoy.add(key);
 
-  const fill = new THREE.DirectionalLight(0xffffff, 0.38);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.32);
   fill.position.set(-3, 4, -2);
   fill.castShadow = false;
   convoy.add(fill);
 }
 
 async function createConvoyAsset(asset: ConvoySkinAsset, index: number): Promise<THREE.Object3D> {
-  try {
-    const base = await loadModelBase(asset.url);
-    const clone = cloneModel(base);
-    return normalizeModelInstance(clone, asset);
-  } catch (err) {
-    console.error('[GANG_SQUAD_CONVOY_GLB_ERROR]', asset.url, err);
-    const fallback = createFallbackVehicle(index);
-    return normalizeModelInstance(fallback, {
-      ...asset,
-      visualClass: 'vehicle',
-      fitSize: asset.fitSize ?? DEFAULT_VEHICLE_LENGTH,
-    });
-  }
+  const base = await loadModelBase(asset.url);
+  const clone = cloneModel(base);
+  return normalizeModelInstance(clone, asset);
 }
 
 async function createConvoyGroup(skin: ConvoySkinDefinition) {
@@ -374,14 +428,21 @@ async function createConvoyGroup(skin: ConvoySkinDefinition) {
     ? skin.assets
     : getConvoySkinById(DEFAULT_CONVOY_SKIN_ID).assets;
 
-  const models = await Promise.all(assets.map((asset, index) => createConvoyAsset(asset, index)));
+  const results = await Promise.allSettled(
+    assets.map((asset, index) => createConvoyAsset(asset, index))
+  );
 
-  models.forEach((model, index) => {
+  results.forEach((result, index) => {
     const asset = assets[index];
-    const slot = asset.position ?? { x: 0, y: 0, z: -index * 1.25 };
-    model.position.x += Number(slot.x) || 0;
-    model.position.y += Number(slot.y) || 0;
-    model.position.z += Number(slot.z) || 0;
+    const model = result.status === 'fulfilled'
+      ? result.value
+      : createFallbackVehicle(index, asset);
+
+    if (result.status === 'rejected') {
+      console.error('[GANG_SQUAD_CONVOY_GLB_ERROR]', asset.url, result.reason);
+    }
+
+    placeAsset(model, asset, index);
     convoy.add(model);
   });
 
@@ -389,7 +450,7 @@ async function createConvoyGroup(skin: ConvoySkinDefinition) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// LABEL DISCRETO DE QUANTIDADE
+// LABEL DISCRETO
 // ═════════════════════════════════════════════════════════════════════════════
 
 function createMemberLabel(memberCount: number) {
@@ -403,19 +464,19 @@ function createMemberLabel(memberCount: number) {
   }
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'rgba(0,0,0,0.58)';
+  ctx.fillStyle = 'rgba(0,0,0,0.46)';
   if (typeof (ctx as any).roundRect === 'function') {
-    (ctx as any).roundRect(16, 18, 480, 92, 18);
+    (ctx as any).roundRect(34, 28, 444, 72, 16);
     ctx.fill();
   } else {
-    ctx.fillRect(16, 18, 480, 92);
+    ctx.fillRect(34, 28, 444, 72);
   }
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 44px Oswald, Arial, sans-serif';
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.font = 'bold 38px Oswald, Arial, sans-serif';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(0,0,0,0.58)';
   ctx.fillStyle = '#ffffff';
 
   const text = `${Math.max(0, Math.floor(memberCount)).toLocaleString('pt-BR')} membros`;
@@ -430,14 +491,14 @@ function createMemberLabel(memberCount: number) {
   const material = new THREE.SpriteMaterial({
     map: texture,
     transparent: true,
-    opacity: 1,
+    opacity: 0.95,
     depthTest: true,
     depthWrite: false,
   });
 
   const sprite = new THREE.Sprite(material);
   sprite.name = 'attack-convoy-member-label';
-  sprite.scale.set(2.9, 0.72, 1);
+  sprite.scale.set(2.2, 0.55, 1);
   sprite.position.set(0, LABEL_Y, 0);
 
   return {
@@ -447,14 +508,6 @@ function createMemberLabel(memberCount: number) {
       material.dispose();
     },
   };
-}
-
-function disposeFallbacks(root: THREE.Object3D) {
-  root.traverse((obj: any) => {
-    if (typeof obj?.userData?.disposeFallback === 'function') {
-      obj.userData.disposeFallback();
-    }
-  });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -508,7 +561,7 @@ export function mountGangSquadAnimation({
   const label = createMemberLabel(memberCount);
   if (label.sprite) root.add(label.sprite);
 
-  let convoyGroup: THREE.Group | null = null;
+  let activeConvoy: THREE.Group | null = null;
   let isCancelled = false;
   let isRunning = false;
   let isCleaned = false;
@@ -528,10 +581,24 @@ export function mountGangSquadAnimation({
     const dz = toWorld.worldZ - fromWorld.worldZ;
 
     if (Math.abs(dx) > 0.0001 || Math.abs(dz) > 0.0001) {
-      // O offset deixa a frente dos modelos mais coerente na maioria dos GLBs de veículo/personagem.
-      // Se algum pacote futuro vier virado, ajuste rotationY do asset no catálogo.
+      // Ajuste fino por skin deve ser feito no rotationY do asset do catálogo.
       root.rotation.y = Math.atan2(dx, dz);
     }
+  }
+
+  function replaceConvoy(next: THREE.Group) {
+    if (isCancelled || isCleaned) {
+      disposeFallbacks(next);
+      return;
+    }
+
+    if (activeConvoy) {
+      disposeFallbacks(activeConvoy);
+      activeConvoy.removeFromParent();
+    }
+
+    activeConvoy = next;
+    root.add(activeConvoy);
   }
 
   function cleanup() {
@@ -540,10 +607,10 @@ export function mountGangSquadAnimation({
 
     cancelAnimationFrame(frameId);
 
-    if (convoyGroup) {
-      disposeFallbacks(convoyGroup);
-      convoyGroup.removeFromParent();
-      convoyGroup = null;
+    if (activeConvoy) {
+      disposeFallbacks(activeConvoy);
+      activeConvoy.removeFromParent();
+      activeConvoy = null;
     }
 
     label.dispose();
@@ -559,19 +626,21 @@ export function mountGangSquadAnimation({
     if (isRunning || isCancelled || isCleaned) return;
     isRunning = true;
 
+    // Fallback imediato: a marcha começa na hora, sem depender dos 6 GLBs remotos.
+    replaceConvoy(createImmediateFallbackConvoy(skin));
+
+    // GLBs carregam em paralelo. Quando terminarem, substituem o fallback se a marcha ainda existir.
+    void createConvoyGroup(skin)
+      .then((loaded) => replaceConvoy(loaded))
+      .catch((err) => {
+        // Não quebra a marcha. Mantém fallback imediato.
+        console.error('[GANG_SQUAD_CONVOY_LOAD_FATAL]', err);
+      });
+
     if (routeDistanceTiles === 0) {
       onArrived?.();
       return;
     }
-
-    const loadedConvoy = await createConvoyGroup(skin);
-    if (isCancelled || isCleaned) {
-      disposeFallbacks(loadedConvoy);
-      return;
-    }
-
-    convoyGroup = loadedConvoy;
-    root.add(convoyGroup);
 
     return new Promise<void>((resolve) => {
       const startedAt = performance.now();
@@ -602,7 +671,7 @@ export function mountGangSquadAnimation({
         updateRotation(fw, tw);
 
         if (label.sprite) {
-          label.sprite.position.y = LABEL_Y + Math.sin(elapsed / 550) * 0.035;
+          label.sprite.position.y = LABEL_Y + Math.sin(elapsed / 600) * 0.025;
         }
 
         if (segIdx !== lastStep) {
