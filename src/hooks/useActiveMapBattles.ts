@@ -26,6 +26,7 @@ import { getActiveBattles, resolveBattle } from '@/api/attackApi';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { mountGangSquadAnimation, type MountedSquadAnimation } from '@/3d/gangSquadAnimation';
+import { getPlayerCentralTileFromOrigin } from '@/components/game/playerMapSpace';
 
 /**
  * Constrói uma rota entre dois pontos no grid usando movimento ortogonal.
@@ -185,25 +186,74 @@ export function useActiveMapBattles(options: UseActiveMapBattlesOptions) {
           recoveredAnimsRef.current.set(battleId, animation);
 
           void animation.start().then(async () => {
-            useMapAttackStore.getState().setPhase('arriving');
-
-            // Atacante: resolve no backend. Defensor: espera o broadcast
-            // 'attack:squadResolved' (tratado por useRemoteSquadAnimations).
             if (role === 'attacker') {
               try {
+                useMapAttackStore.getState().setPhase('resolving');
+
                 const report = await resolveBattle(battleId);
                 useMapAttackStore.getState().setResolution(report.resolution);
+
+                const currentPlayer = usePlayerStore.getState().player as any;
+
+                const updatedOrigin = getPlayerCentralTileFromOrigin(
+                  Number(currentPlayer?.mapPosition?.tileX ?? player?.mapPosition?.tileX ?? 0),
+                  Number(currentPlayer?.mapPosition?.tileY ?? player?.mapPosition?.tileY ?? 0),
+                );
+
+                const returnRoute = buildRoute(
+                  Number(route?.toTileX ?? target?.tileX ?? 0),
+                  Number(route?.toTileY ?? target?.tileY ?? 0),
+                  updatedOrigin.tileX,
+                  updatedOrigin.tileY,
+                  gridWidth,
+                  gridHeight,
+                );
+
+                animation.cleanup();
+                recoveredAnimsRef.current.delete(battleId);
+
+                if (returnRoute.length > 0) {
+                  useMapAttackStore.getState().setRoute(routeTiles, returnRoute);
+                  useMapAttackStore.getState().setPhase('returning');
+
+                  const returnSteps = Math.max(1, returnRoute.length - 1);
+                  const returnMsPerStep = Number(battle?.timePerTileMs) > 0
+                    ? Number(battle.timePerTileMs)
+                    : msPerStep;
+
+                  const returnKey = `${battleId}:return`;
+
+                  const returnAnimation = mountGangSquadAnimation({
+                    scene,
+                    route: returnRoute,
+                    gridWidth,
+                    gridHeight,
+                    barracoLevel: Number(currentPlayer?.niveis?.barracoLevel ?? player?.niveis?.barracoLevel ?? 1),
+                    memberCount: Number(memberCount ?? 100),
+                    color: '#ff3b30',
+                    convoySkinId,
+                    timePerTileMs: returnMsPerStep,
+                    totalDurationMs: returnSteps * returnMsPerStep,
+                    onStep: (stepIdx) => {
+                      useMapAttackStore.getState().setCurrentStep(stepIdx);
+                    },
+                  });
+
+                  recoveredAnimsRef.current.set(returnKey, returnAnimation);
+
+                  await returnAnimation.start();
+
+                  returnAnimation.cleanup();
+                  recoveredAnimsRef.current.delete(returnKey);
+                }
+
+                useMapAttackStore.getState().setPhase('finished');
               } catch (err) {
-                console.error(`Erro ao resolver batalha recuperada ${battleId}:`, err);
+                console.error(`Erro ao resolver/retornar batalha recuperada ${battleId}:`, err);
               }
             } else {
-              // Defensor — apenas marca a fase. A volta vem por broadcast.
               console.log(`[useActiveMapBattles] Defensor: marcha de ${battle.attackerName} chegou. Aguardando resolução…`);
             }
-
-            // A animação de IDA fica parada no alvo até o broadcast da
-            // resolução montar a volta. O cleanup é feito pelo hook de
-            // broadcasts quando montar a animação de retorno (ou no unmount).
           }).catch((err) => {
             console.error(`Erro na animação de batalha recuperada ${battleId}:`, err);
           });
