@@ -123,7 +123,22 @@ function applyModelShadows(root: THREE.Object3D) {
     if (obj?.isMesh) {
       obj.castShadow = true;
       obj.receiveShadow = true;
-      if (obj.material) obj.material.needsUpdate = true;
+      
+      // Ajustar propriedades de material para melhor iluminação
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach((mat: any) => {
+          if ('metalness' in mat) mat.metalness = Math.min(mat.metalness ?? 0, 0.6);
+          if ('roughness' in mat) mat.roughness = Math.max(mat.roughness ?? 0.7, 0.45);
+          if ('envMapIntensity' in mat) mat.envMapIntensity = 1.2;
+          mat.needsUpdate = true;
+        });
+      } else if (obj.material) {
+        const mat: any = obj.material;
+        if ('metalness' in mat) mat.metalness = Math.min(mat.metalness ?? 0, 0.6);
+        if ('roughness' in mat) mat.roughness = Math.max(mat.roughness ?? 0.7, 0.45);
+        if ('envMapIntensity' in mat) mat.envMapIntensity = 1.2;
+        mat.needsUpdate = true;
+      }
     }
   });
 }
@@ -252,6 +267,20 @@ async function createConvoyVehiclesGroup(skin: ConvoySkinDefinition) {
     group.add(createFallbackVehicle(0));
   }
 
+  // Adicionar luzes auxiliares locais presas ao comboio
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+  group.add(ambientLight);
+
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+  keyLight.position.set(4, 8, 3);
+  keyLight.castShadow = false;
+  group.add(keyLight);
+
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  fillLight.position.set(-4, 5, -3);
+  fillLight.castShadow = false;
+  group.add(fillLight);
+
   return group;
 }
 
@@ -268,21 +297,6 @@ function buildConvoyLabel(options: SquadMarkerOptions): {
   const group = new THREE.Group();
   const toDisposeGeo: THREE.BufferGeometry[] = [];
   const toDisposeMat: THREE.Material[] = [];
-
-  const haloGeo = new THREE.RingGeometry(0.95, 1.38, 40);
-  const haloMat = new THREE.MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity: 0.32,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  const halo = new THREE.Mesh(haloGeo, haloMat);
-  halo.rotation.x = -Math.PI / 2;
-  halo.position.y = 0.02;
-  group.add(halo);
-  toDisposeGeo.push(haloGeo);
-  toDisposeMat.push(haloMat);
 
   const canvas = document.createElement('canvas');
   canvas.width = 512;
