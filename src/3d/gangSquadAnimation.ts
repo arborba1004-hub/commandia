@@ -336,8 +336,6 @@ function buildConvoyLabel(options: SquadMarkerOptions): {
 
   function animatePulse(elapsedMs: number) {
     const t = elapsedMs / 1000;
-    halo.scale.setScalar(1 + Math.sin(t * 4.8) * 0.045);
-    haloMat.opacity = 0.23 + (Math.sin(t * 4.2) + 1) * 0.055;
     sprite.position.y = LABEL_HEIGHT + Math.sin(t * 3.4) * 0.035;
   }
 
