@@ -129,8 +129,21 @@ export default function MapTargetActionModal({
   const updateTroopSelection = useMapAttackStore((state) => state.updateTroopSelection);
   const clearSelectedTroops  = useMapAttackStore((state) => state.clearSelectedTroops);
 
-  const availableByType = useGangStore((state) => state.getAvailableByType());
-  const loadGang        = useGangStore((state) => state.loadGang);
+  // CUIDADO: Não use useGangStore((s) => s.getAvailableByType()) — essa chamada
+  // retorna objeto novo a cada render e causa loop infinito (React error #185).
+  // Lemos gang.members direto e calculamos com useMemo.
+  const gangMembers = useGangStore((state) => state.gang?.members);
+  const loadGang    = useGangStore((state) => state.loadGang);
+
+  const availableByType = useMemo(() => {
+    const counts: Partial<Record<GangMemberType, number>> = {};
+    for (const m of (gangMembers || [])) {
+      if (m.status !== 'ativo') continue;
+      const t = m.type as GangMemberType;
+      counts[t] = (counts[t] ?? 0) + 1;
+    }
+    return counts;
+  }, [gangMembers]);
 
   const player = usePlayerStore((state) => state.player);
 
