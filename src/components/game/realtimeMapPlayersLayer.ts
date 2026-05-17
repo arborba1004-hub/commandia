@@ -69,6 +69,8 @@ type PlayerVisualEntry = {
   modelUrl: string | null;
   barracoLevel: number;
   labelY: number;
+  tileX: number;
+  tileY: number;
 };
 
 const modelPromiseCache = new Map<string, Promise<THREE.Object3D>>();
@@ -275,7 +277,7 @@ function createVisualEntry(tileSize: number, showSpaces: boolean): PlayerVisualE
   if (spaceMesh) group.add(spaceMesh);
   const modelContainer = new THREE.Group();
   group.add(modelContainer);
-  return { id: '', group, spaceMesh, modelContainer, label: null, modelUrl: null, barracoLevel: 1, labelY: 3.5 };
+  return { id: '', group, spaceMesh, modelContainer, label: null, modelUrl: null, barracoLevel: 1, labelY: 3.5, tileX: 0, tileY: 0 };
 }
 
 function clearModelContainer(container: THREE.Group) {
@@ -361,7 +363,11 @@ export function mountRealtimeMapPlayersLayer({
         updateEntryLabel(entry, snapshot);
       }
 
-      setEntryWorldPosition(entry, Number(snapshot.tileX || 0), Number(snapshot.tileY || 0), gridWidth, gridHeight);
+      // Salva o tile original
+      entry.tileX = Number(snapshot.tileX ?? 0);
+      entry.tileY = Number(snapshot.tileY ?? 0);
+
+      setEntryWorldPosition(entry, entry.tileX, entry.tileY, gridWidth, gridHeight);
 
       if (!entry.label || entry.label.userData?.playerName !== (snapshot.name || 'Jogador')) {
         updateEntryLabel(entry, snapshot);
@@ -427,14 +433,11 @@ export function mountRealtimeMapPlayersLayer({
 
   function getPlayers(): MapPlayerSnapshot[] {
     return Array.from(entries.values()).map((entry) => {
-      const { x: worldX, z: worldZ } = entry.group.position;
-      const tileX = Math.round(worldX + gridWidth / 2);
-      const tileY = Math.round(worldZ + gridHeight / 2);
       return {
         id: entry.id,
         name: entry.label?.userData?.playerName || 'Jogador',
-        tileX,
-        tileY,
+        tileX: entry.tileX,
+        tileY: entry.tileY,
         barracoLevel: entry.barracoLevel,
       };
     });
@@ -472,7 +475,11 @@ export function mountRealtimeMapPlayersLayer({
       updateEntryLabel(entry, snapshot);
     }
 
-    setEntryWorldPosition(entry, Number(snapshot.tileX || 0), Number(snapshot.tileY || 0), gridWidth, gridHeight);
+    // Salva o tile original
+    entry.tileX = Number(snapshot.tileX ?? 0);
+    entry.tileY = Number(snapshot.tileY ?? 0);
+
+    setEntryWorldPosition(entry, entry.tileX, entry.tileY, gridWidth, gridHeight);
 
     if (!entry.label || entry.label.userData?.playerName !== (snapshot.name || 'Jogador')) {
       updateEntryLabel(entry, snapshot);
