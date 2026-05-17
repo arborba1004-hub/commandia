@@ -264,6 +264,33 @@ export type CanAttackResponse = {
   cooldownExpiresAt: number | null;
 };
 
+export type ActiveBattleResponse = {
+  battleId: string;
+  status: string;
+  role: string;
+  attackerId: string;
+  attackerName: string;
+  defenderId: string;
+  defenderName: string;
+  route: any;
+  origin: any;
+  target: any;
+  launchedAtIso: string;
+  arriveAtIso: string;
+  remainingMs: number;
+  totalDurationMs: number;
+  timePerTileMs: number;
+  routeDistanceTiles: number;
+};
+
 export async function canAttack(targetId: string): Promise<CanAttackResponse> {
   return request(`/battle/can-attack/${encodeURIComponent(targetId)}`, { method: 'GET' });
+}
+
+/**
+ * Busca todas as batalhas ativas do jogador autenticado.
+ */
+export async function getActiveBattles(): Promise<ActiveBattleResponse[]> {
+  const data = await request<any[]>('/battle/active', { method: 'GET' });
+  return Array.isArray(data) ? data : [];
 }
