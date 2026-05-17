@@ -25,6 +25,11 @@ import OtherPlayerBarracoModal, {
 } from '@/components/game/OtherPlayerBarracoModal';
 import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
 import GangTrainingModal from '@/components/gang/GangTrainingModal';
+import MapTargetActionModal      from '@/components/game/MapTargetActionModal';
+import AttackResultOverlay        from '@/components/game/AttackResultOverlay';
+import AttackIncomingToast        from '@/components/game/AttackIncomingToast';
+import { useMapAttack }           from '@/hooks/useMapAttack';
+import { useMapAttackStore }      from '@/store/mapAttackStore';
 import { Image } from '@/components/ui/image';
 
 const GRID_WIDTH      = 120;
@@ -70,12 +75,22 @@ export default function GamePage() {
 
   const playerMapSpaceRef = useRef<any>(null);
 
+  // ── Refs do three.js (compartilhados com o sistema de ataque) ──────────
+  // Preenchidos dentro do useEffect THREE.js. Necessários para animação 3D
+  // do squad marchando até o alvo durante o ataque.
+  const sceneRef  = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.Camera | null>(null);
+
   // ── Modal: barraco de outro jogador
   const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
   const [isInviting,       setIsInviting]       = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [dmModalOpen,      setDmModalOpen]      = useState(false);
   const [dmTarget,         setDmTarget]         = useState<DirectMessageTarget | null>(null);
+
+  // ── Sistema de ataque PvP (orquestrado pelo useMapAttack) ─────────────
+  const mapAttack             = useMapAttack();
+  const mapAttackPreviewOpen  = useMapAttackStore((s) => s.previewOpen);
 
   // ── Modal: treinamento de gangue (CT)
   const gang = useGangStore((s) => s.gang);
@@ -129,75 +144,71 @@ export default function GamePage() {
     []
   );
 
-  // ── Handler: atacar
-  const [isAttacking, setIsAttacking] = useState(false);
+  // ── Handler: atacar (orquestrado por useMapAttack) ─────────────────────
+  // Fluxo:
+  //  1. Clique no botão "Atacar" em OtherPlayerBarracoModal → handleAttack
+  //  2. Fecha OtherPlayerBarracoModal, chama mapAttack.initiateAttack(target)
+  //  3. MapTargetActionModal abre, valida via /can-attack, mostra seleção de tropas
+  //  4. Jogador clica "INVADIR" → handleConfirmAttack chama mapAttack.confirmAttack
+  //  5. useMapAttack: anima squad pelo mapa → resolve no backend → mostra AttackResultOverlay
+  //
+  // Os tiles do alvo vêm de realtimePlayersLayer (armazenados num cache via state).
+  const [lastClickedTargetTile, setLastClickedTargetTile] = useState<{ x: number; y: number } | null>(null);
+
   const handleAttack = useCallback(
-    async (target: OtherPlayerBarracoTarget) => {
-      if (!target?.id || isAttacking) return;
-      
-      setIsAttacking(true);
-      try {
-        // Importa dinamicamente para evitar circular dependency
-        const { estimateBattle, startBattle, resolveBattle } = await import('@/api/attackApi');
-        
-        // 1. Estima o ataque
-        const estimation = await estimateBattle({
-          targetId: target.id,
-        });
-        
-        console.log('✅ Estimativa de ataque:', estimation);
-        
-        // 2. Inicia o ataque
-        const startResponse = await startBattle({
-          targetId: target.id,
-          targetName: target.name,
-          targetTileX: 0, // Será preenchido pelo backend
-          targetTileY: 0,
-          originTileX: Number(player?.mapPosition?.tileX ?? 0),
-          originTileY: Number(player?.mapPosition?.tileY ?? 0),
-        });
-        
-        console.log('✅ Ataque iniciado:', startResponse);
-        
-        // 3. Aguarda o tempo de viagem
-        const arriveAt = new Date(startResponse.arriveAtIso).getTime();
-        const now = Date.now();
-        const waitTime = Math.max(0, arriveAt - now);
-        
-        console.log(`⏳ Aguardando ${waitTime}ms para resolução...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime + 500));
-        
-        // 4. Resolve o ataque
-        const report = await resolveBattle(startResponse.battleId);
-        
-        console.log('✅ Batalha resolvida:', report);
-        
-        // 5. Atualiza o store do jogador com os espólios
-        if (report.resolution.success && report.resolution.spoils) {
-          usePlayerStore.getState().applyPlayerUpdate((p) => ({
-            ...p,
-            balances: {
-              ...p.balances,
-              dirtyMoney: (p.balances?.dirtyMoney ?? 0) + report.resolution.spoils.dirtyMoneyLoot,
-              corre: (p.balances?.corre ?? 0) + report.resolution.spoils.correLoot,
-            },
-          }));
-        }
-        
-        // 6. Fecha o modal
-        setModalState(closeOtherPlayerBarracoModal());
-        
-        // 7. Mostra notificação de sucesso
-        console.log('🎉 Ataque concluído!', report.resolution.message);
-        
-      } catch (error) {
-        console.error('❌ Erro ao atacar:', error);
-      } finally {
-        setIsAttacking(false);
-      }
+    (target: OtherPlayerBarracoTarget) => {
+      if (!target?.id) return;
+
+      // tileX/Y do alvo: vem do click no mapa 3D (armazenado em lastClickedTargetTile)
+      const targetTileX = lastClickedTargetTile?.x ?? 0;
+      const targetTileY = lastClickedTargetTile?.y ?? 0;
+
+      // Fecha o modal de info do barraco
+      setModalState(closeOtherPlayerBarracoModal());
+
+      // Abre o MapTargetActionModal via useMapAttack
+      mapAttack.initiateAttack({
+        playerId:     String(target.id),
+        playerName:   String(target.name || 'Alvo'),
+        tileX:        targetTileX,
+        tileY:        targetTileY,
+        barracoLevel: target.barracoLevel,
+        factionId:    target.factionId ?? null,
+      });
     },
-    [player?.mapPosition?.tileX, player?.mapPosition?.tileY, isAttacking]
+    [mapAttack, lastClickedTargetTile]
   );
+
+  // Handler: jogador confirmou ataque no MapTargetActionModal
+  const handleConfirmAttack = useCallback(async () => {
+    const scene  = sceneRef.current;
+    const camera = cameraRef.current;
+    if (!scene || !camera) {
+      console.warn('[GamePage] scene/camera não disponíveis para animar ataque');
+      return;
+    }
+
+    // Coletar seleção atual do store
+    const selectedTroops = useMapAttackStore.getState().selectedTroops;
+    const selection: Record<string, number> = {};
+    for (const t of selectedTroops) {
+      if (t.quantity > 0) selection[t.type] = t.quantity;
+    }
+
+    if (Object.keys(selection).length === 0) {
+      console.warn('[GamePage] Tentativa de ataque sem seleção de tropas');
+      return;
+    }
+
+    await mapAttack.confirmAttack(
+      selection as any,
+      scene,
+      camera,
+      GRID_WIDTH,
+      GRID_HEIGHT
+    );
+  }, [mapAttack]);
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   // EFEITO THREE.JS
@@ -210,6 +221,7 @@ export default function GamePage() {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#050505');
+    sceneRef.current = scene;  // exposto para o sistema de ataque (animação 3D)
 
     const camera = new THREE.PerspectiveCamera(
       50,
@@ -217,6 +229,7 @@ export default function GamePage() {
       0.1,
       1000
     );
+    cameraRef.current = camera;  // exposto para o sistema de ataque
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -386,6 +399,14 @@ export default function GamePage() {
           barracoLevel: Number(data.barracoLevel ?? 1),
         })
       );
+
+      // Se o backend enviou tileX/Y, atualiza memória do alvo
+      if (typeof data.tileX === 'number' && typeof data.tileY === 'number') {
+        setLastClickedTargetTile({
+          x: Number(data.tileX),
+          y: Number(data.tileY),
+        });
+      }
     };
     
     if (socket) {
@@ -546,6 +567,11 @@ export default function GamePage() {
                 barracoLevel: playerData.barracoLevel,
                 factionId:    playerData.factionId,
               }));
+              // Memoriza tile do alvo (necessário para cálculo de viagem do ataque)
+              setLastClickedTargetTile({
+                x: Number(playerData.tileX ?? 0),
+                y: Number(playerData.tileY ?? 0),
+              });
               // 2) Solicita dados ricos → barracoInfo event atualizará modal + attackTarget
               socket.emit('requestBarracoInfo', { targetPlayerId: playerId });
             }
@@ -696,6 +722,8 @@ export default function GamePage() {
       if (mountEl && renderer.domElement?.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }
+      sceneRef.current  = null;
+      cameraRef.current = null;
     };
   }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
 
@@ -778,12 +806,22 @@ export default function GamePage() {
         myFactionId={myFactionId}
         isInviting={isInviting}
         isSendingMessage={isSendingMessage}
-        isAttacking={isAttacking}
+        isAttacking={mapAttack.isResolving}
         onClose={() => setModalState(closeOtherPlayerBarracoModal())}
         onSendPrivateMessage={handleSendPrivateMessage}
         onInviteToFaction={handleInviteToFaction}
         onAttack={handleAttack}
       />
+
+      {/* ── Sistema de ataque PvP ───────────────────────────────────── */}
+      {mapAttackPreviewOpen && (
+        <MapTargetActionModal
+          isStartingBattle={mapAttack.isResolving}
+          onAttack={() => { void handleConfirmAttack(); }}
+        />
+      )}
+      <AttackResultOverlay />
+      <AttackIncomingToast />
 
       <DirectMessageModal
         isOpen={dmModalOpen}
