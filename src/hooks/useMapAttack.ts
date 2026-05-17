@@ -20,6 +20,7 @@ import { useGangEstatisticasStore } from '@/store/gangEstatisticasStore';
 import { canAttack, startBattle, resolveBattle } from '@/api/attackApi';
 import { mountGangSquadAnimation } from '@/3d/gangSquadAnimation';
 import { playImpactEffect } from '@/3d/gangAttackEffects';
+import { getPlayerCentralTileFromOrigin } from '@/components/game/playerMapSpace';
 import type {
   AttackTarget,
   GangAttackSelection,
@@ -146,8 +147,16 @@ export function useMapAttack(): UseMapAttackReturn {
     setIsPreviewing(true);
     setBlockedPreviewMessage(null);
 
+    // Normalizar o alvo para o centro
+    const targetCenter = getPlayerCentralTileFromOrigin(target.tileX, target.tileY);
+    const centeredTarget = {
+      ...target,
+      tileX: targetCenter.tileX,
+      tileY: targetCenter.tileY,
+    };
+
     // Abre o MapTargetActionModal imediatamente (mostra spinner enquanto valida)
-    store.openPreview(target, {
+    store.openPreview(centeredTarget, {
       playerId:   String((player as any)?._id ?? (player as any)?.id ?? ''),
       playerName: player.name ?? 'Você',
       tileX:      Number(player.mapPosition?.tileX ?? 0),
@@ -171,14 +180,14 @@ export function useMapAttack(): UseMapAttackReturn {
       if (!attackCheck.canAttack) {
         setBlockedPreviewMessage(formatBlockedMessage(attackCheck.reason));
         setPreviewData({
-          target,
+          target: centeredTarget,
           canAttackInfo: attackCheck,
         });
         return;
       }
 
       setPreviewData({
-        target,
+        target: centeredTarget,
         canAttackInfo: attackCheck,
       });
     } catch (err) {
@@ -229,8 +238,13 @@ export function useMapAttack(): UseMapAttackReturn {
     setIsResolving(true);
     setPreviewData(null);
 
-    const originTileX = Number(player?.mapPosition?.tileX ?? 0);
-    const originTileY = Number(player?.mapPosition?.tileY ?? 0);
+    const originCenter = getPlayerCentralTileFromOrigin(
+      Number(player?.mapPosition?.tileX ?? 0),
+      Number(player?.mapPosition?.tileY ?? 0)
+    );
+
+    const originTileX = originCenter.tileX;
+    const originTileY = originCenter.tileY;
 
     try {
       // ── Registrar batalha no backend ────────────────────────────────────
