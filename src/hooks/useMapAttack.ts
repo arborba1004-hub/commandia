@@ -138,13 +138,21 @@ export function useMapAttack(): UseMapAttackReturn {
 
   const animationRef = useRef<ReturnType<typeof mountGangSquadAnimation> | null>(null);
 
-  // ── 1. previewTarget: chama canAttack + estimateBattle pra mostrar preview ──
+  // ── 1. previewTarget: chama canAttack + abre o modal de seleção ──────────────
 
   const previewTarget = useCallback(async (target: AttackTarget) => {
     if (!player) return;
 
     setIsPreviewing(true);
     setBlockedPreviewMessage(null);
+
+    // Abre o MapTargetActionModal imediatamente (mostra spinner enquanto valida)
+    store.openPreview(target, {
+      playerId:   String((player as any)?._id ?? (player as any)?.id ?? ''),
+      playerName: player.name ?? 'Você',
+      tileX:      Number(player.mapPosition?.tileX ?? 0),
+      tileY:      Number(player.mapPosition?.tileY ?? 0),
+    });
 
     try {
       // Verificar se pode atacar
@@ -179,7 +187,7 @@ export function useMapAttack(): UseMapAttackReturn {
     } finally {
       setIsPreviewing(false);
     }
-  }, [player]);
+  }, [player, store]);
 
   // ── 2. initiateAttack: chama previewTarget ──────────────────────────────────
 
@@ -246,6 +254,7 @@ export function useMapAttack(): UseMapAttackReturn {
       // Configurar rota de ida e volta
       store.setRoute(route, [...route].reverse());
       store.setPhase('moving');
+      store.closePreview();   // fecha o MapTargetActionModal (mantém o ataque em curso)
 
       // ── Animar deslocamento do squad ────────────────────────────────────
       const memberCount = Object.values(selection).reduce((a, b) => a + b, 0);
@@ -306,6 +315,7 @@ export function useMapAttack(): UseMapAttackReturn {
         pvpProtectionUntil: null,
       });
 
+      // (Ataque é gratuito — sem custo de corre)
       await useGangStore.getState().loadGang();
 
       // ── Animação de retorno ─────────────────────────────────────────────

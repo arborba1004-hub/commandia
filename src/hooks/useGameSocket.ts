@@ -101,6 +101,24 @@ export function useGameSocket() {
         console.error('🔴 Socket connection error:', err.message);
       };
 
+      // ── attackIncoming: defensor recebe aviso de marcha (antes da resolução) ──
+      // Emitido pelo backend em startBattle. Frontend mostra toast com tempo de chegada.
+      const handleAttackIncoming = (data: {
+        attackerName: string;
+        attackerFaction?: string | null;
+        memberCount: number;
+        arriveAtIso: string;
+        totalDurationMs: number;
+        message: string;
+      }) => {
+        if (!mountedRef.current) return;
+        // Disponibiliza pro AttackIncomingToast consumir via event listener.
+        try {
+          (window as any).__lastAttackIncoming = { ...data, receivedAt: Date.now() };
+          window.dispatchEvent(new CustomEvent('attack:incoming', { detail: data }));
+        } catch { /* noop */ }
+      };
+
       // ── attackReceived: quando o jogador recebe um ataque ──────────────────────
       const handleAttackReceived = (data: {
         attackerName: string;
@@ -118,6 +136,10 @@ export function useGameSocket() {
           createdAt: new Date().toISOString(),
           read: false,
         });
+        try {
+          (window as any).__lastAttackReceived = { ...data, receivedAt: Date.now() };
+          window.dispatchEvent(new CustomEvent('attack:received', { detail: data }));
+        } catch { /* noop */ }
       };
 
       socket.on('playerInit', handlePlayerInit);
@@ -125,6 +147,7 @@ export function useGameSocket() {
       socket.on('gangUpdate', handleGangUpdate);
       socket.on('connect', handleConnect);
       socket.on('connect_error', handleConnectError);
+      socket.on('attackIncoming', handleAttackIncoming);
       socket.on('attackReceived', handleAttackReceived);
 
       return () => {
@@ -134,6 +157,7 @@ export function useGameSocket() {
         socket.off('gangUpdate', handleGangUpdate);
         socket.off('connect', handleConnect);
         socket.off('connect_error', handleConnectError);
+        socket.off('attackIncoming', handleAttackIncoming);
         socket.off('attackReceived', handleAttackReceived);
         // Não desconecta o socket aqui — ele é singleton e pode ser usado por outros componentes
       };
