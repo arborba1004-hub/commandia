@@ -21,13 +21,7 @@ import type {
   GangBattleStats,
   GangMember,
 } from '@/types/gang';
-import {
-  fetchMyGang,
-  recruitGangMember,
-  upgradeGangCT,
-  payGangMaintenance,
-  setGangFormation,
-} from '@/api/gangApi';
+// ... keep existing code (removed gangApi imports - /gang-war/* endpoints removed) ...
 import {
   fetchTrainingStatus,
   startTraining,
@@ -192,34 +186,13 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const data = await fetchMyGang();
-      syncBalances(data.playerBalances);
-
-      const apiGang = data.gang ?? null;
-
-      // Source of truth para `members` é Player.gang.members (Sistema A).
-      // GangWar.members é legado e fica desatualizado em relação aos
-      // treinamentos feitos pelos CTs do mapa.
-      const playerStore = usePlayerStore.getState();
-      const playerGangMembers =
-        (playerStore.player as any)?.gang?.members ??
-        playerStore.player?.gangMembers ??
-        [];
-
-      const unifiedGang = apiGang
-        ? { ...apiGang, members: playerGangMembers }
-        : null;
-
+      // /gang-war/* endpoints removed
       set({
-        gang: unifiedGang,
+        gang: null,
         isLoading: false,
       });
 
-      if (apiGang?.formation) {
-        syncFormacaoToEstatisticas(apiGang.formation);
-      }
-
-      return true;
+      return false;
     } catch (err) {
       set({
         isLoading: false,
@@ -264,16 +237,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isSubmitting: true, error: null });
 
-      const data = await recruitGangMember(type);
-
-      syncBalances(data.playerBalances);
-
+      // /gang-war/* endpoints removed
       set({
-        gang: data.gang,
         isSubmitting: false,
       });
 
-      return true;
+      return false;
     } catch (err) {
       set({
         isSubmitting: false,
@@ -380,16 +349,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isSubmitting: true, error: null });
 
-      const data = await upgradeGangCT();
-
-      syncBalances(data.playerBalances);
-
+      // /gang-war/* endpoints removed
       set({
-        gang: data.gang,
         isSubmitting: false,
       });
 
-      return true;
+      return false;
     } catch (err) {
       set({
         isSubmitting: false,
@@ -404,16 +369,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isSubmitting: true, error: null });
 
-      const data = await payGangMaintenance();
-
-      syncBalances(data.playerBalances);
-
+      // /gang-war/* endpoints removed
       set({
-        gang: data.gang,
         isSubmitting: false,
       });
 
-      return true;
+      return false;
     } catch (err) {
       set({
         isSubmitting: false,
@@ -428,19 +389,12 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isSubmitting: true, error: null });
 
-      const data = await setGangFormation(formation);
-
-      syncBalances(data.playerBalances);
-
+      // /gang-war/* endpoints removed
       set({
-        gang: data.gang,
         isSubmitting: false,
       });
 
-      // ← Ponto de integração: atualiza estatísticas de combate
-      syncFormacaoToEstatisticas(formation);
-
-      return true;
+      return false;
     } catch (err) {
       set({
         isSubmitting: false,
