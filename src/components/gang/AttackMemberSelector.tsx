@@ -71,6 +71,8 @@ export default function AttackMemberSelector({
 
   const members = useMemo(() => {
     if (!gang?.members) return [];
+    // ✓ Apenas membros com status 'ativo' podem ser selecionados para ataque
+    // Membros com status 'ferido', 'morto', 'treinando' ou 'marchando' são excluídos
     return getActiveMembers(gang.members);
   }, [gang?.members]);
 

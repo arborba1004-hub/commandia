@@ -139,6 +139,8 @@ export default function MapTargetActionModal({
   const availableByType = useMemo(() => {
     const counts: Partial<Record<GangMemberType, number>> = {};
     for (const m of (gangMembers || [])) {
+      // ✓ Apenas membros com status 'ativo' podem ser selecionados para ataque
+      // Membros com status 'ferido', 'morto', 'treinando' ou 'marchando' são excluídos
       if (m.status !== 'ativo') continue;
       const t = m.type as GangMemberType;
       counts[t] = (counts[t] ?? 0) + 1;
