@@ -19,6 +19,7 @@ import * as THREE from 'three';
 import { getActiveBattles, resolveBattle } from '@/api/attackApi';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { usePlayerStore } from '@/store/playerStore';
+import { mountGangSquadAnimation } from '@/3d/gangSquadAnimation';
 
 /**
  * Constrói uma rota entre dois pontos no grid usando movimento ortogonal.
@@ -146,8 +147,35 @@ export function useActiveMapBattles(options: UseActiveMapBattlesOptions) {
                 const totalSteps = routeTiles.length;
                 const msPerStep = totalSteps > 0 ? durationMs / totalSteps : 0;
 
-                // Anima o squad marchando
-                animateSquadMovement(routeTiles, msPerStep);
+                // Anima o squad marchando com mountGangSquadAnimation
+                const animation = mountGangSquadAnimation({
+                  scene,
+                  route: routeTiles,
+                  gridWidth,
+                  gridHeight,
+                  barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
+                  memberCount: Number((battle as any).memberCount ?? 100),
+                  color: '#ff3b30',
+                  totalDurationMs: Number(durationMs),
+                  timePerTileMs: Number(msPerStep),
+                  onStep: (stepIdx) => {
+                    useMapAttackStore.getState().setCurrentStep(stepIdx);
+                  },
+                });
+
+                void animation.start().then(async () => {
+                  useMapAttackStore.getState().setPhase('arriving');
+
+                  try {
+                    const report = await resolveBattle(battleId);
+                    useMapAttackStore.getState().setResolution(report.resolution);
+                    useMapAttackStore.getState().setPhase('finished');
+                  } catch (err) {
+                    console.error(`Erro ao resolver batalha recuperada ${battleId}:`, err);
+                  } finally {
+                    animation.cleanup();
+                  }
+                });
               }
             } else {
               // Tempo esgorou, resolver batalha
@@ -176,40 +204,4 @@ export function useActiveMapBattles(options: UseActiveMapBattlesOptions) {
       }
     })();
   }, [scene, camera, playerId]);
-}
-
-/**
- * Anima o squad marchando pela rota.
- * Chamado quando uma batalha ativa é recuperada e ainda tem tempo restante.
- */
-function animateSquadMovement(
-  routeTiles: Array<{ tileX: number; tileY: number }>,
-  msPerStep: number
-) {
-  if (routeTiles.length === 0 || msPerStep <= 0) {
-    return;
-  }
-
-  let currentStep = 0;
-  const startTime = Date.now();
-
-  const animate = () => {
-    const elapsed = Date.now() - startTime;
-    const nextStep = Math.floor(elapsed / msPerStep);
-
-    if (nextStep >= routeTiles.length) {
-      // Chegou ao destino
-      useMapAttackStore.getState().setPhase('arriving');
-      return;
-    }
-
-    if (nextStep !== currentStep) {
-      currentStep = nextStep;
-      useMapAttackStore.getState().setCurrentStep(currentStep);
-    }
-
-    requestAnimationFrame(animate);
-  };
-
-  requestAnimationFrame(animate);
 }
