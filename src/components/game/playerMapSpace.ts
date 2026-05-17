@@ -251,6 +251,16 @@ async function loadBarracoTemplate(loader: GLTFLoader, modelUrl: string) {
   return promise;
 }
 
+export function getPlayerCentralTileFromOrigin(tileX: number, tileY: number) {
+  const safeTileX = Number.isFinite(Number(tileX)) ? Number(tileX) : 0;
+  const safeTileY = Number.isFinite(Number(tileY)) ? Number(tileY) : 0;
+
+  return {
+    tileX: safeTileX + Math.floor(PLAYER_SPACE_WIDTH / 2),
+    tileY: safeTileY + Math.floor(PLAYER_SPACE_HEIGHT / 2),
+  };
+}
+
 export function getPlayerSpaceRect(tileX: number, tileY: number): PlayerSpaceRect {
   return {
     x: toInt(tileX),
