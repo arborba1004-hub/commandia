@@ -37,6 +37,8 @@ export type GangSquadAnimationParams = {
   color?:        string;
   onStep?:       (stepIndex: number, tile: RouteTile) => void;
   onArrived?:    () => void;
+  timePerTileMs?: number;
+  totalDurationMs?: number;
 };
 
 export type MountedSquadAnimation = {
@@ -198,11 +200,31 @@ export function mountGangSquadAnimation({
   color        = '#ef4444',
   onStep,
   onArrived,
+  timePerTileMs,
+  totalDurationMs,
 }: GangSquadAnimationParams): MountedSquadAnimation {
 
-  const msPerTile           = getMsPerTile(barracoLevel);
-  const routeDistanceTiles  = Math.max(0, route.length - 1);
-  const totalDurationMs     = routeDistanceTiles * msPerTile;
+  const routeDistanceTiles = Math.max(0, route.length - 1);
+
+  const fallbackMsPerTile = getMsPerTile(barracoLevel);
+
+  const suppliedTotalDurationMs = Number(totalDurationMs);
+  const suppliedTimePerTileMs = Number(timePerTileMs);
+
+  const effectiveTotalDurationMs =
+    Number.isFinite(suppliedTotalDurationMs) && suppliedTotalDurationMs >= 0
+      ? suppliedTotalDurationMs
+      : routeDistanceTiles *
+        (
+          Number.isFinite(suppliedTimePerTileMs) && suppliedTimePerTileMs > 0
+            ? suppliedTimePerTileMs
+            : fallbackMsPerTile
+        );
+
+  const effectiveMsPerTile =
+    routeDistanceTiles > 0
+      ? Math.max(1, effectiveTotalDurationMs / routeDistanceTiles)
+      : fallbackMsPerTile;
 
   // Root group na cena
   const root = new THREE.Group();
@@ -265,8 +287,8 @@ export function mountGangSquadAnimation({
         if (isCancelled) { resolve(); return; }
 
         const elapsed      = now - startedAt;
-        const capped       = Math.min(elapsed, totalDurationMs);
-        const progressTiles = capped / msPerTile;
+        const capped       = Math.min(elapsed, effectiveTotalDurationMs);
+        const progressTiles = capped / effectiveMsPerTile;
         const segIdx       = Math.min(routeDistanceTiles - 1, Math.floor(progressTiles));
         const segAlpha     = Math.min(1, Math.max(0, progressTiles - segIdx));
 
@@ -290,7 +312,7 @@ export function mountGangSquadAnimation({
           onStep?.(segIdx, route[segIdx]);
         }
 
-        if (capped >= totalDurationMs) {
+        if (capped >= effectiveTotalDurationMs) {
           const last = route[route.length - 1];
           const lw   = tileToWorld(last.tileX, last.tileY, gridWidth, gridHeight, tileSize);
           marker.group.position.set(lw.worldX, MARKER_HEIGHT, lw.worldZ);
