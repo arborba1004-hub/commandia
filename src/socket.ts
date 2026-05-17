@@ -82,10 +82,10 @@ class RealSocket implements Socket {
 
     const protocol = BACKEND_URL.startsWith('https') ? 'wss' : 'ws';
     const wsUrl = BACKEND_URL.replace(/^https?/, protocol).replace(/\/$/, '');
-    const url = `${wsUrl}/socket?token=${encodeURIComponent(this.token || '')}`;
-
     try {
-      this.ws = new WebSocket(url);
+  this.ws = new WebSocket(`${wsUrl}/socket`, {
+    headers: { Authorization: `Bearer ${this.token}` }
+  });
 
       this.ws.onopen = () => {
         console.log('🟢 Socket conectado');
