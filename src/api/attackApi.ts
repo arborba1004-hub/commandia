@@ -267,14 +267,28 @@ export type CanAttackResponse = {
 export type ActiveBattleResponse = {
   battleId: string;
   status: string;
-  role: string;
+  role: 'attacker' | 'defender';
   attackerId: string;
   attackerName: string;
   defenderId: string;
   defenderName: string;
-  route: any;
-  origin: any;
-  target: any;
+  route?: {
+    fromTileX: number;
+    fromTileY: number;
+    toTileX: number;
+    toTileY: number;
+  };
+  origin?: {
+    tileX: number;
+    tileY: number;
+  };
+  target?: {
+    tileX: number;
+    tileY: number;
+  };
+  targetId?: string;
+  targetName?: string;
+  memberCount?: number;
   launchedAtIso: string;
   arriveAtIso: string;
   remainingMs: number;
