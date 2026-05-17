@@ -81,6 +81,7 @@ export default function GamePage() {
   // do squad marchando até o alvo durante o ataque.
   const sceneRef  = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.Camera | null>(null);
+  const [threeReady, setThreeReady] = useState(false);
 
   // ── Modal: barraco de outro jogador
   const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
@@ -231,6 +232,8 @@ export default function GamePage() {
       1000
     );
     cameraRef.current = camera;  // exposto para o sistema de ataque
+
+    setThreeReady(true);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -688,6 +691,7 @@ export default function GamePage() {
 
     return () => {
       isMounted = false;
+      setThreeReady(false);
       window.cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('click', handleClick);
@@ -730,8 +734,8 @@ export default function GamePage() {
 
   // ── Recuperar batalhas ativas ao montar (após scene estar pronta) ──────────
   useActiveMapBattles({
-    scene: sceneRef.current,
-    camera: cameraRef.current,
+    scene: threeReady ? sceneRef.current : null,
+    camera: threeReady ? cameraRef.current : null,
     gridWidth: GRID_WIDTH,
     gridHeight: GRID_HEIGHT,
   });
