@@ -237,7 +237,16 @@ const initialPlayer: PlayerState = {
   notifications: [], attackHistory: [],
   factionId: null, gangId: null,
   gangMembers: [],
-  gangStats: { totalMembers: 0, activeMembers: 0, injuredMembers: 0, deadMembers: 0, trainingMembers: 0, totalPower: 0, averageLevel: 0 },
+  gangStats: {
+    totalMembers: 0,
+    activeMembers: 0,
+    injuredMembers: 0,
+    deadMembers: 0,
+    trainingMembers: 0,
+    marchingMembers: 0,
+    totalPower: 0,
+    averageLevel: 0,
+  },
   lastAttackAt: null, pvpProtectionUntil: null,
 };
 
