@@ -20,6 +20,39 @@ import { getActiveBattles, resolveBattle } from '@/api/attackApi';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { usePlayerStore } from '@/store/playerStore';
 
+/**
+ * Constrói uma rota entre dois pontos no grid usando movimento ortogonal.
+ * Primeiro move horizontalmente, depois verticalmente.
+ */
+function buildRoute(
+  fromTileX: number,
+  fromTileY: number,
+  toTileX: number,
+  toTileY: number,
+  gridWidth: number,
+  gridHeight: number
+) {
+  let x = Math.max(0, Math.min(gridWidth - 1, Math.floor(Number(fromTileX) || 0)));
+  let y = Math.max(0, Math.min(gridHeight - 1, Math.floor(Number(fromTileY) || 0)));
+
+  const tx = Math.max(0, Math.min(gridWidth - 1, Math.floor(Number(toTileX) || 0)));
+  const ty = Math.max(0, Math.min(gridHeight - 1, Math.floor(Number(toTileY) || 0)));
+
+  const route: Array<{ tileX: number; tileY: number }> = [{ tileX: x, tileY: y }];
+
+  while (x !== tx) {
+    x += x < tx ? 1 : -1;
+    route.push({ tileX: x, tileY: y });
+  }
+
+  while (y !== ty) {
+    y += y < ty ? 1 : -1;
+    route.push({ tileX: x, tileY: y });
+  }
+
+  return route;
+}
+
 export type UseActiveMapBattlesOptions = {
   scene?: THREE.Scene | null;
   camera?: THREE.Camera | null;
@@ -93,13 +126,15 @@ export function useActiveMapBattles(options: UseActiveMapBattlesOptions) {
             // ─ ATACANTE ─────────────────────────────────────────────────────
             // Se ainda há tempo, recriar rota e animar
             if (remainingMs > 0) {
-              // Converte rota do backend em RouteTile[]
-              const routeTiles = Array.isArray(route)
-                ? route.map((tile: any) => ({
-                    tileX: Number(tile.tileX ?? tile.x ?? 0),
-                    tileY: Number(tile.tileY ?? tile.y ?? 0),
-                  }))
-                : [];
+              // Constrói rota usando buildRoute
+              const routeTiles = buildRoute(
+                Number(route?.fromTileX ?? origin?.tileX ?? 0),
+                Number(route?.fromTileY ?? origin?.tileY ?? 0),
+                Number(route?.toTileX ?? target?.tileX ?? 0),
+                Number(route?.toTileY ?? target?.tileY ?? 0),
+                gridWidth,
+                gridHeight
+              );
 
               if (routeTiles.length > 0) {
                 // Define rota e inicia animação
