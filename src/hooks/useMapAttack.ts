@@ -102,6 +102,16 @@ function buildRoute(
   return route;
 }
 
+
+function getSelectedConvoySkinId(player: unknown): string {
+  const p = player as any;
+  return (
+    p?.convoySkins?.selected ??
+    p?.cosmetics?.convoySkins?.selected ??
+    'comboio_padrao'
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // HELPER: formata mensagem de bloqueio de ataque
 // ═════════════════════════════════════════════════════════════════════════════
@@ -287,6 +297,7 @@ export function useMapAttack(): UseMapAttackReturn {
         barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
         memberCount,
         color: '#ff3b30',
+        convoySkinId: getSelectedConvoySkinId(player),
         timePerTileMs: startResp.timePerTileMs,
         totalDurationMs: startResp.totalDurationMs,
         onStep: (stepIdx) => {

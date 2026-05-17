@@ -54,6 +54,16 @@ function buildRoute(
   return route;
 }
 
+
+function getSelectedConvoySkinId(player: unknown): string {
+  const p = player as any;
+  return (
+    p?.convoySkins?.selected ??
+    p?.cosmetics?.convoySkins?.selected ??
+    'comboio_padrao'
+  );
+}
+
 export type UseActiveMapBattlesOptions = {
   scene?: THREE.Scene | null;
   camera?: THREE.Camera | null;
@@ -144,6 +154,7 @@ export function useActiveMapBattles(options: UseActiveMapBattlesOptions) {
                   barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
                   memberCount: Number((battle as any).memberCount ?? 100),
                   color: '#ff3b30',
+                  convoySkinId: getSelectedConvoySkinId(player),
                   totalDurationMs: Number(durationMs),
                   timePerTileMs: Number(msPerStep),
                   onStep: (stepIdx) => {
