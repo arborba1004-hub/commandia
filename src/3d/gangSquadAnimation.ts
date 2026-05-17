@@ -152,17 +152,21 @@ function normalizeModel(root: THREE.Object3D, desiredSize = MODEL_BASE_SIZE) {
 
   const maxAxis = Math.max(size.x || 1, size.y || 1, size.z || 1);
   const scale = desiredSize / maxAxis;
-  root.scale.multiplyScalar(scale);
+  root.scale.setScalar(scale);
 
   root.updateMatrixWorld(true);
 
-  const scaledBox = new THREE.Box3().setFromObject(root);
+  const boxAfterScale = new THREE.Box3().setFromObject(root);
   const center = new THREE.Vector3();
-  scaledBox.getCenter(center);
+  const min = new THREE.Vector3();
+
+  boxAfterScale.getCenter(center);
+  boxAfterScale.getMin(min);
 
   root.position.x -= center.x;
   root.position.z -= center.z;
-  root.position.y -= scaledBox.min.y;
+  root.position.y -= min.y;
+  root.position.y += 0.06;
 
   return root;
 }
@@ -417,9 +421,10 @@ export function mountGangSquadAnimation({
   scene.add(root);
 
   // Posição inicial antes dos GLBs terminarem de carregar.
+  const groundY = 0.06;
   if (route.length > 0) {
     const { worldX, worldZ } = tileToWorld(route[0].tileX, route[0].tileY, gridWidth, gridHeight, tileSize);
-    root.position.set(worldX, CONVOY_HEIGHT, worldZ);
+    root.position.set(worldX, groundY, worldZ);
   }
 
   function setRootRotationTowards(from: RouteTile, to: RouteTile, instant = false) {
@@ -498,9 +503,10 @@ export function mountGangSquadAnimation({
         const fw = tileToWorld(from.tileX, from.tileY, gridWidth, gridHeight, tileSize);
         const tw = tileToWorld(to.tileX, to.tileY, gridWidth, gridHeight, tileSize);
 
+        const groundY = 0.06;
         root.position.set(
           lerp(fw.worldX, tw.worldX, segAlpha),
-          CONVOY_HEIGHT,
+          groundY,
           lerp(fw.worldZ, tw.worldZ, segAlpha),
         );
 
@@ -517,7 +523,8 @@ export function mountGangSquadAnimation({
           const last = route[route.length - 1];
           const prev = route[Math.max(0, route.length - 2)];
           const lw = tileToWorld(last.tileX, last.tileY, gridWidth, gridHeight, tileSize);
-          root.position.set(lw.worldX, CONVOY_HEIGHT, lw.worldZ);
+          const groundY = 0.06;
+          root.position.set(lw.worldX, groundY, lw.worldZ);
           setRootRotationTowards(prev, last, false);
           onArrived?.();
           resolve();
