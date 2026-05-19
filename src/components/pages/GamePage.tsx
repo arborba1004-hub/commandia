@@ -158,14 +158,27 @@ export default function GamePage() {
   //
   // Os tiles do alvo vêm de realtimePlayersLayer (armazenados num cache via state).
   const [lastClickedTargetTile, setLastClickedTargetTile] = useState<{ x: number; y: number } | null>(null);
+  const lastClickedTargetTileRef = useRef<{ x: number; y: number } | null>(null);
+
+  const rememberTargetTile = useCallback((tile: { x: number; y: number }) => {
+    lastClickedTargetTileRef.current = tile;
+    setLastClickedTargetTile(tile);
+  }, []);
 
   const handleAttack = useCallback(
     (target: OtherPlayerBarracoTarget) => {
       if (!target?.id) return;
 
       // tileX/Y do alvo: vem do click no mapa 3D (armazenado em lastClickedTargetTile)
-      const targetTileX = lastClickedTargetTile?.x ?? 0;
-      const targetTileY = lastClickedTargetTile?.y ?? 0;
+      const cachedTargetTile = lastClickedTargetTileRef.current ?? lastClickedTargetTile;
+      const targetTileX = cachedTargetTile?.x ?? 0;
+      const targetTileY = cachedTargetTile?.y ?? 0;
+
+      console.log('[GamePage] handleAttack target tile', {
+        targetId: target.id,
+        targetName: target.name,
+        cachedTargetTile,
+      });
 
       // Fecha o modal de info do barraco
       setModalState(closeOtherPlayerBarracoModal());
@@ -413,7 +426,7 @@ export default function GamePage() {
 
       // Se o backend enviou tileX/Y, atualiza memória do alvo
       if (typeof data.tileX === 'number' && typeof data.tileY === 'number') {
-        setLastClickedTargetTile({
+        rememberTargetTile({
           x: Number(data.tileX),
           y: Number(data.tileY),
         });
@@ -579,7 +592,7 @@ export default function GamePage() {
                 factionId:    playerData.factionId,
               }));
               // Memoriza tile do alvo (necessário para cálculo de viagem do ataque)
-              setLastClickedTargetTile({
+              rememberTargetTile({
                 x: Number(playerData.tileX ?? 0),
                 y: Number(playerData.tileY ?? 0),
               });
