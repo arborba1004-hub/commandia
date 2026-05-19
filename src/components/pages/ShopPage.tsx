@@ -75,12 +75,26 @@ export default function ShopPage() {
         )}
 
         {activeTab === 'comboio' && (
-          <div className="text-center py-20">
-            <p className="font-paragraph text-white/60 text-lg mb-4">
-              Comboio em construção...
+          <div className="flex flex-col items-center justify-center py-20">
+            {/* Convoy Icon */}
+            <div className="mb-8">
+              <Image
+                src="https://static.wixstatic.com/media/50f4bf_b91c96f7c6a94f14a0f1c45a0f4f6432~mv2.jpeg"
+                alt="Comboio"
+                className="h-64 w-auto object-contain drop-shadow-[0_0_20px_rgba(217,183,100,0.3)]"
+              />
+            </div>
+            
+            {/* Free Button */}
+            <button className="px-8 py-3 bg-gradient-to-r from-[#d9b764] to-[#f0d78c] text-black font-heading text-lg font-bold rounded-lg hover:from-[#f0d78c] hover:to-[#d9b764] transition-all shadow-lg hover:shadow-[0_0_20px_rgba(217,183,100,0.5)]">
+              GRÁTIS
+            </button>
+            
+            <p className="font-paragraph text-white/60 text-lg mt-8 mb-2">
+              Serviço de Comboio Disponível
             </p>
             <p className="font-paragraph text-white/40 text-sm">
-              Volte em breve para acessar os serviços de comboio
+              Acesse o serviço de transporte seguro de valores
             </p>
           </div>
         )}
