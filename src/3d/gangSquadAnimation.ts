@@ -24,6 +24,15 @@ import {
   type ConvoySkinDefinition,
   type ConvoySkinVisualClass,
 } from '@/data/convoySkins';
+import {
+  createConvoyDiagnostics,
+  recordAssetLoadStart,
+  recordAssetLoadSuccess,
+  recordAssetLoadError,
+  recordAssetRendered,
+  recordSceneSnapshot,
+  printConvoyDiagnostics,
+} from '@/3d/convoyDiagnostics';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS
@@ -412,13 +421,33 @@ function addConvoyLights(convoy: THREE.Group) {
   convoy.add(fill);
 }
 
-async function createConvoyAsset(asset: ConvoySkinAsset, index: number): Promise<THREE.Object3D> {
-  const base = await loadModelBase(asset.url);
-  const clone = cloneModel(base);
-  return normalizeModelInstance(clone, asset);
+async function createConvoyAsset(
+  asset: ConvoySkinAsset,
+  index: number,
+  animationId?: string
+): Promise<THREE.Object3D> {
+  if (animationId) {
+    recordAssetLoadStart(animationId, index);
+  }
+
+  try {
+    const base = await loadModelBase(asset.url);
+    
+    if (animationId) {
+      recordAssetLoadSuccess(animationId, index, { scene: base });
+    }
+
+    const clone = cloneModel(base);
+    return normalizeModelInstance(clone, asset);
+  } catch (err) {
+    if (animationId) {
+      recordAssetLoadError(animationId, index, err);
+    }
+    throw err;
+  }
 }
 
-async function createConvoyGroup(skin: ConvoySkinDefinition) {
+async function createConvoyGroup(skin: ConvoySkinDefinition, animationId?: string) {
   const convoy = new THREE.Group();
   convoy.name = `attack-convoy:${skin.id}`;
 
@@ -429,7 +458,7 @@ async function createConvoyGroup(skin: ConvoySkinDefinition) {
     : getConvoySkinById(DEFAULT_CONVOY_SKIN_ID).assets;
 
   const results = await Promise.allSettled(
-    assets.map((asset, index) => createConvoyAsset(asset, index))
+    assets.map((asset, index) => createConvoyAsset(asset, index, animationId))
   );
 
   results.forEach((result, index) => {
@@ -444,6 +473,11 @@ async function createConvoyGroup(skin: ConvoySkinDefinition) {
 
     placeAsset(model, asset, index);
     convoy.add(model);
+
+    // Registrar renderização
+    if (animationId) {
+      recordAssetRendered(animationId, index, model);
+    }
   });
 
   return convoy;
@@ -554,6 +588,10 @@ export function mountGangSquadAnimation({
 
   const skin = getConvoySkinById(convoySkinId);
 
+  // Criar ID único para diagnóstico
+  const animationId = `convoy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const diagnostics = createConvoyDiagnostics(animationId, skin.id, memberCount, routeDistanceTiles);
+
   const root = new THREE.Group();
   root.name = 'gang-squad-animation';
   scene.add(root);
@@ -599,6 +637,9 @@ export function mountGangSquadAnimation({
 
     activeConvoy = next;
     root.add(activeConvoy);
+
+    // Registrar renderização
+    recordSceneSnapshot(animationId, scene);
   }
 
   function cleanup() {
@@ -615,6 +656,9 @@ export function mountGangSquadAnimation({
 
     label.dispose();
     root.removeFromParent();
+
+    // Imprimir diagnóstico ao finalizar
+    printConvoyDiagnostics(animationId);
   }
 
   function cancel() {
@@ -623,7 +667,12 @@ export function mountGangSquadAnimation({
   }
 
   async function start(): Promise<void> {
-    console.log('[GANG_SQUAD_ANIMATION_START]', { routeDistanceTiles, skinId: skin.id, memberCount });
+    console.log('[GANG_SQUAD_ANIMATION_START]', { 
+      routeDistanceTiles, 
+      skinId: skin.id, 
+      memberCount,
+      animationId,
+    });
     if (isRunning || isCancelled || isCleaned) return;
     isRunning = true;
 
@@ -634,7 +683,7 @@ export function mountGangSquadAnimation({
     replaceConvoy(fallbackConvoy);
 
     // GLBs carregam em paralelo. Quando terminarem, substituem o fallback se a marcha ainda existir.
-    void createConvoyGroup(skin)
+    void createConvoyGroup(skin, animationId)
       .then((loaded) => {
         loaded.visible = true;
         loaded.matrixWorldNeedsUpdate = true;
