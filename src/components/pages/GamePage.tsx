@@ -62,6 +62,7 @@ export default function GamePage() {
   const mountRef    = useRef<HTMLDivElement | null>(null);
   const navigate    = useNavigate();
   const player      = usePlayerStore((s) => s.player);
+  const isPlayerLoaded = usePlayerStore((s) => s.isLoaded);
   const myFactionId = usePlayerStore((s) => s.player.factionId) ?? null;
 
   const mailMessages    = useChatStore((s) => s.mailMessages);
@@ -219,6 +220,10 @@ export default function GamePage() {
   useEffect(() => {
     const mountEl = mountRef.current;
     if (!mountEl) return;
+
+    if (!isPlayerLoaded || !player?._id) {
+      return;
+    }
 
     let isMounted = true;
 
@@ -732,7 +737,7 @@ export default function GamePage() {
       sceneRef.current  = null;
       cameraRef.current = null;
     };
-  }, [navigate, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?._id]);
+  }, [navigate, isPlayerLoaded, player?._id]);
 
   // ── Recuperar batalhas ativas ao montar (após scene estar pronta) ──────────
   useActiveMapBattles({
