@@ -1,9 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { Image } from '@/components/ui/image';
 import { ChevronLeft } from 'lucide-react';
+import { useState } from 'react';
 
 export default function ShopPage() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'loja' | 'comboio'>('loja');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black">
@@ -21,26 +23,67 @@ export default function ShopPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex gap-4 border-b border-white/10">
+          <button
+            onClick={() => setActiveTab('loja')}
+            className={`px-6 py-3 font-heading text-lg font-bold transition-all ${
+              activeTab === 'loja'
+                ? 'text-[#d9b764] border-b-2 border-[#d9b764]'
+                : 'text-white/50 hover:text-white/70'
+            }`}
+          >
+            LOJA
+          </button>
+          <button
+            onClick={() => setActiveTab('comboio')}
+            className={`px-6 py-3 font-heading text-lg font-bold transition-all ${
+              activeTab === 'comboio'
+                ? 'text-[#d9b764] border-b-2 border-[#d9b764]'
+                : 'text-white/50 hover:text-white/70'
+            }`}
+          >
+            COMBOIO
+          </button>
+        </div>
+      </div>
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-12">
-        {/* Shop Badge */}
-        <div className="flex justify-center mb-12">
-          <Image
-            src="https://static.wixstatic.com/media/50f4bf_aee79b79a6ac4c89bbc8bbadfffdb2c6~mv2.png"
-            alt="Loja"
-            className="h-48 w-48 object-contain drop-shadow-[0_0_20px_rgba(217,183,100,0.3)]"
-          />
-        </div>
+        {activeTab === 'loja' && (
+          <>
+            {/* Shop Badge */}
+            <div className="flex justify-center mb-12">
+              <Image
+                src="https://static.wixstatic.com/media/50f4bf_aee79b79a6ac4c89bbc8bbadfffdb2c6~mv2.png"
+                alt="Loja"
+                className="h-48 w-48 object-contain drop-shadow-[0_0_20px_rgba(217,183,100,0.3)]"
+              />
+            </div>
 
-        {/* Empty State */}
-        <div className="text-center py-20">
-          <p className="font-paragraph text-white/60 text-lg mb-4">
-            A loja está em construção...
-          </p>
-          <p className="font-paragraph text-white/40 text-sm">
-            Volte em breve para descobrir itens exclusivos
-          </p>
-        </div>
+            {/* Empty State */}
+            <div className="text-center py-20">
+              <p className="font-paragraph text-white/60 text-lg mb-4">
+                A loja está em construção...
+              </p>
+              <p className="font-paragraph text-white/40 text-sm">
+                Volte em breve para descobrir itens exclusivos
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'comboio' && (
+          <div className="text-center py-20">
+            <p className="font-paragraph text-white/60 text-lg mb-4">
+              Comboio em construção...
+            </p>
+            <p className="font-paragraph text-white/40 text-sm">
+              Volte em breve para acessar os serviços de comboio
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
