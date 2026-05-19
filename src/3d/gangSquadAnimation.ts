@@ -64,7 +64,7 @@ export type MountedSquadAnimation = {
 // ═════════════════════════════════════════════════════════════════════════════
 
 const BASE_MS_PER_TILE = 5000;
-const GROUND_Y = 0.11;
+const GROUND_Y = 0.45;
 const LABEL_Y = 2.55;
 const MODEL_LOAD_TIMEOUT_MS = 7000;
 
@@ -492,7 +492,7 @@ function createMemberLabel(memberCount: number) {
     map: texture,
     transparent: true,
     opacity: 0.95,
-    depthTest: true,
+    depthTest: false,
     depthWrite: false,
   });
 
