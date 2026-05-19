@@ -46,6 +46,7 @@ const COMMANDS_ICON = 'https://static.wixstatic.com/media/50f4bf_9bda4af1a12b476
 const ICON_COMPLEXO = 'https://static.wixstatic.com/media/50f4bf_af442ef88fac45288bc762a40c07c343~mv2.png';
 const ICON_FACCAO   = 'https://static.wixstatic.com/media/50f4bf_f00228a9eaa84c13ab83c4f3a6365649~mv2.png';
 const ICON_MAIL     = 'https://static.wixstatic.com/media/50f4bf_e602f889654541a9aa2dfd057dad00bc~mv2.png';
+const ICON_SHOP     = 'https://static.wixstatic.com/media/50f4bf_aee79b79a6ac4c89bbc8bbadfffdb2c6~mv2.png';
 
 function fmt(value: number) {
   if (!Number.isFinite(value)) return '0';
@@ -817,6 +818,11 @@ export default function GamePage() {
 
       {/* ── HUD INFERIOR DIREITO — ícones de chat ─────────────────────── */}
       <div className="absolute bottom-8 right-4 z-10 flex flex-col gap-4 pointer-events-auto">
+
+        <button type="button" onClick={() => navigate('/shop')}
+          className="active:scale-90 transition-transform">
+          <Image src={ICON_SHOP} alt="Loja" className="h-16 w-16 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]" />
+        </button>
 
         <button type="button" onClick={() => navigate('/chat?channel=complexo')}
           className="active:scale-90 transition-transform">

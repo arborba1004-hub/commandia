@@ -10,6 +10,7 @@ const HomePage = lazy(() => import('@/components/pages/HomePage'));
 const GaleriaPage = lazy(() => import('@/components/pages/GaleriaPage'));
 const ProfilePage = lazy(() => import('@/components/pages/ProfilePage'));
 const GamePage = lazy(() => import('@/components/pages/GamePage'));
+const ShopPage = lazy(() => import('@/components/pages/ShopPage'));
 const GiroPage = lazy(() => import('@/components/pages/GiroPage'));
 const LavagemDeDinheiroPage = lazy(() => import('@/components/pages/LavagemDeDinheiroPage'));
 const SubornoIlustradoPage = lazy(() => import('@/components/pages/SubornoIlustradoPage'));
@@ -60,6 +61,7 @@ const router = createBrowserRouter(
 
         { path: 'profile', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ProfilePage /></ProtectedRoute></Suspense> },
         { path: 'game',    element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GamePage /></ProtectedRoute></Suspense> },
+        { path: 'shop',    element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ShopPage /></ProtectedRoute></Suspense> },
         { path: 'chat',    element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ChatPage /></ProtectedRoute></Suspense> },
 
         {
