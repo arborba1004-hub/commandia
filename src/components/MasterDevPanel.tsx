@@ -58,6 +58,8 @@ export default function MasterDevPanel() {
 
   // Interceptar carregamento de GLB
   useEffect(() => {
+    if (!THREE?.GLTFLoader?.prototype?.load) return;
+    
     const originalLoad = THREE.GLTFLoader.prototype.load;
     
     (THREE.GLTFLoader.prototype as any).load = function(
@@ -116,7 +118,9 @@ export default function MasterDevPanel() {
     };
 
     return () => {
-      (THREE.GLTFLoader.prototype as any).load = originalLoad;
+      if (THREE?.GLTFLoader?.prototype?.load) {
+        (THREE.GLTFLoader.prototype as any).load = originalLoad;
+      }
     };
   }, []);
 
@@ -203,6 +207,8 @@ export default function MasterDevPanel() {
 
   // Injetar hook no Map3D para capturar a scene
   useEffect(() => {
+    if (!THREE?.Scene?.prototype?.add) return;
+    
     const originalAdd = THREE.Scene.prototype.add;
     
     (THREE.Scene.prototype as any).add = function(...args: any[]) {
@@ -217,7 +223,9 @@ export default function MasterDevPanel() {
     };
 
     return () => {
-      (THREE.Scene.prototype as any).add = originalAdd;
+      if (THREE?.Scene?.prototype?.add) {
+        (THREE.Scene.prototype as any).add = originalAdd;
+      }
     };
   }, []);
 
