@@ -1,45 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
+import { useConvoyAnimationStore, ConvoyAnimationType } from '@/store/convoyAnimationStore';
 
 interface ConvoyAnimation {
-  id: string;
+  id: ConvoyAnimationType;
   name: string;
   description: string;
   price: number;
-  isSelected: boolean;
 }
 
-export default function ConvoyAnimationShop() {
-  const [animations, setAnimations] = useState<ConvoyAnimation[]>([
-    {
-      id: 'classic-truck',
-      name: 'Caminhão Clássico',
-      description: 'Um caminhão simples e confiável para transportar seus valores',
-      price: 0,
-      isSelected: true,
-    },
-    {
-      id: 'armored-van',
-      name: 'Van Blindada',
-      description: 'Transporte mais seguro com proteção reforçada',
-      price: 0,
-      isSelected: false,
-    },
-    {
-      id: 'motorcycle',
-      name: 'Motocicleta Rápida',
-      description: 'Transporte ágil e veloz para entregas urgentes',
-      price: 0,
-      isSelected: false,
-    },
-  ]);
+const ANIMATIONS: ConvoyAnimation[] = [
+  {
+    id: 'classic-truck',
+    name: 'Caminhão Clássico',
+    description: 'Um caminhão simples e confiável para transportar seus valores',
+    price: 0,
+  },
+  {
+    id: 'armored-van',
+    name: 'Van Blindada',
+    description: 'Transporte mais seguro com proteção reforçada',
+    price: 0,
+  },
+  {
+    id: 'motorcycle',
+    name: 'Motocicleta Rápida',
+    description: 'Transporte ágil e veloz para entregas urgentes',
+    price: 0,
+  },
+];
 
-  const handleSelectAnimation = (id: string) => {
-    setAnimations(animations.map(anim => ({
-      ...anim,
-      isSelected: anim.id === id,
-    })));
+export default function ConvoyAnimationShop() {
+  const selectedAnimation = useConvoyAnimationStore((state) => state.selectedAnimation);
+  const setSelectedAnimation = useConvoyAnimationStore((state) => state.setSelectedAnimation);
+
+  const handleSelectAnimation = (id: ConvoyAnimationType) => {
+    setSelectedAnimation(id);
   };
 
   return (
@@ -56,14 +53,14 @@ export default function ConvoyAnimationShop() {
 
       {/* Animations Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {animations.map((animation) => (
+        {ANIMATIONS.map((animation) => (
           <motion.div
             key={animation.id}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => handleSelectAnimation(animation.id)}
             className={`relative p-6 rounded-lg cursor-pointer transition-all border-2 ${
-              animation.isSelected
+              selectedAnimation === animation.id
                 ? 'border-[#d9b764] bg-gradient-to-br from-[#d9b764]/20 to-transparent'
                 : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
             }`}
@@ -79,7 +76,7 @@ export default function ConvoyAnimationShop() {
                 <h3 className="font-heading text-lg font-bold text-white">
                   {animation.name}
                 </h3>
-                {animation.isSelected && (
+                {selectedAnimation === animation.id && (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -107,12 +104,12 @@ export default function ConvoyAnimationShop() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className={`w-full mt-4 py-2 rounded-lg font-heading font-bold transition-all ${
-                animation.isSelected
+                selectedAnimation === animation.id
                   ? 'bg-gradient-to-r from-[#d9b764] to-[#f0d78c] text-black'
                   : 'bg-white/10 text-white hover:bg-white/20'
               }`}
             >
-              {animation.isSelected ? 'SELECIONADO' : 'SELECIONAR'}
+              {selectedAnimation === animation.id ? 'SELECIONADO' : 'SELECIONAR'}
             </motion.button>
           </motion.div>
         ))}
@@ -133,7 +130,7 @@ export default function ConvoyAnimationShop() {
 }
 
 // Simple animation preview component
-function ConvoyAnimationPreview({ animationId }: { animationId: string }) {
+function ConvoyAnimationPreview({ animationId }: { animationId: ConvoyAnimationType }) {
   const getAnimationVariants = () => {
     switch (animationId) {
       case 'classic-truck':

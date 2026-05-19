@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useConvoyStore } from '@/store/convoyStore';
+import { useConvoyAnimationStore } from '@/store/convoyAnimationStore';
 import { ConvoyMovementService } from '@/services/convoyMovementService';
 import { ConvoyPathfinder } from '@/services/convoyPathfinding';
 
@@ -22,6 +23,7 @@ export default function ConvoyMovementLayer({
   canvasRef,
 }: ConvoyMovementLayerProps) {
   const { getAllConvoys } = useConvoyStore();
+  const selectedAnimation = useConvoyAnimationStore((state) => state.selectedAnimation);
   const internalCanvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const canvas = canvasRef || internalCanvasRef;
@@ -64,8 +66,8 @@ export default function ConvoyMovementLayer({
       const convoyX = currentWorldPos.x + (nextWorldPos.x - currentWorldPos.x) * interpolation;
       const convoyY = currentWorldPos.y + (nextWorldPos.y - currentWorldPos.y) * interpolation;
 
-      // Draw convoy
-      drawConvoyMarker(ctx, convoyX, convoyY, convoy.attackerId);
+      // Draw convoy with selected animation
+      drawConvoyMarker(ctx, convoyX, convoyY, convoy.attackerId, selectedAnimation);
 
       // Draw path (optional, for debugging)
       if (process.env.NODE_ENV === 'development') {
@@ -97,7 +99,8 @@ function drawConvoyMarker(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  attackerId: string
+  attackerId: string,
+  animationType: string = 'classic-truck'
 ) {
   const size = 20;
 
@@ -107,8 +110,23 @@ function drawConvoyMarker(
   ctx.arc(x, y, size * 1.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Draw main convoy marker
-  ctx.fillStyle = '#FF007F';
+  // Draw main convoy marker with animation-specific styling
+  switch (animationType) {
+    case 'armored-van':
+      // Red armored van
+      ctx.fillStyle = '#DC2626';
+      break;
+    case 'motorcycle':
+      // Orange motorcycle
+      ctx.fillStyle = '#F59E0B';
+      break;
+    case 'classic-truck':
+    default:
+      // Pink classic truck
+      ctx.fillStyle = '#FF007F';
+      break;
+  }
+
   ctx.beginPath();
   ctx.arc(x, y, size, 0, Math.PI * 2);
   ctx.fill();
@@ -125,6 +143,9 @@ function drawConvoyMarker(
   ctx.beginPath();
   ctx.arc(x, y, size, 0, Math.PI * 2);
   ctx.stroke();
+
+  // Draw animation indicator
+  drawAnimationIndicator(ctx, x, y, size, animationType);
 }
 
 /**
@@ -151,4 +172,30 @@ function drawConvoyPath(
 
   ctx.stroke();
   ctx.setLineDash([]);
+}
+
+/**
+ * Draw animation indicator on convoy marker
+ */
+function drawAnimationIndicator(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  animationType: string
+) {
+  // Draw small icon to indicate animation type
+  ctx.font = 'bold 12px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#000000';
+
+  let icon = '🚚';
+  if (animationType === 'armored-van') {
+    icon = '🛡️';
+  } else if (animationType === 'motorcycle') {
+    icon = '🏍️';
+  }
+
+  ctx.fillText(icon, x, y);
 }

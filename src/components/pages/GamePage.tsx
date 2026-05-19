@@ -27,6 +27,7 @@ import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/
 import GangTrainingModal from '@/components/gang/GangTrainingModal';
 import MapTargetActionModal      from '@/components/game/MapTargetActionModal';
 import AttackResultOverlay        from '@/components/game/AttackResultOverlay';
+import ConvoyAttackAnimation      from '@/components/game/ConvoyAttackAnimation';
 import AttackIncomingToast        from '@/components/game/AttackIncomingToast';
 import { useMapAttack }           from '@/hooks/useMapAttack';
 import { useMapAttackStore }      from '@/store/mapAttackStore';
@@ -867,6 +868,7 @@ export default function GamePage() {
         />
       )}
       <AttackResultOverlay />
+      <ConvoyAttackAnimation />
       <AttackIncomingToast />
 
       <DirectMessageModal
