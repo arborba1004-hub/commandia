@@ -625,8 +625,25 @@ export function mountGangSquadAnimation({
   }
 
   function replaceConvoy(next: THREE.Group) {
-    if (isCancelled || isCleaned) {
+    if (isCancelled) {
       disposeFallbacks(next);
+      return;
+    }
+
+    // Se foi limpo, mas os GLBs carregaram depois, adicionar à scene mesmo assim
+    if (isCleaned) {
+      // Verificar se root ainda está na scene
+      if (!root.parent) {
+        scene.add(root);
+      }
+      // Limpar convoy anterior se existir
+      if (activeConvoy) {
+        disposeFallbacks(activeConvoy);
+        activeConvoy.removeFromParent();
+      }
+      activeConvoy = next;
+      root.add(activeConvoy);
+      recordSceneSnapshot(animationId, scene);
       return;
     }
 
@@ -648,6 +665,8 @@ export function mountGangSquadAnimation({
 
     cancelAnimationFrame(frameId);
 
+    // Não remover activeConvoy da scene aqui - deixar para que GLBs que carregarem depois possam aparecer
+    // Apenas marcar como limpo para que replaceConvoy() saiba que a animação terminou
     if (activeConvoy) {
       disposeFallbacks(activeConvoy);
       activeConvoy.removeFromParent();
@@ -655,7 +674,8 @@ export function mountGangSquadAnimation({
     }
 
     label.dispose();
-    root.removeFromParent();
+    // Não remover root da scene imediatamente - deixar para que GLBs possam ser adicionados
+    // root.removeFromParent();
 
     // Imprimir diagnóstico ao finalizar
     printConvoyDiagnostics(animationId);
@@ -740,6 +760,7 @@ export function mountGangSquadAnimation({
           const last = safeRoute[safeRoute.length - 1];
           setRootPositionFromTile(last);
           onArrived?.();
+          cleanup();
           resolve();
           return;
         }
