@@ -318,6 +318,19 @@ export function useMapAttack(): UseMapAttackReturn {
           store.setCurrentStep(stepIdx);
         },
       });
+
+      console.log('[ATTACK_LOCAL_SQUAD_MOUNTED]', {
+        battleId: startResp.battleId,
+        routeLength: forwardRoute.length,
+        from: forwardRoute[0],
+        to: forwardRoute[forwardRoute.length - 1],
+        totalDurationMs: startResp.totalDurationMs,
+        timePerTileMs: startResp.timePerTileMs,
+        convoySkinId,
+        memberCount,
+        sceneChildren: scene.children.length,
+      });
+
       forwardAnimRef.current = forwardAnimation;
 
       // Calcular tempo de espera baseado em arriveAtIso
