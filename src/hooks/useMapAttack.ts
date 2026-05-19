@@ -252,9 +252,17 @@ export function useMapAttack(): UseMapAttackReturn {
     gridWidth:  number,
     gridHeight: number,
   ) => {
-    if (!previewData || !player) return;
+    const selectedTarget = previewData?.target ?? useMapAttackStore.getState().target;
 
-    const selectedTarget = previewData.target;
+    if (!selectedTarget || !player) {
+      console.error('[useMapAttack] confirmAttack abortado: sem target ou sem player', {
+        hasPreviewData: Boolean(previewData),
+        storeTarget: useMapAttackStore.getState().target,
+        hasPlayer: Boolean(player),
+      });
+      return;
+    }
+
     setIsResolving(true);
     setPreviewData(null);
 
