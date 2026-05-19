@@ -2,15 +2,12 @@
  * MasterDevPanel.tsx
  * 
  * Painel de Desenvolvedor Profissional Master para investigar problemas de renderização 3D.
- * Foco: Investigar por que os 6 GLB REF do comboio e squad não estão sendo exibidos no mapa
- * durante o ataque.
  * 
  * Funcionalidades:
  * - Monitorar carregamento de modelos GLB
  * - Verificar scene graph e visibilidade
  * - Testar renderização de modelos individuais
  * - Diagnosticar problemas de materiais e geometrias
- * - Logs detalhados de cada fase da animação
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -39,13 +36,6 @@ interface SceneAnalysis {
   hiddenMeshes: number;
   orphanedGeometries: number;
   orphanedMaterials: number;
-  convoyObjects: Array<{
-    name: string;
-    visible: boolean;
-    position: [number, number, number];
-    scale: [number, number, number];
-    meshCount: number;
-  }>;
 }
 
 export default function MasterDevPanel() {
@@ -132,7 +122,6 @@ export default function MasterDevPanel() {
     let groupCount = 0;
     let visibleMeshes = 0;
     let hiddenMeshes = 0;
-    const convoyObjects: SceneAnalysis['convoyObjects'] = [];
 
     scene.traverse((obj: any) => {
       totalChildren++;
@@ -145,17 +134,6 @@ export default function MasterDevPanel() {
 
       if (obj.isLight) lightCount++;
       if (obj.isGroup) groupCount++;
-
-      // Detectar objetos de comboio
-      if (obj.name?.includes('convoy') || obj.name?.includes('squad') || obj.name?.includes('attack')) {
-        convoyObjects.push({
-          name: obj.name || 'unnamed',
-          visible: obj.visible,
-          position: [obj.position.x, obj.position.y, obj.position.z],
-          scale: [obj.scale.x, obj.scale.y, obj.scale.z],
-          meshCount: obj.isMesh ? 1 : 0,
-        });
-      }
     });
 
     const analysis: SceneAnalysis = {
@@ -167,7 +145,6 @@ export default function MasterDevPanel() {
       hiddenMeshes,
       orphanedGeometries: 0,
       orphanedMaterials: 0,
-      convoyObjects,
     };
 
     setSceneAnalysis(analysis);
@@ -262,7 +239,6 @@ export default function MasterDevPanel() {
         <TabsList className="w-full bg-gray-800 rounded-none border-b border-gray-700">
           <TabsTrigger value="glb" className="text-xs">GLB Logs</TabsTrigger>
           <TabsTrigger value="scene" className="text-xs">Scene</TabsTrigger>
-          <TabsTrigger value="convoy" className="text-xs">Convoy</TabsTrigger>
         </TabsList>
 
         {/* GLB Logs Tab */}
@@ -341,29 +317,6 @@ export default function MasterDevPanel() {
             </div>
           ) : (
             <div className="text-gray-400 text-center py-4">Clique em "Analisar" para começar</div>
-          )}
-        </TabsContent>
-
-        {/* Convoy Objects Tab */}
-        <TabsContent value="convoy" className="flex-1 overflow-y-auto p-2 space-y-2">
-          {sceneAnalysis?.convoyObjects && sceneAnalysis.convoyObjects.length > 0 ? (
-            sceneAnalysis.convoyObjects.map((obj, idx) => (
-              <div
-                key={idx}
-                className={`text-xs p-2 rounded border ${
-                  obj.visible ? 'bg-green-900/30 border-green-600' : 'bg-red-900/30 border-red-600'
-                }`}
-              >
-                <div className="font-mono truncate mb-1">{obj.name}</div>
-                <div className="text-gray-300 space-y-0.5">
-                  <div>Visível: <span className={obj.visible ? 'text-green-300' : 'text-red-300'}>{obj.visible ? 'SIM' : 'NÃO'}</span></div>
-                  <div>Pos: ({obj.position[0].toFixed(2)}, {obj.position[1].toFixed(2)}, {obj.position[2].toFixed(2)})</div>
-                  <div>Scale: ({obj.scale[0].toFixed(2)}, {obj.scale[1].toFixed(2)}, {obj.scale[2].toFixed(2)})</div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-gray-400 text-center py-4">Nenhum objeto de comboio detectado</div>
           )}
         </TabsContent>
       </Tabs>
