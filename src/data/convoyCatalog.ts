@@ -63,6 +63,20 @@ export const CONVOY_CATALOG: ConvoySkin[] = [
     fitTileLength: 3,
     speedBonusPercent: 0,
   },
+  {
+    id: 'comboio_teste_glb',
+    name: 'Comboio de Teste GLB',
+    description: 'Comboio de teste comprado com Commands Sujo para validar loja, posse e animação no ataque.',
+    rarity: 'comum',
+    price: 1000,
+    currency: 'dirtyMoney',
+    modelUrl: 'https://static.wixstatic.com/3d/50f4bf_3d710d145f1b455d9360a59766a17f45.glb',
+    icon: '🚐',
+    accentColor: '#22c55e',
+    modelScale: 1,
+    fitTileLength: 2.8,
+    speedBonusPercent: 0,
+  },
 ];
 
 export const CONVOY_BY_ID = CONVOY_CATALOG.reduce((acc, item) => {
