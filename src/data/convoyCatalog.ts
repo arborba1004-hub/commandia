@@ -4,7 +4,7 @@ export const DEFAULT_CONVOY_SKIN_ID: ConvoySkinId = 'comboio_padrao';
 
 /**
  * Catálogo único dos comboios.
- * Coloque os GLBs reais nos campos modelUrl. Não use GLB de personagem aqui.
+ * Coloque os GLBs reais nos campos modelUrl. O comboio pode ser veículo, humanoide, squad ou objeto.
  */
 export const CONVOY_CATALOG: ConvoySkin[] = [
   {
@@ -80,7 +80,6 @@ export const CONVOY_CATALOG: ConvoySkin[] = [
     groundOffsetY: -0.12,
     materialBoost: 2.4,
   },
-,
   {
     id: 'comboio_real_199_glb',
     name: 'Comboio Real GLB',
@@ -99,7 +98,8 @@ export const CONVOY_CATALOG: ConvoySkin[] = [
     maxModelHeight: 1.35,
     groundOffsetY: -0.12,
     materialBoost: 2.4,
-  },];
+  },
+];
 
 export const CONVOY_BY_ID = CONVOY_CATALOG.reduce((acc, item) => {
   acc[item.id] = item;
