@@ -1,0 +1,47 @@
+/**
+ * types/convoy.ts
+ * Sistema novo de comboio de ataque.
+ * Regra: o ataque só pode usar comboios comprados/liberados pelo jogador.
+ */
+
+export type ConvoySkinId =
+  | 'comboio_padrao'
+  | 'comboio_moto'
+  | 'comboio_blindado'
+  | 'comboio_pesado';
+
+export type ConvoyCurrency = 'cleanMoney' | 'dirtyMoney' | 'corre' | 'realMoney';
+
+export type ConvoySkin = {
+  id: ConvoySkinId;
+  name: string;
+  description: string;
+  rarity: 'gratis' | 'comum' | 'raro' | 'epico' | 'lendario';
+  price: number;
+  currency: ConvoyCurrency;
+  /** URL GLB real do comboio. Se ficar null, usa fallback procedural 3D. */
+  modelUrl: string | null;
+  /** Ícone usado na loja/modal quando não houver preview GLB. */
+  icon: string;
+  /** Cor visual do rastro/halo do comboio. */
+  accentColor: string;
+  /** Multiplicador visual/3D do modelo carregado. */
+  modelScale: number;
+  /** Tamanho alvo aproximado em tiles para normalizar GLBs de tamanhos diferentes. */
+  fitTileLength: number;
+  /** Futuro bônus de velocidade. Backend precisa validar antes de aplicar. */
+  speedBonusPercent: number;
+};
+
+export type PlayerConvoyInventory = {
+  ownedSkinIds: ConvoySkinId[];
+  equippedSkinId: ConvoySkinId;
+};
+
+export type ConvoyApiEnvelope = PlayerConvoyInventory & {
+  player?: unknown;
+};
+
+export type AttackConvoySelection = {
+  convoySkinId: ConvoySkinId;
+};
