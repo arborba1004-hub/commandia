@@ -32,6 +32,12 @@ export type ConvoySkin = {
   fitTileLength: number;
   /** Futuro bônus de velocidade. Backend precisa validar antes de aplicar. */
   speedBonusPercent: number;
+  /** Altura visual máxima alvo do GLB depois da normalização. */
+  maxModelHeight?: number;
+  /** Ajuste fino vertical para encostar melhor no chão. */
+  groundOffsetY?: number;
+  /** Multiplicador leve para clarear materiais muito escuros. */
+  materialBoost?: number;
 };
 
 export type PlayerConvoyInventory = {
