@@ -140,14 +140,27 @@ function createProceduralVehicle(skin: ConvoySkin) {
   return group;
 }
 
-function normalizeModelToFit(model: THREE.Object3D, fitTileLength: number, extraScale: number) {
+function normalizeModelToFit(
+  model: THREE.Object3D,
+  fitTileLength: number,
+  extraScale: number,
+  maxModelHeight = 1.5,
+  groundOffsetY = 0,
+) {
   const box = new THREE.Box3().setFromObject(model);
   const size = new THREE.Vector3();
   box.getSize(size);
 
+  const safeWidth = Math.max(0.2, fitTileLength || 1);
+  const safeHeight = Math.max(0.25, maxModelHeight || 1.5);
   const largestHorizontal = Math.max(size.x || 1, size.z || 1);
-  const scale = (Math.max(0.2, fitTileLength) / largestHorizontal) * Math.max(0.05, extraScale || 1);
-  model.scale.multiplyScalar(scale);
+  const rawScale = (safeWidth / largestHorizontal) * Math.max(0.05, extraScale || 1);
+  const heightAfterRawScale = (size.y || 1) * rawScale;
+  const safeScale = heightAfterRawScale > safeHeight
+    ? (safeHeight / Math.max(0.001, size.y || 1))
+    : rawScale;
+
+  model.scale.multiplyScalar(safeScale);
 
   const normalizedBox = new THREE.Box3().setFromObject(model);
   const center = new THREE.Vector3();
@@ -155,7 +168,7 @@ function normalizeModelToFit(model: THREE.Object3D, fitTileLength: number, extra
   const minY = normalizedBox.min.y;
   model.position.x -= center.x;
   model.position.z -= center.z;
-  model.position.y -= minY;
+  model.position.y -= minY + groundOffsetY;
 }
 
 async function tryLoadGLB(skin: ConvoySkin): Promise<THREE.Object3D | null> {
@@ -165,11 +178,27 @@ async function tryLoadGLB(skin: ConvoySkin): Promise<THREE.Object3D | null> {
     const gltf = await gltfLoader.loadAsync(skin.modelUrl);
     const model = gltf.scene;
     model.name = `convoy-model-${skin.id}`;
-    normalizeModelToFit(model, skin.fitTileLength, skin.modelScale);
+    normalizeModelToFit(model, skin.fitTileLength, skin.modelScale, skin.maxModelHeight ?? 1.5, skin.groundOffsetY ?? 0);
+    const materialBoost = Math.max(1, Number(skin.materialBoost) || 1);
     model.traverse((child: any) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        for (const material of materials) {
+          if (!material) continue;
+          if (typeof material.envMapIntensity === 'number') {
+            material.envMapIntensity = Math.max(material.envMapIntensity, 1.1 * materialBoost);
+          }
+          if (typeof material.emissiveIntensity === 'number') {
+            material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.12 * materialBoost);
+          }
+          if (material.color?.multiplyScalar) {
+            material.color.multiplyScalar(Math.min(1.18, materialBoost));
+          }
+          material.needsUpdate = true;
+        }
       }
     });
     return model;
@@ -195,7 +224,7 @@ export function mountAttackConvoy3D({
   durationMs,
   memberCount = 0,
   label,
-  height = 1.22,
+  height = 1.08,
   initialProgress = 0,
 }: MountAttackConvoy3DParams): MountedAttackConvoy3D {
   const safeRoute = Array.isArray(route) ? route.filter((p) => Number.isFinite(p.tileX) && Number.isFinite(p.tileY)) : [];
