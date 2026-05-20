@@ -185,18 +185,27 @@ async function tryLoadGLB(skin: ConvoySkin): Promise<THREE.Object3D | null> {
         child.castShadow = true;
         child.receiveShadow = true;
 
+        // Mesmo tratamento visual usado nos prédios/CTs do mapa.
         const materials = Array.isArray(child.material) ? child.material : [child.material];
+
         for (const material of materials) {
           if (!material) continue;
-          if (typeof material.envMapIntensity === 'number') {
-            material.envMapIntensity = Math.max(material.envMapIntensity, 1.1 * materialBoost);
+
+          if ('metalness' in material) material.metalness = 0;
+          if ('roughness' in material) material.roughness = 0.8;
+
+          if ('emissive' in material) {
+            material.emissive = new THREE.Color(0x3a220f);
           }
-          if (typeof material.emissiveIntensity === 'number') {
-            material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.12 * materialBoost);
+
+          if ('emissiveIntensity' in material) {
+            material.emissiveIntensity = 0.32;
           }
-          if (material.color?.multiplyScalar) {
-            material.color.multiplyScalar(Math.min(1.18, materialBoost));
+
+          if ('envMapIntensity' in material) {
+            material.envMapIntensity = 1.8;
           }
+
           material.needsUpdate = true;
         }
       }
@@ -245,16 +254,21 @@ export function mountAttackConvoy3D({
   vehicleRoot.add(createProceduralVehicle(skin));
   root.add(vehicleRoot);
 
+  // Luz local do comboio, equivalente à luz forte usada no mapa/CT.
+  const convoyAmbient = new THREE.AmbientLight(0xffffff, 1.8);
+  vehicleRoot.add(convoyAmbient);
+
+  const convoyKeyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+  convoyKeyLight.position.set(8, 20, 10);
+  vehicleRoot.add(convoyKeyLight);
+
+  const convoyFillLight = new THREE.DirectionalLight(0xffe0b0, 2);
+  convoyFillLight.position.set(-15, 10, -10);
+  vehicleRoot.add(convoyFillLight);
+
   const text = label || `${skin.name}${memberCount > 0 ? ` • ${memberCount.toLocaleString('pt-BR')}` : ''}`;
   const labelSprite = createCanvasLabel(text);
   vehicleRoot.add(labelSprite);
-
-  const convoyLight = new THREE.PointLight(0xffffff, 2.6, 8, 1.2);
-  convoyLight.position.set(0, 2.8, 1.8);
-  vehicleRoot.add(convoyLight);
-
-  const convoyFillLight = new THREE.HemisphereLight(0xffffff, 0x222222, 1.4);
-  vehicleRoot.add(convoyFillLight);
 
   if (points[0]) vehicleRoot.position.copy(points[0]);
   if (points[0] && points[1]) setDirection(vehicleRoot, points[0], points[1]);
