@@ -24,6 +24,9 @@ import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { canAttack, type CanAttackResponse } from '@/api/attackApi';
 import { getPlayerCentralTileFromOrigin } from '@/components/game/playerMapSpace';
+import AttackConvoyPicker from '@/components/game/AttackConvoyPicker';
+import { DEFAULT_CONVOY_SKIN_ID } from '@/data/convoyCatalog';
+import { usePlayerConvoyStore } from '@/store/playerConvoyStore';
 import type { GangMemberType } from '@/types/gang';
 
 interface MapTargetActionModalProps {
@@ -129,6 +132,8 @@ export default function MapTargetActionModal({
   const selectedTroops       = useMapAttackStore((state) => state.selectedTroops);
   const updateTroopSelection = useMapAttackStore((state) => state.updateTroopSelection);
   const clearSelectedTroops  = useMapAttackStore((state) => state.clearSelectedTroops);
+  const selectedConvoySkinId = usePlayerConvoyStore((state) => state.selectedSkinId);
+  const ownedConvoySkinIds   = usePlayerConvoyStore((state) => state.ownedSkinIds);
 
   // CUIDADO: Não use useGangStore((s) => s.getAvailableByType()) — essa chamada
   // retorna objeto novo a cada render e causa loop infinito (React error #185).
@@ -228,7 +233,8 @@ export default function MapTargetActionModal({
 
   if (!previewOpen || !previewTarget) return null;
 
-  const canDoAttack = (attackInfo?.canAttack ?? false) && selectedTotal > 0 && !isStartingBattle && !isCheckingAttack;
+  const selectedConvoyOwned = ownedConvoySkinIds.includes(selectedConvoySkinId) || selectedConvoySkinId === DEFAULT_CONVOY_SKIN_ID;
+  const canDoAttack = (attackInfo?.canAttack ?? false) && selectedTotal > 0 && selectedConvoyOwned && !isStartingBattle && !isCheckingAttack;
 
   return (
     <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/60">
@@ -358,6 +364,14 @@ export default function MapTargetActionModal({
                 LIMPAR
               </button>
             </div>
+          </div>
+        )}
+
+        {attackInfo?.canAttack && <AttackConvoyPicker />}
+
+        {attackInfo?.canAttack && !selectedConvoyOwned && (
+          <div className="mb-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+            Escolha um comboio comprado/liberado antes de invadir.
           </div>
         )}
 
