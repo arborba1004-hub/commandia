@@ -59,6 +59,7 @@ export type StartBattleResponse = {
     toTileX: number;
     toTileY: number;
   };
+  routeTiles?: Array<{ tileX: number; tileY: number }>;
   memberCount?: number;
   attackerConvoySkinId?: string;
 };
@@ -282,6 +283,7 @@ export type ActiveBattleResponse = {
     toTileX: number;
     toTileY: number;
   };
+  routeTiles?: Array<{ tileX: number; tileY: number }>;
   origin?: {
     tileX: number;
     tileY: number;
