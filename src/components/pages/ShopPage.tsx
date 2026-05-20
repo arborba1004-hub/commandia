@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Image } from '@/components/ui/image';
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
-import ConvoyAnimationShop from '@/components/ConvoyAnimationShop';
+import ConvoyShop from '@/components/shop/ConvoyShop';
 
 export default function ShopPage() {
   const navigate = useNavigate();
@@ -76,7 +76,7 @@ export default function ShopPage() {
         )}
 
         {activeTab === 'comboio' && (
-          <ConvoyAnimationShop />
+          <ConvoyShop />
         )}
       </div>
     </div>
