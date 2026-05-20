@@ -224,7 +224,7 @@ export function mountAttackConvoy3D({
   durationMs,
   memberCount = 0,
   label,
-  height = 1.08,
+  height = 0,
   initialProgress = 0,
 }: MountAttackConvoy3DParams): MountedAttackConvoy3D {
   const safeRoute = Array.isArray(route) ? route.filter((p) => Number.isFinite(p.tileX) && Number.isFinite(p.tileY)) : [];
@@ -248,6 +248,13 @@ export function mountAttackConvoy3D({
   const text = label || `${skin.name}${memberCount > 0 ? ` • ${memberCount.toLocaleString('pt-BR')}` : ''}`;
   const labelSprite = createCanvasLabel(text);
   vehicleRoot.add(labelSprite);
+
+  const convoyLight = new THREE.PointLight(0xffffff, 2.6, 8, 1.2);
+  convoyLight.position.set(0, 2.8, 1.8);
+  vehicleRoot.add(convoyLight);
+
+  const convoyFillLight = new THREE.HemisphereLight(0xffffff, 0x222222, 1.4);
+  vehicleRoot.add(convoyFillLight);
 
   if (points[0]) vehicleRoot.position.copy(points[0]);
   if (points[0] && points[1]) setDirection(vehicleRoot, points[0], points[1]);
