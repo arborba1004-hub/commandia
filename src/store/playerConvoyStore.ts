@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import { DEFAULT_CONVOY_SKIN_ID, ensureDefaultOwned, isConvoyOwned, normalizeConvoySkinId } from '@/data/convoyCatalog';
 import { equipConvoy, getMyConvoys, purchaseConvoy } from '@/api/convoyApi';
+import { usePlayerStore } from '@/store/playerStore';
 import type { ConvoySkinId } from '@/types/convoy';
+
+function hydratePlayerIfPresent(player: unknown) {
+  if (player && typeof player === 'object') {
+    usePlayerStore.getState().hydratePlayerFromServer(player as any);
+  }
+}
 
 type PlayerConvoyStore = {
   ownedSkinIds: ConvoySkinId[];
@@ -30,6 +37,7 @@ export const usePlayerConvoyStore = create<PlayerConvoyStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const inventory = await getMyConvoys();
+      hydratePlayerIfPresent(inventory.player);
       set({
         ownedSkinIds: ensureDefaultOwned(inventory.ownedSkinIds),
         selectedSkinId: inventory.equippedSkinId,
@@ -59,6 +67,7 @@ export const usePlayerConvoyStore = create<PlayerConvoyStore>((set, get) => ({
     set({ isBuying: true, error: null });
     try {
       const inventory = await purchaseConvoy(normalized);
+      hydratePlayerIfPresent(inventory.player);
       set({
         ownedSkinIds: ensureDefaultOwned(inventory.ownedSkinIds),
         selectedSkinId: inventory.equippedSkinId,
@@ -84,6 +93,7 @@ export const usePlayerConvoyStore = create<PlayerConvoyStore>((set, get) => ({
 
     try {
       const inventory = await equipConvoy(normalized);
+      hydratePlayerIfPresent(inventory.player);
       set({
         ownedSkinIds: ensureDefaultOwned(inventory.ownedSkinIds),
         selectedSkinId: inventory.equippedSkinId,
