@@ -73,9 +73,12 @@ export const CONVOY_CATALOG: ConvoySkin[] = [
     modelUrl: 'https://static.wixstatic.com/3d/50f4bf_3d710d145f1b455d9360a59766a17f45.glb',
     icon: '🚐',
     accentColor: '#22c55e',
-    modelScale: 1,
-    fitTileLength: 2.8,
+    modelScale: 0.42,
+    fitTileLength: 1.15,
     speedBonusPercent: 0,
+    maxModelHeight: 1.35,
+    groundOffsetY: -0.06,
+    materialBoost: 1.45,
   },
 ];
 
