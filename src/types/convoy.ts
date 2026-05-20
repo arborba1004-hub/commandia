@@ -21,8 +21,6 @@ export type ConvoySkin = {
   rarity: 'gratis' | 'comum' | 'raro' | 'epico' | 'lendario';
   price: number;
   currency: ConvoyCurrency;
-  purchaseType?: 'gameMoney' | 'realMoney';
-  realCurrency?: 'BRL';
   /** URL GLB real do comboio. Se ficar null, usa fallback procedural 3D. */
   modelUrl: string | null;
   /** Ícone usado na loja/modal quando não houver preview GLB. */
@@ -35,6 +33,10 @@ export type ConvoySkin = {
   fitTileLength: number;
   /** Futuro bônus de velocidade. Backend precisa validar antes de aplicar. */
   speedBonusPercent: number;
+  /** Define fluxo de compra. realMoney abre Mercado Pago, não /convoys/purchase. */
+  purchaseType?: 'gameCurrency' | 'realMoney';
+  /** Moeda real usada no Mercado Pago. */
+  realCurrency?: 'BRL';
   /** Altura visual máxima alvo do GLB depois da normalização. */
   maxModelHeight?: number;
   /** Ajuste fino vertical para encostar melhor no chão. */
