@@ -18,12 +18,12 @@ import * as THREE from 'three';
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
-import { useGangEstatisticasStore } from '@/store/gangEstatisticasStore';
 import { usePlayerConvoyStore } from '@/store/playerConvoyStore';
 import { canAttack, startBattle, resolveBattle } from '@/api/attackApi';
 import { getPlayerCentralTileFromOrigin } from '@/components/game/playerMapSpace';
 import { getConvoySkin } from '@/data/convoyCatalog';
 import { mountAttackConvoy3D } from '@/components/game/convoy/convoy3DAnimator';
+import { buildShortestTileRoute, getElapsedProgress, normalizeRouteTiles } from '@/utils/attackTravel';
 import type {
   AttackTarget,
   GangAttackSelection,
@@ -75,37 +75,6 @@ export type UseMapAttackReturn = {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-// HELPER: constrói rota de tiles entre dois pontos (Manhattan)
-// ═════════════════════════════════════════════════════════════════════════════
-
-function buildRoute(
-  fromTileX: number, fromTileY: number,
-  toTileX:   number, toTileY:   number,
-  gridWidth: number, gridHeight: number,
-) {
-  let x = Math.max(0, Math.min(gridWidth  - 1, fromTileX));
-  let y = Math.max(0, Math.min(gridHeight - 1, fromTileY));
-  const tx = Math.max(0, Math.min(gridWidth  - 1, toTileX));
-  const ty = Math.max(0, Math.min(gridHeight - 1, toTileY));
-
-  const route: Array<{ tileX: number; tileY: number }> = [{ tileX: x, tileY: y }];
-
-  // Manhattan real: primeiro move no eixo X até chegar em tx
-  while (x !== tx) {
-    x += x < tx ? 1 : -1;
-    route.push({ tileX: x, tileY: y });
-  }
-
-  // Depois move no eixo Y até chegar em ty
-  while (y !== ty) {
-    y += y < ty ? 1 : -1;
-    route.push({ tileX: x, tileY: y });
-  }
-
-  return route;
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
 // HELPER: formata mensagem de bloqueio de ataque
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -119,7 +88,6 @@ function formatBlockedMessage(reason?: string): string {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export function useMapAttack(): UseMapAttackReturn {
-  const { gang }   = useGangStore();
   const { player } = usePlayerStore();
   const store      = useMapAttackStore();
 
@@ -276,7 +244,10 @@ export function useMapAttack(): UseMapAttackReturn {
       const fwdToX   = Number(startResp.route?.toTileX   ?? selectedTarget.tileX);
       const fwdToY   = Number(startResp.route?.toTileY   ?? selectedTarget.tileY);
 
-      const forwardRoute = buildRoute(fwdFromX, fwdFromY, fwdToX, fwdToY, gridWidth, gridHeight);
+      const backendForwardRoute = normalizeRouteTiles((startResp as any).routeTiles, gridWidth, gridHeight);
+      const forwardRoute = backendForwardRoute.length >= 2
+        ? backendForwardRoute
+        : buildShortestTileRoute(fwdFromX, fwdFromY, fwdToX, fwdToY, gridWidth, gridHeight);
       const reverseStub  = [...forwardRoute].reverse();
 
       store.setRoute(forwardRoute, reverseStub);
@@ -286,6 +257,8 @@ export function useMapAttack(): UseMapAttackReturn {
       // Calcular tempo de viagem baseado no backend. A animação 3D usa o comboio escolhido no modal.
       const arriveAtMs = new Date(startResp.arriveAtIso).getTime();
       const waitMs     = Math.max(0, arriveAtMs - Date.now());
+      const totalForwardDurationMs = Math.max(waitMs, Number(startResp.totalDurationMs ?? waitMs) || waitMs);
+      const forwardInitialProgress = getElapsedProgress(startResp.launchedAtIso, totalForwardDurationMs);
 
       const forwardAnimation = mountAttackConvoy3D({
         scene,
@@ -293,7 +266,8 @@ export function useMapAttack(): UseMapAttackReturn {
         gridWidth,
         gridHeight,
         skin: getConvoySkin(startResp.attackerConvoySkinId ?? selectedConvoySkin.id),
-        durationMs: waitMs,
+        durationMs: totalForwardDurationMs,
+        initialProgress: forwardInitialProgress,
         memberCount,
         label: `${selectedConvoySkin.name} • ida`,
       });
@@ -333,7 +307,7 @@ export function useMapAttack(): UseMapAttackReturn {
         Number(currentPlayer?.mapPosition?.tileY ?? player?.mapPosition?.tileY ?? 0),
       );
 
-      const returnRoute = buildRoute(
+      const returnRoute = buildShortestTileRoute(
         fwdToX, fwdToY,
         updatedOrigin.tileX, updatedOrigin.tileY,
         gridWidth, gridHeight,
@@ -343,7 +317,7 @@ export function useMapAttack(): UseMapAttackReturn {
       store.setPhase('returning');
 
       // Animação 3D de retorno com o mesmo comboio comprado/selecionado.
-      const returnDurationMs = Math.max(0, returnRoute.length * Number(startResp.timePerTileMs ?? 0));
+      const returnDurationMs = Math.max(0, Math.max(0, returnRoute.length - 1) * Number(startResp.timePerTileMs ?? 0));
       const returnAnimation = mountAttackConvoy3D({
         scene,
         route: returnRoute,
@@ -351,6 +325,7 @@ export function useMapAttack(): UseMapAttackReturn {
         gridHeight,
         skin: getConvoySkin(startResp.attackerConvoySkinId ?? selectedConvoySkin.id),
         durationMs: returnDurationMs,
+        initialProgress: 0,
         memberCount,
         label: `${selectedConvoySkin.name} • retorno`,
       });
