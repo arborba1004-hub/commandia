@@ -1,0 +1,95 @@
+import type { ConvoySkin, ConvoySkinId } from '@/types/convoy';
+
+export const DEFAULT_CONVOY_SKIN_ID: ConvoySkinId = 'comboio_padrao';
+
+/**
+ * Catálogo único dos comboios.
+ * Coloque os GLBs reais nos campos modelUrl. Não use GLB de personagem aqui.
+ */
+export const CONVOY_CATALOG: ConvoySkin[] = [
+  {
+    id: 'comboio_padrao',
+    name: 'Comboio Padrão',
+    description: 'Comboio inicial. Liberado para todo jogador e usado como fallback seguro.',
+    rarity: 'gratis',
+    price: 0,
+    currency: 'cleanMoney',
+    modelUrl: null,
+    icon: '🚚',
+    accentColor: '#d9b764',
+    modelScale: 1,
+    fitTileLength: 2.2,
+    speedBonusPercent: 0,
+  },
+  {
+    id: 'comboio_moto',
+    name: 'Bonde Rápido',
+    description: 'Comboio leve para ataques visuais mais ágeis. O bônus real depende do backend.',
+    rarity: 'comum',
+    price: 25000,
+    currency: 'cleanMoney',
+    modelUrl: null,
+    icon: '🏍️',
+    accentColor: '#f59e0b',
+    modelScale: 1,
+    fitTileLength: 1.7,
+    speedBonusPercent: 0,
+  },
+  {
+    id: 'comboio_blindado',
+    name: 'Comboio Blindado',
+    description: 'Visual pesado e protegido para invasões de alto impacto.',
+    rarity: 'raro',
+    price: 95000,
+    currency: 'cleanMoney',
+    modelUrl: null,
+    icon: '🛡️',
+    accentColor: '#ef4444',
+    modelScale: 1,
+    fitTileLength: 2.6,
+    speedBonusPercent: 0,
+  },
+  {
+    id: 'comboio_pesado',
+    name: 'Comboio Pesado',
+    description: 'Visual premium para marcha de guerra. Ideal para pacote futuro de loja.',
+    rarity: 'epico',
+    price: 180000,
+    currency: 'cleanMoney',
+    modelUrl: null,
+    icon: '🚛',
+    accentColor: '#a855f7',
+    modelScale: 1,
+    fitTileLength: 3,
+    speedBonusPercent: 0,
+  },
+];
+
+export const CONVOY_BY_ID = CONVOY_CATALOG.reduce((acc, item) => {
+  acc[item.id] = item;
+  return acc;
+}, {} as Record<ConvoySkinId, ConvoySkin>);
+
+export function getConvoySkin(id?: string | null): ConvoySkin {
+  return CONVOY_BY_ID[(id || DEFAULT_CONVOY_SKIN_ID) as ConvoySkinId] ?? CONVOY_BY_ID[DEFAULT_CONVOY_SKIN_ID];
+}
+
+export function normalizeConvoySkinId(id?: string | null): ConvoySkinId {
+  return getConvoySkin(id).id;
+}
+
+export function ensureDefaultOwned(ids: Array<string | null | undefined>): ConvoySkinId[] {
+  const valid = new Set<ConvoySkinId>();
+  valid.add(DEFAULT_CONVOY_SKIN_ID);
+
+  for (const raw of ids || []) {
+    const skin = CONVOY_BY_ID[String(raw) as ConvoySkinId];
+    if (skin) valid.add(skin.id);
+  }
+
+  return Array.from(valid);
+}
+
+export function isConvoyOwned(skinId: ConvoySkinId, ownedSkinIds: ConvoySkinId[]) {
+  return ownedSkinIds.includes(skinId) || skinId === DEFAULT_CONVOY_SKIN_ID;
+}
