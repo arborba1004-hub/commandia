@@ -79,3 +79,26 @@ export async function equipConvoy(skinId: ConvoySkinId): Promise<PlayerConvoyInv
   });
   return normalizeInventory(raw);
 }
+
+
+export type MercadoPagoConvoyCheckout = {
+  purchaseId?: string;
+  preferenceId?: string;
+  checkoutUrl?: string;
+  initPoint?: string;
+  sandboxInitPoint?: string;
+  alreadyOwned?: boolean;
+  owned?: boolean;
+  player?: unknown;
+};
+
+export async function createRealMoneyConvoyCheckout(skinId: ConvoySkinId): Promise<MercadoPagoConvoyCheckout> {
+  return request<MercadoPagoConvoyCheckout>('/payments/checkout/convoy', {
+    method: 'POST',
+    body: JSON.stringify({ skinId }),
+  });
+}
+
+export async function getRealMoneyPurchaseStatus(purchaseId: string): Promise<{ status: string; convoySkinId: string; grantedAt?: string | null }> {
+  return request<{ status: string; convoySkinId: string; grantedAt?: string | null }>(`/payments/purchases/${encodeURIComponent(purchaseId)}`, { method: 'GET' });
+}
