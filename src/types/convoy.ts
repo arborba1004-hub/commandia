@@ -8,7 +8,8 @@ export type ConvoySkinId =
   | 'comboio_padrao'
   | 'comboio_moto'
   | 'comboio_blindado'
-  | 'comboio_pesado';
+  | 'comboio_pesado'
+  | 'comboio_teste_glb';
 
 export type ConvoyCurrency = 'cleanMoney' | 'dirtyMoney' | 'corre' | 'realMoney';
 
@@ -36,6 +37,7 @@ export type ConvoySkin = {
 export type PlayerConvoyInventory = {
   ownedSkinIds: ConvoySkinId[];
   equippedSkinId: ConvoySkinId;
+  player?: unknown;
 };
 
 export type ConvoyApiEnvelope = PlayerConvoyInventory & {
