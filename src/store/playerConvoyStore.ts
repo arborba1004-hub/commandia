@@ -81,7 +81,7 @@ export const usePlayerConvoyStore = create<PlayerConvoyStore>((set, get) => ({
         const checkoutUrl = checkout.checkoutUrl || checkout.sandboxInitPoint || checkout.initPoint;
         if (!checkoutUrl) throw new Error('Mercado Pago não retornou link de pagamento.');
 
-        window.location.href = checkoutUrl;
+        window.location.assign(checkoutUrl);
         return;
       }
 
@@ -93,6 +93,7 @@ export const usePlayerConvoyStore = create<PlayerConvoyStore>((set, get) => ({
         backendSynced: true,
       });
     } catch (err: any) {
+      console.error('[playerConvoyStore] buyConvoy falhou', err);
       set({ error: err?.message ?? 'Não foi possível comprar o comboio' });
       throw err;
     } finally {
