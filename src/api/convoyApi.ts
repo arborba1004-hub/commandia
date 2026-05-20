@@ -55,6 +55,7 @@ function normalizeInventory(raw: any): PlayerConvoyInventory {
   return {
     ownedSkinIds,
     equippedSkinId: ownedSkinIds.includes(equipped) ? equipped : DEFAULT_CONVOY_SKIN_ID,
+    player: raw?.player,
   };
 }
 
