@@ -77,8 +77,8 @@ export const CONVOY_CATALOG: ConvoySkin[] = [
     fitTileLength: 1.15,
     speedBonusPercent: 0,
     maxModelHeight: 1.35,
-    groundOffsetY: -0.06,
-    materialBoost: 1.45,
+    groundOffsetY: -0.12,
+    materialBoost: 2.4,
   },
 ];
 
