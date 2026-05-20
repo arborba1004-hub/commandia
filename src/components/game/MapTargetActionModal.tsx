@@ -13,7 +13,7 @@
  *
  * Princípios:
  *  - Nenhum stat do defensor exposto além do nome (estilo "scout cego" do Mafia City)
- *  - Rota Manhattan calculada localmente apenas para *exibição* de distância/tempo
+ *  - Rota diagonal/vertical/horizontal calculada localmente apenas para *exibição* de distância/tempo
  *    (o cálculo autoritativo continua sendo do backend ao chamar /battle/start)
  */
 
@@ -26,6 +26,7 @@ import { canAttack, type CanAttackResponse } from '@/api/attackApi';
 import { getPlayerCentralTileFromOrigin } from '@/components/game/playerMapSpace';
 import AttackConvoyPicker from '@/components/game/AttackConvoyPicker';
 import { DEFAULT_CONVOY_SKIN_ID } from '@/data/convoyCatalog';
+import { getAttackTravelMetrics } from '@/utils/attackTravel';
 import { usePlayerConvoyStore } from '@/store/playerConvoyStore';
 import type { GangMemberType } from '@/types/gang';
 
@@ -47,27 +48,6 @@ const TROOP_ORDER: Array<{ type: GangMemberType; label: string }> = [
 ];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-
-/** Distância Manhattan (fiel a Mafia City: dx + dy, sem diagonais) */
-function manhattanDistance(
-  fromX: number, fromY: number,
-  toX: number,   toY: number,
-): number {
-  return Math.abs(toX - fromX) + Math.abs(toY - fromY);
-}
-
-/**
- * Tempo por tile, fiel ao cálculo do backend (resolveAttack.js):
- *   timePerTileMs = 5000 / (1 + 0.05 × (barraco − 1))
- *   timePerTileMs *= (1 − velocityBonus) — futuros pacotes
- */
-function timePerTileMs(barracoLevel: number, velocityBonus = 0): number {
-  const safeLevel = Math.max(1, Math.floor(barracoLevel));
-  const safeBonus = Math.max(0, Math.min(0.9, velocityBonus));
-  const levelFactor = 1 + 0.05 * (safeLevel - 1);
-  const baseSpeed = 5000 / levelFactor;
-  return Math.max(50, Math.floor(baseSpeed * (1 - safeBonus)));
-}
 
 /** Formata duração em ms para mm:ss ou h:mm */
 function formatDuration(ms: number): string {
@@ -198,7 +178,7 @@ export default function MapTargetActionModal({
     return () => { canceled = true; };
   }, [previewOpen, previewTarget?.playerId]);
 
-  // ── Cálculo de viagem (Manhattan + curva do barraco) ─────────────────────
+  // ── Cálculo de viagem (menor rota: diagonal/vertical/horizontal + curva do barraco) ──
   const travel = useMemo(() => {
     if (!previewTarget || !player?.mapPosition) return null;
     const originCenter = getPlayerCentralTileFromOrigin(
@@ -210,14 +190,21 @@ export default function MapTargetActionModal({
     const fromY = originCenter.tileY;
     const toX   = Number(previewTarget.tileX || 0);
     const toY   = Number(previewTarget.tileY || 0);
-    const tiles = manhattanDistance(fromX, fromY, toX, toY);
     const barraco = Number(player.niveis?.barracoLevel || 1);
     const velocityBonus = Number((player as any).combatModifiers?.velocityBonus || 0);
-    const perTile = timePerTileMs(barraco, velocityBonus);
+    const metrics = getAttackTravelMetrics({
+      fromTileX: fromX,
+      fromTileY: fromY,
+      toTileX: toX,
+      toTileY: toY,
+      barracoLevel: barraco,
+      velocityBonus,
+    });
+
     return {
-      tiles,
-      perTileMs: perTile,
-      totalMs:   tiles * perTile,
+      tiles: metrics.distanceTiles,
+      perTileMs: metrics.timePerTileMs,
+      totalMs: metrics.totalDurationMs,
     };
   }, [previewTarget, player?.mapPosition?.tileX, player?.mapPosition?.tileY, player?.niveis?.barracoLevel]);
 
