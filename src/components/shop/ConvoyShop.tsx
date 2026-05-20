@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Check, Lock, ShoppingCart } from 'lucide-react';
+import { Check, Cuboid, Lock, RefreshCcw, ShoppingCart } from 'lucide-react';
 import { CONVOY_CATALOG } from '@/data/convoyCatalog';
 import { usePlayerConvoyStore } from '@/store/playerConvoyStore';
 import type { ConvoySkin } from '@/types/convoy';
@@ -24,6 +24,13 @@ function rarityLabel(rarity: ConvoySkin['rarity']) {
   return labels[rarity];
 }
 
+function actionLabel(owned: boolean, equipped: boolean, canBuy: boolean) {
+  if (equipped) return 'EQUIPADO';
+  if (owned) return 'USAR NO ATAQUE';
+  if (canBuy) return 'COMPRAR';
+  return 'BLOQUEADO';
+}
+
 export default function ConvoyShop() {
   const ownedSkinIds = usePlayerConvoyStore((s) => s.ownedSkinIds);
   const selectedSkinId = usePlayerConvoyStore((s) => s.selectedSkinId);
@@ -44,13 +51,30 @@ export default function ConvoyShop() {
       <div className="text-center">
         <h2 className="font-heading text-3xl font-black text-[#d9b764]">COMBOIOS DE ATAQUE</h2>
         <p className="mx-auto mt-2 max-w-2xl text-sm text-white/60">
-          Compre comboios aqui. Na hora de montar a marcha do ataque, o jogador só poderá escolher os comboios comprados.
+          Compre o comboio aqui. Na seleção de gangue do ataque só aparecem os comboios comprados/liberados.
         </p>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/70 md:flex-row md:items-center md:justify-between">
+        <div>
+          Selecionado para ataque:{' '}
+          <span className="font-black text-[#d9b764]">
+            {CONVOY_CATALOG.find((item) => item.id === selectedSkinId)?.name || 'Comboio Padrão'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => { void loadMyConvoys(); }}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-bold text-white hover:bg-white/10"
+        >
+          <RefreshCcw className="h-4 w-4" />
+          Recarregar posse
+        </button>
       </div>
 
       {!backendSynced && (
         <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-100">
-          As rotas do backend de comboio ainda não responderam. A loja mostra o catálogo, mas compra/equipamento real precisam do backend.
+          Backend de comboio ainda não respondeu. Compra/equipamento reais dependem das rotas /convoys.
         </div>
       )}
 
@@ -65,6 +89,7 @@ export default function ConvoyShop() {
           const owned = ownedSkinIds.includes(skin.id);
           const equipped = selectedSkinId === skin.id;
           const canBuy = !owned && skin.price > 0;
+          const hasModel = Boolean(skin.modelUrl);
 
           return (
             <div
@@ -81,11 +106,13 @@ export default function ConvoyShop() {
               />
 
               <div className="mb-5 flex h-40 items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/80">
-                <div
-                  className="flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-black/70 text-6xl"
-                  style={{ boxShadow: `0 0 30px ${skin.accentColor}44` }}
-                >
+                <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-black/70 text-6xl" style={{ boxShadow: `0 0 30px ${skin.accentColor}44` }}>
                   {skin.icon}
+                  {hasModel && (
+                    <span className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2 py-1 text-[10px] font-black text-emerald-200">
+                      <Cuboid className="h-3 w-3" /> GLB
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -97,6 +124,12 @@ export default function ConvoyShop() {
               </div>
 
               <p className="min-h-[56px] text-sm text-white/55">{skin.description}</p>
+
+              {skin.modelUrl && (
+                <div className="mt-3 break-all rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2 text-[10px] text-emerald-100/80">
+                  Modelo 3D ativo no ataque
+                </div>
+              )}
 
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-sm">
                 <div className="text-white/40">Preço</div>
@@ -119,7 +152,7 @@ export default function ConvoyShop() {
                 }`}
               >
                 {equipped ? <Check className="h-4 w-4" /> : owned ? <Check className="h-4 w-4" /> : canBuy ? <ShoppingCart className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                {equipped ? 'EQUIPADO' : owned ? 'USAR NO ATAQUE' : canBuy ? 'COMPRAR' : 'BLOQUEADO'}
+                {isBuying && canBuy ? 'COMPRANDO...' : actionLabel(owned, equipped, canBuy)}
               </button>
             </div>
           );
