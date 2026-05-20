@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { DEFAULT_CONVOY_SKIN_ID, ensureDefaultOwned, isConvoyOwned, normalizeConvoySkinId } from '@/data/convoyCatalog';
-import { equipConvoy, getMyConvoys, purchaseConvoy } from '@/api/convoyApi';
+import { DEFAULT_CONVOY_SKIN_ID, ensureDefaultOwned, getConvoySkin, isConvoyOwned, normalizeConvoySkinId } from '@/data/convoyCatalog';
+import { createRealMoneyConvoyCheckout, equipConvoy, getMyConvoys, purchaseConvoy } from '@/api/convoyApi';
 import { usePlayerStore } from '@/store/playerStore';
 import type { ConvoySkinId } from '@/types/convoy';
 
@@ -66,6 +66,25 @@ export const usePlayerConvoyStore = create<PlayerConvoyStore>((set, get) => ({
 
     set({ isBuying: true, error: null });
     try {
+      const skin = getConvoySkin(normalized);
+
+      if (skin.currency === 'realMoney' || skin.purchaseType === 'realMoney') {
+        const checkout = await createRealMoneyConvoyCheckout(normalized);
+
+        hydratePlayerIfPresent(checkout.player);
+
+        if (checkout.alreadyOwned || checkout.owned) {
+          await get().loadMyConvoys();
+          return;
+        }
+
+        const checkoutUrl = checkout.checkoutUrl || checkout.sandboxInitPoint || checkout.initPoint;
+        if (!checkoutUrl) throw new Error('Mercado Pago não retornou link de pagamento.');
+
+        window.location.assign(checkoutUrl);
+        return;
+      }
+
       const inventory = await purchaseConvoy(normalized);
       hydratePlayerIfPresent(inventory.player);
       set({
