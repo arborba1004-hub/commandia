@@ -81,7 +81,7 @@ export const usePlayerConvoyStore = create<PlayerConvoyStore>((set, get) => ({
         const checkoutUrl = checkout.checkoutUrl || checkout.sandboxInitPoint || checkout.initPoint;
         if (!checkoutUrl) throw new Error('Mercado Pago não retornou link de pagamento.');
 
-        window.location.assign(checkoutUrl);
+        window.location.href = checkoutUrl;
         return;
       }
 
