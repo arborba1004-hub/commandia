@@ -10,6 +10,9 @@ function formatCurrency(price: number, currency: ConvoySkin['currency']) {
   if (currency === 'cleanMoney') return `${value} Commands Limpo`;
   if (currency === 'dirtyMoney') return `${value} Commands Sujo`;
   if (currency === 'corre') return `${value} Corre`;
+  if (currency === 'realMoney') {
+    return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
   return 'Pacote real';
 }
 
@@ -31,6 +34,16 @@ function actionLabel(owned: boolean, equipped: boolean, canBuy: boolean) {
   return 'BLOQUEADO';
 }
 
+function paymentStatusMessage() {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get('payment');
+  if (status === 'success') return 'Pagamento aprovado ou em processamento. Se o comboio ainda não aparecer, toque em Recarregar posse em alguns segundos.';
+  if (status === 'pending') return 'Pagamento pendente. O comboio será liberado automaticamente quando o Mercado Pago aprovar.';
+  if (status === 'failure') return 'Pagamento não aprovado. Nenhum comboio foi liberado.';
+  return null;
+}
+
 export default function ConvoyShop() {
   const ownedSkinIds = usePlayerConvoyStore((s) => s.ownedSkinIds);
   const selectedSkinId = usePlayerConvoyStore((s) => s.selectedSkinId);
@@ -41,6 +54,7 @@ export default function ConvoyShop() {
   const loadMyConvoys = usePlayerConvoyStore((s) => s.loadMyConvoys);
   const buyConvoy = usePlayerConvoyStore((s) => s.buyConvoy);
   const selectConvoy = usePlayerConvoyStore((s) => s.selectConvoy);
+  const paymentMessage = paymentStatusMessage();
 
   useEffect(() => {
     void loadMyConvoys();
@@ -75,6 +89,12 @@ export default function ConvoyShop() {
       {!backendSynced && (
         <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-100">
           Backend de comboio ainda não respondeu. Compra/equipamento reais dependem das rotas /convoys.
+        </div>
+      )}
+
+      {paymentMessage && (
+        <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-sm text-cyan-100">
+          {paymentMessage}
         </div>
       )}
 
@@ -152,7 +172,7 @@ export default function ConvoyShop() {
                 }`}
               >
                 {equipped ? <Check className="h-4 w-4" /> : owned ? <Check className="h-4 w-4" /> : canBuy ? <ShoppingCart className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                {isBuying && canBuy ? 'COMPRANDO...' : actionLabel(owned, equipped, canBuy)}
+                {isBuying && canBuy ? (skin.currency === 'realMoney' ? 'ABRINDO CHECKOUT...' : 'COMPRANDO...') : actionLabel(owned, equipped, canBuy)}
               </button>
             </div>
           );
