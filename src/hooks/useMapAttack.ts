@@ -19,8 +19,11 @@ import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { useGangEstatisticasStore } from '@/store/gangEstatisticasStore';
+import { usePlayerConvoyStore } from '@/store/playerConvoyStore';
 import { canAttack, startBattle, resolveBattle } from '@/api/attackApi';
 import { getPlayerCentralTileFromOrigin } from '@/components/game/playerMapSpace';
+import { getConvoySkin } from '@/data/convoyCatalog';
+import { mountAttackConvoy3D } from '@/components/game/convoy/convoy3DAnimator';
 import type {
   AttackTarget,
   GangAttackSelection,
@@ -250,6 +253,9 @@ export function useMapAttack(): UseMapAttackReturn {
 
     const originTileX = originCenter.tileX;
     const originTileY = originCenter.tileY;
+    const selectedConvoySkinId = usePlayerConvoyStore.getState().selectedSkinId;
+    const selectedConvoySkin = getConvoySkin(selectedConvoySkinId);
+    const memberCount = Object.values(selection || {}).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
 
     try {
       // ── Registrar batalha no backend ────────────────────────────────────
@@ -261,6 +267,7 @@ export function useMapAttack(): UseMapAttackReturn {
         originTileX,
         originTileY,
         selection,
+        convoySkinId: selectedConvoySkin.id,
       });
 
       // Rota de tiles para a animação de ida (já com tiles centralizados)
@@ -276,12 +283,27 @@ export function useMapAttack(): UseMapAttackReturn {
       store.setPhase('moving');
       store.closePreview();   // fecha o MapTargetActionModal (mantém o ataque em curso)
 
-      // Calcular tempo de espera baseado em arriveAtIso
+      // Calcular tempo de viagem baseado no backend. A animação 3D usa o comboio escolhido no modal.
       const arriveAtMs = new Date(startResp.arriveAtIso).getTime();
       const waitMs     = Math.max(0, arriveAtMs - Date.now());
 
-      // Aguardar até o tempo de chegada calculado
+      const forwardAnimation = mountAttackConvoy3D({
+        scene,
+        route: forwardRoute,
+        gridWidth,
+        gridHeight,
+        skin: getConvoySkin(startResp.attackerConvoySkinId ?? selectedConvoySkin.id),
+        durationMs: waitMs,
+        memberCount,
+        label: `${selectedConvoySkin.name} • ida`,
+      });
+
+      void forwardAnimation.start().catch((err) => {
+        console.warn('[useMapAttack] Falha na animação 3D de ida:', err);
+      });
+
       await new Promise<void>((res) => setTimeout(res, waitMs));
+      forwardAnimation.cleanup();
       store.setPhase('arriving');
 
       // ── Resolver no backend ─────────────────────────────────────────────
@@ -320,9 +342,25 @@ export function useMapAttack(): UseMapAttackReturn {
       store.setRoute(forwardRoute, returnRoute);
       store.setPhase('returning');
 
-      // Simulate return journey time
-      const returnDurationMs = returnRoute.length * startResp.timePerTileMs;
+      // Animação 3D de retorno com o mesmo comboio comprado/selecionado.
+      const returnDurationMs = Math.max(0, returnRoute.length * Number(startResp.timePerTileMs ?? 0));
+      const returnAnimation = mountAttackConvoy3D({
+        scene,
+        route: returnRoute,
+        gridWidth,
+        gridHeight,
+        skin: getConvoySkin(startResp.attackerConvoySkinId ?? selectedConvoySkin.id),
+        durationMs: returnDurationMs,
+        memberCount,
+        label: `${selectedConvoySkin.name} • retorno`,
+      });
+
+      void returnAnimation.start().catch((err) => {
+        console.warn('[useMapAttack] Falha na animação 3D de retorno:', err);
+      });
+
       await new Promise<void>((res) => setTimeout(res, returnDurationMs));
+      returnAnimation.cleanup();
 
       // ── Finalização ────────────────────────────────────────────────────
       store.setPhase('finished');
