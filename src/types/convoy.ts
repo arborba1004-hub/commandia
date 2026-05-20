@@ -9,7 +9,8 @@ export type ConvoySkinId =
   | 'comboio_moto'
   | 'comboio_blindado'
   | 'comboio_pesado'
-  | 'comboio_teste_glb';
+  | 'comboio_teste_glb'
+  | 'comboio_real_199_glb';
 
 export type ConvoyCurrency = 'cleanMoney' | 'dirtyMoney' | 'corre' | 'realMoney';
 
@@ -20,6 +21,8 @@ export type ConvoySkin = {
   rarity: 'gratis' | 'comum' | 'raro' | 'epico' | 'lendario';
   price: number;
   currency: ConvoyCurrency;
+  purchaseType?: 'gameMoney' | 'realMoney';
+  realCurrency?: 'BRL';
   /** URL GLB real do comboio. Se ficar null, usa fallback procedural 3D. */
   modelUrl: string | null;
   /** Ícone usado na loja/modal quando não houver preview GLB. */
