@@ -16,6 +16,8 @@ export type MountAttackConvoy3DParams = {
   memberCount?: number;
   label?: string;
   height?: number;
+  /** Progresso inicial de 0 a 1 para animar eventos recebidos atrasados via socket. */
+  initialProgress?: number;
 };
 
 export type MountedAttackConvoy3D = {
@@ -194,6 +196,7 @@ export function mountAttackConvoy3D({
   memberCount = 0,
   label,
   height = 1.22,
+  initialProgress = 0,
 }: MountAttackConvoy3DParams): MountedAttackConvoy3D {
   const safeRoute = Array.isArray(route) ? route.filter((p) => Number.isFinite(p.tileX) && Number.isFinite(p.tileY)) : [];
   const points = routeToWorldPoints(safeRoute, gridWidth, gridHeight, height);
@@ -260,9 +263,10 @@ export function mountAttackConvoy3D({
 
     const totalDurationMs = Math.max(1, durationMs);
     const segmentCount = points.length - 1;
+    const safeInitialProgress = Math.max(0, Math.min(0.999, Number(initialProgress) || 0));
 
     await new Promise<void>((resolve) => {
-      const startedAt = performance.now();
+      const startedAt = performance.now() - totalDurationMs * safeInitialProgress;
 
       function animate(now: number) {
         if (cancelled) {
