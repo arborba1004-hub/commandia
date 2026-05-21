@@ -100,8 +100,8 @@ export function useGoogleAuth() {
       return;
     }
 
-    console.log('🔵 useGoogleAuth: Token encontrado, conectando socket...');
-    reconnectSocket();
+    console.log('🔵 useGoogleAuth: Token encontrado, disparando evento de autenticação...');
+    window.dispatchEvent(new Event('authTokenChanged'));
 
     setAuthState({ authToken: token, playerData: null, isLoading: false, loadingMessage: null, error: null });
     console.log('🟢 useGoogleAuth: Sessão restaurada');
@@ -182,8 +182,8 @@ export function useGoogleAuth() {
         writeStorage('authToken', data.token);
         console.log('🔵 useGoogleAuth: Token salvo');
 
-        reconnectSocket();
-        console.log('🔵 useGoogleAuth: Socket reconectado');
+        window.dispatchEvent(new Event('authTokenChanged'));
+        console.log('🔵 useGoogleAuth: Evento de autenticação disparado');
 
         setAuthState({
           authToken:      data.token,
