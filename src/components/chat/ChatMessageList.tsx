@@ -17,6 +17,9 @@ interface ChatMessageListProps {
 const HELP_ICON_URL =
   'https://static.wixstatic.com/media/50f4bf_f469fff24bd3478eae136dd027c0106b~mv2.png';
 
+const AZIDEIA_ICON_URL =
+  'https://static.wixstatic.com/media/50f4bf_ce2c97a1cf324091851178166ed02d29~mv2.png';
+
 function formatTime(value: string) {
   try {
     return new Date(value).toLocaleTimeString('pt-BR', {
@@ -180,6 +183,41 @@ const FactionHelpCard = memo(({
   );
 });
 
+
+// ── Cartão Azidéia no chat da facção ───────────────────────────────────────────
+const AzideiaRewardCard = memo(({ message }: { message: ChatMessage }) => {
+  const totalMembers = Number(message.metadata?.memberCount ?? 0);
+  const killerName = String(message.metadata?.killerName || message.senderName || 'Jogador');
+
+  const openRewards = () => {
+    window.dispatchEvent(new CustomEvent('openAzideiaRewards'));
+  };
+
+  return (
+    <div className="rounded-2xl border border-red-500/30 bg-black/60 p-4">
+      <div className="flex items-center gap-3">
+        <Image src={AZIDEIA_ICON_URL} alt="Azidéia" className="h-16 w-16 object-contain shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black uppercase tracking-wide text-red-200">Azidéia</p>
+          <p className="mt-0.5 text-sm text-white">
+            {killerName} eliminou um X9. A facção recebeu aceleradores para coletar.
+          </p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Recompensa: +1 acelerador de comboio por membro{totalMembers > 0 ? ` • ${totalMembers} membros` : ''}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openRewards}
+          className="shrink-0 rounded-xl bg-red-600 px-3 py-2 text-xs font-black uppercase text-white"
+        >
+          Coletar
+        </button>
+      </div>
+    </div>
+  );
+});
+
 // ── Mensagem estilo WhatsApp (complexo / facção) ───────────────────────────────
 const GroupMessageItem = memo(({
   message, currentUserId, factionHelpRequests, onHelpFactionRequest, isHelpingRequest,
@@ -191,6 +229,10 @@ const GroupMessageItem = memo(({
   isHelpingRequest?: boolean;
 }) => {
   const isMine = String(message.senderId) === String(currentUserId);
+
+  if (message.messageType === 'azideia_reward') {
+    return <AzideiaRewardCard message={message} />;
+  }
 
   if (message.messageType === 'faction_help_request') {
     const req = factionHelpRequests.find(
