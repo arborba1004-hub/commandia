@@ -179,6 +179,8 @@ async function tryLoadGLB(skin: ConvoySkin): Promise<THREE.Object3D | null> {
     const model = gltf.scene;
     model.name = `convoy-model-${skin.id}`;
     normalizeModelToFit(model, skin.fitTileLength, skin.modelScale, skin.maxModelHeight ?? 1.5, skin.groundOffsetY ?? 0);
+    const visualScaleMultiplier = Math.max(0.1, Number(skin.visualScaleMultiplier) || 1);
+    model.scale.multiplyScalar(visualScaleMultiplier);
     const materialBoost = Math.max(1, Number(skin.materialBoost) || 1);
     model.traverse((child: any) => {
       if (child.isMesh) {
