@@ -29,12 +29,17 @@ import MapTargetActionModal      from '@/components/game/MapTargetActionModal';
 import AttackResultOverlay        from '@/components/game/AttackResultOverlay';
 import ConvoyAttackAnimation      from '@/components/game/ConvoyAttackAnimation';
 import AttackIncomingToast        from '@/components/game/AttackIncomingToast';
-import MapConvoyAcceleratorButton from '@/components/game/MapConvoyAcceleratorButton';
 import { useMapAttack }           from '@/hooks/useMapAttack';
 import { useMapAttackStore }      from '@/store/mapAttackStore';
 import { useActiveMapBattles }    from '@/hooks/useActiveMapBattles';
 import { useRemoteSquadAnimations } from '@/hooks/useRemoteSquadAnimations';
 import { Image } from '@/components/ui/image';
+import AzideiaAttackModal from '@/components/game/AzideiaAttackModal';
+import { mountAzideiaX9Layer, type MountedAzideiaX9Layer } from '@/components/game/azideiaX9Layer';
+import { attackAzideiaX9 } from '@/api/azideiaApi';
+import type { AzideiaX9Target } from '@/types/azideia';
+import { mountAttackConvoy3D } from '@/components/game/convoy/convoy3DAnimator';
+import { getConvoySkin } from '@/data/convoyCatalog';
 
 const GRID_WIDTH      = 120;
 const GRID_HEIGHT     = 120;
@@ -80,6 +85,8 @@ export default function GamePage() {
   const playerLevel = player?.niveis?.barracoLevel ?? 0;
 
   const playerMapSpaceRef = useRef<any>(null);
+  const azideiaLayerRef = useRef<MountedAzideiaX9Layer | null>(null);
+  const [azideiaTarget, setAzideiaTarget] = useState<AzideiaX9Target | null>(null);
 
   // ── Refs do three.js (compartilhados com o sistema de ataque) ──────────
   // Preenchidos dentro do useEffect THREE.js. Necessários para animação 3D
@@ -229,6 +236,38 @@ export default function GamePage() {
     );
   }, [mapAttack]);
 
+  const handleConfirmAzideia = useCallback(async (target: AzideiaX9Target) => {
+    const result = await attackAzideiaX9(target.id);
+
+    if (result.player) {
+      usePlayerStore.getState().hydratePlayerFromServer(result.player as any);
+    }
+
+    setAzideiaTarget(null);
+    azideiaLayerRef.current?.removeTarget(target.id);
+    void azideiaLayerRef.current?.refresh();
+
+    const scene = sceneRef.current;
+    if (scene && Array.isArray(result.routeTiles) && result.routeTiles.length > 1) {
+      const currentPlayer = usePlayerStore.getState().player as any;
+      const equippedSkinId = currentPlayer?.convoys?.equippedSkinId ?? 'comboio_padrao';
+      const skin = getConvoySkin(equippedSkinId);
+      const mounted = mountAttackConvoy3D({
+        scene,
+        route: result.routeTiles,
+        gridWidth: GRID_WIDTH,
+        gridHeight: GRID_HEIGHT,
+        skin,
+        durationMs: Math.max(1200, Number(result.travelDurationMs || 2500)),
+        memberCount: 0,
+        label: 'Azidéia',
+      });
+      void mounted.start().finally(() => mounted.cleanup());
+    }
+
+    return result;
+  }, []);
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   // EFEITO THREE.JS
@@ -360,6 +399,19 @@ export default function GamePage() {
       occupiedOrigins,
     });
     playerMapSpaceRef.current = playerMapSpace;
+
+    const azideiaLayer = mountAzideiaX9Layer({
+      scene,
+      loader,
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      tileSize: TILE_SIZE,
+      onTargetClick: (target) => {
+        setAzideiaTarget(target);
+      },
+    });
+    azideiaLayerRef.current = azideiaLayer;
+    void azideiaLayer.start();
 
     controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
     camera.position.set(playerMapSpace.worldX + 12, 10, playerMapSpace.worldZ + 12);
@@ -565,6 +617,10 @@ export default function GamePage() {
       mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
 
+      if (azideiaLayer.tryHandleClick(raycaster)) {
+        return;
+      }
+
       // Próprio barraco → /barraco
       const ownHits = raycaster.intersectObjects(
         playerMapSpaceRef.current?.modelContainer?.children || [], true
@@ -732,6 +788,8 @@ export default function GamePage() {
       controls.dispose();
       realtimePlayersLayer.cleanup();
       fixedBuildingsLayer.cleanup();
+      azideiaLayer.cleanup();
+      if (azideiaLayerRef.current === azideiaLayer) azideiaLayerRef.current = null;
       playerMapSpaceRef.current?.cleanup();
 
       platformGeometry.dispose();
@@ -818,22 +876,6 @@ export default function GamePage() {
         </div>
       </div>
 
-      <MapConvoyAcceleratorButton
-        camera={threeReady ? cameraRef.current : null}
-        player={player as any}
-        gridWidth={GRID_WIDTH}
-        gridHeight={GRID_HEIGHT}
-        battleId={mapAttack.activeBattleId}
-        phase={mapAttack.activeAttackPhase}
-        isAccelerating={mapAttack.isAccelerating}
-        onAccelerate={() => {
-          const scene = sceneRef.current;
-          const camera = cameraRef.current;
-          if (!scene || !camera) return;
-          void mapAttack.accelerateActiveAttack(scene, camera, GRID_WIDTH, GRID_HEIGHT);
-        }}
-      />
-
       {/* ── HUD INFERIOR DIREITO — ícones de chat ─────────────────────── */}
       <div className="absolute bottom-8 right-4 z-10 flex flex-col gap-4 pointer-events-auto">
 
@@ -887,6 +929,12 @@ export default function GamePage() {
       <AttackResultOverlay />
       <ConvoyAttackAnimation />
       <AttackIncomingToast />
+
+      <AzideiaAttackModal
+        target={azideiaTarget}
+        onClose={() => setAzideiaTarget(null)}
+        onConfirm={handleConfirmAzideia}
+      />
 
       <DirectMessageModal
         isOpen={dmModalOpen}

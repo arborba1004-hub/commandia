@@ -11,6 +11,7 @@ import type { ChatMessage } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import AzideiaRewardsModal from '@/components/chat/AzideiaRewardsModal';
 
 interface ExtendedPlayer {
   _id?: string;
@@ -296,6 +297,7 @@ export default function ChatPage() {
   const helpFactionRequest       = useChatStore((s) => s.helpFactionRequest);
 
   const [hasBootstrapped, setHasBootstrapped] = useState(false);
+  const [azideiaRewardsOpen, setAzideiaRewardsOpen] = useState(false);
 
   // ── Conversa selecionada no correio ─────────────────────────────────────
   const [selectedPartnerId,   setSelectedPartnerId]   = useState<string | null>(null);
@@ -348,6 +350,12 @@ export default function ChatPage() {
       void fetchFactionHelpRequests(true);
     }
   }, [activeChannel, hasBootstrapped, player?.factionId]);
+
+  useEffect(() => {
+    const handler = () => setAzideiaRewardsOpen(true);
+    window.addEventListener('openAzideiaRewards', handler as EventListener);
+    return () => window.removeEventListener('openAzideiaRewards', handler as EventListener);
+  }, []);
 
   // ── Conversas agrupadas ──────────────────────────────────────────────────
   const conversations = useMemo(
@@ -443,6 +451,7 @@ export default function ChatPage() {
             onMarkRead={handleMarkRead}
           />
         </div>
+        <AzideiaRewardsModal open={azideiaRewardsOpen} onClose={() => setAzideiaRewardsOpen(false)} />
       </div>
     );
   }
@@ -540,6 +549,7 @@ export default function ChatPage() {
         )}
       </main>
 
+      <AzideiaRewardsModal open={azideiaRewardsOpen} onClose={() => setAzideiaRewardsOpen(false)} />
       <Footer />
     </div>
   );
