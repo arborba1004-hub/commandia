@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Check, Cuboid, Lock, RefreshCcw, ShoppingCart } from 'lucide-react';
 import { CONVOY_CATALOG } from '@/data/convoyCatalog';
 import { usePlayerConvoyStore } from '@/store/playerConvoyStore';
-import type { ConvoySkin, ConvoySkinId } from '@/types/convoy';
+import type { ConvoySkin } from '@/types/convoy';
+import ConvoyPaymentModal from '@/components/payments/ConvoyPaymentModal';
 
 function formatCurrency(price: number, currency: ConvoySkin['currency']) {
   if (price <= 0) return 'GRÁTIS';
@@ -45,6 +46,7 @@ function paymentStatusMessage() {
 }
 
 export default function ConvoyShop() {
+  const [paymentSkin, setPaymentSkin] = useState<ConvoySkin | null>(null);
   const ownedSkinIds = usePlayerConvoyStore((s) => s.ownedSkinIds);
   const selectedSkinId = usePlayerConvoyStore((s) => s.selectedSkinId);
   const isLoading = usePlayerConvoyStore((s) => s.isLoading);
@@ -55,30 +57,6 @@ export default function ConvoyShop() {
   const buyConvoy = usePlayerConvoyStore((s) => s.buyConvoy);
   const selectConvoy = usePlayerConvoyStore((s) => s.selectConvoy);
   const paymentMessage = paymentStatusMessage();
-  const [buyingSkinId, setBuyingSkinId] = useState<ConvoySkinId | null>(null);
-  const [clickError, setClickError] = useState<string | null>(null);
-
-  async function handleSkinAction(skin: ConvoySkin, owned: boolean, canBuy: boolean) {
-    setClickError(null);
-
-    try {
-      if (owned) {
-        await selectConvoy(skin.id);
-        return;
-      }
-
-      if (!canBuy) return;
-
-      setBuyingSkinId(skin.id);
-      await buyConvoy(skin.id);
-    } catch (err: any) {
-      const message = err?.message || 'Não foi possível iniciar a compra do comboio.';
-      setClickError(message);
-      console.error('[ConvoyShop] falha no clique do comboio', err);
-    } finally {
-      setBuyingSkinId(null);
-    }
-  }
 
   useEffect(() => {
     void loadMyConvoys();
@@ -122,9 +100,9 @@ export default function ConvoyShop() {
         </div>
       )}
 
-      {(error || clickError) && (
+      {error && (
         <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-100">
-          {clickError || error}
+          {error}
         </div>
       )}
 
@@ -134,7 +112,6 @@ export default function ConvoyShop() {
           const equipped = selectedSkinId === skin.id;
           const canBuy = !owned && skin.price > 0;
           const hasModel = Boolean(skin.modelUrl);
-          const activeBuying = buyingSkinId === skin.id;
 
           return (
             <div
@@ -183,8 +160,12 @@ export default function ConvoyShop() {
 
               <button
                 type="button"
-                disabled={isLoading || isBuying || Boolean(buyingSkinId) || equipped || (!owned && skin.price <= 0)}
-                onClick={() => { void handleSkinAction(skin, owned, canBuy); }}
+                disabled={isLoading || isBuying || equipped || (!owned && skin.price <= 0)}
+                onClick={() => {
+                  if (owned) void selectConvoy(skin.id);
+                  else if (canBuy && (skin.currency === 'realMoney' || skin.purchaseType === 'realMoney')) setPaymentSkin(skin);
+                  else if (canBuy) void buyConvoy(skin.id);
+                }}
                 className={`mt-5 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-black transition disabled:opacity-50 ${
                   equipped
                     ? 'bg-[#d9b764] text-black'
@@ -194,12 +175,21 @@ export default function ConvoyShop() {
                 }`}
               >
                 {equipped ? <Check className="h-4 w-4" /> : owned ? <Check className="h-4 w-4" /> : canBuy ? <ShoppingCart className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                {activeBuying && canBuy ? (skin.currency === 'realMoney' ? 'ABRINDO MERCADO PAGO...' : 'COMPRANDO...') : actionLabel(owned, equipped, canBuy)}
+                {isBuying && canBuy ? 'COMPRANDO...' : actionLabel(owned, equipped, canBuy)}
               </button>
             </div>
           );
         })}
       </div>
+
+      <ConvoyPaymentModal
+        skin={paymentSkin}
+        open={Boolean(paymentSkin)}
+        onClose={() => {
+          setPaymentSkin(null);
+          void loadMyConvoys();
+        }}
+      />
     </div>
   );
 }
