@@ -138,3 +138,66 @@ export async function createMercadoPagoBrickConvoyPayment(
     body: JSON.stringify({ skinId, paymentData }),
   });
 }
+
+export type ConvoyAcceleratorInventory = {
+  accelerators: {
+    twoX: number;
+  };
+  priceDirtyMoney: number;
+  player?: unknown;
+};
+
+export type UseConvoyAcceleratorResult = ConvoyAcceleratorInventory & {
+  battleId: string;
+  arriveAtIso: string;
+  launchedAtIso: string;
+  totalDurationMs: number;
+  timePerTileMs?: number;
+  routeTiles?: Array<{ tileX: number; tileY: number }>;
+  remainingBeforeMs?: number;
+  remainingAfterMs?: number;
+  acceleratorUses?: number;
+};
+
+function normalizeAccelerators(raw: any): ConvoyAcceleratorInventory {
+  return {
+    accelerators: {
+      twoX: Math.max(0, Math.floor(Number(raw?.accelerators?.twoX ?? raw?.twoX ?? 0))),
+    },
+    priceDirtyMoney: Math.max(0, Math.floor(Number(raw?.priceDirtyMoney ?? 1000))),
+    player: raw?.player,
+  };
+}
+
+export async function getConvoyAccelerators(): Promise<ConvoyAcceleratorInventory> {
+  const raw = await request<any>('/convoys/accelerators', { method: 'GET' });
+  return normalizeAccelerators(raw);
+}
+
+export async function purchaseConvoyAccelerator(quantity = 1): Promise<ConvoyAcceleratorInventory> {
+  const raw = await request<any>('/convoys/accelerators/purchase', {
+    method: 'POST',
+    body: JSON.stringify({ quantity }),
+  });
+  return normalizeAccelerators(raw);
+}
+
+export async function useConvoyAcceleratorOnBattle(battleId: string): Promise<UseConvoyAcceleratorResult> {
+  const raw = await request<any>('/convoys/accelerators/use', {
+    method: 'POST',
+    body: JSON.stringify({ battleId }),
+  });
+  const base = normalizeAccelerators(raw);
+  return {
+    ...base,
+    battleId: String(raw?.battleId ?? battleId),
+    arriveAtIso: String(raw?.arriveAtIso ?? ''),
+    launchedAtIso: String(raw?.launchedAtIso ?? ''),
+    totalDurationMs: Math.max(0, Number(raw?.totalDurationMs ?? 0)),
+    timePerTileMs: Number(raw?.timePerTileMs ?? 0),
+    routeTiles: Array.isArray(raw?.routeTiles) ? raw.routeTiles : [],
+    remainingBeforeMs: Number(raw?.remainingBeforeMs ?? 0),
+    remainingAfterMs: Number(raw?.remainingAfterMs ?? 0),
+    acceleratorUses: Number(raw?.acceleratorUses ?? 0),
+  };
+}
