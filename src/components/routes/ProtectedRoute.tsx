@@ -7,7 +7,7 @@
  *   - useGameSocket agora é chamado em Layout (global para toda a app)
  */
 
-import { type ReactNode }   from 'react';
+import { useEffect, type ReactNode }   from 'react';
 import { Navigate }         from 'react-router-dom';
 import { usePlayerStore }   from '@/store/playerStore';
 
@@ -18,10 +18,17 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const isLoaded = usePlayerStore((s) => s.isLoaded);
   const player   = usePlayerStore((s) => s.player);
+  const loadPlayer = usePlayerStore((s) => s.loadPlayer);
 
   const hasToken =
     typeof window !== 'undefined' &&
     Boolean(localStorage.getItem('authToken'));
+
+  useEffect(() => {
+    if (hasToken && !isLoaded) {
+      void loadPlayer();
+    }
+  }, [hasToken, isLoaded, loadPlayer]);
 
   // Sem token → redireciona imediatamente
   if (!hasToken) {
