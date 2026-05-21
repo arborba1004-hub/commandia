@@ -36,7 +36,7 @@ import { useRemoteSquadAnimations } from '@/hooks/useRemoteSquadAnimations';
 import { Image } from '@/components/ui/image';
 import AzideiaAttackModal from '@/components/game/AzideiaAttackModal';
 import { mountAzideiaX9Layer, type MountedAzideiaX9Layer } from '@/components/game/azideiaX9Layer';
-import { attackAzideiaX9 } from '@/api/azideiaApi';
+import { attackAzideiaX9, confirmAzideiaMissionArrival, confirmAzideiaMissionReturn } from '@/api/azideiaApi';
 import type { AzideiaX9Target } from '@/types/azideia';
 import { mountAttackConvoy3D } from '@/components/game/convoy/convoy3DAnimator';
 import { getConvoySkin } from '@/data/convoyCatalog';
@@ -244,29 +244,79 @@ export default function GamePage() {
     }
 
     setAzideiaTarget(null);
-    azideiaLayerRef.current?.removeTarget(target.id);
-    void azideiaLayerRef.current?.refresh();
 
     const scene = sceneRef.current;
-    if (scene && Array.isArray(result.routeTiles) && result.routeTiles.length > 1) {
-      const currentPlayer = usePlayerStore.getState().player as any;
-      const equippedSkinId = currentPlayer?.convoys?.equippedSkinId ?? 'comboio_padrao';
-      const skin = getConvoySkin(equippedSkinId);
-      const mounted = mountAttackConvoy3D({
-        scene,
-        route: result.routeTiles,
-        gridWidth: GRID_WIDTH,
-        gridHeight: GRID_HEIGHT,
-        skin,
-        durationMs: Math.max(1200, Number(result.travelDurationMs || 2500)),
-        memberCount: 0,
-        label: 'Azidéia',
-      });
-      void mounted.start().finally(() => mounted.cleanup());
+    if (!scene || !Array.isArray(result.routeTiles) || result.routeTiles.length <= 1) {
+      return result;
     }
+
+    const currentPlayer = usePlayerStore.getState().player as any;
+    const equippedSkinId = currentPlayer?.convoys?.equippedSkinId ?? 'comboio_padrao';
+    const skin = getConvoySkin(equippedSkinId);
+
+    void (async () => {
+      let forward: ReturnType<typeof mountAttackConvoy3D> | null = null;
+      let returning: ReturnType<typeof mountAttackConvoy3D> | null = null;
+
+      try {
+        forward = mountAttackConvoy3D({
+          scene,
+          route: result.routeTiles,
+          gridWidth: GRID_WIDTH,
+          gridHeight: GRID_HEIGHT,
+          skin,
+          durationMs: Math.max(1200, Number(result.travelDurationMs || 2500)),
+          memberCount: 1,
+          label: 'Azidéia',
+        });
+
+        await forward.start();
+        forward.cleanup();
+        forward = null;
+
+        await azideiaLayerRef.current?.playDeathAndRemove(result.targetId, 950);
+
+        const arrival = await confirmAzideiaMissionArrival(result.missionId);
+        if (arrival.player) {
+          usePlayerStore.getState().hydratePlayerFromServer(arrival.player as any);
+        }
+
+        void azideiaLayerRef.current?.refresh();
+
+        const returnRoute = Array.isArray(arrival.returnRouteTiles) && arrival.returnRouteTiles.length > 1
+          ? arrival.returnRouteTiles
+          : [...result.routeTiles].reverse();
+
+        returning = mountAttackConvoy3D({
+          scene,
+          route: returnRoute,
+          gridWidth: GRID_WIDTH,
+          gridHeight: GRID_HEIGHT,
+          skin,
+          durationMs: Math.max(1200, Number(arrival.returnDurationMs || result.returnDurationMs || result.travelDurationMs || 2500)),
+          memberCount: 1,
+          label: 'Retorno Azidéia',
+        });
+
+        await returning.start();
+        returning.cleanup();
+        returning = null;
+
+        const returned = await confirmAzideiaMissionReturn(result.missionId);
+        if (returned.player) {
+          usePlayerStore.getState().hydratePlayerFromServer(returned.player as any);
+        }
+      } catch (error) {
+        console.error('[GamePage] Falha no ciclo visual da Azidéia:', error);
+      } finally {
+        forward?.cleanup();
+        returning?.cleanup();
+      }
+    })();
 
     return result;
   }, []);
+
 
 
   // ═══════════════════════════════════════════════════════════════════════════
