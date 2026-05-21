@@ -1,5 +1,8 @@
 export type AzideiaTargetType = 'x9';
 export type AzideiaRewardType = 'convoy_2x';
+export type AzideiaMissionStatus = 'travelling' | 'returning' | 'completed' | 'cancelled';
+
+export type AzideiaRouteTile = { tileX: number; tileY: number };
 
 export type AzideiaX9Target = {
   id: string;
@@ -9,6 +12,30 @@ export type AzideiaX9Target = {
   tileX: number;
   tileY: number;
   costDirtyMoney: number;
+  reserved?: boolean;
+};
+
+export type AzideiaMission = {
+  missionId: string;
+  status: AzideiaMissionStatus;
+  targetId: string;
+  targetType: AzideiaTargetType;
+  targetName: string;
+  targetModelUrl: string;
+  targetTileX: number;
+  targetTileY: number;
+  originTileX: number;
+  originTileY: number;
+  routeTiles: AzideiaRouteTile[];
+  returnRouteTiles: AzideiaRouteTile[];
+  travelDurationMs: number;
+  returnDurationMs: number;
+  launchedAtIso: string;
+  arriveAtIso: string;
+  returnAtIso: string;
+  costDirtyMoney: number;
+  rewardType: AzideiaRewardType;
+  rewardQuantity: number;
 };
 
 export type AzideiaTargetsResponse = {
@@ -17,14 +44,14 @@ export type AzideiaTargetsResponse = {
   dailyKills: number;
   dailyLimit: number;
   remainingToday: number;
+  activeAzideiaConvoys?: number;
+  maxParallelAzideiaConvoys?: number;
 };
 
-export type AzideiaAttackResult = {
+export type AzideiaAttackResult = AzideiaMission & {
   success: boolean;
-  targetId: string;
-  targetType: AzideiaTargetType;
-  costDirtyMoney: number;
-  immediateReward: {
+  phase: 'travelling' | 'returning' | 'completed';
+  immediateReward: null | {
     rewardType: AzideiaRewardType;
     quantity: number;
   };
@@ -35,12 +62,16 @@ export type AzideiaAttackResult = {
     memberCount: number;
     batchId: string;
   } | null;
-  routeTiles: Array<{ tileX: number; tileY: number }>;
-  travelDurationMs: number;
   dailyKills: number;
   dailyLimit: number;
   remainingToday: number;
+  activeAzideiaConvoys?: number;
+  maxParallelAzideiaConvoys?: number;
   player?: unknown;
+};
+
+export type AzideiaActiveMissionsResponse = {
+  missions: AzideiaMission[];
 };
 
 export type AzideiaRewardStatus = {
