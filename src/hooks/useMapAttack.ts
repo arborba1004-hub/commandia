@@ -13,16 +13,17 @@
  *      isResolving, resolution, blockedPreviewMessage
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import * as THREE from 'three';
 import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useMapAttackStore } from '@/store/mapAttackStore';
 import { usePlayerConvoyStore } from '@/store/playerConvoyStore';
+import { useConvoyAcceleratorStore } from '@/store/convoyAcceleratorStore';
 import { canAttack, startBattle, resolveBattle } from '@/api/attackApi';
 import { getPlayerCentralTileFromOrigin } from '@/components/game/playerMapSpace';
 import { getConvoySkin } from '@/data/convoyCatalog';
-import { mountAttackConvoy3D } from '@/components/game/convoy/convoy3DAnimator';
+import { mountAttackConvoy3D, type MountedAttackConvoy3D } from '@/components/game/convoy/convoy3DAnimator';
 import { buildShortestTileRoute, getElapsedProgress, normalizeRouteTiles } from '@/utils/attackTravel';
 import type {
   AttackTarget,
@@ -43,6 +44,16 @@ export type PreviewData = {
   target: AttackTarget;
   canAttackInfo: CanAttackInfo;
 };
+
+type ActiveBattleMeta = {
+  battleId: string;
+  launchedAtIso: string;
+  arriveAtIso: string;
+  totalDurationMs: number;
+  convoySkinId: string;
+  memberCount: number;
+  label: string;
+} | null;
 
 export type UseMapAttackReturn = {
   // Estados de preview
@@ -72,6 +83,12 @@ export type UseMapAttackReturn = {
   cancelAttack:    () => void;
   confirmAttack:   (selection: GangAttackSelection, scene: THREE.Scene, camera: THREE.Camera, gridWidth: number, gridHeight: number) => Promise<void>;
   dismissResult:   () => void;
+
+  activeBattleId: string | null;
+  activeAttackPhase: string;
+  isAccelerating: boolean;
+  canAccelerate: boolean;
+  accelerateActiveAttack: (scene: THREE.Scene, camera: THREE.Camera, gridWidth: number, gridHeight: number) => Promise<void>;
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -107,6 +124,52 @@ export function useMapAttack(): UseMapAttackReturn {
 
   // Resultado final
   const [resolution,     setResolution]     = useState<BattleResolution | null>(null);
+
+  const [activeBattle, setActiveBattle] = useState<ActiveBattleMeta>(null);
+  const [isAccelerating, setIsAccelerating] = useState(false);
+
+  const activeBattleRef = useRef<ActiveBattleMeta>(null);
+  const arriveAtMsRef = useRef(0);
+  const currentForwardAnimationRef = useRef<MountedAttackConvoy3D | null>(null);
+  const forwardAnimationParamsRef = useRef<{
+    scene: THREE.Scene;
+    route: Array<{ tileX: number; tileY: number }>;
+    gridWidth: number;
+    gridHeight: number;
+    skinId: string;
+    memberCount: number;
+    label: string;
+  } | null>(null);
+
+  const setActiveBattleMeta = useCallback((meta: ActiveBattleMeta) => {
+    activeBattleRef.current = meta;
+    setActiveBattle(meta);
+    if (meta) {
+      arriveAtMsRef.current = new Date(meta.arriveAtIso).getTime();
+      useMapAttackStore.getState().setBattleMeta({
+        battleId: meta.battleId,
+        launchedAtIso: meta.launchedAtIso,
+        arriveAtIso: meta.arriveAtIso,
+        role: 'attacker',
+      });
+    } else {
+      arriveAtMsRef.current = 0;
+      useMapAttackStore.getState().setBattleMeta({
+        battleId: undefined,
+        launchedAtIso: undefined,
+        arriveAtIso: undefined,
+        role: null,
+      });
+    }
+  }, []);
+
+  const waitUntilCurrentArrival = useCallback(async () => {
+    while (true) {
+      const remaining = arriveAtMsRef.current - Date.now();
+      if (!Number.isFinite(remaining) || remaining <= 0) return;
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.min(1000, Math.max(100, remaining))));
+    }
+  }, []);
 
   // ── 1. previewTarget: chama canAttack + abre o modal de seleção ──────────────
 
@@ -180,15 +243,23 @@ export function useMapAttack(): UseMapAttackReturn {
     setEstimation(null);
     setBlockedPreviewMessage(null);
     setCanAttackInfo(null);
+    currentForwardAnimationRef.current?.cancel();
+    currentForwardAnimationRef.current = null;
+    forwardAnimationParamsRef.current = null;
+    setActiveBattleMeta(null);
     store.resetAttack();
-  }, [store]);
+  }, [store, setActiveBattleMeta]);
 
   // ── 4. dismissResult: fecha tela de resultado ───────────────────────────────
 
   const dismissResult = useCallback(() => {
     setResolution(null);
+    currentForwardAnimationRef.current?.cancel();
+    currentForwardAnimationRef.current = null;
+    forwardAnimationParamsRef.current = null;
+    setActiveBattleMeta(null);
     store.resetAttack();
-  }, [store]);
+  }, [store, setActiveBattleMeta]);
 
   // ── 5. confirmAttack ────────────────────────────────────────────────────────
   // Orquestra: startBattle → aguarda chegada → resolveBattle → finaliza
@@ -256,28 +327,55 @@ export function useMapAttack(): UseMapAttackReturn {
 
       // Calcular tempo de viagem baseado no backend. A animação 3D usa o comboio escolhido no modal.
       const arriveAtMs = new Date(startResp.arriveAtIso).getTime();
+      arriveAtMsRef.current = arriveAtMs;
       const waitMs     = Math.max(0, arriveAtMs - Date.now());
       const totalForwardDurationMs = Math.max(waitMs, Number(startResp.totalDurationMs ?? waitMs) || waitMs);
       const forwardInitialProgress = getElapsedProgress(startResp.launchedAtIso, totalForwardDurationMs);
+      const skinForForward = getConvoySkin(startResp.attackerConvoySkinId ?? selectedConvoySkin.id);
+      const forwardLabel = `${skinForForward.name} • ida`;
+
+      setActiveBattleMeta({
+        battleId: startResp.battleId,
+        launchedAtIso: startResp.launchedAtIso,
+        arriveAtIso: startResp.arriveAtIso,
+        totalDurationMs: totalForwardDurationMs,
+        convoySkinId: skinForForward.id,
+        memberCount,
+        label: forwardLabel,
+      });
+
+      forwardAnimationParamsRef.current = {
+        scene,
+        route: forwardRoute,
+        gridWidth,
+        gridHeight,
+        skinId: skinForForward.id,
+        memberCount,
+        label: forwardLabel,
+      };
 
       const forwardAnimation = mountAttackConvoy3D({
         scene,
         route: forwardRoute,
         gridWidth,
         gridHeight,
-        skin: getConvoySkin(startResp.attackerConvoySkinId ?? selectedConvoySkin.id),
+        skin: skinForForward,
         durationMs: totalForwardDurationMs,
         initialProgress: forwardInitialProgress,
         memberCount,
-        label: `${selectedConvoySkin.name} • ida`,
+        label: forwardLabel,
       });
 
+      currentForwardAnimationRef.current = forwardAnimation;
       void forwardAnimation.start().catch((err) => {
         console.warn('[useMapAttack] Falha na animação 3D de ida:', err);
       });
 
-      await new Promise<void>((res) => setTimeout(res, waitMs));
-      forwardAnimation.cleanup();
+      await waitUntilCurrentArrival();
+      currentForwardAnimationRef.current?.cleanup();
+      currentForwardAnimationRef.current = null;
+      forwardAnimationParamsRef.current = null;
+      setActiveBattleMeta(null);
       store.setPhase('arriving');
 
       // ── Resolver no backend ─────────────────────────────────────────────
@@ -339,6 +437,7 @@ export function useMapAttack(): UseMapAttackReturn {
 
       // ── Finalização ────────────────────────────────────────────────────
       store.setPhase('finished');
+      setActiveBattleMeta(null);
 
     } catch (err) {
       console.error('[useMapAttack] Erro no fluxo de ataque:', err);
@@ -346,7 +445,64 @@ export function useMapAttack(): UseMapAttackReturn {
     } finally {
       setIsResolving(false);
     }
-  }, [previewData, player, store, cancelAttack]);
+  }, [previewData, player, store, cancelAttack, waitUntilCurrentArrival, setActiveBattleMeta]);
+
+
+  const accelerateActiveAttack = useCallback(async (
+    scene: THREE.Scene,
+    _camera: THREE.Camera,
+    gridWidth: number,
+    gridHeight: number,
+  ) => {
+    const meta = activeBattleRef.current;
+    const battleId = meta?.battleId || useMapAttackStore.getState().battleId;
+    if (!battleId) return;
+    if (useMapAttackStore.getState().phase !== 'moving') return;
+
+    setIsAccelerating(true);
+    try {
+      const result = await useConvoyAcceleratorStore.getState().useOnBattle(battleId);
+
+      const newTotalDurationMs = Math.max(1, Number(result.totalDurationMs || meta?.totalDurationMs || 1));
+      const launchedAtIso = result.launchedAtIso || meta?.launchedAtIso || new Date().toISOString();
+      const arriveAtIso = result.arriveAtIso || meta?.arriveAtIso || new Date().toISOString();
+      arriveAtMsRef.current = new Date(arriveAtIso).getTime();
+
+      const params = forwardAnimationParamsRef.current;
+      if (params) {
+        currentForwardAnimationRef.current?.cancel();
+        const skin = getConvoySkin(params.skinId);
+        const progress = getElapsedProgress(launchedAtIso, newTotalDurationMs);
+        const nextAnimation = mountAttackConvoy3D({
+          scene: params.scene || scene,
+          route: params.route,
+          gridWidth: params.gridWidth || gridWidth,
+          gridHeight: params.gridHeight || gridHeight,
+          skin,
+          durationMs: newTotalDurationMs,
+          initialProgress: progress,
+          memberCount: params.memberCount,
+          label: `${skin.name} • acelerado`,
+        });
+        currentForwardAnimationRef.current = nextAnimation;
+        void nextAnimation.start().catch((err) => {
+          console.warn('[useMapAttack] Falha na animação acelerada:', err);
+        });
+      }
+
+      setActiveBattleMeta({
+        battleId: String(result.battleId || battleId),
+        launchedAtIso,
+        arriveAtIso,
+        totalDurationMs: newTotalDurationMs,
+        convoySkinId: meta?.convoySkinId || 'comboio_padrao',
+        memberCount: meta?.memberCount || 0,
+        label: meta?.label || 'Comboio acelerado',
+      });
+    } finally {
+      setIsAccelerating(false);
+    }
+  }, [setActiveBattleMeta]);
 
   return {
     // Estados de preview
@@ -372,5 +528,11 @@ export function useMapAttack(): UseMapAttackReturn {
     cancelAttack,
     confirmAttack,
     dismissResult,
+
+    activeBattleId: activeBattle?.battleId ?? null,
+    activeAttackPhase: store.phase,
+    isAccelerating,
+    canAccelerate: Boolean(activeBattle?.battleId && store.phase === 'moving'),
+    accelerateActiveAttack,
   };
 }

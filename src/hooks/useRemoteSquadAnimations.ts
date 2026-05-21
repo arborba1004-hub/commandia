@@ -159,12 +159,45 @@ export function useRemoteSquadAnimations(options: UseRemoteSquadAnimationsOption
       startMounted(battleId, animation);
     };
 
+
+    const handleAccelerated = (payload: RemoteAttackPayload) => {
+      const battleId = String(payload?.battleId || '');
+      if (!battleId) return;
+
+      const route = buildRouteFromPayload(payload, gridWidth, gridHeight);
+      if (route.length < 2) return;
+
+      const totalDurationMs = Math.max(0, toFiniteNumber(payload.totalDurationMs, 0));
+      const initialProgress = getElapsedProgress(payload.launchedAtIso, totalDurationMs);
+      if (initialProgress >= 1) {
+        cleanupBattle(battleId);
+        return;
+      }
+
+      const skin = getConvoySkin(payload.attackerConvoySkinId || 'comboio_padrao');
+      const animation = mountAttackConvoy3D({
+        scene,
+        route,
+        gridWidth,
+        gridHeight,
+        skin,
+        durationMs: totalDurationMs,
+        initialProgress,
+        memberCount: toFiniteNumber(payload.memberCount, 0),
+        label: `${skin.name} • acelerado`,
+      });
+
+      startMounted(battleId, animation);
+    };
+
     socket.on('attack:squadStarted', handleStarted);
     socket.on('attack:squadResolved', handleResolved);
+    socket.on('attack:squadAccelerated', handleAccelerated);
 
     return () => {
       socket.off('attack:squadStarted', handleStarted);
       socket.off('attack:squadResolved', handleResolved);
+      socket.off('attack:squadAccelerated', handleAccelerated);
       mounted.forEach((animation) => animation.cancel());
       mounted.clear();
     };
