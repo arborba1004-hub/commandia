@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { usePlayerStore }                     from '@/store/playerStore';
-import { reconnectSocket, disconnectSocket }  from '@/socket';
+import { disconnectSocket }  from '@/socket';
 
 export interface PlayerData {
   _id?: string; id?: string; googleId?: string;
