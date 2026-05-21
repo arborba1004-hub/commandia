@@ -29,6 +29,7 @@ import MapTargetActionModal      from '@/components/game/MapTargetActionModal';
 import AttackResultOverlay        from '@/components/game/AttackResultOverlay';
 import ConvoyAttackAnimation      from '@/components/game/ConvoyAttackAnimation';
 import AttackIncomingToast        from '@/components/game/AttackIncomingToast';
+import MapConvoyAcceleratorButton from '@/components/game/MapConvoyAcceleratorButton';
 import { useMapAttack }           from '@/hooks/useMapAttack';
 import { useMapAttackStore }      from '@/store/mapAttackStore';
 import { useActiveMapBattles }    from '@/hooks/useActiveMapBattles';
@@ -774,6 +775,64 @@ export default function GamePage() {
 
       {/* MAPA — tela cheia */}
       <div ref={mountRef} className="absolute inset-0" />
+
+      {/* ── HUD TOPO ESQUERDO — avatar + nome + saldos ─────────────────── */}
+      <div className="absolute top-3 left-3 z-10 flex items-start gap-2 pointer-events-none">
+
+        {/* Avatar com nível */}
+        <div className="relative shrink-0">
+          {avatarUrl ? (
+            <Image src={avatarUrl} alt={playerName} className="h-16 w-16 rounded-2xl border-2 border-[#d9b764] object-cover shadow-[0_0_12px_rgba(217,183,100,0.4)]" />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-[#d9b764] bg-zinc-900 text-2xl font-black text-[#d9b764]">
+              {playerName[0]?.toUpperCase() || '?'}
+            </div>
+          )}
+          {/* Badge de nível */}
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-[#d9b764] px-2 py-0.5 text-[9px] font-black text-black whitespace-nowrap shadow">
+            {playerLevel}
+          </div>
+        </div>
+
+        {/* Nome + saldos */}
+        <div className="flex flex-col gap-1">
+          <div className="rounded-xl bg-black/70 backdrop-blur-sm border border-white/10 px-3 py-1">
+            <p className="font-black text-[#f6d27b] text-sm leading-none tracking-wide uppercase truncate max-w-[140px]">
+              {playerName}
+            </p>
+          </div>
+
+          {/* Commands Sujo */}
+          <div className="flex items-center gap-1.5 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10 px-2.5 py-1">
+            <Image src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
+            <span className="text-[10px] font-bold text-zinc-400 uppercase">Sujo</span>
+            <span className="text-xs font-black text-white ml-0.5">{fmt(dirtyMoney)}</span>
+          </div>
+
+          {/* Commands Limpo */}
+          <div className="flex items-center gap-1.5 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10 px-2.5 py-1">
+            <Image src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
+            <span className="text-[10px] font-bold text-zinc-400 uppercase">Limpo</span>
+            <span className="text-xs font-black text-white ml-0.5">{fmt(cleanMoney)}</span>
+          </div>
+        </div>
+      </div>
+
+      <MapConvoyAcceleratorButton
+        camera={threeReady ? cameraRef.current : null}
+        player={player as any}
+        gridWidth={GRID_WIDTH}
+        gridHeight={GRID_HEIGHT}
+        battleId={mapAttack.activeBattleId}
+        phase={mapAttack.activeAttackPhase}
+        isAccelerating={mapAttack.isAccelerating}
+        onAccelerate={() => {
+          const scene = sceneRef.current;
+          const camera = cameraRef.current;
+          if (!scene || !camera) return;
+          void mapAttack.accelerateActiveAttack(scene, camera, GRID_WIDTH, GRID_HEIGHT);
+        }}
+      />
 
       {/* ── HUD INFERIOR DIREITO — ícones de chat ─────────────────────── */}
       <div className="absolute bottom-8 right-4 z-10 flex flex-col gap-4 pointer-events-auto">

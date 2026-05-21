@@ -3,10 +3,11 @@ import { Image } from '@/components/ui/image';
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import ConvoyShop from '@/components/shop/ConvoyShop';
+import ConvoyAcceleratorShop from '@/components/shop/ConvoyAcceleratorShop';
 
 export default function ShopPage() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'loja' | 'comboio'>('loja');
+  const [activeTab, setActiveTab] = useState<'loja' | 'comboio' | 'aceleradores'>('loja');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black">
@@ -47,6 +48,16 @@ export default function ShopPage() {
           >
             COMBOIO
           </button>
+          <button
+            onClick={() => setActiveTab('aceleradores')}
+            className={`px-6 py-3 font-heading text-lg font-bold transition-all ${
+              activeTab === 'aceleradores'
+                ? 'text-[#d9b764] border-b-2 border-[#d9b764]'
+                : 'text-white/50 hover:text-white/70'
+            }`}
+          >
+            ACELERADORES
+          </button>
         </div>
       </div>
 
@@ -77,6 +88,10 @@ export default function ShopPage() {
 
         {activeTab === 'comboio' && (
           <ConvoyShop />
+        )}
+
+        {activeTab === 'aceleradores' && (
+          <ConvoyAcceleratorShop />
         )}
       </div>
     </div>
