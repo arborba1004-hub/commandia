@@ -8,6 +8,7 @@ export type MountedAzideiaX9Layer = {
   start: () => Promise<void>;
   refresh: () => Promise<void>;
   removeTarget: (targetId: string) => void;
+  playDeathAndRemove: (targetId: string, durationMs?: number) => Promise<void>;
   tryHandleClick: (raycaster: THREE.Raycaster) => boolean;
   cleanup: () => void;
 };
@@ -179,6 +180,59 @@ export function mountAzideiaX9Layer({
     }
   }
 
+  async function playDeathAndRemove(targetId: string, durationMs = 900) {
+    const id = String(targetId);
+    targetsById.delete(id);
+    const object = group.children.find((child) => child.userData?.azideiaTargetId === id);
+    if (!object) return;
+
+    object.userData.azideiaDying = true;
+    const start = performance.now();
+    const initialRotationX = object.rotation.x;
+    const initialRotationZ = object.rotation.z;
+    const initialY = object.position.y;
+    const targetRotationX = initialRotationX + Math.PI / 2;
+    const targetRotationZ = initialRotationZ + Math.PI / 10;
+
+    await new Promise<void>((resolve) => {
+      function animate(now: number) {
+        if (disposed || !group.children.includes(object)) {
+          resolve();
+          return;
+        }
+
+        const progress = Math.max(0, Math.min(1, (now - start) / Math.max(1, durationMs)));
+        const eased = 1 - Math.pow(1 - progress, 3);
+
+        object.rotation.x = initialRotationX + (targetRotationX - initialRotationX) * eased;
+        object.rotation.z = initialRotationZ + (targetRotationZ - initialRotationZ) * eased;
+        object.position.y = Math.max(0.03, initialY * (1 - eased));
+
+        object.traverse((child: any) => {
+          const materials = child?.material
+            ? (Array.isArray(child.material) ? child.material : [child.material])
+            : [];
+          for (const material of materials) {
+            if (!material) continue;
+            material.transparent = true;
+            material.opacity = Math.max(0, 1 - Math.max(0, progress - 0.55) / 0.45);
+            material.needsUpdate = true;
+          }
+        });
+
+        if (progress >= 1) {
+          removeTarget(id);
+          resolve();
+          return;
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      requestAnimationFrame(animate);
+    });
+  }
+
   async function refresh() {
     const token = ++refreshToken;
     const response = await getAzideiaX9Targets();
@@ -220,6 +274,7 @@ export function mountAzideiaX9Layer({
       const id = current.userData?.azideiaTargetId;
       if (id) {
         const target = targetsById.get(String(id));
+        if (current.userData?.azideiaDying || target?.reserved) return true;
         if (target) onTargetClick(target);
         return true;
       }
@@ -243,6 +298,7 @@ export function mountAzideiaX9Layer({
     start: refresh,
     refresh,
     removeTarget,
+    playDeathAndRemove,
     tryHandleClick,
     cleanup,
   };

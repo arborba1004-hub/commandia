@@ -43,7 +43,7 @@ export default function AzideiaAttackModal({
 
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-zinc-300">
           <p>
-            Use seu comboio para eliminar o X9 marcado no mapa.
+            Use seu comboio para eliminar o X9 marcado no mapa. O X9 só cai morto quando o comboio chegar nele, e o retorno do comboio fica visível até seu barraco.
           </p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-zinc-900 p-3">
@@ -56,7 +56,7 @@ export default function AzideiaAttackModal({
             </div>
           </div>
           <p className="mt-3 text-xs text-zinc-500">
-            Se você tiver facção, cada membro recebe +1 acelerador para coletar no chat da facção pelo ícone Azidéia.
+            Se você tiver facção, cada membro recebe +1 acelerador para coletar no chat da facção pelo ícone Azidéia. Você pode manter até 3 Azidéias simultâneas, desde que tenha membros ativos da gangue.
           </p>
         </div>
 
