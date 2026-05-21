@@ -203,18 +203,18 @@ async function tryLoadGLB(skin: ConvoySkin): Promise<THREE.Object3D | null> {
           if (!material) continue;
 
           if ('metalness' in material) material.metalness = 0;
-          if ('roughness' in material) material.roughness = 0.8;
+          if ('roughness' in material) material.roughness = 0.85;
 
           if ('emissive' in material) {
-            material.emissive = new THREE.Color(0x3a220f);
+            material.emissive = new THREE.Color(0x140b04);
           }
 
           if ('emissiveIntensity' in material) {
-            material.emissiveIntensity = 0.32;
+            material.emissiveIntensity = 0.08;
           }
 
           if ('envMapIntensity' in material) {
-            material.envMapIntensity = 1.8;
+            material.envMapIntensity = 1.0;
           }
 
           material.needsUpdate = true;
@@ -264,18 +264,6 @@ export function mountAttackConvoy3D({
   vehicleRoot.name = 'attack-convoy-vehicle-root';
   vehicleRoot.add(createProceduralVehicle(skin));
   root.add(vehicleRoot);
-
-  // Luz local do comboio, equivalente à luz forte usada no mapa/CT.
-  const convoyAmbient = new THREE.AmbientLight(0xffffff, 1.8);
-  vehicleRoot.add(convoyAmbient);
-
-  const convoyKeyLight = new THREE.DirectionalLight(0xffffff, 2.2);
-  convoyKeyLight.position.set(8, 20, 10);
-  vehicleRoot.add(convoyKeyLight);
-
-  const convoyFillLight = new THREE.DirectionalLight(0xffe0b0, 2);
-  convoyFillLight.position.set(-15, 10, -10);
-  vehicleRoot.add(convoyFillLight);
 
   const text = label || `${skin.name}${memberCount > 0 ? ` • ${memberCount.toLocaleString('pt-BR')}` : ''}`;
   const labelSprite = createCanvasLabel(text);
