@@ -171,6 +171,14 @@ function normalizeModelToFit(
   model.position.y -= minY + groundOffsetY;
 }
 
+function snapObjectToGround(object: THREE.Object3D, offsetY = 0) {
+  object.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(object);
+  if (!Number.isFinite(box.min.y)) return;
+  object.position.y -= box.min.y;
+  object.position.y += offsetY;
+}
+
 async function tryLoadGLB(skin: ConvoySkin): Promise<THREE.Object3D | null> {
   if (!skin.modelUrl) return null;
 
