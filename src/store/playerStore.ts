@@ -33,6 +33,7 @@
 
 import {
   canOperateLaundry,
+  fetchCurrentPlayerWithFaction,
   laundryCompleteWithFaction,
   laundryStartWithFaction,
   syncPlayerUpdateWithFaction,
@@ -326,7 +327,33 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   // ── no-op: socket envia 'playerInit' → hydratePlayerFromServer ─────────────
   // Mantido para compatibilidade com 14+ páginas que chamam loadPlayer()
-  loadPlayer: async () => { /* no-op — socket handles hydration */ },
+  loadPlayer: async () => {
+    if (!getStoredAuthToken()) {
+      set({
+        player: initialPlayer,
+        isLoaded: false,
+        syncError: null,
+      });
+      return;
+    }
+    try {
+      set({ syncError: null });
+      const response = await fetchCurrentPlayerWithFaction();
+      get().hydratePlayerFromServer({
+        ...(response.player as any),
+        faction: response.faction,
+      } as any);
+      await syncFactionStoreFromEnvelope(response.faction ?? null, {
+        allowClear: (response.player as any)?.factionId == null,
+      });
+    } catch (error) {
+      console.error('[playerStore] loadPlayer fallback falhou:', error);
+      set({
+        syncError: error instanceof Error ? error.message : 'Erro ao carregar jogador',
+        isLoaded: false,
+      });
+    }
+  },
 
   // ── no-ops: polling eliminado ────────────────────────────────────────────
   // Mantido por compatibilidade com useGoogleAuth e outros hooks
