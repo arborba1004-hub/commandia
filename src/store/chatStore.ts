@@ -13,7 +13,8 @@ export type ChatChannelType = 'complexo' | 'faccao' | 'mail';
 export type ChatMessageType =
   | 'text'
   | 'faction_help_request'
-  | 'faction_help_update';
+  | 'faction_help_update'
+  | 'azideia_reward';
 
 export type ChatMessage = {
   id: string;

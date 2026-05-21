@@ -33,7 +33,6 @@
 
 import {
   canOperateLaundry,
-  fetchCurrentPlayerWithFaction,
   laundryCompleteWithFaction,
   laundryStartWithFaction,
   syncPlayerUpdateWithFaction,
@@ -83,6 +82,7 @@ type LaundryProgress   = { activeOperations: ActiveOperation[]; dailyOperations:
 type PunishmentsState  = { active: { type: 'fiscal' | 'arsenal' | 'militia' | 'blitz' | 'threat'; expiresAt: string }[]; delacao: { active: boolean; expiresAt: string | null } | null; inventoryBlocked: boolean; dirtyMoneyBlocked: boolean; cleanMoneyBlocked: boolean; levelProgressionBlocked: boolean; inventoryBonusReductionPercent: number; pvpProtectionUntil: string | null; delacaoRewardPending: boolean; delacaoRewardUnlockAt: string | null; pendingSkillBoost: number; lastVehicleLost?: boolean };
 type PurchasedAccessory = { accessoryId: string; skillType: string; purchasedAt: string };
 type Accessories       = { vehicles?: Record<string, string[]>; weapons?: Record<string, string[]> };
+type ConvoyAccelerators = { twoX: number };
 type GangMember        = { id: string; type: string; level: number; status: 'ativo' | 'ferido' | 'morto' | 'treinando' | 'marchando'; recruitedAt: string; trainingEndsAt?: string | null; injuryEndsAt?: string | null };
 type GangStats         = { totalMembers: number; activeMembers: number; injuredMembers: number; deadMembers: number; trainingMembers: number; marchingMembers: number; totalPower: number; averageLevel: number };
 type AttackNotification = { id: string; type: 'attack_received' | 'attack_success' | 'attack_failed' | 'revenge_available'; attackerId?: string; attackerName?: string; targetId?: string; targetName?: string; success: boolean; loot: number; createdAt: string; read: boolean };
@@ -96,7 +96,7 @@ export type PlayerState = {
   laundryProgress: LaundryProgress; punishments: PunishmentsState;
   skillBoostMultiplier: number; headerCustomization?: HeaderCustomization;
   ownedVehicles?: string[]; purchasedAccessories?: PurchasedAccessory[];
-  accessories?: Accessories; notifications?: AttackNotification[];
+  accessories?: Accessories; convoyAccelerators?: ConvoyAccelerators; notifications?: AttackNotification[];
   attackHistory?: AttackHistoryItem[]; factionId?: string | null; gangId?: string | null;
   gangMembers?: GangMember[]; gangStats?: GangStats;
   gang?: {
@@ -237,6 +237,7 @@ const initialPlayer: PlayerState = {
   },
   skillBoostMultiplier: 1.0,
   notifications: [], attackHistory: [],
+  convoyAccelerators: { twoX: 0 },
   factionId: null, gangId: null,
   gangMembers: [],
   gangStats: {
@@ -267,6 +268,9 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   const laundryProg  = (inc.laundryProgress     && typeof inc.laundryProgress     === 'object') ? inc.laundryProgress     : {};
   const punishments  = (inc.punishments         && typeof inc.punishments         === 'object') ? inc.punishments         : {};
   const incomingGang = inc.gang && typeof inc.gang === 'object' ? inc.gang : null;
+  const convoyAccelerators = (inc as any).convoyAccelerators && typeof (inc as any).convoyAccelerators === 'object'
+    ? (inc as any).convoyAccelerators
+    : {};
 
   return {
     ...initialPlayer,
@@ -286,6 +290,7 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     ownedVehicles: inc?.ownedVehicles || [],
     accessories:   inc?.accessories   || {},
     purchasedAccessories: inc?.purchasedAccessories || [],
+    convoyAccelerators: { twoX: Math.max(0, Math.floor(Number((convoyAccelerators as any).twoX ?? initialPlayer.convoyAccelerators?.twoX ?? 0))) },
     notifications: inc?.notifications || [],
     attackHistory: inc?.attackHistory || [],
     factionId:     inc?.factionId ?? null,
@@ -327,33 +332,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   // ── no-op: socket envia 'playerInit' → hydratePlayerFromServer ─────────────
   // Mantido para compatibilidade com 14+ páginas que chamam loadPlayer()
-  loadPlayer: async () => {
-    if (!getStoredAuthToken()) {
-      set({
-        player: initialPlayer,
-        isLoaded: false,
-        syncError: null,
-      });
-      return;
-    }
-    try {
-      set({ syncError: null });
-      const response = await fetchCurrentPlayerWithFaction();
-      get().hydratePlayerFromServer({
-        ...(response.player as any),
-        faction: response.faction,
-      } as any);
-      await syncFactionStoreFromEnvelope(response.faction ?? null, {
-        allowClear: (response.player as any)?.factionId == null,
-      });
-    } catch (error) {
-      console.error('[playerStore] loadPlayer fallback falhou:', error);
-      set({
-        syncError: error instanceof Error ? error.message : 'Erro ao carregar jogador',
-        isLoaded: false,
-      });
-    }
-  },
+  loadPlayer: async () => { /* no-op — socket handles hydration */ },
 
   // ── no-ops: polling eliminado ────────────────────────────────────────────
   // Mantido por compatibilidade com useGoogleAuth e outros hooks
