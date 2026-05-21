@@ -4,7 +4,7 @@ export const DEFAULT_CONVOY_SKIN_ID: ConvoySkinId = 'comboio_padrao';
 
 /**
  * Catálogo único dos comboios.
- * Coloque os GLBs reais nos campos modelUrl. O comboio pode ser veículo, humanoide, squad ou objeto.
+ * Coloque os GLBs reais nos campos modelUrl. Não use GLB de personagem aqui.
  */
 export const CONVOY_CATALOG: ConvoySkin[] = [
   {
@@ -83,7 +83,7 @@ export const CONVOY_CATALOG: ConvoySkin[] = [
   {
     id: 'comboio_real_199_glb',
     name: 'Comboio Real GLB',
-    description: 'Comboio premium comprado com dinheiro real via Mercado Pago Checkout Pro.',
+    description: 'Comboio premium comprado com dinheiro real via Mercado Pago Payment Brick.',
     rarity: 'raro',
     price: 1.99,
     currency: 'realMoney',
