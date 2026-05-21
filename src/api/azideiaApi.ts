@@ -1,4 +1,5 @@
 import type {
+  AzideiaActiveMissionsResponse,
   AzideiaAttackResult,
   AzideiaClaimResult,
   AzideiaRewardStatus,
@@ -58,6 +59,23 @@ export async function getAzideiaX9Targets(): Promise<AzideiaTargetsResponse> {
 
 export async function attackAzideiaX9(targetId: string): Promise<AzideiaAttackResult> {
   return request<AzideiaAttackResult>(`/azideia/x9/${encodeURIComponent(targetId)}/attack`, {
+    method: 'POST',
+  });
+}
+
+
+export async function getActiveAzideiaMissions(): Promise<AzideiaActiveMissionsResponse> {
+  return request<AzideiaActiveMissionsResponse>('/azideia/missions/active', { method: 'GET' });
+}
+
+export async function confirmAzideiaMissionArrival(missionId: string): Promise<AzideiaAttackResult> {
+  return request<AzideiaAttackResult>(`/azideia/missions/${encodeURIComponent(missionId)}/arrive`, {
+    method: 'POST',
+  });
+}
+
+export async function confirmAzideiaMissionReturn(missionId: string): Promise<AzideiaAttackResult> {
+  return request<AzideiaAttackResult>(`/azideia/missions/${encodeURIComponent(missionId)}/return`, {
     method: 'POST',
   });
 }
