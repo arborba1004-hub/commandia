@@ -3,6 +3,7 @@ import { X, Copy, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { getMercadoPagoBrickConfig, createMercadoPagoBrickConvoyPayment } from '@/api/convoyApi';
 import { usePlayerConvoyStore } from '@/store/playerConvoyStore';
 import type { ConvoySkin } from '@/types/convoy';
+import { Image } from '@/components/ui/image';
 
 type PaymentState = 'loading' | 'ready' | 'processing' | 'approved' | 'pending' | 'error';
 
@@ -223,11 +224,7 @@ export default function ConvoyPaymentModal({ skin, open, onClose }: Props) {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="mb-3 font-black text-white">Pix gerado</div>
               {result.qrCodeBase64 && (
-                <img
-                  src={`data:image/png;base64,${result.qrCodeBase64}`}
-                  alt="QR Code Pix"
-                  className="mx-auto mb-3 h-56 w-56 rounded-2xl bg-white p-2"
-                />
+                <Image src={`data:image/png;base64,${result.qrCodeBase64}`} alt="QR Code Pix" className="mx-auto mb-3 h-56 w-56 rounded-2xl bg-white p-2" />
               )}
               {result.qrCode && (
                 <button

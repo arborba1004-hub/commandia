@@ -43,6 +43,8 @@ export type ConvoySkin = {
   groundOffsetY?: number;
   /** Multiplicador leve para clarear materiais muito escuros. */
   materialBoost?: number;
+  /** Multiplicador de escala visual do comboio. */
+  visualScaleMultiplier?: number;
 };
 
 export type PlayerConvoyInventory = {
