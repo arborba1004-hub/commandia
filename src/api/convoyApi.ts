@@ -102,3 +102,39 @@ export async function createRealMoneyConvoyCheckout(skinId: ConvoySkinId): Promi
 export async function getRealMoneyPurchaseStatus(purchaseId: string): Promise<{ status: string; convoySkinId: string; grantedAt?: string | null }> {
   return request<{ status: string; convoySkinId: string; grantedAt?: string | null }>(`/payments/purchases/${encodeURIComponent(purchaseId)}`, { method: 'GET' });
 }
+
+export type MercadoPagoBrickConfig = {
+  publicKey: string;
+  env: 'sandbox' | 'production' | string;
+};
+
+export type MercadoPagoBrickPaymentResult = {
+  purchaseId: string;
+  paymentId?: string | number;
+  status: string;
+  statusDetail?: string;
+  paymentTypeId?: string;
+  paymentMethodId?: string;
+  convoySkinId: ConvoySkinId;
+  amount: number;
+  currency: string;
+  qrCode?: string;
+  qrCodeBase64?: string;
+  ticketUrl?: string;
+  player?: unknown;
+  message?: string;
+};
+
+export async function getMercadoPagoBrickConfig(): Promise<MercadoPagoBrickConfig> {
+  return request<MercadoPagoBrickConfig>('/payments/brick/config', { method: 'GET' });
+}
+
+export async function createMercadoPagoBrickConvoyPayment(
+  skinId: ConvoySkinId,
+  paymentData: unknown,
+): Promise<MercadoPagoBrickPaymentResult> {
+  return request<MercadoPagoBrickPaymentResult>('/payments/brick/convoy', {
+    method: 'POST',
+    body: JSON.stringify({ skinId, paymentData }),
+  });
+}
