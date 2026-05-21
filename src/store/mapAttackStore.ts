@@ -89,6 +89,9 @@ export type MapAttackStoreActions = {
   /** Muda a fase do ataque */
   setPhase: (phase: MapAttackPhase) => void;
 
+  /** Metadados do ataque ativo persistido no backend. */
+  setBattleMeta: (meta: Partial<Pick<MapAttackStoreState, 'battleId' | 'arriveAtIso' | 'launchedAtIso' | 'role' | 'isRecovered'>>) => void;
+
   /** Define a resolução final (chega via socket attackResolved ou resolveBattle) */
   setResolution: (resolution: AttackResolution) => void;
 
@@ -233,6 +236,16 @@ export const useMapAttackStore = create<MapAttackStore>((set, get) => ({
 
   setSquadVisible: (visible) => {
     set({ squadVisible: !!visible });
+  },
+
+  setBattleMeta: (meta) => {
+    set({
+      battleId: meta.battleId ?? get().battleId,
+      arriveAtIso: meta.arriveAtIso ?? get().arriveAtIso,
+      launchedAtIso: meta.launchedAtIso ?? get().launchedAtIso,
+      role: meta.role ?? get().role,
+      isRecovered: meta.isRecovered ?? get().isRecovered,
+    });
   },
 
   setPhase: (phase) => {
