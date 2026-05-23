@@ -4,21 +4,17 @@
  */
 
 import React from 'react';
+import type { GangAtributos, GangMember } from '@/types/gang';
 
-interface Member {
-  id: string;
-  type: string;
+type Member = GangMember & {
   name?: string;
-  level: number;
-  rajada: number;
-  blindagem: number;
-  folego: number;
-  quebra: number;
-  status: 'ativo' | 'ferido' | 'morto' | 'treinando';
   talent?: string;
   hasBonde?: boolean;
-  injuryEndsAt?: string;
-}
+  rajada?: number;
+  blindagem?: number;
+  folego?: number;
+  quebra?: number;
+};
 
 interface Props {
   member: Member;
@@ -27,12 +23,35 @@ interface Props {
   showDetails?: boolean;
 }
 
+const EMPTY_ATTRS: GangAtributos = { rajada: 0, blindagem: 0, folego: 0, quebra: 0 };
+
+function resolveCardStats(member: Member): {
+  base: GangAtributos;
+  bonusPercent: GangAtributos;
+  effective: GangAtributos;
+} {
+  const legacyEffective = {
+    rajada: Number(member.rajada ?? 0),
+    blindagem: Number(member.blindagem ?? 0),
+    folego: Number(member.folego ?? 0),
+    quebra: Number(member.quebra ?? 0),
+  };
+
+  return {
+    base: member.baseAttributes ?? legacyEffective,
+    bonusPercent: member.bonusPercent ?? EMPTY_ATTRS,
+    effective: member.effectiveStats ?? legacyEffective,
+  };
+}
+
 export const GangMemberCard: React.FC<Props> = ({
   member,
   onSelect,
   isSelected = false,
   showDetails = true,
 }) => {
+  const stats = resolveCardStats(member);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ativo':
@@ -59,7 +78,11 @@ export const GangMemberCard: React.FC<Props> = ({
   };
 
   const calculatePower = () => {
-    const power = member.rajada * member.quebra + member.blindagem + member.folego;
+    const power =
+      stats.effective.rajada * 1.35 +
+      stats.effective.blindagem * 1.1 +
+      stats.effective.folego * 1.05 +
+      stats.effective.quebra * 1.2;
     return Math.floor(power);
   };
 
@@ -101,26 +124,33 @@ export const GangMemberCard: React.FC<Props> = ({
           {/* Rajada */}
           <div className="bg-red-50 p-2 rounded">
             <p className="text-xs text-gray-600">Rajada</p>
-            <p className="text-lg font-bold text-red-600">{member.rajada}</p>
+            <p className="text-lg font-bold text-red-600">{stats.effective.rajada}</p>
           </div>
 
           {/* Quebra */}
           <div className="bg-orange-50 p-2 rounded">
             <p className="text-xs text-gray-600">Quebra</p>
-            <p className="text-lg font-bold text-orange-600">{member.quebra.toFixed(1)}x</p>
+            <p className="text-lg font-bold text-orange-600">{stats.effective.quebra.toFixed(1)}</p>
           </div>
 
           {/* Blindagem */}
           <div className="bg-blue-50 p-2 rounded">
             <p className="text-xs text-gray-600">Blindagem</p>
-            <p className="text-lg font-bold text-blue-600">{member.blindagem}</p>
+            <p className="text-lg font-bold text-blue-600">{stats.effective.blindagem}</p>
           </div>
 
           {/* Fôlego */}
           <div className="bg-green-50 p-2 rounded">
             <p className="text-xs text-gray-600">Fôlego</p>
-            <p className="text-lg font-bold text-green-600">{member.folego}</p>
+            <p className="text-lg font-bold text-green-600">{stats.effective.folego}</p>
           </div>
+        </div>
+      )}
+
+      {showDetails && member.effectiveStats && (
+        <div className="mt-2 rounded bg-black/5 p-2 text-xs text-gray-600">
+          Base R/B/F/Q: {stats.base.rajada}/{stats.base.blindagem}/{stats.base.folego}/{stats.base.quebra}
+          {' '}• Bônus %: {stats.bonusPercent.rajada}/{stats.bonusPercent.blindagem}/{stats.bonusPercent.folego}/{stats.bonusPercent.quebra}
         </div>
       )}
 
