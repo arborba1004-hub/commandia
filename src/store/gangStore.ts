@@ -20,6 +20,8 @@ import type {
   GangMemberType,
   GangBattleStats,
   GangMember,
+  GangStatSnapshot,
+  GangStatSource,
 } from '@/types/gang';
 import {
   fetchMyGang,
@@ -27,14 +29,17 @@ import {
   upgradeGangCT,
   payGangMaintenance,
   setGangFormation,
+  fetchGangStats,
+  upsertGangStatSource as upsertGangStatSourceApi,
+  removeGangStatSource as removeGangStatSourceApi,
 } from '@/api/gangApi';
+import { getAtributos } from '@/data/gangAtributos';
 import {
   fetchTrainingStatus,
   startTraining,
   collectTraining as collectTrainingApi,
   type TrainingSlot,
 } from '@/api/training';
-import { countMembersByType } from '@/utils/gangHelpers';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TIPOS DO STORE
@@ -44,6 +49,8 @@ type GangStore = {
   gang: Gang | null;
   player: any;
   trainingSlots: TrainingSlot[];
+  statSources: GangStatSource[];
+  statSnapshot: GangStatSnapshot | null;
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
@@ -51,6 +58,8 @@ type GangStore = {
   // ── Carregamento ──────────────────────────────────────────────────────────
   loadGang: () => Promise<boolean>;
   loadTrainingState: () => Promise<boolean>;
+  loadGangStats: () => Promise<boolean>;
+
 
   // ── Mutações ──────────────────────────────────────────────────────────────
   recruitMember: (type: GangMemberType) => Promise<boolean>;
@@ -64,6 +73,9 @@ type GangStore = {
   upgradeCT: () => Promise<boolean>;
   payMaintenance: () => Promise<boolean>;
   setFormation: (formation: GangFormationType) => Promise<boolean>;
+  upsertStatSource: (source: Partial<GangStatSource> & Pick<GangStatSource, 'source' | 'label' | 'targetScope'>) => Promise<boolean>;
+  removeStatSource: (sourceId: string) => Promise<boolean>;
+
 
   // ── Consultas derivadas ───────────────────────────────────────────────────
   getBattleStats: () => GangBattleStats;
@@ -145,6 +157,20 @@ function calculateTroopSummary(members: GangMember[]) {
   };
 }
 
+
+function mergeMemberStatSnapshots(
+  members: GangMember[],
+  statSnapshot?: GangStatSnapshot | null
+): GangMember[] {
+  if (!statSnapshot?.members?.length) return members;
+  const byId = new Map(statSnapshot.members.map((item) => [String(item.id), item]));
+
+  return members.map((member) => {
+    const snapshot = byId.get(String(member.id));
+    return snapshot ? { ...member, ...snapshot } : member;
+  });
+}
+
 /** Sincroniza os saldos do player retornados pela API da gangue. */
 function syncBalances(playerBalances?: {
   dirtyMoney: number;
@@ -182,6 +208,8 @@ export const useGangStore = create<GangStore>((set, get) => ({
   gang: null,
   player: null,
   trainingSlots: [],
+  statSources: [],
+  statSnapshot: null,
   isLoading: false,
   isSubmitting: false,
   error: null,
@@ -206,12 +234,22 @@ export const useGangStore = create<GangStore>((set, get) => ({
         playerStore.player?.gangMembers ??
         [];
 
+      const statSnapshot = apiGang?.statSnapshot ?? null;
+      const statSources = apiGang?.statSources ?? [];
+      const baseMembers = playerGangMembers.length ? playerGangMembers : (apiGang?.members ?? []);
       const unifiedGang = apiGang
-        ? { ...apiGang, members: playerGangMembers }
+        ? {
+            ...apiGang,
+            members: mergeMemberStatSnapshots(baseMembers, statSnapshot),
+            statSources,
+            statSnapshot,
+          }
         : null;
 
       set({
         gang: unifiedGang,
+        statSources,
+        statSnapshot,
         isLoading: false,
       });
 
@@ -253,6 +291,37 @@ export const useGangStore = create<GangStore>((set, get) => ({
           err instanceof Error
             ? err.message
             : 'Erro ao carregar treinamentos',
+      });
+      return false;
+    }
+  },
+
+
+
+  loadGangStats: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      const data = await fetchGangStats();
+
+      set((state) => ({
+        statSources: data.statSources ?? [],
+        statSnapshot: data.statSnapshot ?? null,
+        gang: state.gang
+          ? {
+              ...state.gang,
+              statSources: data.statSources ?? [],
+              statSnapshot: data.statSnapshot ?? null,
+              members: mergeMemberStatSnapshots(state.gang.members, data.statSnapshot),
+            }
+          : state.gang,
+        isLoading: false,
+      }));
+
+      return true;
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Erro ao carregar estatísticas da gangue',
       });
       return false;
     }
@@ -451,64 +520,116 @@ export const useGangStore = create<GangStore>((set, get) => ({
     }
   },
 
+
+
+  upsertStatSource: async (source) => {
+    try {
+      set({ isSubmitting: true, error: null });
+      const data = await upsertGangStatSourceApi(source);
+
+      set((state) => ({
+        statSources: data.statSources ?? [],
+        statSnapshot: data.statSnapshot ?? null,
+        gang: state.gang
+          ? {
+              ...state.gang,
+              statSources: data.statSources ?? [],
+              statSnapshot: data.statSnapshot ?? null,
+              members: mergeMemberStatSnapshots(state.gang.members, data.statSnapshot),
+            }
+          : state.gang,
+        isSubmitting: false,
+      }));
+
+      return true;
+    } catch (err) {
+      set({
+        isSubmitting: false,
+        error: err instanceof Error ? err.message : 'Erro ao salvar estatística da gangue',
+      });
+      return false;
+    }
+  },
+
+  removeStatSource: async (sourceId) => {
+    try {
+      set({ isSubmitting: true, error: null });
+      const data = await removeGangStatSourceApi(sourceId);
+
+      set((state) => ({
+        statSources: data.statSources ?? [],
+        statSnapshot: data.statSnapshot ?? null,
+        gang: state.gang
+          ? {
+              ...state.gang,
+              statSources: data.statSources ?? [],
+              statSnapshot: data.statSnapshot ?? null,
+              members: mergeMemberStatSnapshots(state.gang.members, data.statSnapshot),
+            }
+          : state.gang,
+        isSubmitting: false,
+      }));
+
+      return true;
+    } catch (err) {
+      set({
+        isSubmitting: false,
+        error: err instanceof Error ? err.message : 'Erro ao remover estatística da gangue',
+      });
+      return false;
+    }
+  },
+
   // ── Consultas derivadas ───────────────────────────────────────────────────
 
   getBattleStats: () => {
-    const { gang } = get();
+    const { gang, statSnapshot } = get();
     if (!gang) return EMPTY_BATTLE_STATS;
 
+    if (statSnapshot?.summary) {
+      return {
+        ...EMPTY_BATTLE_STATS,
+        ...statSnapshot.summary,
+      };
+    }
+
     const summary = calculateTroopSummary(gang.members);
+    const totals = gang.members
+      .filter((member) => member.status === 'ativo')
+      .reduce(
+        (acc, member) => {
+          const stats = member.effectiveStats ?? getAtributos(member.type, member.level);
+          acc.rajada += Number(stats.rajada || 0);
+          acc.blindagem += Number(stats.blindagem || 0);
+          acc.folego += Number(stats.folego || 0);
+          acc.quebra += Number(stats.quebra || 0);
+          if (member.type === 'motorista' || member.type === 'nitro') {
+            acc.mobilityPower += Math.round(Number(stats.folego || 0) * 0.25);
+          }
+          return acc;
+        },
+        { ...EMPTY_BATTLE_STATS }
+      );
 
-    const capangaCount = countMembersByType(gang.members, 'capanga');
-    const frenteCount = countMembersByType(gang.members, 'frente');
-    const executorCount = countMembersByType(gang.members, 'executor');
-    const assassinoCount = countMembersByType(gang.members, 'assassino');
-    const muralhaCount = countMembersByType(gang.members, 'muralha');
-    const certeiroCount = countMembersByType(gang.members, 'certeiro');
-    const motoristaCount = countMembersByType(gang.members, 'motorista');
-    const nitroCount = countMembersByType(gang.members, 'nitro');
-
-    const totalPower =
-      capangaCount * 14 +
-      frenteCount * 18 +
-      executorCount * 22 +
-      assassinoCount * 20 +
-      muralhaCount * 16 +
-      certeiroCount * 18 +
-      motoristaCount * 12 +
-      nitroCount * 16;
+    const totalPower = Math.round(
+      totals.rajada * 1.35 +
+      totals.blindagem * 1.10 +
+      totals.folego * 1.05 +
+      totals.quebra * 1.20
+    );
 
     return {
       totalMembers: summary.totalMembers,
       ativos: summary.activeMembers,
       feridos: summary.injuredMembers,
       mortos: summary.deadMembers,
-
-      // Os valores abaixo são somados dos atributos dos membros ativos.
-      // Para atributos detalhados por tipo+nível use gangAtributos.ts + gangEstatisticasStore.
-      rajada:
-        capangaCount * 9 +
-        frenteCount * 12 +
-        executorCount * 11 +
-        assassinoCount * 12,
-      blindagem:
-        muralhaCount * 15 +
-        motoristaCount * 14 +
-        nitroCount * 13 +
-        certeiroCount * 10,
-      folego:
-        muralhaCount * 16 +
-        nitroCount * 15 +
-        motoristaCount * 14 +
-        capangaCount * 12,
-      quebra:
-        frenteCount * 12 +
-        executorCount * 12 +
-        assassinoCount * 13 +
-        certeiroCount * 8,
+      rajada: Math.round(totals.rajada),
+      blindagem: Math.round(totals.blindagem),
+      folego: Math.round(totals.folego),
+      quebra: Math.round(totals.quebra),
       medicalPower: 0,
       lootPower: 0,
-      mobilityPower: motoristaCount * 8 + nitroCount * 6,
+      mobilityPower: totals.mobilityPower,
       totalPower,
     };
   },
@@ -547,6 +668,8 @@ export const useGangStore = create<GangStore>((set, get) => ({
     set({
       gang: null,
       trainingSlots: [],
+      statSources: [],
+      statSnapshot: null,
       isLoading: false,
       isSubmitting: false,
       error: null,
