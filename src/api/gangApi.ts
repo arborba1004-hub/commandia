@@ -12,6 +12,8 @@ import type {
   GangFormationType,
   GangMemberType,
   GangTroopSelection,
+  GangStatSnapshot,
+  GangStatSource,
 } from '@/types/gang';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -148,5 +150,44 @@ export async function applyGangBattleLosses(payload: {
   return request('/gang-war/apply-battle-losses', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ESTATÍSTICAS ALIMENTADAS DA GANGUE
+// ═════════════════════════════════════════════════════════════════════════════
+
+export type GangStatsEnvelope = {
+  statSources: GangStatSource[];
+  statSnapshot: GangStatSnapshot;
+  gang?: {
+    members?: unknown[];
+    statSources?: GangStatSource[];
+    statSnapshot?: GangStatSnapshot;
+  };
+};
+
+/** Carrega as fontes salvas e o snapshot efetivo das estatísticas da gangue. */
+export async function fetchGangStats(): Promise<GangStatsEnvelope> {
+  return request('/gang-war/stats', { method: 'GET' });
+}
+
+/** Cria ou atualiza uma fonte de estatística da gangue. */
+export async function upsertGangStatSource(
+  source: Partial<GangStatSource> & Pick<GangStatSource, 'source' | 'label' | 'targetScope'>
+): Promise<GangStatsEnvelope & { source: GangStatSource }> {
+  return request('/gang-war/stats/source', {
+    method: 'POST',
+    body: JSON.stringify(source),
+  });
+}
+
+/** Remove uma fonte de estatística da gangue pelo id. */
+export async function removeGangStatSource(
+  sourceId: string
+): Promise<GangStatsEnvelope & { removed: boolean }> {
+  return request(`/gang-war/stats/source/${encodeURIComponent(sourceId)}`, {
+    method: 'DELETE',
   });
 }
