@@ -231,12 +231,7 @@ export default function SubornoIlustradoPage() {
       const targetLabel = TARGET_LABELS[data.suborno.targetType as SubornoTarget] || data.suborno.targetType;
 
       setResultMessage(
-        `Suborno aceito. Nível do suborno: ${data.suborno.previousLevel} → ${data.suborno.briberyLevel}.
-
-` +
-          `Bônus aplicado: +1% de Blindagem para ${targetLabel}.
-` +
-          `Esse bônus foi salvo como fonte de estatística da gangue e entra no cálculo de batalha.`
+        `Suborno aceito. Nível do suborno: ${data.suborno.previousLevel} → ${data.suborno.briberyLevel}.\n\nBônus aplicado: +1% de Blindagem para ${targetLabel}.\n\nEsse bônus foi salvo como fonte de estatística da gangue e entra no cálculo de batalha.`
       );
 
       setShowVaultModal(false);
@@ -268,10 +263,7 @@ export default function SubornoIlustradoPage() {
       applyPlayerUpdate(() => punishedPlayer);
 
       setResultMessage(
-        'Você denunciou a autoridade e sofreu uma punição temporária.
-
-' +
-          'Nenhum nível de suborno foi comprado e nenhum bônus de Blindagem foi aplicado.'
+        'Você denunciou a autoridade e sofreu uma punição temporária.\n\nNenhum nível de suborno foi comprado e nenhum bônus de Blindagem foi aplicado.'
       );
       setShowResult(true);
     } finally {
