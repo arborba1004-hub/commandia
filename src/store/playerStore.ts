@@ -404,7 +404,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     if (get().isSyncing) return;
     if (!getStoredAuthToken()) return;
     if (syncTimeout) clearTimeout(syncTimeout);
-    syncTimeout = setTimeout(() => { void get().syncPlayerToBackend(); }, 500);
+    syncTimeout = setTimeout(() => { get().syncPlayerToBackend().catch(() => {}); }, 500);
   },
 
   // ── syncPlayerToBackend: PATCH /player/update ─────────────────────────────
@@ -420,7 +420,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       // NÃO atualiza store aqui — socket emite 'playerUpdate' após o save
       set({ isSyncing: false, pendingLocalChanges: false, lastSyncAt: Date.now() });
     } catch (error) {
-      set({ isSyncing: false, syncError: error instanceof Error ? error.message : 'Erro ao sincronizar' });
+      const message = error instanceof Error ? error.message : 'Erro ao sincronizar';
+      set({ isSyncing: false, syncError: message });
+      throw new Error(message);
     }
   },
 
