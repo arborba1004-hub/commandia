@@ -44,6 +44,14 @@ export type GangMember = {
   lastBattleAt?: number | null;
   activeAttackId?: string | null;
   marchingUntil?: string | null;
+
+  // Calculado pelo backend a partir de atributos base + fontes de estatística.
+  // Não salvar estes campos como atributo manual do membro.
+  baseAttributes?: GangAtributos;
+  bonusPercent?: GangAtributos;
+  bonusFlat?: GangAtributos;
+  effectiveStats?: GangAtributos;
+  activeStatSources?: string[];
 };
 
 /** Alias para compatibilidade com código legado. */
@@ -52,6 +60,8 @@ export type GangUnit = GangMember;
 /** Tipo principal da gangue — contém APENAS membros. */
 export type Gang = {
   members: GangMember[];
+  statSources?: GangStatSource[];
+  statSnapshot?: GangStatSnapshot | null;
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -73,6 +83,64 @@ export type GangAtributos = {
   blindagem: number;
   folego: number;
   quebra: number;
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ESTATÍSTICAS ALIMENTADAS (bônus salvos por fonte; não alteram atributos base)
+// ═════════════════════════════════════════════════════════════════════════════
+
+export type GangStatSourceKind =
+  | 'formacao'
+  | 'ct'
+  | 'arsenal'
+  | 'suborno'
+  | 'investimento'
+  | 'faccao'
+  | 'evento'
+  | 'manual'
+  | 'barraco'
+  | 'loja'
+  | 'item';
+
+export type GangStatTargetScope = 'global' | 'type' | 'member';
+
+export type GangStatSource = {
+  id: string;
+  source: GangStatSourceKind;
+  label: string;
+  targetScope: GangStatTargetScope;
+  targetType?: GangMemberType | null;
+  targetMemberId?: string | null;
+  percent: GangAtributos;
+  flat: GangAtributos;
+  enabled: boolean;
+  expiresAt?: string | null;
+  updatedAtIso?: string | null;
+};
+
+export type GangMemberStatSnapshot = {
+  id: string;
+  type: GangMemberType;
+  level: number;
+  status: GangMemberStatus | string;
+  baseAttributes: GangAtributos;
+  bonusPercent: GangAtributos;
+  bonusFlat: GangAtributos;
+  effectiveStats: GangAtributos;
+  activeStatSources: string[];
+};
+
+export type GangStatSnapshot = {
+  members: GangMemberStatSnapshot[];
+  statSources: GangStatSource[];
+  totals: {
+    baseAttributes: GangAtributos;
+    bonusPercentAverage: GangAtributos;
+    bonusFlat: GangAtributos;
+    effectiveStats: GangAtributos;
+  };
+  summary: GangBattleStats;
+  updatedAtIso: string;
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -180,6 +248,8 @@ export type GangStateSnapshot = {
     durationSeconds: number;
     slots: number;
   };
+  statSources?: GangStatSource[];
+  statSnapshot?: GangStatSnapshot | null;
   troopSummary: {
     totalMembers: number;
     activeMembers: number;
