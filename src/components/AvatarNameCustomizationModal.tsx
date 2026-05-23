@@ -8,6 +8,71 @@ interface AvatarNameCustomizationModalProps {
   onClose: () => void;
 }
 
+const MAX_AVATAR_SIZE_BYTES = 700_000;
+const AVATAR_CANVAS_SIZE = 512;
+const AVATAR_QUALITY = 0.82;
+
+function compressAvatarFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Selecione um arquivo de imagem.'));
+      return;
+    }
+
+    const imageUrl = URL.createObjectURL(file);
+    const image = new window.Image();
+
+    image.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const sourceSize = Math.min(image.width || AVATAR_CANVAS_SIZE, image.height || AVATAR_CANVAS_SIZE);
+        const sx = Math.max(0, ((image.width || sourceSize) - sourceSize) / 2);
+        const sy = Math.max(0, ((image.height || sourceSize) - sourceSize) / 2);
+
+        canvas.width = AVATAR_CANVAS_SIZE;
+        canvas.height = AVATAR_CANVAS_SIZE;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Não foi possível processar a imagem.'));
+          return;
+        }
+
+        ctx.drawImage(
+          image,
+          sx,
+          sy,
+          sourceSize,
+          sourceSize,
+          0,
+          0,
+          AVATAR_CANVAS_SIZE,
+          AVATAR_CANVAS_SIZE
+        );
+
+        const dataUrl = canvas.toDataURL('image/jpeg', AVATAR_QUALITY);
+        if (dataUrl.length > MAX_AVATAR_SIZE_BYTES) {
+          reject(new Error('A imagem ficou grande demais. Escolha uma foto mais simples.'));
+          return;
+        }
+
+        resolve(dataUrl);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error('Erro ao processar avatar.'));
+      } finally {
+        URL.revokeObjectURL(imageUrl);
+      }
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error('Não foi possível carregar essa imagem.'));
+    };
+
+    image.src = imageUrl;
+  });
+}
+
 export default function AvatarNameCustomizationModal({
   isOpen,
   onClose,
@@ -19,6 +84,7 @@ export default function AvatarNameCustomizationModal({
   const [customName, setCustomName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'avatar' | 'name'>('avatar');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,26 +95,32 @@ export default function AvatarNameCustomizationModal({
     setSelectedAvatar(player?.headerCustomization?.customAvatar || player?.avatar || '');
   }, [isOpen, player]);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        setSelectedAvatar(result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      setErrorMessage('');
+      const compressedAvatar = await compressAvatarFile(file);
+      setSelectedAvatar(compressedAvatar);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Erro ao carregar avatar.');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSaveChanges = async () => {
     try {
       setIsSaving(true);
+      setErrorMessage('');
 
-      const safeCustomName = customName.trim() || player?.name || 'CAPO GHOST';
+      const safeCustomName = (customName.trim() || player?.name || 'CAPO GHOST').slice(0, 30);
       const safeCustomAvatar = selectedAvatar || player?.avatar || '';
+
+      if (safeCustomAvatar.length > MAX_AVATAR_SIZE_BYTES) {
+        throw new Error('Avatar muito grande. Selecione a imagem novamente.');
+      }
 
       applyPlayerUpdate((currentPlayer) => ({
         ...currentPlayer,
@@ -62,6 +134,8 @@ export default function AvatarNameCustomizationModal({
       await syncPlayerToBackend();
       onClose();
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao salvar customizações.';
+      setErrorMessage(message);
       console.error('Erro ao salvar customizações:', error);
     } finally {
       setIsSaving(false);
@@ -177,6 +251,12 @@ export default function AvatarNameCustomizationModal({
             </div>
           )}
         </div>
+
+        {errorMessage && (
+          <div className="border-t border-red-500/20 px-6 py-3 text-sm font-bold text-red-300">
+            {errorMessage}
+          </div>
+        )}
 
         <div className="flex justify-end gap-3 border-t border-[#d7a84a]/20 px-6 py-4">
           <button
