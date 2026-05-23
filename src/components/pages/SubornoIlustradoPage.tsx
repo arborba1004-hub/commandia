@@ -1,3 +1,4 @@
+import { paySuborno } from '@/api/briberyApi';
 import Footer from '@/components/Footer';
 import Header from '@/components/Header';
 import SafeVaultModal from '@/components/SafeVaultModal';
@@ -9,8 +10,9 @@ import {
   applyPunishment,
   getRandomPunishment,
 } from '@/services/punishmentService';
+import { useGangStore } from '@/store/gangStore';
 import { usePlayerStore } from '@/store/playerStore';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface Authority {
@@ -123,7 +125,16 @@ const AUTHORITIES: Authority[] = [
   },
 ];
 
-const SKILLS = ['attack', 'defense', 'agility', 'intelligence', 'respect', 'vigor'] as const;
+type SubornoTarget = 'assassino' | 'certeiro' | 'muralha' | 'frente';
+
+const SUBORNO_TARGET_ROTATION: SubornoTarget[] = ['assassino', 'certeiro', 'muralha', 'frente'];
+
+const TARGET_LABELS: Record<SubornoTarget, string> = {
+  assassino: 'Assassino',
+  certeiro: 'Certeiro',
+  muralha: 'Muralha',
+  frente: 'Frente',
+};
 
 function getAuthorityByLevel(level: number): Authority {
   if (level <= 9) return AUTHORITIES[0];
@@ -139,15 +150,26 @@ function getAuthorityByLevel(level: number): Authority {
   return AUTHORITIES[10];
 }
 
+function clampLevel(level: number): number {
+  return Math.max(1, Math.min(100, Math.floor(Number(level) || 1)));
+}
+
 function calculateSubornoValue(level: number): number {
-  return Math.floor(220 * Math.pow(1.1, level - 1));
+  return Math.floor(220 * Math.pow(1.1, clampLevel(level) - 1));
+}
+
+function getNextSubornoTarget(currentBriberyLevel: number): SubornoTarget {
+  const safeLevel = clampLevel(currentBriberyLevel);
+  return SUBORNO_TARGET_ROTATION[(safeLevel - 1) % SUBORNO_TARGET_ROTATION.length];
 }
 
 export default function SubornoIlustradoPage() {
   const navigate = useNavigate();
   const player = usePlayerStore((state) => state.player);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const hydratePlayerFromServer = usePlayerStore((state) => state.hydratePlayerFromServer);
   const applyPlayerUpdate = usePlayerStore((state) => state.applyPlayerUpdate);
+  const loadGangStats = useGangStore((state) => state.loadGangStats);
 
   const [showVaultModal, setShowVaultModal] = useState(false);
   const [showResult, setShowResult] = useState(false);
@@ -166,10 +188,19 @@ export default function SubornoIlustradoPage() {
     );
   }
 
-  const barracoLevel = player?.niveis?.barracoLevel || 1;
+  const barracoLevel = clampLevel(player?.niveis?.barracoLevel || 1);
+  const briberyLevel = clampLevel(
+    Math.max(
+      Number(player?.niveis?.briberyLevel || 1),
+      Number(player?.pageLevels?.bribery || 1)
+    )
+  );
   const dirtyMoney = Number(player?.balances?.dirtyMoney || 0);
-  const selectedAuthority = useMemo(() => getAuthorityByLevel(barracoLevel), [barracoLevel]);
-  const subornoValue = useMemo(() => calculateSubornoValue(barracoLevel), [barracoLevel]);
+  const selectedAuthority = useMemo(() => getAuthorityByLevel(briberyLevel), [briberyLevel]);
+  const subornoValue = useMemo(() => calculateSubornoValue(briberyLevel), [briberyLevel]);
+  const nextTarget = useMemo(() => getNextSubornoTarget(briberyLevel), [briberyLevel]);
+  const isSubornoLevelLocked = briberyLevel >= barracoLevel;
+  const nextBriberyLevel = Math.min(100, briberyLevel + 1);
 
   const handlePaySuborno = async () => {
     if (!player || isProcessing) return;
@@ -177,6 +208,15 @@ export default function SubornoIlustradoPage() {
     setIsProcessing(true);
 
     try {
+      if (isSubornoLevelLocked) {
+        setResultMessage(
+          `Suborno bloqueado. Evolua o barraco para liberar o suborno nível ${nextBriberyLevel}.`
+        );
+        setShowVaultModal(false);
+        setShowResult(true);
+        return;
+      }
+
       if (dirtyMoney < subornoValue) {
         setResultMessage('Você não tem dinheiro sujo suficiente.');
         setShowVaultModal(false);
@@ -184,42 +224,25 @@ export default function SubornoIlustradoPage() {
         return;
       }
 
-      const nextBarracoLevel = Math.min(100, barracoLevel + 1);
-      const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
+      const data = await paySuborno();
+      hydratePlayerFromServer(data.player);
+      void loadGangStats();
 
-      applyPlayerUpdate((currentPlayer) => {
-        const currentSkills = { ...(currentPlayer.skills || {}) } as Record<string, number>;
-
-        return {
-          ...currentPlayer,
-          balances: {
-            ...currentPlayer.balances,
-            dirtyMoney: Math.max(
-              0,
-              Number(currentPlayer.balances?.dirtyMoney || 0) - subornoValue
-            ),
-          },
-          niveis: {
-            ...currentPlayer.niveis,
-            barracoLevel: nextBarracoLevel,
-          },
-          pageLevels: {
-            ...currentPlayer.pageLevels,
-            barraco: Math.max(Number(currentPlayer.pageLevels?.barraco || 1), nextBarracoLevel),
-          },
-          skills: {
-            ...currentSkills,
-            [randomSkill]: Number((currentSkills[randomSkill] || 0) + 1),
-          },
-        };
-      });
+      const targetLabel = TARGET_LABELS[data.suborno.targetType as SubornoTarget] || data.suborno.targetType;
 
       setResultMessage(
-        barracoLevel >= 100
-          ? 'Você já está no topo. O suborno foi aceito, mas seu barraco não sobe além do nível 100.'
-          : `Suborno pago. Você avançou para o nível ${nextBarracoLevel} e ganhou +1 em uma habilidade.`
+        `Suborno aceito. Nível do suborno: ${data.suborno.previousLevel} → ${data.suborno.briberyLevel}.
+
+` +
+          `Bônus aplicado: +1% de Blindagem para ${targetLabel}.
+` +
+          `Esse bônus foi salvo como fonte de estatística da gangue e entra no cálculo de batalha.`
       );
 
+      setShowVaultModal(false);
+      setShowResult(true);
+    } catch (error) {
+      setResultMessage(error instanceof Error ? error.message : 'Erro ao pagar suborno.');
       setShowVaultModal(false);
       setShowResult(true);
     } finally {
@@ -242,30 +265,13 @@ export default function SubornoIlustradoPage() {
 
       const punishmentType = getRandomPunishment();
       const punishedPlayer = applyPunishment(player, punishmentType);
-      const nextBarracoLevel = Math.min(100, barracoLevel + 1);
-      const randomSkill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
+      applyPlayerUpdate(() => punishedPlayer);
 
-      applyPlayerUpdate(() => {
-        const punishedSkills = { ...(punishedPlayer.skills || {}) } as Record<string, number>;
+      setResultMessage(
+        'Você denunciou a autoridade e sofreu uma punição temporária.
 
-        return {
-          ...punishedPlayer,
-          niveis: {
-            ...punishedPlayer.niveis,
-            barracoLevel: nextBarracoLevel,
-          },
-          pageLevels: {
-            ...punishedPlayer.pageLevels,
-            barraco: Math.max(Number(punishedPlayer.pageLevels?.barraco || 1), nextBarracoLevel),
-          },
-          skills: {
-            ...punishedSkills,
-            [randomSkill]: Number((punishedSkills[randomSkill] || 0) + 1),
-          },
-        };
-      });
-setResultMessage(
-        `Você denunciou a autoridade e sofreu uma punição temporária.\n\nMesmo assim, avançou para o nível ${nextBarracoLevel} e ganhou +1 em uma habilidade.`
+' +
+          'Nenhum nível de suborno foi comprado e nenhum bônus de Blindagem foi aplicado.'
       );
       setShowResult(true);
     } finally {
@@ -291,11 +297,25 @@ setResultMessage(
             SUBORNO
           </h1>
 
-          <p className="font-paragraph text-2xl md:text-3xl text-emerald-400 font-bold mt-2">
-            Nível do Barraco: <span className="text-white">{barracoLevel}</span>
-          </p>
+          <div className="font-paragraph text-lg md:text-xl text-gray-300 mt-4 flex flex-col md:flex-row items-center justify-center gap-3 md:gap-8">
+            <p>
+              Barraco: <span className="text-white font-bold">nível {barracoLevel}</span>
+            </p>
+            <p>
+              Suborno: <span className="text-emerald-400 font-bold">nível {briberyLevel}/{barracoLevel}</span>
+            </p>
+            <p>
+              Próximo bônus: <span className="text-cyan-300 font-bold">+1% Blindagem {TARGET_LABELS[nextTarget]}</span>
+            </p>
+          </div>
 
-          <p className="font-paragraph text-lg md:text-xl text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap">
+          {isSubornoLevelLocked && (
+            <p className="font-paragraph text-sm md:text-base text-amber-300 mt-3">
+              Evolua o barraco para liberar o próximo nível de suborno.
+            </p>
+          )}
+
+          <p className="font-paragraph text-lg md:text-xl text-gray-400 mt-4 flex items-center justify-center gap-2 flex-wrap">
             <span>Dinheiro Sujo:</span>
             <span className="text-emerald-400 font-bold text-2xl md:text-3xl">
               R$ {dirtyMoney.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -342,22 +362,25 @@ setResultMessage(
             </div>
 
             <div className="relative bg-black/80 border border-emerald-400/30 rounded-3xl p-8 shadow-inner">
-              <div className="absolute -left-1 -top-4 text-8xl text-emerald-400/20 leading-none">"</div>
+              <div className="absolute -left-1 -top-4 text-8xl text-emerald-400/20 leading-none">&quot;</div>
               <p className="font-paragraph text-2xl italic text-gray-200 leading-relaxed pl-8">
                 {selectedAuthority.dialog}
               </p>
               <div className="absolute -right-1 -bottom-6 text-8xl text-emerald-400/20 leading-none rotate-180">
-                "
+                &quot;
               </div>
             </div>
 
             <div className="bg-gradient-to-br from-emerald-950 to-black border border-emerald-400/60 rounded-3xl p-8 flex items-center justify-between shadow-[inset_0_0_60px_rgba(0,255,80,0.2)]">
               <div>
                 <p className="text-emerald-400/70 text-sm font-medium tracking-widest">
-                  VALOR EXIGIDO
+                  VALOR EXIGIDO PARA NÍVEL {nextBriberyLevel}
                 </p>
                 <p className="font-heading text-5xl md:text-6xl text-emerald-400 tracking-tighter">
                   R$ {subornoValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-cyan-300 text-sm md:text-base mt-2">
+                  Acordo atual fortalece a Blindagem de {TARGET_LABELS[nextTarget]} em +1%.
                 </p>
               </div>
               <div className="text-7xl">💰</div>
@@ -366,11 +389,15 @@ setResultMessage(
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
                 onClick={() => setShowVaultModal(true)}
-                className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-heading text-xl md:text-2xl py-8 rounded-3xl shadow-[0_0_60px_rgba(0,255,80,0.7)] hover:shadow-[0_0_90px_rgba(0,255,80,1)] transition-all duration-300 active:scale-[0.97] flex items-center justify-center gap-3"
-                disabled={isProcessing}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-heading text-xl md:text-2xl py-8 rounded-3xl shadow-[0_0_60px_rgba(0,255,80,0.7)] hover:shadow-[0_0_90px_rgba(0,255,80,1)] transition-all duration-300 active:scale-[0.97] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={isProcessing || isSubornoLevelLocked}
               >
                 <span className="text-4xl">🔐</span>
-                {isProcessing ? 'ABRINDO COFRE...' : 'PAGAR SUBORNO'}
+                {isProcessing
+                  ? 'ABRINDO COFRE...'
+                  : isSubornoLevelLocked
+                    ? 'BLOQUEADO PELO BARRACO'
+                    : 'PAGAR SUBORNO'}
               </Button>
 
               <Button
