@@ -53,8 +53,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 }
 
+export async function getAzideiaTargets(): Promise<AzideiaTargetsResponse> {
+  return request<AzideiaTargetsResponse>('/azideia/targets', { method: 'GET' });
+}
+
 export async function getAzideiaX9Targets(): Promise<AzideiaTargetsResponse> {
-  return request<AzideiaTargetsResponse>('/azideia/x9/targets', { method: 'GET' });
+  return getAzideiaTargets();
 }
 
 export async function attackAzideiaX9(targetId: string): Promise<AzideiaAttackResult> {
@@ -63,6 +67,11 @@ export async function attackAzideiaX9(targetId: string): Promise<AzideiaAttackRe
   });
 }
 
+export async function negotiateAzideiaCorreria(targetId: string): Promise<AzideiaAttackResult> {
+  return request<AzideiaAttackResult>(`/azideia/correria/${encodeURIComponent(targetId)}/negotiate`, {
+    method: 'POST',
+  });
+}
 
 export async function getActiveAzideiaMissions(): Promise<AzideiaActiveMissionsResponse> {
   return request<AzideiaActiveMissionsResponse>('/azideia/missions/active', { method: 'GET' });
