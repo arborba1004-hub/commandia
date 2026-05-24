@@ -35,6 +35,7 @@ import {
   canOperateLaundry,
   laundryCompleteWithFaction,
   laundryStartWithFaction,
+  fetchCurrentPlayerWithFaction,
   syncPlayerUpdateWithFaction,
 } from '@/api/playerApi';
 import { GAME_MODE } from '@/config/gameMode';
@@ -353,9 +354,45 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   lastLocalMutationAt:   0,
   lastServerHydrationAt: 0,
 
-  // ── no-op: socket envia 'playerInit' → hydratePlayerFromServer ─────────────
-  // Mantido para compatibilidade com 14+ páginas que chamam loadPlayer()
-  loadPlayer: async () => { /* no-op — socket handles hydration */ },
+  // ── Fallback HTTP: estabiliza refresh/mobile quando o socket demora ────────
+  // O socket continua sendo realtime, mas /player/me garante que ProtectedRoute,
+  // Header e GamePage não fiquem pretos se o playerInit atrasar ou for perdido.
+  loadPlayer: async () => {
+    if (get().isLoaded) return;
+    if (!getStoredAuthToken()) return;
+
+    try {
+      set({ isSyncing: true, syncError: null });
+      const envelope = await fetchCurrentPlayerWithFaction();
+      const merged = clearExpiredPunishments(mergePlayer(envelope.player));
+      const normalized = {
+        ...merged,
+        _id: String((envelope.player as any)?._id || (envelope.player as any)?.id || (envelope.player as any)?.googleId || merged._id || ''),
+      };
+
+      set({
+        player: normalized,
+        isLoaded: true,
+        isSyncing: false,
+        syncError: null,
+        lastSyncAt: Date.now(),
+        lastServerHydrationAt: Date.now(),
+        pendingLocalChanges: false,
+      });
+
+      await syncFactionStoreFromEnvelope(envelope.faction ?? null, {
+        allowClear: (envelope.player as any)?.factionId == null,
+      });
+    } catch (error: any) {
+      const message = error instanceof Error ? error.message : 'Erro ao carregar jogador';
+      set({ isSyncing: false, syncError: message });
+
+      if (error?.status === 401 || error?.status === 403) {
+        try { localStorage.removeItem('authToken'); } catch { /* noop */ }
+        get().clearPlayer();
+      }
+    }
+  },
 
   // ── no-ops: polling eliminado ────────────────────────────────────────────
   // Mantido por compatibilidade com useGoogleAuth e outros hooks
