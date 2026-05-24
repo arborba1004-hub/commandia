@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/store/playerStore';
-import { Coins, Siren, Zap, Gift, History, Crown } from 'lucide-react';
+import { Siren, Zap, Gift, History, Crown } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { claimDailyCorre, spinSlot, type GiroCardDrop, type SlotSymbol } from '@/api/gameApi';
 
@@ -174,7 +174,7 @@ export default function GiroPage() {
   const [landingReels, setLandingReels] = useState<boolean[]>([false, false, false]);
   const [spinning, setSpinning] = useState(false);
   const [multiplier, setMultiplier] = useState(1);
-  const [message, setMessage] = useState('Escolhe quantos Corres vai colocar na rua.');
+  const [message, setMessage] = useState('Escolhe quantos Corres vai colocar na rua. Não consome Commands Sujo.');
   const [history, setHistory] = useState<string[]>([]);
   const [spinError, setSpinError] = useState('');
   const [policeFlash, setPoliceFlash] = useState(false);
@@ -311,7 +311,7 @@ export default function GiroPage() {
     setLockedReels([false, false, false]);
     setLandingReels([false, false, false]);
     setSpinning(true);
-    setMessage(`Colocando ${multiplier} Corre(s) na rua... risco ${risk.label}.`);
+    setMessage(`Colocando ${multiplier} Corre(s) na rua... sem gastar Commands Sujo. Risco ${risk.label}.`);
 
     try {
       const response = await spinSlot(multiplier);
@@ -438,13 +438,13 @@ export default function GiroPage() {
         )}
       </AnimatePresence>
 
-      <div className="relative z-10 px-3 pb-14 pt-8 md:px-6 md:pt-10">
+      <div className="relative z-10 px-3 pb-14 pt-5 md:px-6 md:pt-8">
         <div className="mx-auto max-w-[1380px]">
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <div className="rounded-full border border-[#8a5a1e] bg-black/55 px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#f2c360] shadow-[0_0_18px_rgba(0,0,0,0.25)] backdrop-blur-md">
+          <div className="mb-3 flex flex-wrap items-center gap-2 md:mb-5 md:gap-3">
+            <div className="rounded-full border border-[#8a5a1e] bg-black/55 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#f2c360] shadow-[0_0_18px_rgba(0,0,0,0.25)] backdrop-blur-md md:px-4 md:py-2 md:text-[11px]">
               Giro no Asfalto
             </div>
-            <div className="rounded-full border border-[#8a5a1e] bg-black/55 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300 backdrop-blur-md">
+            <div className="rounded-full border border-[#8a5a1e] bg-black/55 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-300 backdrop-blur-md md:px-4 md:py-2 md:text-[11px] md:tracking-[0.18em]">
               Corre = atividade criminosa
             </div>
           </div>
@@ -455,8 +455,8 @@ export default function GiroPage() {
               <Image src={BULLET_URL} alt="Furo de bala" className="pointer-events-none absolute right-[12%] top-[10%] z-0 w-16 opacity-70 md:w-20" />
               <Image src={BULLET_URL} alt="Furo de bala" className="pointer-events-none absolute left-[7%] bottom-[18%] z-0 w-16 opacity-55 md:w-20" />
 
-              <div className="relative z-10 mx-auto w-full max-w-[1040px]">
-                <div className="relative mx-auto w-full max-w-[980px]">
+              <div className="relative z-10 mx-auto w-full max-w-[1060px]">
+                <div className="relative mx-auto w-full max-w-[1000px]">
                   <div className="pointer-events-none absolute left-1/2 top-[1%] z-20 w-[54%] -translate-x-1/2">
                     <Image src={PRIZE_FRAME_URL} alt="Moldura do prêmio" className="w-full select-none object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]" />
                     <div className="absolute inset-x-[9%] top-[20%] flex h-[56%] flex-col items-center justify-center text-center">
@@ -471,12 +471,12 @@ export default function GiroPage() {
                     <Image src={SLOT_BODY_URL} alt="Corpo da slot machine" className="relative z-10 w-full select-none object-contain drop-shadow-[0_24px_50px_rgba(0,0,0,0.55)]" />
 
                     {[
-                      { left: '21.2%', top: '29.4%' },
-                      { left: '40.85%', top: '29.4%' },
-                      { left: '60.5%', top: '29.4%' },
+                      { left: '21.4%', top: '30.2%' },
+                      { left: '40.95%', top: '30.2%' },
+                      { left: '60.5%', top: '30.2%' },
                     ].map((position, idx) => (
-                      <div key={idx} className="absolute z-20" style={{ left: position.left, top: position.top, width: '17%', height: '30%' }}>
-                        <div className={`relative flex h-full w-full items-center justify-center overflow-hidden rounded-[24px] border ${landingReels[idx] ? 'border-[#ffd774] shadow-[0_0_30px_rgba(255,215,116,0.55)]' : 'border-[#6d4f1e]/50 shadow-[inset_0_0_22px_rgba(255,180,70,0.22)]'} bg-[linear-gradient(180deg,rgba(255,245,224,0.98)_0%,rgba(225,210,190,0.95)_100%)]`}>
+                      <div key={idx} className="absolute z-20" style={{ left: position.left, top: position.top, width: '16.7%', height: '28.5%' }}>
+                        <div className={`relative flex h-full w-full items-center justify-center overflow-visible rounded-[24px] ${landingReels[idx] ? 'drop-shadow-[0_0_24px_rgba(255,215,116,0.8)]' : ''}`}>
                           <motion.img
                             key={`reel-${idx}-${displayedReels[idx]}-${lockedReels[idx]}-${landingReels[idx]}`}
                             src={DISPLAY_ASSETS[displayedReels[idx]]}
@@ -484,14 +484,14 @@ export default function GiroPage() {
                             initial={{ y: lockedReels[idx] ? -18 : 0, opacity: 0.82 }}
                             animate={landingReels[idx] ? { y: [-20, 5, -2, 0], opacity: 1, scale: [0.9, 1.15, 0.98, 1] } : spinning && !lockedReels[idx] ? { y: [0, -8, 0], opacity: 0.9, scale: 0.96 } : { y: 0, opacity: 1, scale: 1 }}
                             transition={spinning && !lockedReels[idx] ? { repeat: Infinity, duration: 0.16 } : { duration: 0.32 }}
-                            className="h-[72%] w-[72%] object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.2)]"
+                            className="h-[78%] w-[78%] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.35)]"
                           />
                         </div>
                       </div>
                     ))}
 
-                    <div className="absolute right-[4.3%] top-[29%] z-20 hidden w-[11%] lg:block">
-                      <div className="space-y-2">
+                    <div className="absolute right-[3.7%] top-[30%] z-30 w-[11.5%]">
+                      <div className="space-y-[clamp(0.16rem,0.7vw,0.5rem)]">
                         {[...MULTIPLIERS].reverse().map((value) => {
                           const active = multiplier === value;
                           return (
@@ -500,7 +500,8 @@ export default function GiroPage() {
                               type="button"
                               disabled={spinning}
                               onClick={() => setMultiplier(value)}
-                              className={`flex h-14 w-full items-center justify-center rounded-xl border text-2xl font-black transition ${active ? 'border-[#ffcb45] bg-[linear-gradient(180deg,#f0c442_0%,#9e6206_100%)] text-black shadow-[0_0_16px_rgba(255,196,0,0.4)]' : 'border-[#6d4f1e] bg-black/72 text-[#f4d488] hover:bg-black/82'} ${spinning ? 'opacity-60' : ''}`}
+                              aria-label={`Selecionar ${value} Corres`}
+                              className={`flex h-[clamp(34px,5.8vw,56px)] w-full items-center justify-center rounded-[clamp(8px,1.4vw,14px)] border text-[clamp(0.78rem,2.45vw,1.5rem)] font-black transition ${active ? 'border-[#ffcb45] bg-[linear-gradient(180deg,#f0c442_0%,#9e6206_100%)] text-black shadow-[0_0_16px_rgba(255,196,0,0.4)]' : 'border-[#6d4f1e] bg-black/78 text-[#f4d488] hover:bg-black/88'} ${spinning ? 'opacity-60' : ''}`}
                             >
                               {value}x
                             </button>
@@ -535,30 +536,14 @@ export default function GiroPage() {
                       <div className="rounded-[22px] border border-[#6d4f1e] bg-black/88 px-4 py-3 shadow-[0_12px_22px_rgba(0,0,0,0.35)]">
                         <p className="mb-2 text-center text-[clamp(0.7rem,1vw,1rem)] font-black uppercase tracking-[0.18em] text-[#f0d089]">Custo</p>
                         <div className="flex items-center justify-center gap-2 text-[#f6d27b]">
-                          <Coins className="h-7 w-7" />
-                          <span className="text-[clamp(1.4rem,2vw,2.2rem)] font-black">{formatNumber(multiplier * 1000)}</span>
+                          <Zap className="h-7 w-7 text-yellow-300 drop-shadow-[0_0_10px_rgba(255,210,0,0.55)]" />
+                          <span className="text-[clamp(1.1rem,1.7vw,1.9rem)] font-black">{multiplier} Corre{multiplier > 1 ? 's' : ''}</span>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:hidden">
-                  {[...MULTIPLIERS].reverse().map((value) => {
-                    const active = multiplier === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setMultiplier(value)}
-                        disabled={spinning}
-                        className={`min-w-[66px] rounded-xl border px-3 py-2 text-lg font-black transition ${active ? 'border-[#ffcb45] bg-[linear-gradient(180deg,#f0c442_0%,#9e6206_100%)] text-black shadow-[0_0_16px_rgba(255,196,0,0.4)]' : 'border-[#6d4f1e] bg-black/72 text-[#f4d488]'} ${spinning ? 'opacity-60' : ''}`}
-                      >
-                        {value}x
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
               <div className="mt-6 w-full max-w-[960px] rounded-[24px] border border-[#875719] bg-black/62 px-4 py-4 shadow-[0_0_30px_rgba(0,0,0,0.35)] backdrop-blur-md md:px-6">
@@ -623,7 +608,7 @@ export default function GiroPage() {
 
               <InfoCard title="Economia do Giro" icon={<Crown className="h-4 w-4" />}>
                 <ul className="space-y-2 text-sm leading-relaxed text-zinc-200">
-                  <li>• cada aposta consome exatamente a quantidade escolhida de <b>Corres</b></li>
+                  <li>• cada aposta consome somente <b>Corres</b>, nunca Commands Sujo</li>
                   <li>• Commands Sujo alimenta treino da gangue e lavagem</li>
                   <li>• a prisão agora usa perda menor + cooldown progressivo</li>
                   <li>• o pedido de Corres da facção segue em <b>10 Corres total, 1 por membro</b></li>
