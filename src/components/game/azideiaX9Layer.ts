@@ -250,13 +250,25 @@ export function mountAzideiaX9Layer({
     }
   }
 
-  async function playDeathAndRemove(targetId: string, durationMs = 900) {
+  async function playDeathAndRemove(targetId: string, durationMs = 140) {
     const id = String(targetId);
     targetsById.delete(id);
     const object = group.children.find((child) => child.userData?.azideiaTargetId === id);
     if (!object) return;
 
     object.userData.azideiaDying = true;
+
+    // Morte seca/profissional: sem explosão, sem fade, sem impacto longo.
+    // O X9 só tomba e é removido. Quem chama pode iniciar o retorno do comboio
+    // imediatamente, sem aguardar essa microanimação terminar.
+    if (durationMs <= 0) {
+      object.rotation.x += Math.PI / 2;
+      object.rotation.z += Math.PI / 10;
+      object.position.y = 0.03;
+      removeTarget(id);
+      return;
+    }
+
     const start = performance.now();
     const initialRotationX = object.rotation.x;
     const initialRotationZ = object.rotation.z;
@@ -277,18 +289,6 @@ export function mountAzideiaX9Layer({
         object.rotation.x = initialRotationX + (targetRotationX - initialRotationX) * eased;
         object.rotation.z = initialRotationZ + (targetRotationZ - initialRotationZ) * eased;
         object.position.y = Math.max(0.03, initialY * (1 - eased));
-
-        object.traverse((child: any) => {
-          const materials = child?.material
-            ? (Array.isArray(child.material) ? child.material : [child.material])
-            : [];
-          for (const material of materials) {
-            if (!material) continue;
-            material.transparent = true;
-            material.opacity = Math.max(0, 1 - Math.max(0, progress - 0.55) / 0.45);
-            material.needsUpdate = true;
-          }
-        });
 
         if (progress >= 1) {
           removeTarget(id);
