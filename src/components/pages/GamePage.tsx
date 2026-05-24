@@ -321,8 +321,13 @@ export default function GamePage() {
 
         current = { ...current, ...arrival, status: 'returning' };
 
-        await azideiaLayerRef.current?.playDeathAndRemove(current.targetId, 950);
-        void azideiaLayerRef.current?.refresh();
+        // O X9 deve cair sem travar o ciclo visual. Antes o retorno só
+        // começava depois da animação de morte (~950ms), criando uma sensação
+        // de “efeito”/pausa no impacto. Agora o comboio inicia a volta
+        // imediatamente, e o X9 é removido/atualizado em paralelo.
+        void azideiaLayerRef.current
+          ?.playDeathAndRemove(current.targetId, 140)
+          .then(() => azideiaLayerRef.current?.refresh());
       }
 
       if (current.status === 'returning') {
