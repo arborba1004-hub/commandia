@@ -455,8 +455,8 @@ export default function GiroPage() {
               <Image src={BULLET_URL} alt="Furo de bala" className="pointer-events-none absolute right-[12%] top-[10%] z-0 w-16 opacity-70 md:w-20" />
               <Image src={BULLET_URL} alt="Furo de bala" className="pointer-events-none absolute left-[7%] bottom-[18%] z-0 w-16 opacity-55 md:w-20" />
 
-              <div className="relative z-10 mx-auto w-full max-w-[1060px]">
-                <div className="relative mx-auto w-full max-w-[1000px]">
+              <div className="relative z-10 mx-auto flex w-full max-w-[1180px] justify-center overflow-visible">
+                <div className="relative w-[112%] max-w-[1120px] shrink-0">
                   <div className="pointer-events-none absolute left-1/2 top-[1%] z-20 w-[54%] -translate-x-1/2">
                     <Image src={PRIZE_FRAME_URL} alt="Moldura do prêmio" className="w-full select-none object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]" />
                     <div className="absolute inset-x-[9%] top-[20%] flex h-[56%] flex-col items-center justify-center text-center">
@@ -484,7 +484,7 @@ export default function GiroPage() {
                             initial={{ y: lockedReels[idx] ? -18 : 0, opacity: 0.82 }}
                             animate={landingReels[idx] ? { y: [-20, 5, -2, 0], opacity: 1, scale: [0.9, 1.15, 0.98, 1] } : spinning && !lockedReels[idx] ? { y: [0, -8, 0], opacity: 0.9, scale: 0.96 } : { y: 0, opacity: 1, scale: 1 }}
                             transition={spinning && !lockedReels[idx] ? { repeat: Infinity, duration: 0.16 } : { duration: 0.32 }}
-                            className="h-[83%] w-[83%] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.35)]"
+                            className="h-[90%] w-[90%] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.35)]"
                           />
                         </div>
                       </div>
