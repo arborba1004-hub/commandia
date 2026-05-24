@@ -38,6 +38,7 @@ import AzideiaAttackModal from '@/components/game/AzideiaAttackModal';
 import { mountAzideiaX9Layer, type MountedAzideiaX9Layer } from '@/components/game/azideiaX9Layer';
 import {
   attackAzideiaX9,
+  negotiateAzideiaCorreria,
   confirmAzideiaMissionArrival,
   confirmAzideiaMissionReturn,
   getActiveAzideiaMissions,
@@ -304,7 +305,7 @@ export default function GamePage() {
             initialProgress: progressBetween(getRouteStartMsForMission(current), arriveAtMs),
             coordinateMode: 'tile-center',
             memberCount: 1,
-            label: 'Azidéia',
+            label: current.targetType === 'correria' ? 'Correria' : 'Azidéia',
           });
 
           await forward.start();
@@ -325,9 +326,15 @@ export default function GamePage() {
         // começava depois da animação de morte (~950ms), criando uma sensação
         // de “efeito”/pausa no impacto. Agora o comboio inicia a volta
         // imediatamente, e o X9 é removido/atualizado em paralelo.
-        void azideiaLayerRef.current
-          ?.playDeathAndRemove(current.targetId, 0)
-          .then(() => azideiaLayerRef.current?.refresh());
+        if (current.targetType === 'correria') {
+          void azideiaLayerRef.current
+            ?.playRewardAndRemove(current.targetId, '+1 CORRE', 780)
+            .then(() => azideiaLayerRef.current?.refresh());
+        } else {
+          void azideiaLayerRef.current
+            ?.playDeathAndRemove(current.targetId, 0)
+            .then(() => azideiaLayerRef.current?.refresh());
+        }
       }
 
       if (current.status === 'returning') {
@@ -349,7 +356,7 @@ export default function GamePage() {
             initialProgress: progressBetween(getReturnStartMsForMission(current), returnAtMs),
             coordinateMode: 'tile-center',
             memberCount: 1,
-            label: 'Retorno Azidéia',
+            label: current.targetType === 'correria' ? 'Retorno Correria' : 'Retorno Azidéia',
           });
 
           await returning.start();
@@ -409,7 +416,9 @@ export default function GamePage() {
   }, [threeReady, player?._id, runAzideiaMissionCycle]);
 
   const handleConfirmAzideia = useCallback(async (target: AzideiaX9Target) => {
-    const result = await attackAzideiaX9(target.id);
+    const result = target.type === 'correria'
+      ? await negotiateAzideiaCorreria(target.id)
+      : await attackAzideiaX9(target.id);
 
     if (result.player) {
       usePlayerStore.getState().hydratePlayerFromServer(result.player as any);
@@ -754,6 +763,7 @@ export default function GamePage() {
       socket.on('playerTeleported', handlePlayerTeleported);
       socket.on('playerLeft', handlePlayerLeft);
       socket.on('barracoInfo', onBarracoInfo);
+      socket.on('azideia:targetChanged', handleAzideiaMapChanged);
       socket.on('azideia:x9Changed', handleAzideiaMapChanged);
       socket.on('azideia:missionChanged', handleAzideiaMapChanged);
 
@@ -1039,6 +1049,7 @@ export default function GamePage() {
         socket.off('playerTeleported', handlePlayerTeleported);
         socket.off('playerLeft', handlePlayerLeft);
         socket.off('barracoInfo', onBarracoInfo);
+        socket.off('azideia:targetChanged', handleAzideiaMapChanged);
         socket.off('azideia:x9Changed', handleAzideiaMapChanged);
         socket.off('azideia:missionChanged', handleAzideiaMapChanged);
       }
