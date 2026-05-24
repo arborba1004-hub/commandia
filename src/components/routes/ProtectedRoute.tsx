@@ -35,9 +35,13 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/" replace />;
   }
 
-  // Aguarda playerInit do socket
+  // Aguarda /player/me ou playerInit do socket sem deixar a tela “sumida”.
   if (!isLoaded) {
-    return <div className="min-h-screen bg-black" />;
+    return (
+      <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center bg-black px-6 pt-24 text-center text-sm font-bold uppercase tracking-[0.18em] text-[#f6d27b]">
+        Carregando jogador...
+      </div>
+    );
   }
 
   // Player carregado mas sem _id → estado corrompido → volta para home
