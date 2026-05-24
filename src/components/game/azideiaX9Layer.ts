@@ -377,6 +377,7 @@ export function mountAzideiaX9Layer({ scene, loader, gridWidth, gridHeight, onTa
     for (const child of [...group.children]) {
       const id = String(child.userData?.azideiaTargetId || '');
       if (id && !nextIds.has(id)) {
+        if (child.userData?.azideiaDying) continue;
         group.remove(child);
         disposeObject(child);
       }
