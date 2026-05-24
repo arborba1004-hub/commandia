@@ -471,9 +471,9 @@ export default function GiroPage() {
                     <Image src={SLOT_BODY_URL} alt="Corpo da slot machine" className="relative z-10 w-full select-none object-contain drop-shadow-[0_24px_50px_rgba(0,0,0,0.55)]" />
 
                     {[
-                      { left: '21.4%', top: '30.2%' },
-                      { left: '40.95%', top: '30.2%' },
-                      { left: '60.5%', top: '30.2%' },
+                      { left: '21.4%', top: '32%' },
+                      { left: '40.95%', top: '32%' },
+                      { left: '60.5%', top: '32%' },
                     ].map((position, idx) => (
                       <div key={idx} className="absolute z-20" style={{ left: position.left, top: position.top, width: '16.7%', height: '28.5%' }}>
                         <div className={`relative flex h-full w-full items-center justify-center overflow-visible rounded-[24px] ${landingReels[idx] ? 'drop-shadow-[0_0_24px_rgba(255,215,116,0.8)]' : ''}`}>
