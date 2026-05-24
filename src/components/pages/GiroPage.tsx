@@ -484,7 +484,7 @@ export default function GiroPage() {
                             initial={{ y: lockedReels[idx] ? -18 : 0, opacity: 0.82 }}
                             animate={landingReels[idx] ? { y: [-20, 5, -2, 0], opacity: 1, scale: [0.9, 1.15, 0.98, 1] } : spinning && !lockedReels[idx] ? { y: [0, -8, 0], opacity: 0.9, scale: 0.96 } : { y: 0, opacity: 1, scale: 1 }}
                             transition={spinning && !lockedReels[idx] ? { repeat: Infinity, duration: 0.16 } : { duration: 0.32 }}
-                            className="h-[78%] w-[78%] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.35)]"
+                            className="h-[83%] w-[83%] object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.35)]"
                           />
                         </div>
                       </div>
