@@ -379,7 +379,7 @@ export default function GamePage() {
 
     let cancelled = false;
 
-    void (async () => {
+    const syncActiveAzideiaMissions = async () => {
       try {
         const response = await getActiveAzideiaMissions();
         if (cancelled) return;
@@ -390,10 +390,21 @@ export default function GamePage() {
       } catch (error) {
         console.error('[GamePage] Falha ao recuperar Azidéias ativas:', error);
       }
-    })();
+    };
+
+    void syncActiveAzideiaMissions();
+
+    // Recuperação contínua: se o jogador atualiza a página, o WebView pausa,
+    // o socket reconecta ou a animação falha, este polling curto recoloca o
+    // fluxo Azidéia/X9 no estado real do backend sem duplicar comboios.
+    const intervalId = window.setInterval(() => {
+      void syncActiveAzideiaMissions();
+      void azideiaLayerRef.current?.refresh();
+    }, 7000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, [threeReady, player?._id, runAzideiaMissionCycle]);
 
@@ -723,6 +734,19 @@ export default function GamePage() {
       void realtimePlayersLayer.refresh();
     }
 
+    function handleAzideiaMapChanged() {
+      if (!isMounted) return;
+      void azideiaLayer.refresh();
+      void getActiveAzideiaMissions()
+        .then((response) => {
+          if (!isMounted) return;
+          for (const mission of response.missions || []) {
+            void runAzideiaMissionCycle(mission);
+          }
+        })
+        .catch((error) => console.warn('[GamePage] Falha ao sincronizar Azidéia via socket:', error));
+    }
+
     if (socket) {
       socket.on('mapSnapshot', handleMapSnapshot);
       socket.on('playerJoined', handlePlayerJoined);
@@ -730,6 +754,8 @@ export default function GamePage() {
       socket.on('playerTeleported', handlePlayerTeleported);
       socket.on('playerLeft', handlePlayerLeft);
       socket.on('barracoInfo', onBarracoInfo);
+      socket.on('azideia:x9Changed', handleAzideiaMapChanged);
+      socket.on('azideia:missionChanged', handleAzideiaMapChanged);
 
       if (socket.connected) {
         socket.emit('requestMapSnapshot');
@@ -1013,6 +1039,8 @@ export default function GamePage() {
         socket.off('playerTeleported', handlePlayerTeleported);
         socket.off('playerLeft', handlePlayerLeft);
         socket.off('barracoInfo', onBarracoInfo);
+        socket.off('azideia:x9Changed', handleAzideiaMapChanged);
+        socket.off('azideia:missionChanged', handleAzideiaMapChanged);
       }
 
       controls.dispose();
@@ -1059,74 +1087,32 @@ export default function GamePage() {
   });
 
   return (
-    <div className="fixed inset-0 z-40 bg-black overflow-hidden">
+    <div className="fixed inset-x-0 bottom-0 top-[68px] z-40 overflow-hidden bg-black sm:top-[76px]">
 
       {/* MAPA — tela cheia */}
-      <div ref={mountRef} className="absolute inset-0" />
+      <div ref={mountRef} className="absolute inset-0 touch-none select-none" />
 
-      {/* ── HUD TOPO ESQUERDO — avatar + nome + saldos ─────────────────── */}
-      <div className="absolute top-3 left-3 z-10 flex items-start gap-2 pointer-events-none">
-
-        {/* Avatar com nível */}
-        <div className="relative shrink-0">
-          {avatarUrl ? (
-            <Image src={avatarUrl} alt={playerName} className="h-16 w-16 rounded-2xl border-2 border-[#d9b764] object-cover shadow-[0_0_12px_rgba(217,183,100,0.4)]" />
-          ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-[#d9b764] bg-zinc-900 text-2xl font-black text-[#d9b764]">
-              {playerName[0]?.toUpperCase() || '?'}
-            </div>
-          )}
-          {/* Badge de nível */}
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-[#d9b764] px-2 py-0.5 text-[9px] font-black text-black whitespace-nowrap shadow">
-            {playerLevel}
-          </div>
-        </div>
-
-        {/* Nome + saldos */}
-        <div className="flex flex-col gap-1">
-          <div className="rounded-xl bg-black/70 backdrop-blur-sm border border-white/10 px-3 py-1">
-            <p className="font-black text-[#f6d27b] text-sm leading-none tracking-wide uppercase truncate max-w-[140px]">
-              {playerName}
-            </p>
-          </div>
-
-          {/* Commands Sujo */}
-          <div className="flex items-center gap-1.5 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10 px-2.5 py-1">
-            <Image src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
-            <span className="text-[10px] font-bold text-zinc-400 uppercase">Sujo</span>
-            <span className="text-xs font-black text-white ml-0.5">{fmt(dirtyMoney)}</span>
-          </div>
-
-          {/* Commands Limpo */}
-          <div className="flex items-center gap-1.5 rounded-xl bg-black/70 backdrop-blur-sm border border-white/10 px-2.5 py-1">
-            <Image src={COMMANDS_ICON} alt="" className="h-4 w-4 object-contain" />
-            <span className="text-[10px] font-bold text-zinc-400 uppercase">Limpo</span>
-            <span className="text-xs font-black text-white ml-0.5">{fmt(cleanMoney)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── HUD INFERIOR DIREITO — ícones de chat ─────────────────────── */}
-      <div className="absolute bottom-8 right-4 z-10 flex flex-col gap-4 pointer-events-auto">
+      {/* ── HUD INFERIOR DIREITO — atalhos fixos e responsivos ───────────── */}
+      <div className="fixed right-2 z-[80] flex flex-col gap-2 pointer-events-auto sm:right-4 sm:gap-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}>
 
         <button type="button" onClick={() => navigate('/shop')}
-          className="active:scale-90 transition-transform">
-          <Image src={ICON_SHOP} alt="Loja" className="h-16 w-16 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]" />
+          className="rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2" aria-label="Abrir loja">
+          <Image src={ICON_SHOP} alt="Loja" className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
         </button>
 
         <button type="button" onClick={() => navigate('/chat?channel=complexo')}
-          className="active:scale-90 transition-transform">
-          <Image src={ICON_COMPLEXO} alt="Complexo" className="h-16 w-16 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]" />
+          className="rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2" aria-label="Abrir chat do complexo">
+          <Image src={ICON_COMPLEXO} alt="Complexo" className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
         </button>
 
         <button type="button" onClick={() => navigate('/chat?channel=faccao')}
-          className="active:scale-90 transition-transform">
-          <Image src={ICON_FACCAO} alt="Facção" className="h-16 w-16 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]" />
+          className="rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2" aria-label="Abrir chat da facção">
+          <Image src={ICON_FACCAO} alt="Facção" className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
         </button>
 
         <button type="button" onClick={() => navigate('/chat?channel=mail')}
-          className="relative active:scale-90 transition-transform">
-          <Image src={ICON_MAIL} alt="Correio" className="h-16 w-16 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]" />
+          className="relative rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2" aria-label="Abrir correio">
+          <Image src={ICON_MAIL} alt="Correio" className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
           {unreadMailCount > 0 && (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-black text-black shadow">
               {unreadMailCount}
