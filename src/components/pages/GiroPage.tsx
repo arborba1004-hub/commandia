@@ -1,82 +1,44 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Home, Coins, Zap, Menu } from 'lucide-react';
-import { Image } from '@/components/ui/image';
-import { usePlayerStore } from '@/store/playerStore';
-import { spinSlot, type GiroCardDrop } from '@/api/gameApi';
+// GiroPage.jsx - compatível com Wix (sem dependências externas)
+import { useEffect, useRef, useState } from 'react';
 
-type SymbolKey = 'money' | 'diamond' | 'gun' | 'police';
-
-type SpinResult = {
-  reels: SymbolKey[];
-  outcome?: 'jackpot' | 'big' | 'medium' | 'small' | 'common' | 'prison';
-  dirtyGain: number;
-  prison: boolean;
-  label: string;
-  riskPercent?: number;
-  riskLabel?: string;
-  correCost?: number;
-  prisonPenalty?: {
-    loss: number;
-    lossPct: number;
-    cooldownMs: number;
-    cooldownUntil: number;
-  } | null;
-  cooldownUntil?: number;
-  cardDrop?: GiroCardDrop | null;
-};
-
-const LOGO_WORDMARK = 'GIRO\nNO ASFALTO';
+// ========== CONFIGURAÇÕES (ajuste conforme seu projeto) ==========
 const COMMANDS_ICON = 'https://static.wixstatic.com/media/50f4bf_9bda4af1a12b47679336479a80b16eb8~mv2.png';
-const MACHINE_TEXTURE = 'https://static.wixstatic.com/media/50f4bf_f0f13bffd67f4487bbad4fec560e36e5~mv2.png?originWidth=1024&originHeight=1920';
+const MACHINE_TEXTURE = 'https://static.wixstatic.com/media/50f4bf_f0f13bffd67f4487bbad4fec560e36e5~mv2.png';
 
-const SLOT_ASSETS: Record<SymbolKey, string> = {
+const SLOT_ASSETS = {
   money: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png',
   diamond: 'https://cdn-icons-png.flaticon.com/512/616/494.png',
   gun: 'https://cdn-icons-png.flaticon.com/512/833/833472.png',
   police: 'https://cdn-icons-png.flaticon.com/512/2991/2991108.png',
 };
 
-const SYMBOL_LABEL: Record<SymbolKey, string> = {
-  money: 'Commands',
-  diamond: 'Jackpot',
-  gun: 'Arsenal',
-  police: 'Blitz',
-};
-
 const MULTIPLIERS = [1, 2, 5, 10, 25, 50];
 const REEL_STOP_MS = [1050, 1480, 1920];
-const DEFAULT_REELS: SymbolKey[] = ['money', 'gun', 'diamond'];
-const ANIMATION_SYMBOLS: SymbolKey[] = ['money', 'gun', 'diamond', 'police'];
+const DEFAULT_REELS = ['money', 'gun', 'diamond'];
+const ANIMATION_SYMBOLS = ['money', 'gun', 'diamond', 'police'];
 
-function randomAnimationSymbol(): SymbolKey {
-  return ANIMATION_SYMBOLS[Math.floor(Math.random() * ANIMATION_SYMBOLS.length)];
-}
-
-function formatNumber(value: number) {
+// Funções auxiliares
+function formatNumber(value) {
   return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('pt-BR');
 }
-
-function formatShort(value: number) {
+function formatShort(value) {
   const n = Math.max(0, Number(value) || 0);
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return Math.floor(n).toLocaleString('pt-BR');
 }
-
-function vibrate(pattern: number | number[]) {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(pattern);
-  }
+function randomAnimationSymbol() {
+  return ANIMATION_SYMBOLS[Math.floor(Math.random() * ANIMATION_SYMBOLS.length)];
 }
-
-function playTone(freq: number, duration = 0.08, type: OscillatorType = 'square') {
+function vibrate(pattern) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern);
+}
+function playTone(freq, duration = 0.08, type = 'square') {
   try {
-    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -87,78 +49,94 @@ function playTone(freq: number, duration = 0.08, type: OscillatorType = 'square'
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     osc.start();
     osc.stop(ctx.currentTime + duration);
-  } catch {
-    // feedback opcional
-  }
+  } catch (e) {}
 }
 
-function getPlayerName(player: any) {
-  return player?.headerCustomization?.customName || player?.name || 'Jogador';
-}
-
-function getAvatar(player: any) {
-  return player?.headerCustomization?.customAvatar || player?.avatar || '';
-}
-
+// ========== COMPONENTE PRINCIPAL ==========
 export default function GiroPage() {
-  const navigate = useNavigate();
-  const { player, isLoaded, hydratePlayerFromServer } = usePlayerStore();
+  // Substitua pelo seu store real do Wix (ex: useWixPlayerStore)
+  // Por enquanto vou simular com useState e um player fake
+  const [player, setPlayer] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const [displayedReels, setDisplayedReels] = useState<SymbolKey[]>(DEFAULT_REELS);
-  const [lockedReels, setLockedReels] = useState<boolean[]>([true, true, true]);
-  const [landingReels, setLandingReels] = useState<boolean[]>([false, false, false]);
+  // Estados da slot
+  const [displayedReels, setDisplayedReels] = useState(DEFAULT_REELS);
+  const [lockedReels, setLockedReels] = useState([true, true, true]);
+  const [landingReels, setLandingReels] = useState([false, false, false]);
   const [spinning, setSpinning] = useState(false);
   const [multiplier, setMultiplier] = useState(25);
   const [message, setMessage] = useState('Escolha quantos Corres entram na rua.');
-  const [spinError, setSpinError] = useState('');
   const [policeFlash, setPoliceFlash] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);
 
-  const reelTimers = useRef<number[]>([]);
-  const reelIntervals = useRef<number[]>([]);
+  const reelTimers = useRef([]);
+  const reelIntervals = useRef([]);
 
-  const safePlayer = player as any;
-  const corre = Math.max(0, Number(safePlayer?.balances?.corre || 0));
-  const dirtyMoney = Math.max(0, Number(safePlayer?.balances?.dirtyMoney || 0));
-  const playerCooldownUntil = Number(safePlayer?.prisonHistory?.cooldownUntil || 0);
+  // Simular carregamento do jogador (substitua pela sua lógica do Wix)
+  useEffect(() => {
+    // Exemplo: buscar dados do backend do Wix via fetch
+    const fetchPlayer = async () => {
+      try {
+        const res = await fetch('/api/player'); // ajuste para sua rota
+        const data = await res.json();
+        setPlayer(data);
+      } catch (error) {
+        // Fallback para testes
+        setPlayer({
+          _id: '123',
+          name: 'Jogador',
+          headerCustomization: { customName: 'Barraqueiro', customAvatar: '' },
+          balances: { corre: 1250, dirtyMoney: 87400, cleanMoney: 32000 },
+          niveis: { barracoLevel: 3 },
+          prisonHistory: { cooldownUntil: 0 }
+        });
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+    fetchPlayer();
+  }, []);
+
+  const corre = player?.balances?.corre ?? 0;
+  const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
+  const playerCooldownUntil = player?.prisonHistory?.cooldownUntil ?? 0;
   const activeCooldownUntil = Math.max(cooldownUntil, playerCooldownUntil);
   const cooldownRemaining = Math.max(0, activeCooldownUntil - Date.now());
   const canSpin = !spinning && cooldownRemaining <= 0 && corre >= multiplier;
 
+  // Limpeza
   useEffect(() => {
     return () => {
-      reelTimers.current.forEach((timer) => window.clearTimeout(timer));
-      reelIntervals.current.forEach((timer) => window.clearInterval(timer));
+      reelTimers.current.forEach(clearTimeout);
+      reelIntervals.current.forEach(clearInterval);
     };
   }, []);
 
+  // Atualiza contagem regressiva do cooldown
   useEffect(() => {
     if (!activeCooldownUntil) return;
-    let frame = 0;
-    const tick = () => {
+    const interval = setInterval(() => {
       if (Date.now() >= activeCooldownUntil) {
         setCooldownUntil(0);
-        return;
+        clearInterval(interval);
       }
-      frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
+    }, 200);
+    return () => clearInterval(interval);
   }, [activeCooldownUntil]);
 
   const clearAnimations = () => {
-    reelTimers.current.forEach((timer) => window.clearTimeout(timer));
-    reelIntervals.current.forEach((timer) => window.clearInterval(timer));
+    reelTimers.current.forEach(clearTimeout);
+    reelIntervals.current.forEach(clearInterval);
     reelTimers.current = [];
     reelIntervals.current = [];
   };
 
   const flashPolice = () => {
     setPoliceFlash(true);
-    window.setTimeout(() => setPoliceFlash(false), 900);
+    setTimeout(() => setPoliceFlash(false), 900);
   };
 
-  const finalizeSpin = (result: SpinResult) => {
+  const finalizeSpin = (result) => {
     if (result.prison) {
       const loss = result.prisonPenalty?.loss || 0;
       const cooldownMs = result.prisonPenalty?.cooldownMs || 0;
@@ -170,26 +148,22 @@ export default function GiroPage() {
       setSpinning(false);
       return;
     }
-
-    if (result.outcome === 'jackpot' || result.reels.every((symbol) => symbol === 'diamond')) {
+    if (result.outcome === 'jackpot' || result.reels.every(s => s === 'diamond')) {
       vibrate([80, 40, 80, 40, 160]);
-      [440, 550, 660, 880].forEach((freq, idx) => window.setTimeout(() => playTone(freq, 0.12, 'sine'), idx * 90));
+      [440, 550, 660, 880].forEach((freq, idx) => setTimeout(() => playTone(freq, 0.12, 'sine'), idx * 90));
     } else {
       vibrate(35);
     }
-setMessage(result.label);
+    setMessage(result.label);
     setSpinning(false);
   };
 
   const handleSpin = async () => {
-    if (!safePlayer?._id) return;
-
+    if (!player?._id) return;
     if (!canSpin) {
       if (cooldownRemaining > 0) {
         setMessage(`Corre esfriando: ${Math.ceil(cooldownRemaining / 1000)}s.`);
-        return;
-      }
-      if (corre < multiplier) {
+      } else if (corre < multiplier) {
         setMessage('Sem Corre suficiente pra bancar esse movimento.');
       }
       return;
@@ -197,7 +171,6 @@ setMessage(result.label);
 
     vibrate(30);
     playTone(330, 0.05);
-    setSpinError('');
     clearAnimations();
     setDisplayedReels(DEFAULT_REELS);
     setLockedReels([false, false, false]);
@@ -206,67 +179,61 @@ setMessage(result.label);
     setMessage(`Colocando ${multiplier} Corre(s) na rua...`);
 
     try {
-      const response = await spinSlot(multiplier);
-      const result: SpinResult = response.result;
+      // Chamada para sua API de spin (substitua pela URL real)
+      const response = await fetch('/api/spinSlot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ multiplier })
+      });
+      const data = await response.json();
+      const result = data.result;
 
-      if (response.player) {
-        hydratePlayerFromServer(response.player);
-      }
+      if (data.player) setPlayer(data.player);
 
-      for (let i = 0; i < 3; i += 1) {
-        const interval = window.setInterval(() => {
-          setDisplayedReels((prev) => {
+      for (let i = 0; i < 3; i++) {
+        const interval = setInterval(() => {
+          setDisplayedReels(prev => {
             const clone = [...prev];
             clone[i] = randomAnimationSymbol();
-            return clone as SymbolKey[];
+            return clone;
           });
         }, 70 + i * 28);
         reelIntervals.current.push(interval);
 
-        const timer = window.setTimeout(() => {
-          window.clearInterval(interval);
+        const timer = setTimeout(() => {
+          clearInterval(interval);
           playTone(220 + i * 125, 0.07);
           vibrate(35);
-
-          setDisplayedReels((prev) => {
+          setDisplayedReels(prev => {
             const clone = [...prev];
             clone[i] = result.reels[i];
-            return clone as SymbolKey[];
+            return clone;
           });
-
-          setLandingReels((prev) => {
+          setLandingReels(prev => {
             const clone = [...prev];
             clone[i] = true;
             return clone;
           });
-          window.setTimeout(() => {
-            setLandingReels((prev) => {
+          setTimeout(() => {
+            setLandingReels(prev => {
               const clone = [...prev];
               clone[i] = false;
               return clone;
             });
           }, 420);
-
-          setLockedReels((prev) => {
+          setLockedReels(prev => {
             const clone = [...prev];
             clone[i] = true;
             return clone;
           });
-
           if (i === 2) {
-            window.setTimeout(() => finalizeSpin(result), 180);
+            setTimeout(() => finalizeSpin(result), 180);
           }
         }, REEL_STOP_MS[i]);
         reelTimers.current.push(timer);
       }
-    } catch (error: any) {
-      console.error('Erro ao girar slot:', error);
-      const retryAfter = Number(error?.retryAfter || 0);
-      if (retryAfter > 0) {
-        setCooldownUntil(Date.now() + retryAfter);
-      }
-      const text = error instanceof Error ? error.message : 'Erro ao rodar o corre';
-      setSpinError(text);
+    } catch (error) {
+      console.error(error);
       setMessage('Falha ao rodar. Tenta de novo.');
       setDisplayedReels(DEFAULT_REELS);
       setLockedReels([true, true, true]);
@@ -275,179 +242,112 @@ setMessage(result.label);
     }
   };
 
-  if (!isLoaded || !safePlayer?._id) {
-    return (
-      <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center bg-[#050505] text-white">
-        Carregando Giro no Asfalto...
-      </div>
-    );
+  if (!isLoaded) {
+    return <div className="loading">Carregando Giro no Asfalto...</div>;
   }
 
-  const avatarUrl = getAvatar(safePlayer);
-  const playerName = getPlayerName(safePlayer);
+  const avatarUrl = player?.headerCustomization?.customAvatar || '';
+  const playerName = player?.headerCustomization?.customName || player?.name || 'Jogador';
+
+  // Estilos inline para não depender de CSS externo
+  const styles = {
+    page: { minHeight: '100vh', background: '#050505', color: 'white', position: 'relative', overflow: 'hidden' },
+    texture: { position: 'fixed', inset: 0, opacity: 0.18, objectFit: 'cover', width: '100%', height: '100%', pointerEvents: 'none' },
+    gradient: { position: 'fixed', inset: 0, background: 'radial-gradient(circle at 50% 15%, rgba(234,179,8,0.16), transparent 38%), linear-gradient(180deg, rgba(0,0,0,0.72), #050505 42%, #050505)', pointerEvents: 'none' },
+    container: { maxWidth: '1200px', margin: '0 auto', padding: '1rem', position: 'relative', zIndex: 10 },
+    header: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', borderRadius: '1rem', border: '1px solid #7c561e', background: 'rgba(0,0,0,0.72)', padding: '0.5rem 0.75rem', backdropFilter: 'blur(12px)' },
+    slotCard: { borderRadius: '1.5rem', border: '1px solid #7c561e', background: 'linear-gradient(180deg,#1d1308,#050505 45%,#140b03)', padding: '1.5rem', boxShadow: 'inset 0 0 55px rgba(255,176,37,0.14), 0 0 34px rgba(0,0,0,0.65)' },
+    prize: { textAlign: 'center', marginBottom: '1.5rem' },
+    prizeLabel: { fontSize: '0.75rem', fontWeight: 'bold', letterSpacing: '0.35em', color: '#facc15', textTransform: 'uppercase' },
+    prizeValue: { fontFamily: 'monospace', fontSize: '4rem', fontWeight: 'bold', color: '#fde047', textShadow: '0 0 20px rgba(255,190,0,0.5)', marginTop: '0.25rem' },
+    reelsContainer: { maxWidth: '28rem', margin: '0 auto' },
+    reelsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', borderRadius: '1.75rem', border: '1px solid #b18135', background: 'linear-gradient(90deg,#d8b06a,#4b2a0a 14%,#e6c07d 50%,#4b2a0a 86%,#d8b06a)', padding: '1rem', boxShadow: 'inset 0 0 32px rgba(0,0,0,0.75)' },
+    reel: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', aspectRatio: '0.7', borderRadius: '1rem', border: '1px solid black', background: 'radial-gradient(circle at 50% 40%, #f5d8a8, #8b5b24 58%, #1b0e04)', overflow: 'hidden' },
+    reelImg: { width: '60%', height: '60%', objectFit: 'contain', filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.55))', transition: 'transform 0.1s ease' },
+    controls: { display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '1rem', marginTop: '2rem', alignItems: 'end' },
+    betPanel: { textAlign: 'center', borderRadius: '1rem', border: '1px solid #7c561e', background: 'rgba(0,0,0,0.7)', padding: '1rem' },
+    betButtons: { display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.5rem' },
+    spinButton: { position: 'relative', minWidth: '160px', borderRadius: '1rem', border: '1px solid #fef08a', background: 'linear-gradient(to bottom, #fde047, #eab308, #b45309)', padding: '1.25rem 1rem', fontSize: '1.25rem', fontWeight: 'bold', textTransform: 'uppercase', color: 'black', cursor: 'pointer', transition: 'transform 0.1s' },
+    messageBox: { marginTop: '1.5rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.5)', padding: '0.75rem 1rem', textAlign: 'center', fontSize: '0.875rem', color: '#d4d4d8' },
+    multipliersBar: { display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem' },
+  };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
-      {/* Fundo texturizado */}
-      <Image src={MACHINE_TEXTURE} alt="" className="pointer-events-none fixed inset-0 h-full w-full object-cover opacity-[0.18] blur-[1px]" />
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(234,179,8,0.16),transparent_38%),linear-gradient(180deg,rgba(0,0,0,0.72),#050505_42%,#050505)]" />
-
-      {/* Flash policial */}
-      <AnimatePresence>
-        {policeFlash && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0.18, 0.46, 0.12, 0.38, 0] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.85 }}
-            className="pointer-events-none fixed inset-0 z-[60]"
-          >
-            <div className="absolute inset-0 bg-red-600/35" />
-            <div className="absolute inset-0 bg-blue-600/25 mix-blend-screen" />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="relative z-10 mx-auto max-w-[1200px] px-3 py-4 sm:px-4">
-        {/* Header minimalista */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#7c561e]/70 bg-black/72 px-3 py-2 shadow-[0_0_28px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/')} className="rounded-xl border border-[#7c561e]/60 bg-white/[0.04] p-2 text-yellow-300 hover:bg-yellow-500/10">
-              <Home className="h-4 w-4" />
-            </button>
-            <button onClick={() => navigate(-1)} className="rounded-xl border border-[#7c561e]/60 bg-white/[0.04] p-2 text-cyan-300 hover:bg-cyan-500/10">
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="ml-1 flex items-center gap-2 rounded-xl border border-[#7c561e]/60 bg-black/60 px-2 py-1.5">
-              {avatarUrl ? (
-                <Image src={avatarUrl} alt={playerName} className="h-9 w-9 rounded-lg object-cover" />
-              ) : (
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 font-black text-yellow-300">{playerName[0] || '?'}</div>
-              )}
-              <div className="hidden sm:block">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow-300">{playerName}</p>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Barraco {Number(safePlayer?.niveis?.barracoLevel || 1)}</p>
+    <div style={styles.page}>
+      <img src={MACHINE_TEXTURE} style={styles.texture} alt="" />
+      <div style={styles.gradient} />
+      {policeFlash && <div style={{ position: 'fixed', inset: 0, background: 'rgba(220,38,38,0.35)', zIndex: 60, pointerEvents: 'none' }} />}
+      <div style={styles.container}>
+        {/* Header simplificado */}
+        <div style={styles.header}>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button onClick={() => window.location.href = '/'} style={{ borderRadius: '0.75rem', border: '1px solid #7c561e', background: 'rgba(255,255,255,0.04)', padding: '0.5rem', color: '#fde047' }}>🏠</button>
+            <button onClick={() => window.history.back()} style={{ borderRadius: '0.75rem', border: '1px solid #7c561e', background: 'rgba(255,255,255,0.04)', padding: '0.5rem', color: '#67e8f9' }}>←</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '0.75rem', border: '1px solid #7c561e', background: 'rgba(0,0,0,0.6)', padding: '0.375rem 0.75rem' }}>
+              {avatarUrl ? <img src={avatarUrl} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.5rem', objectFit: 'cover' }} /> : <div style={{ width: '2.25rem', height: '2.25rem', background: '#18181b', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#fde047' }}>{playerName[0]}</div>}
+              <div style={{ display: 'none', '@media (min-width: 640px)': { display: 'block' } }}>
+                <p style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.16em', color: '#fde047' }}>{playerName}</p>
+                <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a' }}>Barraco {player?.niveis?.barracoLevel || 1}</p>
               </div>
             </div>
           </div>
-
-          <div className="flex gap-2">
-            <div className="flex items-center gap-2 rounded-xl border border-[#7c561e]/55 bg-black/70 px-3 py-2 shadow-[0_0_16px_rgba(0,0,0,0.4)]">
-              <Coins className="h-4 w-4 text-yellow-300" />
-              <div className="leading-none">
-                <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">Sujo</p>
-                <p className="text-sm font-black text-yellow-300">{formatShort(dirtyMoney)}</p>
-              </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '0.75rem', border: '1px solid #7c561e', background: 'rgba(0,0,0,0.7)', padding: '0.5rem 0.75rem' }}>
+              <span>🪙</span>
+              <div><p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a' }}>Sujo</p><p style={{ fontWeight: 'bold', color: '#fde047' }}>{formatShort(dirtyMoney)}</p></div>
             </div>
-            <div className="flex items-center gap-2 rounded-xl border border-[#7c561e]/55 bg-black/70 px-3 py-2 shadow-[0_0_16px_rgba(0,0,0,0.4)]">
-              <Zap className="h-4 w-4 text-cyan-300" />
-              <div className="leading-none">
-                <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">Corre</p>
-                <p className="text-sm font-black text-cyan-300">{formatNumber(corre)}</p>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '0.75rem', border: '1px solid #7c561e', background: 'rgba(0,0,0,0.7)', padding: '0.5rem 0.75rem' }}>
+              <span>⚡</span>
+              <div><p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a' }}>Corre</p><p style={{ fontWeight: 'bold', color: '#67e8f9' }}>{formatNumber(corre)}</p></div>
             </div>
-            <button className="rounded-xl border border-[#7c561e]/60 bg-white/[0.04] p-2 text-zinc-300">
-              <Menu className="h-5 w-5" />
-            </button>
+            <button style={{ borderRadius: '0.75rem', border: '1px solid #7c561e', background: 'rgba(255,255,255,0.04)', padding: '0.5rem' }}>☰</button>
           </div>
         </div>
-{/* Slot Machine principal - layout puro da imagem */}
-        <div className="relative rounded-3xl border border-[#7c561e]/80 bg-[linear-gradient(180deg,#1d1308,#050505_45%,#140b03)] p-6 shadow-[inset_0_0_55px_rgba(255,176,37,0.14),0_0_34px_rgba(0,0,0,0.65)]">
-          {/* PRÊMIO */}
-          <div className="mb-6 text-center">
-            <p className="text-xs font-black uppercase tracking-[0.35em] text-yellow-400">PRÊMIO</p>
-            <p className="font-mono text-6xl font-black tracking-[0.08em] text-yellow-300 drop-shadow-[0_0_20px_rgba(255,190,0,0.5)] sm:text-7xl">
-              {spinning ? '•••••' : formatNumber(Math.max(multiplier * 2000, 50000))}
-            </p>
+
+        {/* Slot principal */}
+        <div style={styles.slotCard}>
+          <div style={styles.prize}>
+            <p style={styles.prizeLabel}>PRÊMIO</p>
+            <p style={styles.prizeValue}>{spinning ? '•••••' : formatNumber(Math.max(multiplier * 2000, 50000))}</p>
           </div>
 
-          {/* Rolos */}
-          <div className="relative mx-auto max-w-md">
-            <div className="grid grid-cols-3 gap-3 rounded-[28px] border border-[#b18135]/55 bg-[linear-gradient(90deg,#d8b06a,#4b2a0a_14%,#e6c07d_50%,#4b2a0a_86%,#d8b06a)] p-4 shadow-[inset_0_0_32px_rgba(0,0,0,0.75)]">
-              {[0, 1, 2].map((idx) => (
-                <div key={idx} className="relative flex aspect-[0.7] items-center justify-center overflow-hidden rounded-2xl border border-black/70 bg-[radial-gradient(circle_at_50%_40%,#f5d8a8,#8b5b24_58%,#1b0e04)] shadow-[inset_0_0_18px_rgba(255,255,255,0.18)]">
-                  <motion.img
-                    key={`reel-${idx}-${displayedReels[idx]}-${lockedReels[idx]}-${landingReels[idx]}`}
-                    src={SLOT_ASSETS[displayedReels[idx]]}
-                    alt={SYMBOL_LABEL[displayedReels[idx]]}
-                    initial={{ y: lockedReels[idx] ? -18 : 0, opacity: 0.85 }}
-                    animate={
-                      landingReels[idx]
-                        ? { y: [-22, 6, -3, 0], opacity: 1, scale: [0.86, 1.18, 0.98, 1] }
-                        : spinning && !lockedReels[idx]
-                          ? { y: [0, -12, 0], opacity: 0.9, scale: 0.96 }
-                          : { y: 0, opacity: 1, scale: 1 }
-                    }
-                    transition={spinning && !lockedReels[idx] ? { repeat: Infinity, duration: 0.14 } : { duration: 0.32 }}
-                    className="h-[60%] w-[60%] object-contain drop-shadow-[0_8px_10px_rgba(0,0,0,0.55)]"
-                  />
-                  {landingReels[idx] && <div className="absolute inset-0 rounded-2xl ring-2 ring-yellow-300 shadow-[inset_0_0_25px_rgba(255,210,0,0.55)]" />}
+          <div style={styles.reelsContainer}>
+            <div style={styles.reelsGrid}>
+              {[0, 1, 2].map(idx => (
+                <div key={idx} style={styles.reel}>
+                  <img src={SLOT_ASSETS[displayedReels[idx]]} style={styles.reelImg} />
+                  {landingReels[idx] && <div style={{ position: 'absolute', inset: 0, borderRadius: '1rem', boxShadow: 'inset 0 0 25px rgba(255,210,0,0.55)', border: '2px solid #fde047' }} />}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Controles: Aposta, Botão Girar/Parar, Custo */}
-          <div className="mt-8 grid grid-cols-[1fr_auto_1fr] items-end gap-4">
-            {/* APOSTA */}
-            <div className="rounded-2xl border border-[#7c561e]/70 bg-black/70 p-4 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">APOSTA</p>
-              <div className="mt-2 flex items-center justify-center gap-4">
-                <button
-                  disabled={spinning}
-                  onClick={() => setMultiplier((value) => MULTIPLIERS[Math.max(0, MULTIPLIERS.indexOf(value) - 1)] || 1)}
-                  className="h-10 w-10 rounded-xl border border-[#7c561e]/70 bg-white/[0.05] text-xl font-black text-white disabled:opacity-40"
-                >
-                  −
-                </button>
-                <span className="font-mono text-4xl font-black text-yellow-300">{multiplier}</span>
-                <button
-                  disabled={spinning}
-                  onClick={() => setMultiplier((value) => MULTIPLIERS[Math.min(MULTIPLIERS.length - 1, MULTIPLIERS.indexOf(value) + 1)] || 50)}
-                  className="h-10 w-10 rounded-xl border border-[#7c561e]/70 bg-white/[0.05] text-xl font-black text-white disabled:opacity-40"
-                >
-                  +
-                </button>
+          <div style={styles.controls}>
+            <div style={styles.betPanel}>
+              <p style={{ fontSize: '0.625rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.22em', color: '#71717a' }}>APOSTA</p>
+              <div style={styles.betButtons}>
+                <button onClick={() => setMultiplier(MULTIPLIERS[Math.max(0, MULTIPLIERS.indexOf(multiplier)-1)] || 1)} disabled={spinning} style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', border: '1px solid #7c561e', background: 'rgba(255,255,255,0.05)', fontSize: '1.25rem', fontWeight: 'bold' }}>−</button>
+                <span style={{ fontFamily: 'monospace', fontSize: '2rem', fontWeight: 'bold', color: '#fde047' }}>{multiplier}</span>
+                <button onClick={() => setMultiplier(MULTIPLIERS[Math.min(MULTIPLIERS.length-1, MULTIPLIERS.indexOf(multiplier)+1)] || 50)} disabled={spinning} style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', border: '1px solid #7c561e', background: 'rgba(255,255,255,0.05)', fontSize: '1.25rem', fontWeight: 'bold' }}>+</button>
               </div>
             </div>
 
-            {/* BOTÃO GIRAR / PARAR */}
-            <button
-              onClick={handleSpin}
-              disabled={!canSpin && !spinning}
-              className="relative min-w-[160px] overflow-hidden rounded-2xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-yellow-500 to-orange-700 px-8 py-5 text-xl font-black uppercase tracking-[0.12em] text-black shadow-[0_0_26px_rgba(255,193,7,0.42),inset_0_2px_0_rgba(255,255,255,0.45)] transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:grayscale"
-            >
-              <span className="relative z-10">{spinning ? 'PARAR' : 'GIRAR'}</span>
+            <button onClick={handleSpin} disabled={!canSpin && !spinning} style={styles.spinButton}>
+              {spinning ? 'PARAR' : 'GIRAR'}
             </button>
 
-            {/* CUSTO */}
-            <div className="rounded-2xl border border-[#7c561e]/70 bg-black/70 p-4 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">CUSTO</p>
-              <p className="mt-2 font-mono text-4xl font-black text-yellow-300">{multiplier}</p>
-              <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">CORRES</p>
+            <div style={styles.betPanel}>
+              <p style={{ fontSize: '0.625rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.22em', color: '#71717a' }}>CUSTO</p>
+              <p style={{ fontFamily: 'monospace', fontSize: '2rem', fontWeight: 'bold', color: '#fde047' }}>{multiplier}</p>
+              <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a' }}>CORRES</p>
             </div>
           </div>
 
-          {/* Mensagem de status */}
-          <div className="mt-6 rounded-xl border border-white/10 bg-black/50 px-4 py-3 text-center text-sm text-zinc-300">
-            {message}
-          </div>
+          <div style={styles.messageBox}>{message}</div>
 
-          {/* Atalho para alterar multiplicador rapidamente */}
-          <div className="mt-4 flex justify-center gap-2">
-            {MULTIPLIERS.map((value) => (
-              <button
-                key={value}
-                onClick={() => setMultiplier(value)}
-                disabled={spinning}
-                className={`rounded-xl border px-3 py-1.5 text-xs font-black transition ${
-                  multiplier === value
-                    ? 'border-yellow-300 bg-yellow-500 text-black shadow-[0_0_12px_rgba(255,200,0,0.45)]'
-                    : 'border-[#7c561e]/60 bg-black/70 text-yellow-100 hover:bg-yellow-500/10'
-                } ${spinning ? 'opacity-50' : ''}`}
-              >
-                {value}x
-              </button>
+          <div style={styles.multipliersBar}>
+            {MULTIPLIERS.map(v => (
+              <button key={v} onClick={() => setMultiplier(v)} disabled={spinning} style={{ padding: '0.25rem 0.75rem', borderRadius: '0.75rem', border: multiplier===v ? '1px solid #fde047' : '1px solid #7c561e', background: multiplier===v ? '#eab308' : 'rgba(0,0,0,0.7)', color: multiplier===v ? 'black' : '#fef08a', fontSize: '0.75rem', fontWeight: 'bold' }}>{v}x</button>
             ))}
           </div>
         </div>
@@ -455,4 +355,3 @@ setMessage(result.label);
     </div>
   );
 }
-```
