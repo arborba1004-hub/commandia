@@ -3,4 +3,4 @@ export const AZIDEIA_ICON_URL = 'https://static.wixstatic.com/media/50f4bf_ce2c9
 
 export const AZIDEIA_X9_COST_DIRTY = 5000;
 export const AZIDEIA_X9_DAILY_LIMIT = 20;
-export const AZIDEIA_ACTIVE_X9_COUNT = 10;
+export const AZIDEIA_ACTIVE_X9_COUNT = 20;
