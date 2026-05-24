@@ -18,6 +18,11 @@ export type MountAttackConvoy3DParams = {
   height?: number;
   /** Progresso inicial de 0 a 1 para animar eventos recebidos atrasados via socket. */
   initialProgress?: number;
+  /**
+   * player-space-center mantém o comportamento antigo usado por ataques PvP.
+   * tile-center alinha objetos de mapa de 1 tile, como X9/Azidéia.
+   */
+  coordinateMode?: 'player-space-center' | 'tile-center';
 };
 
 export type MountedAttackConvoy3D = {
@@ -33,9 +38,25 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 const gltfLoader = new GLTFLoader();
 gltfLoader.setDRACOLoader(dracoLoader);
 
-function routeToWorldPoints(route: ConvoyRouteTile[], gridWidth: number, gridHeight: number, height: number) {
+function tileToWorldTileCenter(tileX: number, tileY: number, gridWidth: number, gridHeight: number) {
+  return {
+    worldX: Math.floor(Number(tileX) || 0) - gridWidth / 2 + 0.5,
+    worldZ: Math.floor(Number(tileY) || 0) - gridHeight / 2 + 0.5,
+  };
+}
+
+function routeToWorldPoints(
+  route: ConvoyRouteTile[],
+  gridWidth: number,
+  gridHeight: number,
+  height: number,
+  coordinateMode: 'player-space-center' | 'tile-center' = 'player-space-center',
+) {
   return route.map((step) => {
-    const { worldX, worldZ } = tileToWorldCenter(step.tileX, step.tileY, gridWidth, gridHeight);
+    const { worldX, worldZ } = coordinateMode === 'tile-center'
+      ? tileToWorldTileCenter(step.tileX, step.tileY, gridWidth, gridHeight)
+      : tileToWorldCenter(step.tileX, step.tileY, gridWidth, gridHeight);
+
     return new THREE.Vector3(worldX, height, worldZ);
   });
 }
@@ -246,9 +267,10 @@ export function mountAttackConvoy3D({
   label,
   height = 0,
   initialProgress = 0,
+  coordinateMode = 'player-space-center',
 }: MountAttackConvoy3DParams): MountedAttackConvoy3D {
   const safeRoute = Array.isArray(route) ? route.filter((p) => Number.isFinite(p.tileX) && Number.isFinite(p.tileY)) : [];
-  const points = routeToWorldPoints(safeRoute, gridWidth, gridHeight, height);
+  const points = routeToWorldPoints(safeRoute, gridWidth, gridHeight, height, coordinateMode);
 
   const root = new THREE.Group();
   root.name = `attack-convoy-${skin.id}`;
