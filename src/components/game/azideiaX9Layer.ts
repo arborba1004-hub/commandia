@@ -10,8 +10,13 @@ export type MountedAzideiaX9Layer = {
   removeTarget: (targetId: string) => void;
   playDeathAndRemove: (targetId: string, durationMs?: number) => Promise<void>;
   tryHandleClick: (raycaster: THREE.Raycaster) => boolean;
+  tryHandlePointer: (clientX: number, clientY: number, camera: THREE.Camera, domElement: HTMLElement, raycaster?: THREE.Raycaster) => boolean;
   cleanup: () => void;
 };
+
+const X9_TOUCH_RADIUS_WORLD = 1.65;
+const X9_TOUCH_RADIUS_SCREEN_PX = 62;
+const X9_CLICK_DEBOUNCE_MS = 280;
 
 type MountParams = {
   scene: THREE.Scene;
@@ -107,6 +112,64 @@ function createFallbackX9() {
   return group;
 }
 
+
+function createTouchHitbox(targetId: string) {
+  const geometry = new THREE.SphereGeometry(X9_TOUCH_RADIUS_WORLD, 16, 12);
+  const material = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    depthTest: false,
+  });
+  const hitbox = new THREE.Mesh(geometry, material);
+  hitbox.name = `azideia-x9-touch-hitbox-${targetId}`;
+  hitbox.position.set(0, 1.2, 0);
+  hitbox.userData.azideiaTargetId = targetId;
+  hitbox.userData.azideiaTouchHitbox = true;
+  hitbox.renderOrder = 999;
+  return hitbox;
+}
+
+function findTargetRootFromHit(object: THREE.Object3D | null): { id: string; dying: boolean } | null {
+  let current: any = object;
+  while (current) {
+    const id = current.userData?.azideiaTargetId;
+    if (id) {
+      return {
+        id: String(id),
+        dying: Boolean(current.userData?.azideiaDying),
+      };
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+function getPointerNdc(clientX: number, clientY: number, domElement: HTMLElement) {
+  const rect = domElement.getBoundingClientRect();
+  return new THREE.Vector2(
+    ((clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1,
+    -((clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1
+  );
+}
+
+function getScreenDistancePx(
+  object: THREE.Object3D,
+  clientX: number,
+  clientY: number,
+  camera: THREE.Camera,
+  domElement: HTMLElement
+) {
+  const rect = domElement.getBoundingClientRect();
+  const world = new THREE.Vector3();
+  object.getWorldPosition(world);
+  world.y += 1.25;
+  const projected = world.project(camera);
+  const screenX = rect.left + ((projected.x + 1) / 2) * rect.width;
+  const screenY = rect.top + ((-projected.y + 1) / 2) * rect.height;
+  return Math.hypot(screenX - clientX, screenY - clientY);
+}
+
 function createLabel(text: string) {
   const canvas = document.createElement('canvas');
   canvas.width = 384;
@@ -151,6 +214,7 @@ async function createTargetObject(loader: GLTFLoader, target: AzideiaX9Target) {
   });
 
   root.add(model);
+  root.add(createTouchHitbox(target.id));
   root.add(createLabel('X9'));
 
   return root;
@@ -170,6 +234,8 @@ export function mountAzideiaX9Layer({
   const targetsById = new Map<string, AzideiaX9Target>();
   let disposed = false;
   let refreshToken = 0;
+  let lastHandledTargetId = '';
+  let lastHandledAt = 0;
 
   function removeTarget(targetId: string) {
     targetsById.delete(String(targetId));
@@ -265,20 +331,62 @@ export function mountAzideiaX9Layer({
     }
   }
 
+  function handleTargetById(targetId: string, dying = false) {
+    const id = String(targetId);
+    const target = targetsById.get(id);
+    if (dying || target?.reserved) return true;
+    if (!target) return false;
+
+    const now = performance.now();
+    if (lastHandledTargetId === id && now - lastHandledAt < X9_CLICK_DEBOUNCE_MS) {
+      return true;
+    }
+
+    lastHandledTargetId = id;
+    lastHandledAt = now;
+    onTargetClick(target);
+    return true;
+  }
+
   function tryHandleClick(raycaster: THREE.Raycaster) {
+    const previousThreshold = raycaster.params.Points?.threshold;
+    if (raycaster.params.Points) raycaster.params.Points.threshold = 1.4;
+
     const hits = raycaster.intersectObjects(group.children, true);
+    if (raycaster.params.Points && typeof previousThreshold === 'number') {
+      raycaster.params.Points.threshold = previousThreshold;
+    }
     if (!hits.length) return false;
 
-    let current: any = hits[0].object;
-    while (current) {
-      const id = current.userData?.azideiaTargetId;
-      if (id) {
-        const target = targetsById.get(String(id));
-        if (current.userData?.azideiaDying || target?.reserved) return true;
-        if (target) onTargetClick(target);
-        return true;
+    const resolved = findTargetRootFromHit(hits[0].object);
+    if (!resolved) return false;
+    return handleTargetById(resolved.id, resolved.dying);
+  }
+
+  function tryHandlePointer(
+    clientX: number,
+    clientY: number,
+    camera: THREE.Camera,
+    domElement: HTMLElement,
+    raycaster = new THREE.Raycaster()
+  ) {
+    const mouse = getPointerNdc(clientX, clientY, domElement);
+    raycaster.setFromCamera(mouse, camera);
+
+    if (tryHandleClick(raycaster)) return true;
+
+    let nearest: { id: string; distance: number; dying: boolean } | null = null;
+    for (const object of group.children) {
+      const id = String(object.userData?.azideiaTargetId || '');
+      if (!id) continue;
+      const distance = getScreenDistancePx(object, clientX, clientY, camera, domElement);
+      if (!nearest || distance < nearest.distance) {
+        nearest = { id, distance, dying: Boolean(object.userData?.azideiaDying) };
       }
-      current = current.parent;
+    }
+
+    if (nearest && nearest.distance <= X9_TOUCH_RADIUS_SCREEN_PX) {
+      return handleTargetById(nearest.id, nearest.dying);
     }
 
     return false;
@@ -300,6 +408,7 @@ export function mountAzideiaX9Layer({
     removeTarget,
     playDeathAndRemove,
     tryHandleClick,
+    tryHandlePointer,
     cleanup,
   };
 }
