@@ -332,7 +332,7 @@ export default function GamePage() {
             .then(() => azideiaLayerRef.current?.refresh());
         } else {
           void azideiaLayerRef.current
-            ?.playDeathAndRemove(current.targetId, 0)
+            ?.playDeathAndRemove(current.targetId, 560)
             .then(() => azideiaLayerRef.current?.refresh());
         }
       }
@@ -743,9 +743,28 @@ export default function GamePage() {
       void realtimePlayersLayer.refresh();
     }
 
-    function handleAzideiaMapChanged() {
+    function handleAzideiaMapChanged(payload?: { reason?: string; targetId?: string; targetType?: string }) {
       if (!isMounted) return;
-      void azideiaLayer.refresh();
+
+      const reason = String(payload?.reason || '');
+      const targetId = String(payload?.targetId || '');
+      const targetType = String(payload?.targetType || '');
+
+      // Não pode dar refresh seco quando o alvo morre/é negociado, porque o
+      // backend já remove o alvo do pool ativo e o refresh apagaria o modelo
+      // antes da animação local. Primeiro anima, depois sincroniza o pool.
+      if (targetId && (reason === 'x9_killed' || reason === 'correria_negotiated')) {
+        const animation = targetType === 'correria'
+          ? azideiaLayer.playRewardAndRemove(targetId, '+1 CORRE', 780)
+          : azideiaLayer.playDeathAndRemove(targetId, 560);
+
+        void animation.finally(() => {
+          if (isMounted) void azideiaLayer.refresh();
+        });
+      } else {
+        void azideiaLayer.refresh();
+      }
+
       void getActiveAzideiaMissions()
         .then((response) => {
           if (!isMounted) return;
