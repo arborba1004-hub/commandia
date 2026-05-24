@@ -87,6 +87,11 @@ type GangMember        = { id: string; type: string; level: number; status: 'ati
 type GangStats         = { totalMembers: number; activeMembers: number; injuredMembers: number; deadMembers: number; trainingMembers: number; marchingMembers: number; totalPower: number; averageLevel: number };
 type AttackNotification = { id: string; type: 'attack_received' | 'attack_success' | 'attack_failed' | 'revenge_available'; attackerId?: string; attackerName?: string; targetId?: string; targetName?: string; success: boolean; loot: number; createdAt: string; read: boolean };
 type AttackHistoryItem  = { id: string; attackerId: string; attackerName: string; targetId: string; targetName: string; success: boolean; loot: number; createdAt: string; attackerGangLosses?: Record<string, number>; defenderGangLosses?: Record<string, number> };
+type DailyCorreState = { streak: number; lastClaimDate: string; totalClaims: number };
+type PrisonHistoryState = { windowStart: number; countInWindow: number; lastPrisonAt: number; cooldownUntil: number };
+type SpinRateLimitState = { windowStart: number; spinCount: number };
+type GiroCard = { cardId: string; setId: string; name?: string; rarity: 'common' | 'rare' | 'epic' | 'legendary'; quantity: number; isGolden?: boolean; firstCollectedAt?: string };
+type CardCollectionState = { cards: GiroCard[]; completedSets: string[]; totalCardsCollected: number; chests?: { common?: number; rare?: number; epic?: number } };
 
 export type PlayerState = {
   _id?: string; googleId?: string; email?: string; name?: string; avatar?: string;
@@ -98,6 +103,8 @@ export type PlayerState = {
   ownedVehicles?: string[]; purchasedAccessories?: PurchasedAccessory[];
   accessories?: Accessories; convoyAccelerators?: ConvoyAccelerators; notifications?: AttackNotification[];
   attackHistory?: AttackHistoryItem[]; factionId?: string | null; gangId?: string | null;
+  dailyCorre?: DailyCorreState; prisonHistory?: PrisonHistoryState; spinRateLimit?: SpinRateLimitState;
+  cardCollection?: CardCollectionState;
   gangMembers?: GangMember[]; gangStats?: GangStats;
   gang?: {
     members?: GangMember[];
@@ -217,7 +224,7 @@ type PlayerStore = {
 const initialPlayer: PlayerState = {
   _id: '', googleId: '', email: '', name: '', avatar: '',
   niveis:    { playerLevel: 1, barracoLevel: 1, hierarchyLevel: 1, arsenalLevel: 1, giroLevel: 1, lavagemLevel: 1, luxuryLevel: 1, briberyLevel: 1 },
-  balances:  { dirtyMoney: GAME_MODE.debugEconomy ? GAME_MODE.debugDirtyMoney : 1000, cleanMoney: GAME_MODE.debugEconomy ? GAME_MODE.debugCleanMoney : 0, corre: 1000 },
+  balances:  { dirtyMoney: GAME_MODE.debugEconomy ? GAME_MODE.debugDirtyMoney : 35000, cleanMoney: GAME_MODE.debugEconomy ? GAME_MODE.debugCleanMoney : 2500, corre: 100 },
   inventory: { items: [], gifts: [], rewards: [] },
   pageLevels: { barraco: 1, giro: 1, lavagem: 1, luxury: 1, arsenal: 1, bribery: 1, hierarchy: 1, home: 1, game: 1 },
   skills:    { attack: 0, defense: 0, intelligence: 0, agility: 0, respect: 0, vigor: 0 },
@@ -251,6 +258,10 @@ const initialPlayer: PlayerState = {
     averageLevel: 0,
   },
   lastAttackAt: null, pvpProtectionUntil: null,
+  dailyCorre: { streak: 0, lastClaimDate: '', totalClaims: 0 },
+  prisonHistory: { windowStart: 0, countInWindow: 0, lastPrisonAt: 0, cooldownUntil: 0 },
+  spinRateLimit: { windowStart: 0, spinCount: 0 },
+  cardCollection: { cards: [], completedSets: [], totalCardsCollected: 0, chests: { common: 0, rare: 0, epic: 0 } },
 };
 
 // ─── mergePlayer (sem writes de localStorage) ─────────────────────────────────
@@ -300,6 +311,18 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     gangStats:     incomingGang?.stats ?? inc.gangStats ?? initialPlayer.gangStats,
     lastAttackAt:  inc?.lastAttackAt  ?? null,
     pvpProtectionUntil: inc?.pvpProtectionUntil ?? (punishments as any)?.pvpProtectionUntil ?? null,
+    dailyCorre: (inc as any)?.dailyCorre && typeof (inc as any).dailyCorre === 'object'
+      ? { ...initialPlayer.dailyCorre!, ...(inc as any).dailyCorre }
+      : initialPlayer.dailyCorre,
+    prisonHistory: (inc as any)?.prisonHistory && typeof (inc as any).prisonHistory === 'object'
+      ? { ...initialPlayer.prisonHistory!, ...(inc as any).prisonHistory }
+      : initialPlayer.prisonHistory,
+    spinRateLimit: (inc as any)?.spinRateLimit && typeof (inc as any).spinRateLimit === 'object'
+      ? { ...initialPlayer.spinRateLimit!, ...(inc as any).spinRateLimit }
+      : initialPlayer.spinRateLimit,
+    cardCollection: (inc as any)?.cardCollection && typeof (inc as any).cardCollection === 'object'
+      ? { ...initialPlayer.cardCollection!, ...(inc as any).cardCollection }
+      : initialPlayer.cardCollection,
   };
 }
 
