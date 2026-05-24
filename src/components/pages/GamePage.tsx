@@ -326,7 +326,7 @@ export default function GamePage() {
         // de “efeito”/pausa no impacto. Agora o comboio inicia a volta
         // imediatamente, e o X9 é removido/atualizado em paralelo.
         void azideiaLayerRef.current
-          ?.playDeathAndRemove(current.targetId, 140)
+          ?.playDeathAndRemove(current.targetId, 0)
           .then(() => azideiaLayerRef.current?.refresh());
       }
 
@@ -554,7 +554,9 @@ export default function GamePage() {
       },
     });
     azideiaLayerRef.current = azideiaLayer;
-    void azideiaLayer.start();
+    void azideiaLayer.start().catch((error) => {
+      console.error('[GamePage] Falha ao iniciar camada X9 Azidéia:', error);
+    });
 
     controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
     camera.position.set(playerMapSpace.worldX + 12, 10, playerMapSpace.worldZ + 12);
