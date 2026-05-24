@@ -197,27 +197,47 @@ function createLabel(text: string) {
   return sprite;
 }
 
-async function createTargetObject(loader: GLTFLoader, target: AzideiaX9Target) {
+function createTargetObject(loader: GLTFLoader, target: AzideiaX9Target) {
   const root = new THREE.Group();
   root.name = `azideia-x9-${target.id}`;
   root.userData.azideiaTargetId = target.id;
 
-  let model: THREE.Object3D | null = null;
-  try {
-    const gltf = await loader.loadAsync(target.modelUrl);
-    model = gltf.scene;
-    model.name = `azideia-x9-model-${target.id}`;
-    normalizeModel(model);
-  } catch (error) {
-    console.warn('[azideiaX9Layer] Falha ao carregar GLB X9, usando fallback:', error);
-    model = createFallbackX9();
-  }
-
-  model.traverse((child: any) => {
+  // O X9 precisa aparecer no mapa imediatamente. Antes o código aguardava
+  // o GLB carregar antes de adicionar o objeto ao grupo; se o asset demorasse,
+  // falhasse ou ficasse pendente no celular, o mapa ficava sem nenhum X9.
+  // Agora entramos com um fallback visível na hora e trocamos pelo GLB depois.
+  const fallback = createFallbackX9();
+  fallback.name = `azideia-x9-fallback-${target.id}`;
+  fallback.traverse((child: any) => {
     child.userData.azideiaTargetId = target.id;
   });
+  root.add(fallback);
 
-  root.add(model);
+  void loader.loadAsync(target.modelUrl).then((gltf) => {
+    // Se o alvo foi removido antes do GLB carregar, descarta o modelo.
+    if (!root.parent) {
+      disposeObject(gltf.scene);
+      return;
+    }
+
+    const model = gltf.scene;
+    model.name = `azideia-x9-model-${target.id}`;
+    normalizeModel(model);
+    model.traverse((child: any) => {
+      child.userData.azideiaTargetId = target.id;
+    });
+
+    const oldFallback = root.getObjectByName(`azideia-x9-fallback-${target.id}`);
+    if (oldFallback) {
+      root.remove(oldFallback);
+      disposeObject(oldFallback);
+    }
+    root.add(model);
+  }).catch((error) => {
+    // Mantém o fallback. Não deixa uma falha de asset matar a camada inteira.
+    console.warn('[azideiaX9Layer] Falha ao carregar GLB X9; mantendo fallback:', error);
+  });
+
   root.add(createTouchHitbox(target.id));
   root.add(createLabel('X9'));
 
@@ -240,6 +260,7 @@ export function mountAzideiaX9Layer({
   let refreshToken = 0;
   let lastHandledTargetId = '';
   let lastHandledAt = 0;
+  let refreshIntervalId: ReturnType<typeof window.setInterval> | null = null;
 
   function removeTarget(targetId: string) {
     targetsById.delete(String(targetId));
@@ -305,7 +326,13 @@ export function mountAzideiaX9Layer({
 
   async function refresh() {
     const token = ++refreshToken;
-    const response = await getAzideiaX9Targets();
+    let response;
+    try {
+      response = await getAzideiaX9Targets();
+    } catch (error) {
+      console.error('[azideiaX9Layer] Falha ao buscar X9 no mapa:', error);
+      return;
+    }
     if (disposed || token !== refreshToken) return;
 
     const nextIds = new Set(response.targets.map((target) => target.id));
@@ -325,7 +352,7 @@ export function mountAzideiaX9Layer({
         existing.position.set(x, 0.06, z);
         continue;
       }
-      const object = await createTargetObject(loader, target);
+      const object = createTargetObject(loader, target);
       if (disposed || token !== refreshToken) {
         disposeObject(object);
         return;
@@ -333,6 +360,16 @@ export function mountAzideiaX9Layer({
       object.position.set(x, 0.06, z);
       group.add(object);
     }
+  }
+
+  async function start() {
+    await refresh();
+    if (disposed || refreshIntervalId) return;
+    // O backend deve manter 20 X9; este polling garante que qualquer reposição
+    // feita após reserva/morte apareça no mapa sem depender de recarregar a página.
+    refreshIntervalId = window.setInterval(() => {
+      void refresh();
+    }, 8000);
   }
 
   function handleTargetById(targetId: string, dying = false) {
@@ -416,6 +453,10 @@ export function mountAzideiaX9Layer({
 
   function cleanup() {
     disposed = true;
+    if (refreshIntervalId) {
+      window.clearInterval(refreshIntervalId);
+      refreshIntervalId = null;
+    }
     for (const child of [...group.children]) {
       group.remove(child);
       disposeObject(child);
@@ -425,7 +466,7 @@ export function mountAzideiaX9Layer({
 
   return {
     group,
-    start: refresh,
+    start,
     refresh,
     removeTarget,
     playDeathAndRemove,
