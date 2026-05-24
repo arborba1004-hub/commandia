@@ -744,29 +744,35 @@ export default function GamePage() {
       clientX: number;
       clientY: number;
       startedAt: number;
+      pointerType: string;
     } | null = null;
 
-    const TAP_MOVE_TOLERANCE_PX = 18;
-    const TAP_MAX_DURATION_MS = 800;
+    const TAP_MOVE_TOLERANCE_MOUSE_PX = 18;
+    const TAP_MOVE_TOLERANCE_TOUCH_PX = 42;
+    const TAP_MAX_DURATION_MOUSE_MS = 800;
+    const TAP_MAX_DURATION_TOUCH_MS = 1100;
     const previousTouchAction = renderer.domElement.style.touchAction;
     renderer.domElement.style.touchAction = 'none';
 
     function handleMapTap(clientX: number, clientY: number) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x =  ((clientX - rect.left) / Math.max(1, rect.width))  * 2 - 1;
+      mouse.y = -((clientY - rect.top)  / Math.max(1, rect.height)) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      // X9 precisa ter prioridade absoluta no toque. Antes ele era testado
+      // depois dos prédios fixos; em touchscreen, o raycast de prédio/label
+      // podia roubar o tap e impedir abrir o modal Azidéia.
+      if (azideiaLayer.tryHandlePointer(clientX, clientY, camera, renderer.domElement, raycaster)) {
+        return;
+      }
+
       if (
         fixedBuildingsLayer.tryHandleBuildingClick(
           clientX,
           clientY
         )
       ) {
-        return;
-      }
-
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x =  ((clientX - rect.left) / Math.max(1, rect.width))  * 2 - 1;
-      mouse.y = -((clientY - rect.top)  / Math.max(1, rect.height)) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-
-      if (azideiaLayer.tryHandlePointer(clientX, clientY, camera, renderer.domElement, raycaster)) {
         return;
       }
 
@@ -903,6 +909,7 @@ export default function GamePage() {
         clientX: event.clientX,
         clientY: event.clientY,
         startedAt: performance.now(),
+        pointerType: event.pointerType || 'mouse',
       };
       try {
         renderer.domElement.setPointerCapture(event.pointerId);
@@ -928,9 +935,20 @@ export default function GamePage() {
 
       const moved = Math.hypot(event.clientX - down.clientX, event.clientY - down.clientY);
       const duration = performance.now() - down.startedAt;
-      if (moved > TAP_MOVE_TOLERANCE_PX || duration > TAP_MAX_DURATION_MS) return;
+      const isTouchLike = down.pointerType === 'touch' || down.pointerType === 'pen';
+      const tolerance = isTouchLike ? TAP_MOVE_TOLERANCE_TOUCH_PX : TAP_MOVE_TOLERANCE_MOUSE_PX;
+      const maxDuration = isTouchLike ? TAP_MAX_DURATION_TOUCH_MS : TAP_MAX_DURATION_MOUSE_MS;
+      if (moved > tolerance || duration > maxDuration) return;
 
       event.preventDefault();
+
+      // Em celular o dedo pode escorregar alguns pixels ou o OrbitControls pode
+      // atualizar a câmera entre pointerdown e pointerup. Primeiro tenta o ponto
+      // inicial do toque para X9; se não acertar, segue o fluxo normal no ponto final.
+      if (azideiaLayer.tryHandlePointer(down.clientX, down.clientY, camera, renderer.domElement, raycaster)) {
+        return;
+      }
+
       handleMapTap(event.clientX, event.clientY);
     }
 
