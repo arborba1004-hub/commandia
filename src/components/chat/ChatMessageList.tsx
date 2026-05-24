@@ -20,6 +20,9 @@ const HELP_ICON_URL =
 const AZIDEIA_ICON_URL =
   'https://static.wixstatic.com/media/50f4bf_ce2c97a1cf324091851178166ed02d29~mv2.png';
 
+const AZIDEIA_CORRERIA_ICON_URL =
+  'https://static.wixstatic.com/media/50f4bf_9bda4af1a12b47679336479a80b16eb8~mv2.png';
+
 function formatTime(value: string) {
   try {
     return new Date(value).toLocaleTimeString('pt-BR', {
@@ -187,29 +190,46 @@ const FactionHelpCard = memo(({
 // ── Cartão Azidéia no chat da facção ───────────────────────────────────────────
 const AzideiaRewardCard = memo(({ message }: { message: ChatMessage }) => {
   const totalMembers = Number(message.metadata?.memberCount ?? 0);
-  const killerName = String(message.metadata?.killerName || message.senderName || 'Jogador');
+  const targetType = String(message.metadata?.targetType || 'x9');
+  const rewardType = String(message.metadata?.rewardType || 'convoy_2x');
+  const isCorreria = targetType === 'correria' || rewardType === 'corre';
+  const killerName = String(
+    message.metadata?.killerName
+      || message.metadata?.negotiatorName
+      || message.senderName
+      || 'Jogador'
+  );
 
   const openRewards = () => {
     window.dispatchEvent(new CustomEvent('openAzideiaRewards'));
   };
 
   return (
-    <div className="rounded-2xl border border-red-500/30 bg-black/60 p-4">
+    <div className={`rounded-2xl border ${isCorreria ? 'border-emerald-500/30' : 'border-red-500/30'} bg-black/60 p-4`}>
       <div className="flex items-center gap-3">
-        <Image src={AZIDEIA_ICON_URL} alt="Azidéia" className="h-16 w-16 object-contain shrink-0" />
+        <Image
+          src={isCorreria ? AZIDEIA_CORRERIA_ICON_URL : AZIDEIA_ICON_URL}
+          alt={isCorreria ? 'Correria' : 'Azidéia'}
+          className="h-16 w-16 object-contain shrink-0"
+        />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black uppercase tracking-wide text-red-200">Azidéia</p>
+          <p className={`text-sm font-black uppercase tracking-wide ${isCorreria ? 'text-emerald-200' : 'text-red-200'}`}>
+            {isCorreria ? 'Correria' : 'Azidéia'}
+          </p>
           <p className="mt-0.5 text-sm text-white">
-            {killerName} eliminou um X9. A facção recebeu aceleradores para coletar.
+            {isCorreria
+              ? `${killerName} negociou com um Correria. A facção recebeu Corres para coletar.`
+              : `${killerName} eliminou um X9. A facção recebeu aceleradores para coletar.`}
           </p>
           <p className="mt-1 text-[11px] text-zinc-500">
-            Recompensa: +1 acelerador de comboio por membro{totalMembers > 0 ? ` • ${totalMembers} membros` : ''}
+            Recompensa: {isCorreria ? '+1 Corre' : '+1 acelerador de comboio'} por membro{totalMembers > 0 ? ` • ${totalMembers} membros` : ''}
+            {isCorreria ? ` • limite ${message.metadata?.dailyLimit ?? 100}/dia` : ''}
           </p>
         </div>
         <button
           type="button"
           onClick={openRewards}
-          className="shrink-0 rounded-xl bg-red-600 px-3 py-2 text-xs font-black uppercase text-white"
+          className={`shrink-0 rounded-xl px-3 py-2 text-xs font-black uppercase text-white ${isCorreria ? 'bg-emerald-600' : 'bg-red-600'}`}
         >
           Coletar
         </button>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image } from '@/components/ui/image';
 import { claimAzideiaRewards, getAzideiaRewardStatus } from '@/api/azideiaApi';
-import { AZIDEIA_ICON_URL } from '@/data/azideiaCatalog';
+import { AZIDEIA_CORRERIA_ICON_URL, AZIDEIA_ICON_URL } from '@/data/azideiaCatalog';
 import type { AzideiaRewardStatus } from '@/types/azideia';
 import { usePlayerStore } from '@/store/playerStore';
 
@@ -37,9 +37,11 @@ export default function AzideiaRewardsModal({
   if (!open) return null;
 
   const availableTwoX = Math.max(0, Number(status?.available?.convoy_2x ?? 0));
+  const availableCorre = Math.max(0, Number(status?.available?.corre ?? 0));
+  const totalAvailable = availableTwoX + availableCorre;
 
   const handleClaim = async () => {
-    if (isClaiming || availableTwoX <= 0) return;
+    if (isClaiming || totalAvailable <= 0) return;
     setIsClaiming(true);
     setError(null);
     setClaimedMessage(null);
@@ -47,8 +49,12 @@ export default function AzideiaRewardsModal({
       const result = await claimAzideiaRewards();
       if (result.player) usePlayerStore.getState().hydratePlayerFromServer(result.player as any);
       setStatus(result);
-      const claimed = Math.max(0, Number(result.claimed?.convoy_2x ?? 0));
-      setClaimedMessage(`Você coletou ${claimed} acelerador(es) de comboio.`);
+      const claimedTwoX = Math.max(0, Number(result.claimed?.convoy_2x ?? 0));
+      const claimedCorre = Math.max(0, Number(result.claimed?.corre ?? 0));
+      const parts: string[] = [];
+      if (claimedTwoX > 0) parts.push(`${claimedTwoX} acelerador(es)`);
+      if (claimedCorre > 0) parts.push(`${claimedCorre} Corre(s)`);
+      setClaimedMessage(parts.length ? `Você coletou ${parts.join(' e ')}.` : 'Nada para coletar agora.');
     } catch (err: any) {
       setError(err?.message ?? 'Erro ao coletar recompensas');
     } finally {
@@ -77,20 +83,36 @@ export default function AzideiaRewardsModal({
             <p className="text-sm text-zinc-400">Carregando...</p>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-4 rounded-2xl bg-zinc-900 p-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase text-zinc-500">Acelerador de comboio 2x</p>
-                  <p className="text-3xl font-black text-emerald-300">{availableTwoX}</p>
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                <div className="flex items-center gap-3 rounded-2xl bg-zinc-900 p-4">
+                  <Image src={AZIDEIA_ICON_URL} alt="X9" className="h-11 w-11 object-contain" />
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-zinc-500">Acelerador de comboio 2x</p>
+                    <p className="text-3xl font-black text-emerald-300">{availableTwoX}</p>
+                  </div>
                 </div>
+
+                <div className="flex items-center gap-3 rounded-2xl bg-zinc-900 p-4">
+                  <Image src={AZIDEIA_CORRERIA_ICON_URL} alt="Correria" className="h-11 w-11 object-contain" />
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-zinc-500">Corres da facção</p>
+                    <p className="text-3xl font-black text-emerald-300">{availableCorre}</p>
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleClaim}
-                  disabled={availableTwoX <= 0 || isClaiming}
+                  disabled={totalAvailable <= 0 || isClaiming}
                   className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black uppercase text-white disabled:opacity-40"
                 >
                   {isClaiming ? 'Coletando...' : 'Coletar'}
                 </button>
               </div>
+
+              <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-zinc-400">
+                Correria: coleta limitada a {status?.correriaFactionDailyLimit ?? 100} Corres por dia. Hoje você já coletou {status?.correriaFactionReceivedToday ?? 0}.
+              </p>
 
               <div className="mt-3 max-h-48 overflow-y-auto rounded-2xl bg-zinc-900/60 p-3">
                 {!status?.batches?.length ? (
@@ -99,7 +121,9 @@ export default function AzideiaRewardsModal({
                   <div className="space-y-2">
                     {status.batches.map((batch) => (
                       <div key={batch.id} className="rounded-xl bg-black/30 px-3 py-2 text-xs text-zinc-300">
-                        <span className="font-black text-white">{batch.killerName}</span> eliminou X9 • +{batch.quantity} acelerador
+                        <span className="font-black text-white">{batch.killerName}</span>{' '}
+                        {batch.rewardType === 'corre' ? 'negociou Correria' : 'eliminou X9'} • +{batch.quantity}{' '}
+                        {batch.rewardType === 'corre' ? 'Corre' : 'acelerador'}
                       </div>
                     ))}
                   </div>
