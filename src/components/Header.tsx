@@ -33,13 +33,13 @@ function ResourcePill({
   iconNode?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-[78px] items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 px-2.5 py-1.5 shadow-[0_0_12px_rgba(0,0,0,0.35)]">
+    <div className="flex min-w-[88px] items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 px-2.5 py-1.5 shadow-[0_0_12px_rgba(0,0,0,0.35)]">
       <div className="shrink-0">
         {iconNode ? iconNode : icon ? <Image src={icon} alt={iconAlt} className={iconClassName} /> : null}
       </div>
       <div className="flex min-w-0 flex-col leading-none">
         <span className="text-[8px] font-bold uppercase text-zinc-500">{label}</span>
-        <span className="truncate text-[11px] font-black text-white">{fmt(value)}</span>
+        <span className="whitespace-nowrap text-[11px] font-black text-white">{fmt(value)}</span>
       </div>
     </div>
   );
