@@ -203,79 +203,71 @@ export function useGameSocket() {
     };
   };
 
+  const removeRegisteredListeners = (socket: any) => {
+    if (!socket) return;
+    if (handlersRef.current.playerInit) socket.off('playerInit', handlersRef.current.playerInit);
+    if (handlersRef.current.playerUpdate) socket.off('playerUpdate', handlersRef.current.playerUpdate);
+    if (handlersRef.current.gangUpdate) socket.off('gangUpdate', handlersRef.current.gangUpdate);
+    if (handlersRef.current.connect) socket.off('connect', handlersRef.current.connect);
+    if (handlersRef.current.connectError) socket.off('connect_error', handlersRef.current.connectError);
+    if (handlersRef.current.attackIncoming) socket.off('attackIncoming', handlersRef.current.attackIncoming);
+    if (handlersRef.current.attackReceived) socket.off('attackReceived', handlersRef.current.attackReceived);
+  };
+
+  const connectAndRegister = () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      socketInitializedRef.current = false;
+      disconnectSocket();
+      return null;
+    }
+
+    const socket = reconnectSocket();
+    registerGlobalListeners(socket);
+    socketInitializedRef.current = true;
+    return socket;
+  };
+
   // ── Listener para authTokenChanged ──────────────────────────────────────────
   const handleAuthTokenChanged = () => {
     console.log('🔵 useGameSocket: authTokenChanged detectado, reconectando socket...');
     try {
-      const socket = reconnectSocket();
-      registerGlobalListeners(socket);
+      connectAndRegister();
       console.log('🟢 useGameSocket: Socket reconectado e listeners registrados');
     } catch (error) {
       console.error('🔴 useGameSocket: Erro ao reconectar socket:', error);
+      socketInitializedRef.current = false;
     }
   };
 
   useEffect(() => {
-    // Prevent socket initialization during SSR/build
     if (typeof window === 'undefined') {
       console.log('⚠️ useGameSocket skipped during SSR/build');
       return;
     }
 
-    // Evita múltiplas inicializações do socket
-    if (socketInitializedRef.current) return;
-    
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      console.log('⚠️ No auth token available - socket initialization skipped');
-      return;
-    }
+    mountedRef.current = true;
 
+    // O listener precisa existir mesmo na Home sem token. Antes, se o app
+    // abria deslogado, este hook retornava antes de registrar authTokenChanged;
+    // depois do login o socket não subia, o Header não hidratava e o mapa ficava
+    // sem HUD/ícones até recarregar.
+    window.addEventListener('authTokenChanged', handleAuthTokenChanged);
+
+    let socket: any = null;
     try {
-      socketInitializedRef.current = true;
-      mountedRef.current = true;
-
-      // Garante socket autenticado com token atual
-      const socket = reconnectSocket();
-
-      // Registra todos os listeners globais
-      registerGlobalListeners(socket);
-
-      // Listener para authTokenChanged (reconecta e registra listeners)
-      window.addEventListener('authTokenChanged', handleAuthTokenChanged);
-
-      return () => {
-        mountedRef.current = false;
-        window.removeEventListener('authTokenChanged', handleAuthTokenChanged);
-        // Remove listeners do socket
-        if (handlersRef.current.playerInit) {
-          socket.off('playerInit', handlersRef.current.playerInit);
-        }
-        if (handlersRef.current.playerUpdate) {
-          socket.off('playerUpdate', handlersRef.current.playerUpdate);
-        }
-        if (handlersRef.current.gangUpdate) {
-          socket.off('gangUpdate', handlersRef.current.gangUpdate);
-        }
-        if (handlersRef.current.connect) {
-          socket.off('connect', handlersRef.current.connect);
-        }
-        if (handlersRef.current.connectError) {
-          socket.off('connect_error', handlersRef.current.connectError);
-        }
-        if (handlersRef.current.attackIncoming) {
-          socket.off('attackIncoming', handlersRef.current.attackIncoming);
-        }
-        if (handlersRef.current.attackReceived) {
-          socket.off('attackReceived', handlersRef.current.attackReceived);
-        }
-        // Não desconecta o socket aqui — ele é singleton e pode ser usado por outros componentes
-      };
+      socket = connectAndRegister();
     } catch (error) {
       console.error('Erro ao conectar socket:', error);
       socketInitializedRef.current = false;
-      return;
     }
+
+    return () => {
+      mountedRef.current = false;
+      window.removeEventListener('authTokenChanged', handleAuthTokenChanged);
+      removeRegisteredListeners(socket);
+      socketInitializedRef.current = false;
+    };
   }, []); // Apenas na montagem — o socket é singleton
 }
 
