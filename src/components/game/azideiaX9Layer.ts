@@ -14,8 +14,11 @@ export type MountedAzideiaX9Layer = {
   cleanup: () => void;
 };
 
-const X9_TOUCH_RADIUS_WORLD = 1.65;
-const X9_TOUCH_RADIUS_SCREEN_PX = 62;
+// Touch em celular precisa ser muito mais generoso do que clique de mouse.
+// O GLB do X9 é pequeno e pode ficar parcialmente atrás de barraco/prédio,
+// então usamos uma hitbox 3D invisível maior + fallback por distância em tela.
+const X9_TOUCH_RADIUS_WORLD = 2.45;
+const X9_TOUCH_RADIUS_SCREEN_PX = 104;
 const X9_CLICK_DEBOUNCE_MS = 280;
 
 type MountParams = {
@@ -165,6 +168,7 @@ function getScreenDistancePx(
   object.getWorldPosition(world);
   world.y += 1.25;
   const projected = world.project(camera);
+  if (projected.z < -1 || projected.z > 1) return Number.POSITIVE_INFINITY;
   const screenX = rect.left + ((projected.x + 1) / 2) * rect.width;
   const screenY = rect.top + ((-projected.y + 1) / 2) * rect.height;
   return Math.hypot(screenX - clientX, screenY - clientY);
@@ -351,6 +355,24 @@ export function mountAzideiaX9Layer({
   function tryHandleClick(raycaster: THREE.Raycaster) {
     const previousThreshold = raycaster.params.Points?.threshold;
     if (raycaster.params.Points) raycaster.params.Points.threshold = 1.4;
+
+    // Prioriza hitboxes invisíveis do X9. Sem isso, em alguns ângulos o raycast
+    // pega label/modelo/prédio antes do alvo e o toque parece “não selecionar”.
+    const hitboxes: THREE.Object3D[] = [];
+    for (const object of group.children) {
+      object.traverse((child: any) => {
+        if (child?.userData?.azideiaTouchHitbox) hitboxes.push(child);
+      });
+    }
+
+    const hitboxHits = raycaster.intersectObjects(hitboxes, true);
+    if (hitboxHits.length) {
+      const resolved = findTargetRootFromHit(hitboxHits[0].object);
+      if (raycaster.params.Points && typeof previousThreshold === 'number') {
+        raycaster.params.Points.threshold = previousThreshold;
+      }
+      if (resolved) return handleTargetById(resolved.id, resolved.dying);
+    }
 
     const hits = raycaster.intersectObjects(group.children, true);
     if (raycaster.params.Points && typeof previousThreshold === 'number') {
