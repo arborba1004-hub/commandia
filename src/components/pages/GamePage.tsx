@@ -734,28 +734,39 @@ export default function GamePage() {
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // CLICK HANDLER
+    // POINTER / TOUCH HANDLER
     // ═════════════════════════════════════════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     const mouse     = new THREE.Vector2();
     let pendingTeleportTile: { tileX: number; tileY: number } | null = null;
+    let pointerDownState: {
+      pointerId: number;
+      clientX: number;
+      clientY: number;
+      startedAt: number;
+    } | null = null;
 
-    function handleClick(event: MouseEvent) {
+    const TAP_MOVE_TOLERANCE_PX = 18;
+    const TAP_MAX_DURATION_MS = 800;
+    const previousTouchAction = renderer.domElement.style.touchAction;
+    renderer.domElement.style.touchAction = 'none';
+
+    function handleMapTap(clientX: number, clientY: number) {
       if (
         fixedBuildingsLayer.tryHandleBuildingClick(
-          event.clientX,
-          event.clientY
+          clientX,
+          clientY
         )
       ) {
         return;
       }
 
       const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
-      mouse.y = -((event.clientY - rect.top)  / rect.height) * 2 + 1;
+      mouse.x =  ((clientX - rect.left) / Math.max(1, rect.width))  * 2 - 1;
+      mouse.y = -((clientY - rect.top)  / Math.max(1, rect.height)) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
 
-      if (azideiaLayer.tryHandleClick(raycaster)) {
+      if (azideiaLayer.tryHandlePointer(clientX, clientY, camera, renderer.domElement, raycaster)) {
         return;
       }
 
@@ -885,7 +896,59 @@ export default function GamePage() {
       selectionMesh.visible = true;
     }
 
-    renderer.domElement.addEventListener('click', handleClick);
+    function handlePointerDown(event: PointerEvent) {
+      if (!event.isPrimary) return;
+      pointerDownState = {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        startedAt: performance.now(),
+      };
+      try {
+        renderer.domElement.setPointerCapture(event.pointerId);
+      } catch {
+        // Alguns WebViews antigos podem recusar capture; o toque ainda funciona via pointerup.
+      }
+    }
+
+    function handlePointerUp(event: PointerEvent) {
+      if (!event.isPrimary) return;
+      const down = pointerDownState;
+      pointerDownState = null;
+
+      try {
+        if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+          renderer.domElement.releasePointerCapture(event.pointerId);
+        }
+      } catch {
+        // Ignora WebViews sem suporte completo a pointer capture.
+      }
+
+      if (!down || down.pointerId !== event.pointerId) return;
+
+      const moved = Math.hypot(event.clientX - down.clientX, event.clientY - down.clientY);
+      const duration = performance.now() - down.startedAt;
+      if (moved > TAP_MOVE_TOLERANCE_PX || duration > TAP_MAX_DURATION_MS) return;
+
+      event.preventDefault();
+      handleMapTap(event.clientX, event.clientY);
+    }
+
+    function handlePointerCancel(event: PointerEvent) {
+      if (pointerDownState?.pointerId === event.pointerId) {
+        pointerDownState = null;
+      }
+    }
+
+    function handleClickFallback(event: MouseEvent) {
+      if ('PointerEvent' in window) return;
+      handleMapTap(event.clientX, event.clientY);
+    }
+
+    renderer.domElement.addEventListener('pointerdown', handlePointerDown);
+    renderer.domElement.addEventListener('pointerup', handlePointerUp);
+    renderer.domElement.addEventListener('pointercancel', handlePointerCancel);
+    renderer.domElement.addEventListener('click', handleClickFallback);
 
     function handleResize() {
       if (!mountEl) return;
@@ -911,7 +974,11 @@ export default function GamePage() {
       setThreeReady(false);
       window.cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
-      renderer.domElement.removeEventListener('click', handleClick);
+      renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
+      renderer.domElement.removeEventListener('pointerup', handlePointerUp);
+      renderer.domElement.removeEventListener('pointercancel', handlePointerCancel);
+      renderer.domElement.removeEventListener('click', handleClickFallback);
+      renderer.domElement.style.touchAction = previousTouchAction;
 
       if (socket) {
         socket.off('playerInit', onPlayerInit);
