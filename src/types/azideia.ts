@@ -1,5 +1,5 @@
-export type AzideiaTargetType = 'x9';
-export type AzideiaRewardType = 'convoy_2x';
+export type AzideiaTargetType = 'x9' | 'correria';
+export type AzideiaRewardType = 'convoy_2x' | 'corre';
 export type AzideiaMissionStatus = 'travelling' | 'returning' | 'completed' | 'cancelled';
 
 export type AzideiaRouteTile = { tileX: number; tileY: number };
@@ -12,6 +12,8 @@ export type AzideiaX9Target = {
   tileX: number;
   tileY: number;
   costDirtyMoney: number;
+  rewardType?: AzideiaRewardType;
+  rewardQuantity?: number;
   reserved?: boolean;
 };
 
@@ -40,10 +42,18 @@ export type AzideiaMission = {
 
 export type AzideiaTargetsResponse = {
   targets: AzideiaX9Target[];
+  x9Targets?: AzideiaX9Target[];
+  correriaTargets?: AzideiaX9Target[];
   costDirtyMoney: number;
+  correriaCostDirtyMoney?: number;
   dailyKills: number;
   dailyLimit: number;
   remainingToday: number;
+  dailyCorreriaNegotiations?: number;
+  correriaDailyLimit?: number;
+  correriaRemainingToday?: number;
+  correriaFactionReceivedToday?: number;
+  correriaFactionDailyLimit?: number;
   activeAzideiaConvoys?: number;
   maxParallelAzideiaConvoys?: number;
 };
@@ -60,11 +70,18 @@ export type AzideiaAttackResult = AzideiaMission & {
     rewardType: AzideiaRewardType;
     quantityPerMember: number;
     memberCount: number;
-    batchId: string;
+    batchId?: string;
+    cappedMembersCount?: number;
+    dailyLimit?: number;
   } | null;
   dailyKills: number;
   dailyLimit: number;
   remainingToday: number;
+  dailyCorreriaNegotiations?: number;
+  correriaDailyLimit?: number;
+  correriaRemainingToday?: number;
+  correriaFactionReceivedToday?: number;
+  correriaFactionDailyLimit?: number;
   activeAzideiaConvoys?: number;
   maxParallelAzideiaConvoys?: number;
   player?: unknown;
@@ -76,7 +93,7 @@ export type AzideiaActiveMissionsResponse = {
 
 export type AzideiaRewardStatus = {
   factionId: string | null;
-  available: Record<AzideiaRewardType, number>;
+  available: Partial<Record<AzideiaRewardType, number>>;
   totalAvailable: number;
   batches: Array<{
     id: string;
@@ -88,7 +105,7 @@ export type AzideiaRewardStatus = {
 };
 
 export type AzideiaClaimResult = AzideiaRewardStatus & {
-  claimed: Record<AzideiaRewardType, number>;
+  claimed: Partial<Record<AzideiaRewardType, number>>;
   totalClaimed: number;
   player?: unknown;
 };
