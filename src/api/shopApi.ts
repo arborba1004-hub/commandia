@@ -15,7 +15,7 @@ function buildUrl(path: string): string {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const response = await fetch(buildUrl(endpoint), {
@@ -41,43 +41,67 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
     return data as T;
   } finally {
-    window.clearTimeout(timeoutId);
+    clearTimeout(timeoutId);
   }
 }
 
-export type CorreCheckoutResponse = {
+export type MercadoPagoBrickConfig = {
+  publicKey: string;
+  env: 'sandbox' | 'production' | string;
+};
+
+export type CorrePackage = {
+  id: string;
+  name: string;
+  description: string;
+  correAmount: number;
+  price: number;
+  currency: 'BRL' | string;
+  badge?: string;
+};
+
+export type CorrePackageBrickPaymentResult = {
   purchaseId: string;
-  preferenceId?: string;
-  checkoutUrl: string;
-  initPoint?: string;
-  sandboxInitPoint?: string;
-  productType: 'correPackage';
-  productId: string;
+  paymentId?: string | number;
+  status: string;
+  statusDetail?: string;
+  paymentTypeId?: string;
+  paymentMethodId?: string;
+  packageId: string;
   correAmount: number;
   amount: number;
   currency: string;
-};
-
-export type RealMoneyPurchaseStatus = {
-  purchaseId: string;
-  status: string;
-  productType?: 'convoy' | 'correPackage' | string;
-  productId?: string;
-  convoySkinId?: string;
-  correAmount?: number;
-  amount?: number;
-  currency?: string;
-  grantedAt?: string | null;
+  qrCode?: string;
+  qrCodeBase64?: string;
+  ticketUrl?: string;
   player?: unknown;
+  message?: string;
 };
 
-export async function createCorrePackageCheckout(packageId = 'corre_10_brl_099'): Promise<CorreCheckoutResponse> {
-  return request<CorreCheckoutResponse>('/payments/checkout/corre', {
-    method: 'POST',
-    body: JSON.stringify({ packageId }),
-  });
+export const CORRE_STARTER_PACKAGE: CorrePackage = {
+  id: 'corre_10_099',
+  name: 'Pacote Relâmpago de Corres',
+  description: '10 Corres para rodar no Giro no Asfalto sem gastar Commands.',
+  correAmount: 10,
+  price: 0.99,
+  currency: 'BRL',
+  badge: 'OFERTA DE ENTRADA',
+};
+
+export function formatBRL(value: number): string {
+  return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export async function getRealMoneyPurchaseStatus(purchaseId: string): Promise<RealMoneyPurchaseStatus> {
-  return request<RealMoneyPurchaseStatus>(`/payments/purchases/${encodeURIComponent(purchaseId)}`, { method: 'GET' });
+export async function getMercadoPagoBrickConfig(): Promise<MercadoPagoBrickConfig> {
+  return request<MercadoPagoBrickConfig>('/payments/brick/config', { method: 'GET' });
+}
+
+export async function createMercadoPagoBrickCorrePackagePayment(
+  packageId: string,
+  paymentData: unknown,
+): Promise<CorrePackageBrickPaymentResult> {
+  return request<CorrePackageBrickPaymentResult>('/payments/brick/corre-package', {
+    method: 'POST',
+    body: JSON.stringify({ packageId, paymentData }),
+  });
 }
