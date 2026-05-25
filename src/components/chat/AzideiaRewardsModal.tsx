@@ -110,9 +110,14 @@ export default function AzideiaRewardsModal({
                 </button>
               </div>
 
-              <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-zinc-400">
-                Correria: coleta limitada a {status?.correriaFactionDailyLimit ?? 100} Corres por dia. Hoje você já coletou {status?.correriaFactionReceivedToday ?? 0}.
-              </p>
+              <div className="mt-3 space-y-2 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-zinc-400">
+                <p>
+                  X9: coleta limitada a {status?.x9FactionDailyLimit ?? 100} aceleradores por dia. Hoje você já coletou {status?.x9FactionReceivedToday ?? 0}.
+                </p>
+                <p>
+                  Correria: coleta limitada a {status?.correriaFactionDailyLimit ?? 100} Corres por dia. Hoje você já coletou {status?.correriaFactionReceivedToday ?? 0}.
+                </p>
+              </div>
 
               <div className="mt-3 max-h-48 overflow-y-auto rounded-2xl bg-zinc-900/60 p-3">
                 {!status?.batches?.length ? (

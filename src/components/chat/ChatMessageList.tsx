@@ -223,7 +223,7 @@ const AzideiaRewardCard = memo(({ message }: { message: ChatMessage }) => {
           </p>
           <p className="mt-1 text-[11px] text-zinc-500">
             Recompensa: {isCorreria ? '+1 Corre' : '+1 acelerador de comboio'} por membro{totalMembers > 0 ? ` • ${totalMembers} membros` : ''}
-            {isCorreria ? ` • limite ${message.metadata?.dailyLimit ?? 100}/dia` : ''}
+            {` • limite ${message.metadata?.dailyLimit ?? 100}/dia`}
           </p>
         </div>
         <button
