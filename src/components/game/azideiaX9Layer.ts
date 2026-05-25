@@ -270,6 +270,7 @@ export function mountAzideiaX9Layer({ scene, loader, gridWidth, gridHeight, onTa
   let lastHandledTargetId = '';
   let lastHandledAt = 0;
   let refreshIntervalId: ReturnType<typeof window.setInterval> | null = null;
+  let consecutiveEmptyRefreshes = 0;
 
   function removeTarget(targetId: string) {
     targetsById.delete(String(targetId));
@@ -373,26 +374,47 @@ export function mountAzideiaX9Layer({ scene, loader, gridWidth, gridHeight, onTa
     }
     if (disposed || token !== refreshToken) return;
 
-    const nextIds = new Set(response.targets.map((target) => target.id));
+    const nextTargets = Array.isArray(response?.targets)
+      ? response.targets.filter((target) => target?.id && Number.isFinite(Number(target.tileX)) && Number.isFinite(Number(target.tileY)))
+      : [];
+
+    // Proteção visual: uma resposta vazia/transitória do backend não pode apagar
+    // todos os X9/Correria do jogador. Mantém o último mapa vivo e tenta de novo
+    // no próximo polling/socket. Se o backend estiver saudável, ele repõe no GET.
+    if (nextTargets.length === 0) {
+      consecutiveEmptyRefreshes += 1;
+      console.warn('[azideiaX9Layer] Pool Azidéia veio vazio; preservando camada atual.', {
+        consecutiveEmptyRefreshes,
+        currentObjects: group.children.length,
+      });
+      if (group.children.length > 0 || consecutiveEmptyRefreshes < 2) return;
+    } else {
+      consecutiveEmptyRefreshes = 0;
+    }
+
+    const nextIds = new Set(nextTargets.map((target) => target.id));
     for (const child of [...group.children]) {
       const id = String(child.userData?.azideiaTargetId || '');
       if (id && !nextIds.has(id)) {
         if (child.userData?.azideiaDying) continue;
         group.remove(child);
+        targetsById.delete(id);
         disposeObject(child);
       }
     }
 
-    for (const target of response.targets) {
+    for (const target of nextTargets) {
       targetsById.set(target.id, target);
       const existing = group.children.find((child) => child.userData?.azideiaTargetId === target.id);
       const { x, z } = tileToWorld(target.tileX, target.tileY, gridWidth, gridHeight);
       if (existing) {
         existing.position.set(x, 0.06, z);
         existing.userData.azideiaTargetType = target.type;
+        existing.userData.azideiaTargetReserved = Boolean(target.reserved);
         continue;
       }
       const object = createTargetObject(loader, target);
+      object.userData.azideiaTargetReserved = Boolean(target.reserved);
       if (disposed || token !== refreshToken) {
         disposeObject(object);
         return;
@@ -405,7 +427,7 @@ export function mountAzideiaX9Layer({ scene, loader, gridWidth, gridHeight, onTa
   async function start() {
     await refresh();
     if (disposed || refreshIntervalId) return;
-    refreshIntervalId = window.setInterval(() => { void refresh(); }, 8000);
+    refreshIntervalId = window.setInterval(() => { void refresh(); }, 5000);
   }
 
   function handleTargetById(targetId: string, dying = false) {
