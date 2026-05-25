@@ -370,6 +370,7 @@ export default function GamePage() {
         if (returned.player) {
           usePlayerStore.getState().hydratePlayerFromServer(returned.player as any);
         }
+        void azideiaLayerRef.current?.refresh();
       }
     } catch (error) {
       console.error('[GamePage] Falha no ciclo visual da Azidéia:', error);
@@ -407,7 +408,7 @@ export default function GamePage() {
     const intervalId = window.setInterval(() => {
       void syncActiveAzideiaMissions();
       void azideiaLayerRef.current?.refresh();
-    }, 7000);
+    }, 5000);
 
     return () => {
       cancelled = true;
@@ -425,6 +426,7 @@ export default function GamePage() {
     }
 
     setAzideiaTarget(null);
+    void azideiaLayerRef.current?.refresh();
     void runAzideiaMissionCycle(result);
 
     return result;
