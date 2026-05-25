@@ -12,6 +12,8 @@ import { usePlayerStore } from '@/store/playerStore';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import AzideiaRewardsModal from '@/components/chat/AzideiaRewardsModal';
+import { Image } from '@/components/ui/image';
+import { AZIDEIA_CORRERIA_ICON_URL, AZIDEIA_ICON_URL } from '@/data/azideiaCatalog';
 
 interface ExtendedPlayer {
   _id?: string;
@@ -512,10 +514,26 @@ export default function ChatPage() {
         {/* ── COMPLEXO / FACÇÃO: igual ao anterior ──────────────────────── */}
         {activeChannel !== 'mail' && (
           <div className="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card">
-            <div className="border-b border-border px-4 py-3">
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
               <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                 {activeChannel === 'complexo' ? 'Chat do Complexo' : 'Chat da Facção'}
               </p>
+
+              {activeChannel === 'faccao' && hasFaction && (
+                <button
+                  type="button"
+                  onClick={() => setAzideiaRewardsOpen(true)}
+                  className="flex items-center gap-2 rounded-2xl border border-red-500/35 bg-black/40 px-3 py-2 text-xs font-black uppercase text-white shadow-lg shadow-red-950/20 active:scale-95"
+                  aria-label="Abrir coleta Azidéia da facção"
+                  title="Coleta Azidéia"
+                >
+                  <span className="relative flex h-8 w-12 items-center">
+                    <Image src={AZIDEIA_ICON_URL} alt="Azidéia" className="absolute left-0 h-8 w-8 object-contain" />
+                    <Image src={AZIDEIA_CORRERIA_ICON_URL} alt="Correria" className="absolute right-0 h-8 w-8 object-contain" />
+                  </span>
+                  Coleta Azidéia
+                </button>
+              )}
             </div>
 
             <div className="flex-1 overflow-hidden">
