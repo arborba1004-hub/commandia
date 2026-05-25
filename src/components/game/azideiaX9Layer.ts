@@ -383,14 +383,14 @@ export function mountAzideiaX9Layer({ scene, loader, gridWidth, gridHeight, onTa
     // no próximo polling/socket. Se o backend estiver saudável, ele repõe no GET.
     if (nextTargets.length === 0) {
       consecutiveEmptyRefreshes += 1;
-      console.warn('[azideiaX9Layer] Pool Azidéia veio vazio; preservando camada atual.', {
+      console.warn('[azideiaX9Layer] Pool Azidéia veio vazio; preservando camada atual e aguardando recuperação do backend.', {
         consecutiveEmptyRefreshes,
         currentObjects: group.children.length,
       });
-      if (group.children.length > 0 || consecutiveEmptyRefreshes < 2) return;
-    } else {
-      consecutiveEmptyRefreshes = 0;
+      return;
     }
+
+    consecutiveEmptyRefreshes = 0;
 
     const nextIds = new Set(nextTargets.map((target) => target.id));
     for (const child of [...group.children]) {
