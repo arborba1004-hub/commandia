@@ -52,6 +52,8 @@ export type AzideiaTargetsResponse = {
   dailyCorreriaNegotiations?: number;
   correriaDailyLimit?: number;
   correriaRemainingToday?: number;
+  x9FactionReceivedToday?: number;
+  x9FactionDailyLimit?: number;
   correriaFactionReceivedToday?: number;
   correriaFactionDailyLimit?: number;
   activeAzideiaConvoys?: number;
@@ -80,6 +82,8 @@ export type AzideiaAttackResult = AzideiaMission & {
   dailyCorreriaNegotiations?: number;
   correriaDailyLimit?: number;
   correriaRemainingToday?: number;
+  x9FactionReceivedToday?: number;
+  x9FactionDailyLimit?: number;
   correriaFactionReceivedToday?: number;
   correriaFactionDailyLimit?: number;
   activeAzideiaConvoys?: number;
@@ -95,12 +99,17 @@ export type AzideiaRewardStatus = {
   factionId: string | null;
   available: Partial<Record<AzideiaRewardType, number>>;
   totalAvailable: number;
+  x9FactionReceivedToday?: number;
+  x9FactionDailyLimit?: number;
+  correriaFactionReceivedToday?: number;
+  correriaFactionDailyLimit?: number;
   batches: Array<{
     id: string;
     rewardType: AzideiaRewardType;
     quantity: number;
     killerName: string;
     createdAt: string;
+    sourceTargetType?: AzideiaTargetType;
   }>;
 };
 
