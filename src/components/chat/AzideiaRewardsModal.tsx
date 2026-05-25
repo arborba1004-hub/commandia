@@ -34,6 +34,14 @@ export default function AzideiaRewardsModal({
     if (open) void load();
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const intervalId = window.setInterval(() => {
+      void load();
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [open]);
+
   if (!open) return null;
 
   const availableTwoX = Math.max(0, Number(status?.available?.convoy_2x ?? 0));
