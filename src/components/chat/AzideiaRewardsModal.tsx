@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Image } from "@/components/ui/image";
 import { claimAzideiaRewards, getAzideiaRewardStatus } from "@/api/azideiaApi";
 import {
@@ -31,44 +31,28 @@ export default function AzideiaRewardsModal({
   const [isClaiming, setIsClaiming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [claimedMessage, setClaimedMessage] = useState<string | null>(null);
-  const hasLoadedRef = useRef(false);
 
-  async function load(options: { silent?: boolean } = {}) {
-    const silent = Boolean(options.silent);
-    const showLoading = !silent || !hasLoadedRef.current;
-
-    if (showLoading) setIsLoading(true);
-    if (!silent) setError(null);
-
+  async function load() {
+    setIsLoading(true);
+    setError(null);
     try {
-      const nextStatus = await getAzideiaRewardStatus();
-      setStatus(nextStatus);
-      hasLoadedRef.current = true;
-      if (silent) setError(null);
+      setStatus(await getAzideiaRewardStatus());
     } catch (err: any) {
-      // Refresh automático não deve apagar o conteúdo nem piscar o modal.
-      // Só mostra erro se ainda não existe nenhum status carregado.
-      if (!silent || !hasLoadedRef.current) {
-        setError(err?.message ?? "Erro ao carregar recompensas Azidéia");
-      }
+      setError(err?.message ?? "Erro ao carregar recompensas Azidéia");
     } finally {
-      if (showLoading) setIsLoading(false);
+      setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!open) return;
-    hasLoadedRef.current = false;
-    setStatus(null);
-    setClaimedMessage(null);
-    void load({ silent: false });
+    if (open) void load();
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const intervalId = window.setInterval(() => {
-      void load({ silent: true });
-    }, 15000);
+      void load();
+    }, 5000);
     return () => window.clearInterval(intervalId);
   }, [open]);
 
@@ -147,7 +131,7 @@ export default function AzideiaRewardsModal({
         </div>
 
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/40 p-4">
-          {isLoading && !status ? (
+          {isLoading ? (
             <p className="text-sm text-zinc-400">Carregando...</p>
           ) : (
             <>
