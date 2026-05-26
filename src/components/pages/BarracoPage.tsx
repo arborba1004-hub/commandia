@@ -241,12 +241,12 @@ export default function BarracoPage() {
                   disabled={isSubmitting}
                   className="mt-3 w-full rounded-lg bg-cyan-500 px-3 py-2 text-sm font-bold text-black hover:bg-cyan-400 disabled:opacity-50"
                 >
-                  Usar acelerador disponível
+                  Acelerar obra
                 </button>
               )}
               {!canAccelerate && !isUpgradeReady && (
                 <p className="mt-1 text-xs opacity-60">
-                  Sistema pronto para loja/eventos concederem aceleradores de tempo.
+                  Ganhe aceleradores com Mestre de Obras, loja e eventos.
                 </p>
               )}
             </div>

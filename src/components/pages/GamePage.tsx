@@ -1,89 +1,126 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { useNavigate } from "react-router-dom";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import * as THREE            from 'three';
-import { OrbitControls }     from 'three/examples/jsm/controls/OrbitControls';
-import { useNavigate }       from 'react-router-dom';
-import { GLTFLoader }        from 'three/examples/jsm/loaders/GLTFLoader';
-import { DRACOLoader }       from 'three/examples/jsm/loaders/DRACOLoader';
+import { mountFixedMapBuildings } from "@/components/game/fixedMapBuildings";
+import {
+  mountPlayerMapSpace,
+  isPlayerSpaceAvailable,
+} from "@/components/game/playerMapSpace";
+import { mountRealtimeMapPlayersLayer } from "@/components/game/realtimeMapPlayersLayer";
+import { teleportPlayerMapSpace } from "@/components/game/playerTeleport";
 
-import { mountFixedMapBuildings }                      from '@/components/game/fixedMapBuildings';
-import { mountPlayerMapSpace, isPlayerSpaceAvailable } from '@/components/game/playerMapSpace';
-import { mountRealtimeMapPlayersLayer }                from '@/components/game/realtimeMapPlayersLayer';
-import { teleportPlayerMapSpace }                      from '@/components/game/playerTeleport';
-
-import { usePlayerStore }        from '@/store/playerStore';
-import { useChatStore }          from '@/store/chatStore';
-import { useGangStore }          from '@/store/gangStore';
-import { getSocket }             from '@/socket';
-import { invitePlayerToFaction } from '@/services/factionInviteService';
+import { usePlayerStore } from "@/store/playerStore";
+import { useChatStore } from "@/store/chatStore";
+import { useGangStore } from "@/store/gangStore";
+import { getSocket } from "@/socket";
+import { invitePlayerToFaction } from "@/services/factionInviteService";
 
 import OtherPlayerBarracoModal, {
   type OtherPlayerBarracoTarget,
   createOtherPlayerBarracoModalState,
   openOtherPlayerBarracoModal,
   closeOtherPlayerBarracoModal,
-} from '@/components/game/OtherPlayerBarracoModal';
-import DirectMessageModal, { type DirectMessageTarget } from '@/components/game/DirectMessageModal';
-import GangTrainingModal from '@/components/gang/GangTrainingModal';
-import MapTargetActionModal      from '@/components/game/MapTargetActionModal';
-import AttackResultOverlay        from '@/components/game/AttackResultOverlay';
-import ConvoyAttackAnimation      from '@/components/game/ConvoyAttackAnimation';
-import AttackIncomingToast        from '@/components/game/AttackIncomingToast';
-import { useMapAttack }           from '@/hooks/useMapAttack';
-import { useMapAttackStore }      from '@/store/mapAttackStore';
-import { useActiveMapBattles }    from '@/hooks/useActiveMapBattles';
-import { useRemoteSquadAnimations } from '@/hooks/useRemoteSquadAnimations';
-import { Image } from '@/components/ui/image';
-import AzideiaAttackModal from '@/components/game/AzideiaAttackModal';
-import { mountAzideiaX9Layer, type MountedAzideiaX9Layer } from '@/components/game/azideiaX9Layer';
+} from "@/components/game/OtherPlayerBarracoModal";
+import DirectMessageModal, {
+  type DirectMessageTarget,
+} from "@/components/game/DirectMessageModal";
+import GangTrainingModal from "@/components/gang/GangTrainingModal";
+import MapTargetActionModal from "@/components/game/MapTargetActionModal";
+import AttackResultOverlay from "@/components/game/AttackResultOverlay";
+import ConvoyAttackAnimation from "@/components/game/ConvoyAttackAnimation";
+import AttackIncomingToast from "@/components/game/AttackIncomingToast";
+import { useMapAttack } from "@/hooks/useMapAttack";
+import { useMapAttackStore } from "@/store/mapAttackStore";
+import { useActiveMapBattles } from "@/hooks/useActiveMapBattles";
+import { useRemoteSquadAnimations } from "@/hooks/useRemoteSquadAnimations";
+import { Image } from "@/components/ui/image";
+import AzideiaAttackModal from "@/components/game/AzideiaAttackModal";
+import {
+  mountAzideiaX9Layer,
+  type MountedAzideiaX9Layer,
+} from "@/components/game/azideiaX9Layer";
 import {
   attackAzideiaX9,
   negotiateAzideiaCorreria,
+  payAzideiaMestreObras,
   confirmAzideiaMissionArrival,
   confirmAzideiaMissionReturn,
   getActiveAzideiaMissions,
-} from '@/api/azideiaApi';
-import type { AzideiaMission, AzideiaX9Target } from '@/types/azideia';
-import { mountAttackConvoy3D } from '@/components/game/convoy/convoy3DAnimator';
-import { getConvoySkin } from '@/data/convoyCatalog';
+} from "@/api/azideiaApi";
+import type { AzideiaMission, AzideiaX9Target } from "@/types/azideia";
+import { mountAttackConvoy3D } from "@/components/game/convoy/convoy3DAnimator";
+import { getConvoySkin } from "@/data/convoyCatalog";
 
-const GRID_WIDTH      = 120;
-const GRID_HEIGHT     = 120;
-const TILE_SIZE       = 1;
+const GRID_WIDTH = 120;
+const GRID_HEIGHT = 120;
+const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
 
 const FLOOR_TEXTURE =
-  'https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg';
+  "https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg";
 
-const COMMANDS_ICON = 'https://static.wixstatic.com/media/50f4bf_9bda4af1a12b47679336479a80b16eb8~mv2.png';
-const ICON_COMPLEXO = 'https://static.wixstatic.com/media/50f4bf_af442ef88fac45288bc762a40c07c343~mv2.png';
-const ICON_FACCAO   = 'https://static.wixstatic.com/media/50f4bf_f00228a9eaa84c13ab83c4f3a6365649~mv2.png';
-const ICON_MAIL     = 'https://static.wixstatic.com/media/50f4bf_e602f889654541a9aa2dfd057dad00bc~mv2.png';
-const ICON_SHOP     = 'https://static.wixstatic.com/media/50f4bf_aee79b79a6ac4c89bbc8bbadfffdb2c6~mv2.png';
+const COMMANDS_ICON =
+  "https://static.wixstatic.com/media/50f4bf_9bda4af1a12b47679336479a80b16eb8~mv2.png";
+const ICON_COMPLEXO =
+  "https://static.wixstatic.com/media/50f4bf_af442ef88fac45288bc762a40c07c343~mv2.png";
+const ICON_FACCAO =
+  "https://static.wixstatic.com/media/50f4bf_f00228a9eaa84c13ab83c4f3a6365649~mv2.png";
+const ICON_MAIL =
+  "https://static.wixstatic.com/media/50f4bf_e602f889654541a9aa2dfd057dad00bc~mv2.png";
+const ICON_SHOP =
+  "https://static.wixstatic.com/media/50f4bf_aee79b79a6ac4c89bbc8bbadfffdb2c6~mv2.png";
 
 function fmt(value: number) {
-  if (!Number.isFinite(value)) return '0';
+  if (!Number.isFinite(value)) return "0";
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000)     return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000)         return `${(value / 1_000).toFixed(1)}K`;
-  return value.toLocaleString('pt-BR');
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return value.toLocaleString("pt-BR");
 }
 
 const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+dracoLoader.setDecoderPath(
+  "https://www.gstatic.com/draco/versioned/decoders/1.5.7/",
+);
 
 function sleep(ms: number) {
-  return new Promise<void>((resolve) => window.setTimeout(resolve, Math.max(0, ms)));
+  return new Promise<void>((resolve) =>
+    window.setTimeout(resolve, Math.max(0, ms)),
+  );
 }
 
 function parseIsoMs(value?: string | null) {
-  const ms = Date.parse(String(value || ''));
+  const ms = Date.parse(String(value || ""));
   return Number.isFinite(ms) ? ms : 0;
 }
 
 function progressBetween(startMs: number, endMs: number, nowMs = Date.now()) {
   if (!startMs || !endMs || endMs <= startMs) return 0;
   return Math.max(0, Math.min(0.995, (nowMs - startMs) / (endMs - startMs)));
+}
+
+function getAzideiaConvoyLabel(type?: string | null) {
+  if (type === "mestre_obras") return "Mestre de Obras";
+  if (type === "correria") return "Correria";
+  return "Azidéia";
+}
+
+function getAzideiaReturnLabel(type?: string | null) {
+  if (type === "mestre_obras") return "Retorno Mestre";
+  if (type === "correria") return "Retorno Correria";
+  return "Retorno Azidéia";
+}
+
+function getAzideiaArrivalAnimation(type?: string | null) {
+  if (type === "mestre_obras")
+    return { mode: "reward" as const, label: "+1H +1M", duration: 900 };
+  if (type === "correria")
+    return { mode: "reward" as const, label: "+1 CORRE", duration: 780 };
+  return { mode: "death" as const, label: "", duration: 560 };
 }
 
 async function waitUntilIso(value?: string | null, extraMs = 220) {
@@ -95,54 +132,68 @@ async function waitUntilIso(value?: string | null, extraMs = 220) {
 function getRouteStartMsForMission(mission: AzideiaMission) {
   const launchedAtMs = parseIsoMs(mission.launchedAtIso);
   const arriveAtMs = parseIsoMs(mission.arriveAtIso);
-  return launchedAtMs || Math.max(0, arriveAtMs - Math.max(0, Number(mission.travelDurationMs || 0)));
+  return (
+    launchedAtMs ||
+    Math.max(0, arriveAtMs - Math.max(0, Number(mission.travelDurationMs || 0)))
+  );
 }
 
 function getReturnStartMsForMission(mission: AzideiaMission) {
   const returnAtMs = parseIsoMs(mission.returnAtIso);
-  return Math.max(0, returnAtMs - Math.max(0, Number(mission.returnDurationMs || 0)));
+  return Math.max(
+    0,
+    returnAtMs - Math.max(0, Number(mission.returnDurationMs || 0)),
+  );
 }
 
 export default function GamePage() {
-  const mountRef    = useRef<HTMLDivElement | null>(null);
-  const navigate    = useNavigate();
-  const player      = usePlayerStore((s) => s.player);
+  const mountRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
+  const player = usePlayerStore((s) => s.player);
   const isPlayerLoaded = usePlayerStore((s) => s.isLoaded);
   const myFactionId = usePlayerStore((s) => s.player.factionId) ?? null;
 
-  const mailMessages    = useChatStore((s) => s.mailMessages);
+  const mailMessages = useChatStore((s) => s.mailMessages);
   const unreadMailCount = mailMessages.filter(
-    (m) => String(m.recipientId) === String((player as any)?._id) && !m.read
+    (m) => String(m.recipientId) === String((player as any)?._id) && !m.read,
   ).length;
 
   const dirtyMoney = player?.balances?.dirtyMoney ?? 0;
   const cleanMoney = player?.balances?.cleanMoney ?? 0;
-  const avatarUrl  = (player as any)?.headerCustomization?.customAvatar || (player as any)?.avatar || '';
-  const playerName = (player as any)?.headerCustomization?.customName   || player?.name || '—';
+  const avatarUrl =
+    (player as any)?.headerCustomization?.customAvatar ||
+    (player as any)?.avatar ||
+    "";
+  const playerName =
+    (player as any)?.headerCustomization?.customName || player?.name || "—";
   const playerLevel = player?.niveis?.barracoLevel ?? 0;
 
   const playerMapSpaceRef = useRef<any>(null);
   const azideiaLayerRef = useRef<MountedAzideiaX9Layer | null>(null);
   const activeAzideiaVisualsRef = useRef<Set<string>>(new Set());
-  const [azideiaTarget, setAzideiaTarget] = useState<AzideiaX9Target | null>(null);
+  const [azideiaTarget, setAzideiaTarget] = useState<AzideiaX9Target | null>(
+    null,
+  );
 
   // ── Refs do three.js (compartilhados com o sistema de ataque) ──────────
   // Preenchidos dentro do useEffect THREE.js. Necessários para animação 3D
   // do squad marchando até o alvo durante o ataque.
-  const sceneRef  = useRef<THREE.Scene | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.Camera | null>(null);
   const [threeReady, setThreeReady] = useState(false);
 
   // ── Modal: barraco de outro jogador
-  const [modalState,       setModalState]       = useState(createOtherPlayerBarracoModalState());
-  const [isInviting,       setIsInviting]       = useState(false);
+  const [modalState, setModalState] = useState(
+    createOtherPlayerBarracoModalState(),
+  );
+  const [isInviting, setIsInviting] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [dmModalOpen,      setDmModalOpen]      = useState(false);
-  const [dmTarget,         setDmTarget]         = useState<DirectMessageTarget | null>(null);
+  const [dmModalOpen, setDmModalOpen] = useState(false);
+  const [dmTarget, setDmTarget] = useState<DirectMessageTarget | null>(null);
 
   // ── Sistema de ataque PvP (orquestrado pelo useMapAttack) ─────────────
-  const mapAttack             = useMapAttack();
-  const mapAttackPreviewOpen  = useMapAttackStore((s) => s.previewOpen);
+  const mapAttack = useMapAttack();
+  const mapAttackPreviewOpen = useMapAttackStore((s) => s.previewOpen);
 
   // ── Modal: treinamento de gangue (CT)
   const gang = useGangStore((s) => s.gang);
@@ -166,16 +217,18 @@ export default function GamePage() {
     useGangStore.getState().loadGang();
   }, []);
 
-
-
   // ── Handler: mensagem privada
   const handleSendPrivateMessage = useCallback(
     (target: OtherPlayerBarracoTarget) => {
       setModalState(closeOtherPlayerBarracoModal());
-      setDmTarget({ id: target.id, name: target.name, avatarUrl: target.avatarUrl });
+      setDmTarget({
+        id: target.id,
+        name: target.name,
+        avatarUrl: target.avatarUrl,
+      });
       setDmModalOpen(true);
     },
-    []
+    [],
   );
 
   // ── Handler: convidar para facção
@@ -185,15 +238,15 @@ export default function GamePage() {
       setIsInviting(true);
       try {
         await invitePlayerToFaction(target.id);
-        console.log('✅ Convite enviado para:', target.name);
+        console.log("✅ Convite enviado para:", target.name);
         setModalState(closeOtherPlayerBarracoModal());
       } catch (error) {
-        console.error('❌ Erro ao convidar:', error);
+        console.error("❌ Erro ao convidar:", error);
       } finally {
         setIsInviting(false);
       }
     },
-    []
+    [],
   );
 
   // ── Handler: atacar (orquestrado por useMapAttack) ─────────────────────
@@ -205,8 +258,13 @@ export default function GamePage() {
   //  5. useMapAttack: anima squad pelo mapa → resolve no backend → mostra AttackResultOverlay
   //
   // Os tiles do alvo vêm de realtimePlayersLayer (armazenados num cache via state).
-  const [lastClickedTargetTile, setLastClickedTargetTile] = useState<{ x: number; y: number } | null>(null);
-  const lastClickedTargetTileRef = useRef<{ x: number; y: number } | null>(null);
+  const [lastClickedTargetTile, setLastClickedTargetTile] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const lastClickedTargetTileRef = useRef<{ x: number; y: number } | null>(
+    null,
+  );
 
   const rememberTargetTile = useCallback((tile: { x: number; y: number }) => {
     lastClickedTargetTileRef.current = tile;
@@ -218,11 +276,12 @@ export default function GamePage() {
       if (!target?.id) return;
 
       // tileX/Y do alvo: vem do click no mapa 3D (armazenado em lastClickedTargetTile)
-      const cachedTargetTile = lastClickedTargetTileRef.current ?? lastClickedTargetTile;
+      const cachedTargetTile =
+        lastClickedTargetTileRef.current ?? lastClickedTargetTile;
       const targetTileX = cachedTargetTile?.x ?? 0;
       const targetTileY = cachedTargetTile?.y ?? 0;
 
-      console.log('[GamePage] handleAttack target tile', {
+      console.log("[GamePage] handleAttack target tile", {
         targetId: target.id,
         targetName: target.name,
         cachedTargetTile,
@@ -233,23 +292,25 @@ export default function GamePage() {
 
       // Abre o MapTargetActionModal via useMapAttack
       mapAttack.initiateAttack({
-        playerId:     String(target.id),
-        playerName:   String(target.name || 'Alvo'),
-        tileX:        targetTileX,
-        tileY:        targetTileY,
+        playerId: String(target.id),
+        playerName: String(target.name || "Alvo"),
+        tileX: targetTileX,
+        tileY: targetTileY,
         barracoLevel: target.barracoLevel,
-        factionId:    target.factionId ?? null,
+        factionId: target.factionId ?? null,
       });
     },
-    [mapAttack, lastClickedTargetTile]
+    [mapAttack, lastClickedTargetTile],
   );
 
   // Handler: jogador confirmou ataque no MapTargetActionModal
   const handleConfirmAttack = useCallback(async () => {
-    const scene  = sceneRef.current;
+    const scene = sceneRef.current;
     const camera = cameraRef.current;
     if (!scene || !camera) {
-      console.warn('[GamePage] scene/camera não disponíveis para animar ataque');
+      console.warn(
+        "[GamePage] scene/camera não disponíveis para animar ataque",
+      );
       return;
     }
 
@@ -261,7 +322,7 @@ export default function GamePage() {
     }
 
     if (Object.keys(selection).length === 0) {
-      console.warn('[GamePage] Tentativa de ataque sem seleção de tropas');
+      console.warn("[GamePage] Tentativa de ataque sem seleção de tropas");
       return;
     }
 
@@ -270,117 +331,158 @@ export default function GamePage() {
       scene,
       camera,
       GRID_WIDTH,
-      GRID_HEIGHT
+      GRID_HEIGHT,
     );
   }, [mapAttack]);
 
-  const runAzideiaMissionCycle = useCallback(async (mission: AzideiaMission) => {
-    const missionId = String(mission?.missionId || '');
-    if (!missionId || activeAzideiaVisualsRef.current.has(missionId)) return;
+  const runAzideiaMissionCycle = useCallback(
+    async (mission: AzideiaMission) => {
+      const missionId = String(mission?.missionId || "");
+      if (!missionId || activeAzideiaVisualsRef.current.has(missionId)) return;
 
-    activeAzideiaVisualsRef.current.add(missionId);
+      activeAzideiaVisualsRef.current.add(missionId);
 
-    let forward: ReturnType<typeof mountAttackConvoy3D> | null = null;
-    let returning: ReturnType<typeof mountAttackConvoy3D> | null = null;
+      let forward: ReturnType<typeof mountAttackConvoy3D> | null = null;
+      let returning: ReturnType<typeof mountAttackConvoy3D> | null = null;
 
-    try {
-      let current: AzideiaMission = mission;
-      const scene = sceneRef.current;
-      const currentPlayer = usePlayerStore.getState().player as any;
-      const equippedSkinId = currentPlayer?.convoys?.equippedSkinId ?? 'comboio_padrao';
-      const skin = getConvoySkin(equippedSkinId);
+      try {
+        let current: AzideiaMission = mission;
+        const scene = sceneRef.current;
+        const currentPlayer = usePlayerStore.getState().player as any;
+        const equippedSkinId =
+          currentPlayer?.convoys?.equippedSkinId ?? "comboio_padrao";
+        const skin = getConvoySkin(equippedSkinId);
 
-      if (current.status === 'travelling') {
-        const route = Array.isArray(current.routeTiles) ? current.routeTiles : [];
-        const arriveAtMs = parseIsoMs(current.arriveAtIso);
-
-        if (scene && route.length > 1 && (!arriveAtMs || Date.now() < arriveAtMs)) {
-          forward = mountAttackConvoy3D({
-            scene,
-            route,
-            gridWidth: GRID_WIDTH,
-            gridHeight: GRID_HEIGHT,
-            skin,
-            durationMs: Math.max(1200, Number(current.travelDurationMs || 2500)),
-            initialProgress: progressBetween(getRouteStartMsForMission(current), arriveAtMs),
-            coordinateMode: 'tile-center',
-            memberCount: 1,
-            label: current.targetType === 'correria' ? 'Correria' : 'Azidéia',
-          });
-
-          await forward.start();
-          forward.cleanup();
-          forward = null;
-        } else {
-          await waitUntilIso(current.arriveAtIso);
-        }
-
-        const arrival = await confirmAzideiaMissionArrival(missionId);
-        if (arrival.player) {
-          usePlayerStore.getState().hydratePlayerFromServer(arrival.player as any);
-        }
-
-        current = { ...current, ...arrival, status: 'returning' };
-
-        // O X9 deve cair sem travar o ciclo visual. Antes o retorno só
-        // começava depois da animação de morte (~950ms), criando uma sensação
-        // de “efeito”/pausa no impacto. Agora o comboio inicia a volta
-        // imediatamente, e o X9 é removido/atualizado em paralelo.
-        if (current.targetType === 'correria') {
-          void azideiaLayerRef.current
-            ?.playRewardAndRemove(current.targetId, '+1 CORRE', 780)
-            .then(() => azideiaLayerRef.current?.refresh());
-        } else {
-          void azideiaLayerRef.current
-            ?.playDeathAndRemove(current.targetId, 560)
-            .then(() => azideiaLayerRef.current?.refresh());
-        }
-      }
-
-      if (current.status === 'returning') {
-        const returnRoute = Array.isArray(current.returnRouteTiles) && current.returnRouteTiles.length > 1
-          ? current.returnRouteTiles
-          : Array.isArray(current.routeTiles)
-            ? [...current.routeTiles].reverse()
+        if (current.status === "travelling") {
+          const route = Array.isArray(current.routeTiles)
+            ? current.routeTiles
             : [];
-        const returnAtMs = parseIsoMs(current.returnAtIso);
+          const arriveAtMs = parseIsoMs(current.arriveAtIso);
 
-        if (scene && returnRoute.length > 1 && (!returnAtMs || Date.now() < returnAtMs)) {
-          returning = mountAttackConvoy3D({
-            scene,
-            route: returnRoute,
-            gridWidth: GRID_WIDTH,
-            gridHeight: GRID_HEIGHT,
-            skin,
-            durationMs: Math.max(1200, Number(current.returnDurationMs || current.travelDurationMs || 2500)),
-            initialProgress: progressBetween(getReturnStartMsForMission(current), returnAtMs),
-            coordinateMode: 'tile-center',
-            memberCount: 1,
-            label: current.targetType === 'correria' ? 'Retorno Correria' : 'Retorno Azidéia',
-          });
+          if (
+            scene &&
+            route.length > 1 &&
+            (!arriveAtMs || Date.now() < arriveAtMs)
+          ) {
+            forward = mountAttackConvoy3D({
+              scene,
+              route,
+              gridWidth: GRID_WIDTH,
+              gridHeight: GRID_HEIGHT,
+              skin,
+              durationMs: Math.max(
+                1200,
+                Number(current.travelDurationMs || 2500),
+              ),
+              initialProgress: progressBetween(
+                getRouteStartMsForMission(current),
+                arriveAtMs,
+              ),
+              coordinateMode: "tile-center",
+              memberCount: 1,
+              label: getAzideiaConvoyLabel(current.targetType),
+            });
 
-          await returning.start();
-          returning.cleanup();
-          returning = null;
-        } else {
-          await waitUntilIso(current.returnAtIso);
+            await forward.start();
+            forward.cleanup();
+            forward = null;
+          } else {
+            await waitUntilIso(current.arriveAtIso);
+          }
+
+          const arrival = await confirmAzideiaMissionArrival(missionId);
+          if (arrival.player) {
+            usePlayerStore
+              .getState()
+              .hydratePlayerFromServer(arrival.player as any);
+          }
+
+          current = { ...current, ...arrival, status: "returning" };
+
+          // O X9 deve cair sem travar o ciclo visual. Antes o retorno só
+          // começava depois da animação de morte (~950ms), criando uma sensação
+          // de “efeito”/pausa no impacto. Agora o comboio inicia a volta
+          // imediatamente, e o X9 é removido/atualizado em paralelo.
+          const arrivalAnimation = getAzideiaArrivalAnimation(
+            current.targetType,
+          );
+          const animationPromise =
+            arrivalAnimation.mode === "reward"
+              ? azideiaLayerRef.current?.playRewardAndRemove(
+                  current.targetId,
+                  arrivalAnimation.label,
+                  arrivalAnimation.duration,
+                )
+              : azideiaLayerRef.current?.playDeathAndRemove(
+                  current.targetId,
+                  arrivalAnimation.duration,
+                );
+
+          void animationPromise?.then(() => azideiaLayerRef.current?.refresh());
         }
 
-        const returned = await confirmAzideiaMissionReturn(missionId);
-        if (returned.player) {
-          usePlayerStore.getState().hydratePlayerFromServer(returned.player as any);
+        if (current.status === "returning") {
+          const returnRoute =
+            Array.isArray(current.returnRouteTiles) &&
+            current.returnRouteTiles.length > 1
+              ? current.returnRouteTiles
+              : Array.isArray(current.routeTiles)
+                ? [...current.routeTiles].reverse()
+                : [];
+          const returnAtMs = parseIsoMs(current.returnAtIso);
+
+          if (
+            scene &&
+            returnRoute.length > 1 &&
+            (!returnAtMs || Date.now() < returnAtMs)
+          ) {
+            returning = mountAttackConvoy3D({
+              scene,
+              route: returnRoute,
+              gridWidth: GRID_WIDTH,
+              gridHeight: GRID_HEIGHT,
+              skin,
+              durationMs: Math.max(
+                1200,
+                Number(
+                  current.returnDurationMs || current.travelDurationMs || 2500,
+                ),
+              ),
+              initialProgress: progressBetween(
+                getReturnStartMsForMission(current),
+                returnAtMs,
+              ),
+              coordinateMode: "tile-center",
+              memberCount: 1,
+              label: getAzideiaReturnLabel(current.targetType),
+            });
+
+            await returning.start();
+            returning.cleanup();
+            returning = null;
+          } else {
+            await waitUntilIso(current.returnAtIso);
+          }
+
+          const returned = await confirmAzideiaMissionReturn(missionId);
+          if (returned.player) {
+            usePlayerStore
+              .getState()
+              .hydratePlayerFromServer(returned.player as any);
+          }
+          void azideiaLayerRef.current?.refresh();
         }
+      } catch (error) {
+        console.error("[GamePage] Falha no ciclo visual da Azidéia:", error);
         void azideiaLayerRef.current?.refresh();
+      } finally {
+        forward?.cleanup();
+        returning?.cleanup();
+        activeAzideiaVisualsRef.current.delete(missionId);
       }
-    } catch (error) {
-      console.error('[GamePage] Falha no ciclo visual da Azidéia:', error);
-      void azideiaLayerRef.current?.refresh();
-    } finally {
-      forward?.cleanup();
-      returning?.cleanup();
-      activeAzideiaVisualsRef.current.delete(missionId);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!threeReady || !player?._id) return;
@@ -396,7 +498,7 @@ export default function GamePage() {
           void runAzideiaMissionCycle(mission);
         }
       } catch (error) {
-        console.error('[GamePage] Falha ao recuperar Azidéias ativas:', error);
+        console.error("[GamePage] Falha ao recuperar Azidéias ativas:", error);
       }
     };
 
@@ -416,23 +518,27 @@ export default function GamePage() {
     };
   }, [threeReady, player?._id, runAzideiaMissionCycle]);
 
-  const handleConfirmAzideia = useCallback(async (target: AzideiaX9Target) => {
-    const result = target.type === 'correria'
-      ? await negotiateAzideiaCorreria(target.id)
-      : await attackAzideiaX9(target.id);
+  const handleConfirmAzideia = useCallback(
+    async (target: AzideiaX9Target) => {
+      const result =
+        target.type === "mestre_obras"
+          ? await payAzideiaMestreObras(target.id)
+          : target.type === "correria"
+            ? await negotiateAzideiaCorreria(target.id)
+            : await attackAzideiaX9(target.id);
 
-    if (result.player) {
-      usePlayerStore.getState().hydratePlayerFromServer(result.player as any);
-    }
+      if (result.player) {
+        usePlayerStore.getState().hydratePlayerFromServer(result.player as any);
+      }
 
-    setAzideiaTarget(null);
-    void azideiaLayerRef.current?.refresh();
-    void runAzideiaMissionCycle(result);
+      setAzideiaTarget(null);
+      void azideiaLayerRef.current?.refresh();
+      void runAzideiaMissionCycle(result);
 
-    return result;
-  }, [runAzideiaMissionCycle]);
-
-
+      return result;
+    },
+    [runAzideiaMissionCycle],
+  );
 
   // ═══════════════════════════════════════════════════════════════════════════
   // EFEITO THREE.JS
@@ -448,62 +554,66 @@ export default function GamePage() {
     let isMounted = true;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#050505');
-    sceneRef.current = scene;  // exposto para o sistema de ataque (animação 3D)
+    scene.background = new THREE.Color("#050505");
+    sceneRef.current = scene; // exposto para o sistema de ataque (animação 3D)
 
     const camera = new THREE.PerspectiveCamera(
       50,
       mountEl.clientWidth / Math.max(mountEl.clientHeight, 1),
       0.1,
-      1000
+      1000,
     );
-    cameraRef.current = camera;  // exposto para o sistema de ataque
+    cameraRef.current = camera; // exposto para o sistema de ataque
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mountEl.appendChild(renderer.domElement);
 
     // Sinaliza que scene/camera estão prontas APÓS renderer estar no DOM
     setThreeReady(true);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping  = true;
-    controls.dampingFactor  = 0.06;
-    controls.minDistance    = 10;
-    controls.maxDistance    = 70;
-    controls.maxPolarAngle  = Math.PI / 2.05;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 10;
+    controls.maxDistance = 70;
+    controls.maxPolarAngle = Math.PI / 2.05;
 
     scene.add(new THREE.AmbientLight(0xffffff, 1.25));
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.35);
     dirLight.position.set(40, 90, 30);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width  = 2048;
+    dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.near   = 1;
-    dirLight.shadow.camera.far    = 300;
-    dirLight.shadow.camera.left   = -90;
-    dirLight.shadow.camera.right  = 90;
-    dirLight.shadow.camera.top    = 90;
+    dirLight.shadow.camera.near = 1;
+    dirLight.shadow.camera.far = 300;
+    dirLight.shadow.camera.left = -90;
+    dirLight.shadow.camera.right = 90;
+    dirLight.shadow.camera.top = 90;
     dirLight.shadow.camera.bottom = -90;
     scene.add(dirLight);
 
     const textureLoader = new THREE.TextureLoader();
-    const floorTexture  = textureLoader.load(FLOOR_TEXTURE);
-    floorTexture.wrapS     = THREE.ClampToEdgeWrapping;
-    floorTexture.wrapT     = THREE.ClampToEdgeWrapping;
+    const floorTexture = textureLoader.load(FLOOR_TEXTURE);
+    floorTexture.wrapS = THREE.ClampToEdgeWrapping;
+    floorTexture.wrapT = THREE.ClampToEdgeWrapping;
     floorTexture.repeat.set(1, 1);
     floorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    floorTexture.magFilter  = THREE.LinearFilter;
-    floorTexture.minFilter  = THREE.LinearMipmapLinearFilter;
+    floorTexture.magFilter = THREE.LinearFilter;
+    floorTexture.minFilter = THREE.LinearMipmapLinearFilter;
 
     const platformGeometry = new THREE.BoxGeometry(
-      GRID_WIDTH * TILE_SIZE, PLATFORM_HEIGHT, GRID_HEIGHT * TILE_SIZE
+      GRID_WIDTH * TILE_SIZE,
+      PLATFORM_HEIGHT,
+      GRID_HEIGHT * TILE_SIZE,
     );
     const platformMaterial = new THREE.MeshStandardMaterial({
-      map: floorTexture, roughness: 1, metalness: 0,
+      map: floorTexture,
+      roughness: 1,
+      metalness: 0,
     });
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
     platform.position.set(0, -PLATFORM_HEIGHT / 2, 0);
@@ -520,15 +630,15 @@ export default function GamePage() {
       container: mountEl,
       onNavigate: (path: string) => {
         // Intercepta cliques em CTs para abrir modal de treinamento
-        if (path.startsWith('ct:')) {
-          const ctKey = path.replace('ct:', '');
+        if (path.startsWith("ct:")) {
+          const ctKey = path.replace("ct:", "");
           setSelectedCT(ctKey);
           setTrainingModalOpen(true);
         } else {
           navigate(path);
         }
       },
-      onMessage:  () => {},
+      onMessage: () => {},
     });
 
     // Cache de posições dos outros jogadores
@@ -540,27 +650,28 @@ export default function GamePage() {
     // ── Camada de jogadores em tempo real ─────────────────────────────────
     const realtimePlayersLayer = mountRealtimeMapPlayersLayer({
       scene,
-      gridWidth:  GRID_WIDTH,
+      gridWidth: GRID_WIDTH,
       gridHeight: GRID_HEIGHT,
-      tileSize:   TILE_SIZE,
-      pollingMs:  10000,
+      tileSize: TILE_SIZE,
+      pollingMs: 10000,
       showSpaces: true,
-      getMyId:    () => myId,   // closure lê myId em tempo real
+      getMyId: () => myId, // closure lê myId em tempo real
     });
     realtimePlayersLayer.start();
 
     const occupiedOrigins = Array.from(localPlayers.values()).map((p) => ({
-      tileX: p.tileX, tileY: p.tileY,
+      tileX: p.tileX,
+      tileY: p.tileY,
     }));
 
     const playerMapSpace = mountPlayerMapSpace({
       scene,
-      tileX:        Number(player?.mapPosition?.tileX ?? 0),
-      tileY:        Number(player?.mapPosition?.tileY ?? 0),
+      tileX: Number(player?.mapPosition?.tileX ?? 0),
+      tileY: Number(player?.mapPosition?.tileY ?? 0),
       barracoLevel: Number(player?.niveis?.barracoLevel ?? 1),
-      gridWidth:    GRID_WIDTH,
-      gridHeight:   GRID_HEIGHT,
-      tileSize:     TILE_SIZE,
+      gridWidth: GRID_WIDTH,
+      gridHeight: GRID_HEIGHT,
+      tileSize: TILE_SIZE,
       occupiedOrigins,
     });
     playerMapSpaceRef.current = playerMapSpace;
@@ -577,18 +688,26 @@ export default function GamePage() {
     });
     azideiaLayerRef.current = azideiaLayer;
     void azideiaLayer.start().catch((error) => {
-      console.error('[GamePage] Falha ao iniciar camada X9 Azidéia:', error);
+      console.error("[GamePage] Falha ao iniciar camada X9 Azidéia:", error);
     });
 
     controls.target.set(playerMapSpace.worldX, 0, playerMapSpace.worldZ);
-    camera.position.set(playerMapSpace.worldX + 12, 10, playerMapSpace.worldZ + 12);
+    camera.position.set(
+      playerMapSpace.worldX + 12,
+      10,
+      playerMapSpace.worldZ + 12,
+    );
     controls.update();
 
     const clickPlaneGeo = new THREE.PlaneGeometry(
-      GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE
+      GRID_WIDTH * TILE_SIZE,
+      GRID_HEIGHT * TILE_SIZE,
     );
     const clickPlaneMat = new THREE.MeshBasicMaterial({
-      transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
     });
     const clickPlane = new THREE.Mesh(clickPlaneGeo, clickPlaneMat);
     clickPlane.rotation.x = -Math.PI / 2;
@@ -597,12 +716,19 @@ export default function GamePage() {
 
     const selectionGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
     const selectionMat = new THREE.MeshBasicMaterial({
-      color: 0xd9b764, transparent: true, opacity: 0.4,
-      side: THREE.DoubleSide, depthWrite: false,
+      color: 0xd9b764,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+      depthWrite: false,
     });
     const selectionMesh = new THREE.Mesh(selectionGeo, selectionMat);
     selectionMesh.rotation.x = -Math.PI / 2;
-    selectionMesh.position.set(0.5 - GRID_WIDTH / 2, 0.06, 0.5 - GRID_HEIGHT / 2);
+    selectionMesh.position.set(
+      0.5 - GRID_WIDTH / 2,
+      0.06,
+      0.5 - GRID_HEIGHT / 2,
+    );
     selectionMesh.visible = false;
     scene.add(selectionMesh);
 
@@ -611,74 +737,79 @@ export default function GamePage() {
     // ═════════════════════════════════════════════════════════════════════════
     let socket: any = null;
     try {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         socket = getSocket();
-        console.log('✅ GamePage: Socket obtido com sucesso');
+        console.log("✅ GamePage: Socket obtido com sucesso");
       }
     } catch (err) {
-      console.error('❌ GamePage: Erro ao obter socket:', err);
+      console.error("❌ GamePage: Erro ao obter socket:", err);
       // Socket unavailable during SSR/build
     }
 
     const onPlayerInit = (data: { player: any; faction?: any }) => {
       if (!isMounted) return;
-      const incomingId = String(data.player?._id || data.player?.id || '');
+      const incomingId = String(data.player?._id || data.player?.id || "");
       if (incomingId) {
         myId = incomingId;
-        console.log('✅ playerInit: myId =', myId);
+        console.log("✅ playerInit: myId =", myId);
       }
       usePlayerStore.getState().hydratePlayerFromServer(data.player);
     };
 
     const onBarracoInfo = (data: any) => {
       if (!isMounted) return;
-      console.log('🏠 barracoInfo:', data.playerName, '| power:', data.power);
+      console.log("🏠 barracoInfo:", data.playerName, "| power:", data.power);
 
       // Atualiza modal com dados completos (avatar, factionName, etc.)
       setModalState(
         openOtherPlayerBarracoModal({
-          id:           String(data.playerId),
-          name:         data.playerName  || 'Jogador',
-          avatarUrl:    data.avatarUrl   ?? null,
-          factionId:    data.factionId   ?? null,
-          factionName:  data.factionName ?? null,
+          id: String(data.playerId),
+          name: data.playerName || "Jogador",
+          avatarUrl: data.avatarUrl ?? null,
+          factionId: data.factionId ?? null,
+          factionName: data.factionName ?? null,
           barracoLevel: Number(data.barracoLevel ?? 1),
-        })
+        }),
       );
 
       // Se o backend enviou tileX/Y, atualiza memória do alvo
-      if (typeof data.tileX === 'number' && typeof data.tileY === 'number') {
+      if (typeof data.tileX === "number" && typeof data.tileY === "number") {
         rememberTargetTile({
           x: Number(data.tileX),
           y: Number(data.tileY),
         });
       }
     };
-    
+
     if (socket) {
-      socket.on('playerInit', onPlayerInit);
+      socket.on("playerInit", onPlayerInit);
     } else {
-      console.warn('⚠️ GamePage: Socket não disponível, eventos em tempo real desabilitados');
+      console.warn(
+        "⚠️ GamePage: Socket não disponível, eventos em tempo real desabilitados",
+      );
     }
 
     async function processSnapshot(players: any[]) {
       if (!isMounted || !Array.isArray(players)) return;
       const currentId = myId || (player?._id ? String(player._id) : null);
       const others = players.filter((p) => {
-        const pId = String(p.id || p._id || '');
+        const pId = String(p.id || p._id || "");
         return pId && pId !== currentId;
       });
       localPlayers.clear();
       for (const p of others) {
-        localPlayers.set(String(p.id), { tileX: Number(p.tileX), tileY: Number(p.tileY) });
+        localPlayers.set(String(p.id), {
+          tileX: Number(p.tileX),
+          tileY: Number(p.tileY),
+        });
         await realtimePlayersLayer.upsertPlayer({
-          id:           String(p.id),
-          name:         p.name || 'Jogador',
-          tileX:        Number(p.tileX),
-          tileY:        Number(p.tileY),
+          id: String(p.id),
+          name: p.name || "Jogador",
+          tileX: Number(p.tileX),
+          tileY: Number(p.tileY),
           barracoLevel: Number(p.barracoLevel ?? 1),
-          power:        Number(p.power ?? 0),
-          factionId:    p.factionId ?? null,
+          power: Number(p.power ?? 0),
+          factionId: p.factionId ?? null,
         });
       }
     }
@@ -690,31 +821,34 @@ export default function GamePage() {
 
     async function handlePlayerJoined(p: any) {
       if (!isMounted) return;
-      const pId = String(p.id || p._id || '');
-      if (pId === (myId || String(player?._id || ''))) return;
+      const pId = String(p.id || p._id || "");
+      if (pId === (myId || String(player?._id || ""))) return;
       localPlayers.set(pId, { tileX: Number(p.tileX), tileY: Number(p.tileY) });
       await realtimePlayersLayer.upsertPlayer({
-        id:           pId,
-        name:         p.name || 'Jogador',
-        tileX:        Number(p.tileX),
-        tileY:        Number(p.tileY),
+        id: pId,
+        name: p.name || "Jogador",
+        tileX: Number(p.tileX),
+        tileY: Number(p.tileY),
         barracoLevel: Number(p.barracoLevel ?? 1),
-        power:        Number(p.power ?? 0),
-        factionId:    p.factionId ?? null,
+        power: Number(p.power ?? 0),
+        factionId: p.factionId ?? null,
       });
     }
 
     async function handlePlayerMoved(data: any) {
       if (!isMounted) return;
-      const pId = String(data.playerId || data.id || '');
-      if (pId === (myId || String(player?._id || ''))) {
-        console.log('⏭️ playerMoved ignorado (próprio jogador)');
+      const pId = String(data.playerId || data.id || "");
+      if (pId === (myId || String(player?._id || ""))) {
+        console.log("⏭️ playerMoved ignorado (próprio jogador)");
         return;
       }
-      localPlayers.set(pId, { tileX: Number(data.tileX), tileY: Number(data.tileY) });
+      localPlayers.set(pId, {
+        tileX: Number(data.tileX),
+        tileY: Number(data.tileY),
+      });
       await realtimePlayersLayer.upsertPlayer({
-        id:    pId,
-        name:  data.name,
+        id: pId,
+        name: data.name,
         tileX: Number(data.tileX),
         tileY: Number(data.tileY),
       });
@@ -722,9 +856,9 @@ export default function GamePage() {
 
     async function handlePlayerTeleported(data: any) {
       if (!isMounted) return;
-      const pId = String(data.playerId || data.id || '');
-      if (pId === (myId || String(player?._id || ''))) {
-        console.log('⏭️ playerTeleported ignorado (próprio jogador)');
+      const pId = String(data.playerId || data.id || "");
+      if (pId === (myId || String(player?._id || ""))) {
+        console.log("⏭️ playerTeleported ignorado (próprio jogador)");
         return;
       }
       localPlayers.set(pId, {
@@ -732,8 +866,8 @@ export default function GamePage() {
         tileY: Number(data.newPosition.tileY),
       });
       await realtimePlayersLayer.upsertPlayer({
-        id:    pId,
-        name:  data.name,
+        id: pId,
+        name: data.name,
         tileX: Number(data.newPosition.tileX),
         tileY: Number(data.newPosition.tileY),
       });
@@ -745,20 +879,38 @@ export default function GamePage() {
       void realtimePlayersLayer.refresh();
     }
 
-    function handleAzideiaMapChanged(payload?: { reason?: string; targetId?: string; targetType?: string }) {
+    function handleAzideiaMapChanged(payload?: {
+      reason?: string;
+      targetId?: string;
+      targetType?: string;
+    }) {
       if (!isMounted) return;
 
-      const reason = String(payload?.reason || '');
-      const targetId = String(payload?.targetId || '');
-      const targetType = String(payload?.targetType || '');
+      const reason = String(payload?.reason || "");
+      const targetId = String(payload?.targetId || "");
+      const targetType = String(payload?.targetType || "");
 
       // Não pode dar refresh seco quando o alvo morre/é negociado, porque o
       // backend já remove o alvo do pool ativo e o refresh apagaria o modelo
       // antes da animação local. Primeiro anima, depois sincroniza o pool.
-      if (targetId && (reason === 'x9_killed' || reason === 'correria_negotiated')) {
-        const animation = targetType === 'correria'
-          ? azideiaLayer.playRewardAndRemove(targetId, '+1 CORRE', 780)
-          : azideiaLayer.playDeathAndRemove(targetId, 560);
+      if (
+        targetId &&
+        (reason === "x9_killed" ||
+          reason === "correria_negotiated" ||
+          reason === "mestre_obras_paid")
+      ) {
+        const arrivalAnimation = getAzideiaArrivalAnimation(targetType);
+        const animation =
+          arrivalAnimation.mode === "reward"
+            ? azideiaLayer.playRewardAndRemove(
+                targetId,
+                arrivalAnimation.label,
+                arrivalAnimation.duration,
+              )
+            : azideiaLayer.playDeathAndRemove(
+                targetId,
+                arrivalAnimation.duration,
+              );
 
         void animation.finally(() => {
           if (isMounted) void azideiaLayer.refresh();
@@ -774,25 +926,30 @@ export default function GamePage() {
             void runAzideiaMissionCycle(mission);
           }
         })
-        .catch((error) => console.warn('[GamePage] Falha ao sincronizar Azidéia via socket:', error));
+        .catch((error) =>
+          console.warn(
+            "[GamePage] Falha ao sincronizar Azidéia via socket:",
+            error,
+          ),
+        );
     }
 
     if (socket) {
-      socket.on('mapSnapshot', handleMapSnapshot);
-      socket.on('playerJoined', handlePlayerJoined);
-      socket.on('playerMoved', handlePlayerMoved);
-      socket.on('playerTeleported', handlePlayerTeleported);
-      socket.on('playerLeft', handlePlayerLeft);
-      socket.on('barracoInfo', onBarracoInfo);
-      socket.on('azideia:targetChanged', handleAzideiaMapChanged);
-      socket.on('azideia:x9Changed', handleAzideiaMapChanged);
-      socket.on('azideia:missionChanged', handleAzideiaMapChanged);
+      socket.on("mapSnapshot", handleMapSnapshot);
+      socket.on("playerJoined", handlePlayerJoined);
+      socket.on("playerMoved", handlePlayerMoved);
+      socket.on("playerTeleported", handlePlayerTeleported);
+      socket.on("playerLeft", handlePlayerLeft);
+      socket.on("barracoInfo", onBarracoInfo);
+      socket.on("azideia:targetChanged", handleAzideiaMapChanged);
+      socket.on("azideia:x9Changed", handleAzideiaMapChanged);
+      socket.on("azideia:missionChanged", handleAzideiaMapChanged);
 
       if (socket.connected) {
-        socket.emit('requestMapSnapshot');
+        socket.emit("requestMapSnapshot");
       } else {
-        socket.once('connect', () => {
-          if (isMounted) socket.emit('requestMapSnapshot');
+        socket.once("connect", () => {
+          if (isMounted) socket.emit("requestMapSnapshot");
         });
       }
     }
@@ -801,7 +958,7 @@ export default function GamePage() {
     // POINTER / TOUCH HANDLER
     // ═════════════════════════════════════════════════════════════════════════
     const raycaster = new THREE.Raycaster();
-    const mouse     = new THREE.Vector2();
+    const mouse = new THREE.Vector2();
     let pendingTeleportTile: { tileX: number; tileY: number } | null = null;
     let pointerDownState: {
       pointerId: number;
@@ -816,66 +973,74 @@ export default function GamePage() {
     const TAP_MAX_DURATION_MOUSE_MS = 800;
     const TAP_MAX_DURATION_TOUCH_MS = 1100;
     const previousTouchAction = renderer.domElement.style.touchAction;
-    renderer.domElement.style.touchAction = 'none';
+    renderer.domElement.style.touchAction = "none";
 
     function handleMapTap(clientX: number, clientY: number) {
       const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x =  ((clientX - rect.left) / Math.max(1, rect.width))  * 2 - 1;
-      mouse.y = -((clientY - rect.top)  / Math.max(1, rect.height)) * 2 + 1;
+      mouse.x = ((clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
+      mouse.y = -((clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
 
       // X9 precisa ter prioridade absoluta no toque. Antes ele era testado
       // depois dos prédios fixos; em touchscreen, o raycast de prédio/label
       // podia roubar o tap e impedir abrir o modal Azidéia.
-      if (azideiaLayer.tryHandlePointer(clientX, clientY, camera, renderer.domElement, raycaster)) {
-        return;
-      }
-
       if (
-        fixedBuildingsLayer.tryHandleBuildingClick(
+        azideiaLayer.tryHandlePointer(
           clientX,
-          clientY
+          clientY,
+          camera,
+          renderer.domElement,
+          raycaster,
         )
       ) {
         return;
       }
 
+      if (fixedBuildingsLayer.tryHandleBuildingClick(clientX, clientY)) {
+        return;
+      }
+
       // Próprio barraco → /barraco
       const ownHits = raycaster.intersectObjects(
-        playerMapSpaceRef.current?.modelContainer?.children || [], true
+        playerMapSpaceRef.current?.modelContainer?.children || [],
+        true,
       );
       if (ownHits.length > 0) {
-        navigate('/barraco');
+        navigate("/barraco");
         return;
       }
 
       // Barraco de outro jogador → modal
       const otherHits = raycaster.intersectObjects(
-        realtimePlayersLayer.group.children, true
+        realtimePlayersLayer.group.children,
+        true,
       );
       if (otherHits.length > 0) {
         let current: any = otherHits[0].object;
         while (current) {
           if (current.userData?.playerId) {
-            const playerId   = String(current.userData.playerId);
-            const playerData = realtimePlayersLayer.players()
+            const playerId = String(current.userData.playerId);
+            const playerData = realtimePlayersLayer
+              .players()
               .find((p: any) => String(p.id) === playerId);
 
             if (playerData) {
               // 1) Abre imediatamente com dados básicos (UX otimista)
-              setModalState(openOtherPlayerBarracoModal({
-                id:           playerData.id,
-                name:         playerData.name || 'Jogador',
-                barracoLevel: playerData.barracoLevel,
-                factionId:    playerData.factionId,
-              }));
+              setModalState(
+                openOtherPlayerBarracoModal({
+                  id: playerData.id,
+                  name: playerData.name || "Jogador",
+                  barracoLevel: playerData.barracoLevel,
+                  factionId: playerData.factionId,
+                }),
+              );
               // Memoriza tile do alvo (necessário para cálculo de viagem do ataque)
               rememberTargetTile({
                 x: Number(playerData.tileX ?? 0),
                 y: Number(playerData.tileY ?? 0),
               });
               // 2) Solicita dados ricos → barracoInfo event atualizará modal + attackTarget
-              socket.emit('requestBarracoInfo', { targetPlayerId: playerId });
+              socket.emit("requestBarracoInfo", { targetPlayerId: playerId });
             }
             return;
           }
@@ -887,31 +1052,43 @@ export default function GamePage() {
       const hits = raycaster.intersectObject(clickPlane, false);
       if (!hits.length) return;
 
-      const point       = hits[0].point;
-      const clickedTileX = Math.floor(point.x + GRID_WIDTH  / 2);
+      const point = hits[0].point;
+      const clickedTileX = Math.floor(point.x + GRID_WIDTH / 2);
       const clickedTileY = Math.floor(point.z + GRID_HEIGHT / 2);
 
       if (
-        clickedTileX < 0 || clickedTileX >= GRID_WIDTH ||
-        clickedTileY < 0 || clickedTileY >= GRID_HEIGHT
-      ) return;
+        clickedTileX < 0 ||
+        clickedTileX >= GRID_WIDTH ||
+        clickedTileY < 0 ||
+        clickedTileY >= GRID_HEIGHT
+      )
+        return;
 
       // Bloqueia tile de outro jogador
       if (
         Array.from(localPlayers.values()).find(
-          (p) => `${p.tileX},${p.tileY}` === `${clickedTileX},${clickedTileY}`
+          (p) => `${p.tileX},${p.tileY}` === `${clickedTileX},${clickedTileY}`,
         )
       ) {
-        console.log('⚠️ Tile ocupado por outro jogador');
+        console.log("⚠️ Tile ocupado por outro jogador");
         return;
       }
 
       const currentOccupied = Array.from(localPlayers.values()).map((p) => ({
-        tileX: p.tileX, tileY: p.tileY,
+        tileX: p.tileX,
+        tileY: p.tileY,
       }));
 
-      if (!isPlayerSpaceAvailable(clickedTileX, clickedTileY, currentOccupied, GRID_WIDTH, GRID_HEIGHT)) {
-        console.log('⚠️ Tile não está livre');
+      if (
+        !isPlayerSpaceAvailable(
+          clickedTileX,
+          clickedTileY,
+          currentOccupied,
+          GRID_WIDTH,
+          GRID_HEIGHT,
+        )
+      ) {
+        console.log("⚠️ Tile não está livre");
         return;
       }
 
@@ -921,8 +1098,8 @@ export default function GamePage() {
         pendingTeleportTile.tileX === clickedTileX &&
         pendingTeleportTile.tileY === clickedTileY
       ) {
-        console.log('✅ Confirmando teleporte:', clickedTileX, clickedTileY);
-        pendingTeleportTile   = null;
+        console.log("✅ Confirmando teleporte:", clickedTileX, clickedTileY);
+        pendingTeleportTile = null;
         selectionMesh.visible = false;
 
         // ── teleportPlayerMapSpace: resolve colisão + atualiza posição 3D ──
@@ -930,7 +1107,7 @@ export default function GamePage() {
           clickedTileX,
           clickedTileY,
           occupiedOrigins: currentOccupied,
-          gridWidth:  GRID_WIDTH,
+          gridWidth: GRID_WIDTH,
           gridHeight: GRID_HEIGHT,
         });
 
@@ -938,30 +1115,30 @@ export default function GamePage() {
         usePlayerStore.getState().applyPlayerUpdate((p) => ({
           ...p,
           mapPosition: {
-            tileX:  result.tileX,
-            tileY:  result.tileY,
+            tileX: result.tileX,
+            tileY: result.tileY,
             worldX: result.worldX,
             worldY: result.worldZ,
           },
         }));
 
         // 'teleport' tem cooldown de 30s no backend (diferente de 'move' que é 1s)
-        socket.emit('teleport', {
-          tileX:        result.tileX,
-          tileY:        result.tileY,
-          teleportType: 'manual',
+        socket.emit("teleport", {
+          tileX: result.tileX,
+          tileY: result.tileY,
+          teleportType: "manual",
         });
 
         return;
       }
 
       // Primeiro clique → mostra seletor, aguarda confirmação
-      console.log('🎯 Selecionando tile:', clickedTileX, clickedTileY);
+      console.log("🎯 Selecionando tile:", clickedTileX, clickedTileY);
       pendingTeleportTile = { tileX: clickedTileX, tileY: clickedTileY };
       selectionMesh.position.set(
-        clickedTileX - GRID_WIDTH  / 2 + 0.5,
+        clickedTileX - GRID_WIDTH / 2 + 0.5,
         0.06,
-        clickedTileY - GRID_HEIGHT / 2 + 0.5
+        clickedTileY - GRID_HEIGHT / 2 + 0.5,
       );
       selectionMesh.visible = true;
     }
@@ -973,7 +1150,7 @@ export default function GamePage() {
         clientX: event.clientX,
         clientY: event.clientY,
         startedAt: performance.now(),
-        pointerType: event.pointerType || 'mouse',
+        pointerType: event.pointerType || "mouse",
       };
       try {
         renderer.domElement.setPointerCapture(event.pointerId);
@@ -997,11 +1174,19 @@ export default function GamePage() {
 
       if (!down || down.pointerId !== event.pointerId) return;
 
-      const moved = Math.hypot(event.clientX - down.clientX, event.clientY - down.clientY);
+      const moved = Math.hypot(
+        event.clientX - down.clientX,
+        event.clientY - down.clientY,
+      );
       const duration = performance.now() - down.startedAt;
-      const isTouchLike = down.pointerType === 'touch' || down.pointerType === 'pen';
-      const tolerance = isTouchLike ? TAP_MOVE_TOLERANCE_TOUCH_PX : TAP_MOVE_TOLERANCE_MOUSE_PX;
-      const maxDuration = isTouchLike ? TAP_MAX_DURATION_TOUCH_MS : TAP_MAX_DURATION_MOUSE_MS;
+      const isTouchLike =
+        down.pointerType === "touch" || down.pointerType === "pen";
+      const tolerance = isTouchLike
+        ? TAP_MOVE_TOLERANCE_TOUCH_PX
+        : TAP_MOVE_TOLERANCE_MOUSE_PX;
+      const maxDuration = isTouchLike
+        ? TAP_MAX_DURATION_TOUCH_MS
+        : TAP_MAX_DURATION_MOUSE_MS;
       if (moved > tolerance || duration > maxDuration) return;
 
       event.preventDefault();
@@ -1009,7 +1194,15 @@ export default function GamePage() {
       // Em celular o dedo pode escorregar alguns pixels ou o OrbitControls pode
       // atualizar a câmera entre pointerdown e pointerup. Primeiro tenta o ponto
       // inicial do toque para X9; se não acertar, segue o fluxo normal no ponto final.
-      if (azideiaLayer.tryHandlePointer(down.clientX, down.clientY, camera, renderer.domElement, raycaster)) {
+      if (
+        azideiaLayer.tryHandlePointer(
+          down.clientX,
+          down.clientY,
+          camera,
+          renderer.domElement,
+          raycaster,
+        )
+      ) {
         return;
       }
 
@@ -1023,14 +1216,14 @@ export default function GamePage() {
     }
 
     function handleClickFallback(event: MouseEvent) {
-      if ('PointerEvent' in window) return;
+      if ("PointerEvent" in window) return;
       handleMapTap(event.clientX, event.clientY);
     }
 
-    renderer.domElement.addEventListener('pointerdown', handlePointerDown);
-    renderer.domElement.addEventListener('pointerup', handlePointerUp);
-    renderer.domElement.addEventListener('pointercancel', handlePointerCancel);
-    renderer.domElement.addEventListener('click', handleClickFallback);
+    renderer.domElement.addEventListener("pointerdown", handlePointerDown);
+    renderer.domElement.addEventListener("pointerup", handlePointerUp);
+    renderer.domElement.addEventListener("pointercancel", handlePointerCancel);
+    renderer.domElement.addEventListener("click", handleClickFallback);
 
     function handleResize() {
       if (!mountEl) return;
@@ -1056,30 +1249,34 @@ export default function GamePage() {
       setThreeReady(false);
       window.cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
-      renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
-      renderer.domElement.removeEventListener('pointerup', handlePointerUp);
-      renderer.domElement.removeEventListener('pointercancel', handlePointerCancel);
-      renderer.domElement.removeEventListener('click', handleClickFallback);
+      renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
+      renderer.domElement.removeEventListener("pointerup", handlePointerUp);
+      renderer.domElement.removeEventListener(
+        "pointercancel",
+        handlePointerCancel,
+      );
+      renderer.domElement.removeEventListener("click", handleClickFallback);
       renderer.domElement.style.touchAction = previousTouchAction;
 
       if (socket) {
-        socket.off('playerInit', onPlayerInit);
-        socket.off('mapSnapshot', handleMapSnapshot);
-        socket.off('playerJoined', handlePlayerJoined);
-        socket.off('playerMoved', handlePlayerMoved);
-        socket.off('playerTeleported', handlePlayerTeleported);
-        socket.off('playerLeft', handlePlayerLeft);
-        socket.off('barracoInfo', onBarracoInfo);
-        socket.off('azideia:targetChanged', handleAzideiaMapChanged);
-        socket.off('azideia:x9Changed', handleAzideiaMapChanged);
-        socket.off('azideia:missionChanged', handleAzideiaMapChanged);
+        socket.off("playerInit", onPlayerInit);
+        socket.off("mapSnapshot", handleMapSnapshot);
+        socket.off("playerJoined", handlePlayerJoined);
+        socket.off("playerMoved", handlePlayerMoved);
+        socket.off("playerTeleported", handlePlayerTeleported);
+        socket.off("playerLeft", handlePlayerLeft);
+        socket.off("barracoInfo", onBarracoInfo);
+        socket.off("azideia:targetChanged", handleAzideiaMapChanged);
+        socket.off("azideia:x9Changed", handleAzideiaMapChanged);
+        socket.off("azideia:missionChanged", handleAzideiaMapChanged);
       }
 
       controls.dispose();
       realtimePlayersLayer.cleanup();
       fixedBuildingsLayer.cleanup();
       azideiaLayer.cleanup();
-      if (azideiaLayerRef.current === azideiaLayer) azideiaLayerRef.current = null;
+      if (azideiaLayerRef.current === azideiaLayer)
+        azideiaLayerRef.current = null;
       playerMapSpaceRef.current?.cleanup();
 
       platformGeometry.dispose();
@@ -1094,11 +1291,11 @@ export default function GamePage() {
       scene.remove(clickPlane);
       scene.remove(selectionMesh);
 
-  renderer.dispose();
+      renderer.dispose();
       if (mountEl && renderer.domElement?.parentNode === mountEl) {
         mountEl.removeChild(renderer.domElement);
       }
-      sceneRef.current  = null;
+      sceneRef.current = null;
       cameraRef.current = null;
     };
   }, [navigate, isPlayerLoaded, player?._id]);
@@ -1120,38 +1317,70 @@ export default function GamePage() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 top-[68px] z-40 overflow-hidden bg-black sm:top-[76px]">
-
       {/* MAPA — tela cheia */}
       <div ref={mountRef} className="absolute inset-0 touch-none select-none" />
 
       {/* ── HUD INFERIOR DIREITO — atalhos fixos e responsivos ───────────── */}
-      <div className="fixed right-2 z-[80] flex flex-col gap-2 pointer-events-auto sm:right-4 sm:gap-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}>
-
-        <button type="button" onClick={() => navigate('/shop')}
-          className="rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2" aria-label="Abrir loja">
-          <Image src={ICON_SHOP} alt="Loja" className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
+      <div
+        className="fixed right-2 z-[80] flex flex-col gap-2 pointer-events-auto sm:right-4 sm:gap-3"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }}
+      >
+        <button
+          type="button"
+          onClick={() => navigate("/shop")}
+          className="rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2"
+          aria-label="Abrir loja"
+        >
+          <Image
+            src={ICON_SHOP}
+            alt="Loja"
+            className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+          />
         </button>
 
-        <button type="button" onClick={() => navigate('/chat?channel=complexo')}
-          className="rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2" aria-label="Abrir chat do complexo">
-          <Image src={ICON_COMPLEXO} alt="Complexo" className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
+        <button
+          type="button"
+          onClick={() => navigate("/chat?channel=complexo")}
+          className="rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2"
+          aria-label="Abrir chat do complexo"
+        >
+          <Image
+            src={ICON_COMPLEXO}
+            alt="Complexo"
+            className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+          />
         </button>
 
-        <button type="button" onClick={() => navigate('/chat?channel=faccao')}
-          className="rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2" aria-label="Abrir chat da facção">
-          <Image src={ICON_FACCAO} alt="Facção" className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
+        <button
+          type="button"
+          onClick={() => navigate("/chat?channel=faccao")}
+          className="rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2"
+          aria-label="Abrir chat da facção"
+        >
+          <Image
+            src={ICON_FACCAO}
+            alt="Facção"
+            className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+          />
         </button>
 
-        <button type="button" onClick={() => navigate('/chat?channel=mail')}
-          className="relative rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2" aria-label="Abrir correio">
-          <Image src={ICON_MAIL} alt="Correio" className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
+        <button
+          type="button"
+          onClick={() => navigate("/chat?channel=mail")}
+          className="relative rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm transition-transform active:scale-90 sm:p-2"
+          aria-label="Abrir correio"
+        >
+          <Image
+            src={ICON_MAIL}
+            alt="Correio"
+            className="h-12 w-12 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+          />
           {unreadMailCount > 0 && (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-black text-black shadow">
               {unreadMailCount}
             </span>
           )}
         </button>
-
       </div>
 
       {/* ── Modais ───────────────────────────────────────────────────── */}
@@ -1171,7 +1400,9 @@ export default function GamePage() {
       {mapAttackPreviewOpen && (
         <MapTargetActionModal
           isStartingBattle={mapAttack.isResolving}
-          onAttack={() => { void handleConfirmAttack(); }}
+          onAttack={() => {
+            void handleConfirmAttack();
+          }}
         />
       )}
       <AttackResultOverlay />
@@ -1187,7 +1418,10 @@ export default function GamePage() {
       <DirectMessageModal
         isOpen={dmModalOpen}
         target={dmTarget}
-        onClose={() => { setDmModalOpen(false); setDmTarget(null); }}
+        onClose={() => {
+          setDmModalOpen(false);
+          setDmTarget(null);
+        }}
       />
 
       {/* ── Modal de Treinamento de Gangue (CT) ─────────────────────── */}
@@ -1196,10 +1430,12 @@ export default function GamePage() {
           isOpen={trainingModalOpen}
           slotKey={selectedCT as any}
           player={player as any}
-          trainingState={{
-            slots: {},
-            trainingSlots,
-          } as any}
+          trainingState={
+            {
+              slots: {},
+              trainingSlots,
+            } as any
+          }
           isSubmitting={isSubmittingTraining}
           onClose={() => {
             setTrainingModalOpen(false);
@@ -1209,16 +1445,25 @@ export default function GamePage() {
             setIsSubmittingTraining(true);
 
             try {
-              const ok = await useGangStore.getState().queueTraining(_slotKey, memberType, troopLevel);
+              const ok = await useGangStore
+                .getState()
+                .queueTraining(_slotKey, memberType, troopLevel);
 
               if (!ok) {
                 console.error(useGangStore.getState().error);
                 return;
               }
 
-              console.log('✅ Treinamento iniciado:', memberType, 'lvl', troopLevel, 'no CT:', selectedCT);
+              console.log(
+                "✅ Treinamento iniciado:",
+                memberType,
+                "lvl",
+                troopLevel,
+                "no CT:",
+                selectedCT,
+              );
             } catch (error) {
-              console.error('❌ Erro ao iniciar treinamento:', error);
+              console.error("❌ Erro ao iniciar treinamento:", error);
             } finally {
               setIsSubmittingTraining(false);
             }
@@ -1234,9 +1479,9 @@ export default function GamePage() {
                 return;
               }
 
-              console.log('✅ Treinamento coletado:', slotId);
+              console.log("✅ Treinamento coletado:", slotId);
             } catch (error) {
-              console.error('❌ Erro ao coletar treinamento:', error);
+              console.error("❌ Erro ao coletar treinamento:", error);
             } finally {
               setIsSubmittingTraining(false);
             }
