@@ -58,6 +58,17 @@ export type PlayerApiEnvelope = {
   faction: FactionApiPayload;
 };
 
+export type BarracoUpgradeApiResponse = PlayerApiEnvelope & {
+  barraco?: {
+    previousLevel?: number;
+    currentLevel?: number;
+    nextLevel?: number;
+    maxLevel?: number;
+    cost?: number;
+    name?: string;
+  };
+};
+
 // ==========================================
 // HELPERS DE AUTH
 // ==========================================
@@ -303,6 +314,25 @@ export async function fetchCurrentPlayerWithFaction(): Promise<PlayerApiEnvelope
   });
 
   return extractEnvelope(data);
+}
+
+/**
+ * Evolui o barraco pelo backend autoritativo.
+ * Endpoint: POST /barraco/upgrade
+ */
+export async function upgradeBarracoWithFaction(): Promise<BarracoUpgradeApiResponse> {
+  const data = await makeRequest<any>('/barraco/upgrade', {
+    method: 'POST',
+  });
+
+  const envelope = extractEnvelope(data);
+  const obj = ensureObject(data);
+  const barraco = ensureObject(obj?.barraco) || ensureObject(obj?.data?.barraco) || undefined;
+
+  return {
+    ...envelope,
+    barraco: barraco as BarracoUpgradeApiResponse['barraco'],
+  };
 }
 
 /**
