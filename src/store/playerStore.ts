@@ -38,6 +38,8 @@ import {
   fetchCurrentPlayerWithFaction,
   syncPlayerUpdateWithFaction,
   upgradeBarracoWithFaction,
+  claimBarracoUpgradeWithFaction,
+  accelerateBarracoUpgradeWithFaction,
 } from '@/api/playerApi';
 import { GAME_MODE } from '@/config/gameMode';
 import {
@@ -66,6 +68,8 @@ function stripServerControlledState<T extends Partial<PlayerState>>(playerData: 
   delete clone.niveis;
   delete clone.balances;
   delete clone.pageLevels;
+  delete clone.barracoUpgrade;
+  delete clone.barracoAccelerators;
 
   delete clone.gang;
   delete clone.gangMembers;
@@ -91,6 +95,19 @@ type PunishmentsState  = { active: { type: 'fiscal' | 'arsenal' | 'militia' | 'b
 type PurchasedAccessory = { accessoryId: string; skillType: string; purchasedAt: string };
 type Accessories       = { vehicles?: Record<string, string[]>; weapons?: Record<string, string[]> };
 type ConvoyAccelerators = { twoX: number };
+type BarracoAccelerators = { seconds: number; [key: string]: number };
+type BarracoUpgradeState = {
+  active: boolean;
+  status: 'idle' | 'building' | 'ready' | 'completed' | string;
+  fromLevel: number;
+  toLevel: number;
+  cost: number;
+  durationMs: number;
+  startedAt: string | null;
+  endsAt: string | null;
+  completedAt: string | null;
+  acceleratedMs: number;
+};
 type GangMember        = { id: string; type: string; level: number; status: 'ativo' | 'ferido' | 'morto' | 'treinando' | 'marchando'; recruitedAt: string; trainingEndsAt?: string | null; injuryEndsAt?: string | null };
 type GangStats         = { totalMembers: number; activeMembers: number; injuredMembers: number; deadMembers: number; trainingMembers: number; marchingMembers: number; totalPower: number; averageLevel: number };
 type AttackNotification = { id: string; type: 'attack_received' | 'attack_success' | 'attack_failed' | 'revenge_available'; attackerId?: string; attackerName?: string; targetId?: string; targetName?: string; success: boolean; loot: number; createdAt: string; read: boolean };
@@ -109,7 +126,9 @@ export type PlayerState = {
   laundryProgress: LaundryProgress; punishments: PunishmentsState;
   skillBoostMultiplier: number; headerCustomization?: HeaderCustomization;
   ownedVehicles?: string[]; purchasedAccessories?: PurchasedAccessory[];
-  accessories?: Accessories; convoyAccelerators?: ConvoyAccelerators; notifications?: AttackNotification[];
+  accessories?: Accessories; convoyAccelerators?: ConvoyAccelerators;
+  barracoAccelerators?: BarracoAccelerators; barracoUpgrade?: BarracoUpgradeState;
+  notifications?: AttackNotification[];
   attackHistory?: AttackHistoryItem[]; factionId?: string | null; gangId?: string | null;
   dailyCorre?: DailyCorreState; prisonHistory?: PrisonHistoryState; spinRateLimit?: SpinRateLimitState;
   cardCollection?: CardCollectionState;
@@ -155,7 +174,9 @@ type PlayerStore = {
   pollPlayerFromBackend:    () => Promise<void>;   // no-op
 
   // ── Upgrades locais ─────────────────────────────────────────────────────
-  upgradeBarracoLocal:      () => Promise<{ ok: boolean; reason?: string; cost?: number; previousLevel?: number; currentLevel?: number }>;
+  upgradeBarracoLocal:      () => Promise<{ ok: boolean; reason?: string; message?: string; action?: string; cost?: number; previousLevel?: number; currentLevel?: number; targetLevel?: number; durationMs?: number; remainingMs?: number }>;
+  claimBarracoUpgradeLocal: () => Promise<{ ok: boolean; reason?: string; message?: string; action?: string; currentLevel?: number }>;
+  accelerateBarracoUpgradeLocal: (seconds: number) => Promise<{ ok: boolean; reason?: string; message?: string; appliedSeconds?: number; remainingMs?: number }>;
   purchaseLuxuryItemLocal:  (payload: { itemId: number; name: string; price: number; skillType: string; skillBonusPercent: number; insurance: boolean }) => { ok: boolean; reason?: string };
 
   // ── Balances ────────────────────────────────────────────────────────────
@@ -253,6 +274,19 @@ const initialPlayer: PlayerState = {
   skillBoostMultiplier: 1.0,
   notifications: [], attackHistory: [],
   convoyAccelerators: { twoX: 0 },
+  barracoAccelerators: { seconds: 0 },
+  barracoUpgrade: {
+    active: false,
+    status: 'idle',
+    fromLevel: 1,
+    toLevel: 1,
+    cost: 0,
+    durationMs: 0,
+    startedAt: null,
+    endsAt: null,
+    completedAt: null,
+    acceleratedMs: 0,
+  },
   factionId: null, gangId: null,
   gangMembers: [],
   gangStats: {
@@ -290,6 +324,12 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   const convoyAccelerators = (inc as any).convoyAccelerators && typeof (inc as any).convoyAccelerators === 'object'
     ? (inc as any).convoyAccelerators
     : {};
+  const barracoAccelerators = (inc as any).barracoAccelerators && typeof (inc as any).barracoAccelerators === 'object'
+    ? (inc as any).barracoAccelerators
+    : {};
+  const barracoUpgrade = (inc as any).barracoUpgrade && typeof (inc as any).barracoUpgrade === 'object'
+    ? (inc as any).barracoUpgrade
+    : {};
 
   return {
     ...initialPlayer,
@@ -310,6 +350,19 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     accessories:   inc?.accessories   || {},
     purchasedAccessories: inc?.purchasedAccessories || [],
     convoyAccelerators: { twoX: Math.max(0, Math.floor(Number((convoyAccelerators as any).twoX ?? initialPlayer.convoyAccelerators?.twoX ?? 0))) },
+    barracoAccelerators: { seconds: Math.max(0, Math.floor(Number((barracoAccelerators as any).seconds ?? initialPlayer.barracoAccelerators?.seconds ?? 0))) },
+    barracoUpgrade: {
+      active: Boolean((barracoUpgrade as any).active ?? false),
+      status: String((barracoUpgrade as any).status ?? 'idle'),
+      fromLevel: Math.max(1, Math.floor(Number((barracoUpgrade as any).fromLevel ?? initialPlayer.niveis.barracoLevel ?? 1))),
+      toLevel: Math.max(1, Math.floor(Number((barracoUpgrade as any).toLevel ?? initialPlayer.niveis.barracoLevel ?? 1))),
+      cost: Math.max(0, Math.floor(Number((barracoUpgrade as any).cost ?? 0))),
+      durationMs: Math.max(0, Math.floor(Number((barracoUpgrade as any).durationMs ?? 0))),
+      startedAt: (barracoUpgrade as any).startedAt ?? null,
+      endsAt: (barracoUpgrade as any).endsAt ?? null,
+      completedAt: (barracoUpgrade as any).completedAt ?? null,
+      acceleratedMs: Math.max(0, Math.floor(Number((barracoUpgrade as any).acceleratedMs ?? 0))),
+    },
     notifications: inc?.notifications || [],
     attackHistory: inc?.attackHistory || [],
     factionId:     inc?.factionId ?? null,
@@ -588,16 +641,78 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
       return {
         ok: true,
+        message: response.message,
+        action: response.barraco?.action || 'started',
         cost: response.barraco?.cost,
         previousLevel: response.barraco?.previousLevel,
         currentLevel: response.barraco?.currentLevel,
+        targetLevel: response.barraco?.targetLevel,
+        durationMs: response.barraco?.durationMs,
+        remainingMs: response.barraco?.remainingMs,
       };
     } catch (error: any) {
-      const reason = error?.message || 'Erro ao evoluir barraco';
+      const reason = error?.message || 'Erro ao iniciar evolução do barraco';
       set({ syncError: reason });
       return { ok: false, reason };
     }
   },
+
+  claimBarracoUpgradeLocal: async () => {
+    try {
+      const response = await claimBarracoUpgradeWithFaction();
+      const merged = clearExpiredPunishments(mergePlayer(response.player));
+
+      set({
+        player: merged,
+        lastSyncAt: Date.now(),
+        pendingLocalChanges: false,
+        lastServerHydrationAt: Date.now(),
+        syncError: null,
+      });
+
+      await syncFactionStoreFromEnvelope(response.faction);
+
+      return {
+        ok: true,
+        message: response.message,
+        action: response.barraco?.action || 'claimed',
+        currentLevel: response.barraco?.currentLevel,
+      };
+    } catch (error: any) {
+      const reason = error?.message || 'Erro ao finalizar evolução do barraco';
+      set({ syncError: reason });
+      return { ok: false, reason };
+    }
+  },
+
+  accelerateBarracoUpgradeLocal: async (seconds) => {
+    try {
+      const response = await accelerateBarracoUpgradeWithFaction(seconds);
+      const merged = clearExpiredPunishments(mergePlayer(response.player));
+
+      set({
+        player: merged,
+        lastSyncAt: Date.now(),
+        pendingLocalChanges: false,
+        lastServerHydrationAt: Date.now(),
+        syncError: null,
+      });
+
+      await syncFactionStoreFromEnvelope(response.faction);
+
+      return {
+        ok: true,
+        message: response.message,
+        appliedSeconds: response.barraco?.appliedSeconds,
+        remainingMs: response.barraco?.remainingMs,
+      };
+    } catch (error: any) {
+      const reason = error?.message || 'Erro ao usar acelerador do barraco';
+      set({ syncError: reason });
+      return { ok: false, reason };
+    }
+  },
+
 
   purchaseLuxuryItemLocal: ({ itemId, name, price, skillType, skillBonusPercent, insurance }) => {
     const p = get().player;
