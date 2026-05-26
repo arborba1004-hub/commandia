@@ -1,24 +1,40 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import {
+  formatBarracoDuration,
   getBarracoGangStatsBonusPercent,
   getBarracoName,
+  getBarracoUpgradeRemainingMs,
   getBarracoUpgradeRequirements,
   getNextBarracoGangStatsBonusPercent,
+  isBarracoUpgradeReady,
   MAX_BARRACO_LEVEL,
 } from '@/services/barracoProgressionService';
 
 export default function BarracoPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [upgradeError, setUpgradeError] = useState('');
-  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeNotice, setUpgradeNotice] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [upgradedToLevel, setUpgradedToLevel] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
+
   const player = usePlayerStore((state) => state.player);
   const upgradeBarracoLocal = usePlayerStore((state) => state.upgradeBarracoLocal);
+  const claimBarracoUpgradeLocal = usePlayerStore((state) => state.claimBarracoUpgradeLocal);
+  const accelerateBarracoUpgradeLocal = usePlayerStore((state) => state.accelerateBarracoUpgradeLocal);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
+
+  const activeUpgrade = player?.barracoUpgrade?.active === true;
+
+  useEffect(() => {
+    if (!activeUpgrade) return;
+    const interval = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [activeUpgrade]);
 
   if (!isLoaded || !player?._id) {
     return (
@@ -32,12 +48,12 @@ export default function BarracoPage() {
     );
   }
 
-  // ÚNICA FONTE: playerStore
-  const level = player.niveis.barracoLevel;
+  // nowTick força o contador a re-renderizar a cada segundo durante construção.
+  void nowTick;
 
+  const level = player.niveis.barracoLevel;
   const requirements = getBarracoUpgradeRequirements(player);
   const upgradeCost = requirements.cost;
-  const canUpgrade = requirements.allowed;
   const cleanMoney = Number(player?.balances?.cleanMoney ?? 0);
   const nextLevel = Math.min(MAX_BARRACO_LEVEL, level + 1);
   const isMaxLevel = level >= MAX_BARRACO_LEVEL;
@@ -45,27 +61,86 @@ export default function BarracoPage() {
   const currentGangStatsBonus = getBarracoGangStatsBonusPercent(level);
   const nextGangStatsBonus = getNextBarracoGangStatsBonusPercent(level);
 
-  const handleUpgrade = async () => {
-    if (isUpgrading) return;
+  const activeOperation = player.barracoUpgrade;
+  const remainingMs = getBarracoUpgradeRemainingMs(activeOperation);
+  const isUpgradeReady = isBarracoUpgradeReady(activeOperation);
+  const targetLevel = activeOperation?.toLevel || nextLevel;
+  const acceleratorSeconds = Math.max(0, Math.floor(Number(player?.barracoAccelerators?.seconds ?? 0)));
+  const canStartUpgrade = requirements.allowed && !activeUpgrade && !isSubmitting;
+  const canClaimUpgrade = activeUpgrade && isUpgradeReady && !isSubmitting;
+  const canAccelerate = activeUpgrade && !isUpgradeReady && acceleratorSeconds > 0 && !isSubmitting;
+  const accelerationToUseSeconds = Math.max(0, Math.min(acceleratorSeconds, Math.ceil(remainingMs / 1000)));
 
-    setIsUpgrading(true);
+  const handleStartUpgrade = async () => {
+    if (!canStartUpgrade) return;
+
+    setIsSubmitting(true);
     setUpgradeError('');
+    setUpgradeNotice('');
 
     try {
-      const currentLevel = level;
       const result = await upgradeBarracoLocal();
 
       if (!result?.ok) {
-        setUpgradeError(result?.reason || 'Não foi possível evoluir o barraco.');
+        setUpgradeError(result?.reason || 'Não foi possível iniciar a evolução do barraco.');
         return;
       }
 
-      setUpgradedToLevel(result.currentLevel ?? currentLevel + 1);
+      setUpgradeNotice(
+        result?.message ||
+          `Obra iniciada para o nível ${result?.targetLevel || nextLevel}. Aguarde o tempo de evolução para finalizar.`
+      );
+    } catch (error) {
+      setUpgradeError(error instanceof Error ? error.message : 'Erro ao iniciar evolução do barraco');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClaimUpgrade = async () => {
+    if (!canClaimUpgrade) return;
+
+    setIsSubmitting(true);
+    setUpgradeError('');
+    setUpgradeNotice('');
+
+    try {
+      const result = await claimBarracoUpgradeLocal();
+
+      if (!result?.ok) {
+        setUpgradeError(result?.reason || 'Não foi possível finalizar a evolução do barraco.');
+        return;
+      }
+
+      setUpgradedToLevel(result.currentLevel ?? targetLevel);
       setShowSuccessModal(true);
     } catch (error) {
-      setUpgradeError(error instanceof Error ? error.message : 'Erro ao evoluir barraco');
+      setUpgradeError(error instanceof Error ? error.message : 'Erro ao finalizar evolução do barraco');
     } finally {
-      setIsUpgrading(false);
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAccelerate = async () => {
+    if (!canAccelerate || accelerationToUseSeconds <= 0) return;
+
+    setIsSubmitting(true);
+    setUpgradeError('');
+    setUpgradeNotice('');
+
+    try {
+      const result = await accelerateBarracoUpgradeLocal(accelerationToUseSeconds);
+
+      if (!result?.ok) {
+        setUpgradeError(result?.reason || 'Não foi possível usar o acelerador.');
+        return;
+      }
+
+      setUpgradeNotice(result.message || 'Acelerador aplicado na evolução do barraco.');
+    } catch (error) {
+      setUpgradeError(error instanceof Error ? error.message : 'Erro ao usar acelerador');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -118,7 +193,29 @@ export default function BarracoPage() {
             <p className="font-bold">
               {isMaxLevel ? 'Topo absoluto do comando' : `Nível ${nextLevel} · ${getBarracoName(nextLevel)}`}
             </p>
+            {!isMaxLevel && !activeUpgrade && (
+              <p className="mt-1 text-xs opacity-70">
+                Tempo de obra: {formatBarracoDuration(requirements.durationMs)}
+              </p>
+            )}
           </div>
+
+          {activeUpgrade && (
+            <div className={`mb-4 rounded-xl border p-3 text-center ${isUpgradeReady ? 'border-emerald-500/30 bg-emerald-950/40' : 'border-yellow-500/30 bg-yellow-950/30'}`}>
+              <p className="text-xs opacity-70">
+                {isUpgradeReady ? 'Evolução pronta' : 'Obra em andamento'}
+              </p>
+              <p className="text-lg font-bold">
+                Nível {activeOperation?.fromLevel || level} → {targetLevel}
+              </p>
+              <p className={`text-sm mt-1 ${isUpgradeReady ? 'text-emerald-300' : 'text-yellow-300'}`}>
+                {isUpgradeReady ? 'Finalize agora para aplicar o novo nível.' : `Tempo restante: ${formatBarracoDuration(remainingMs)}`}
+              </p>
+              <p className="mt-2 text-xs opacity-60">
+                A evolução só aplica o nível, o visual e o bônus da gangue depois de finalizar.
+              </p>
+            </div>
+          )}
 
           <div className="mb-6 rounded-xl border border-orange-500/20 bg-orange-950/30 p-3 text-center">
             <p className="text-xs opacity-70">Bônus do barraco na gangue</p>
@@ -132,17 +229,60 @@ export default function BarracoPage() {
             )}
           </div>
 
-          <button
-            onClick={handleUpgrade}
-            disabled={!canUpgrade || isUpgrading}
-            className={`w-full py-3 rounded-xl font-bold transition ${
-              canUpgrade && !isUpgrading
-                ? 'bg-emerald-500 hover:bg-emerald-600'
-                : 'bg-gray-700 opacity-50 cursor-not-allowed'
-            }`}
-          >
-            {isUpgrading ? 'Evoluindo...' : isMaxLevel ? 'Nível máximo atingido' : 'Evoluir Barraco'}
-          </button>
+          {activeUpgrade && (
+            <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 text-center">
+              <p className="text-xs opacity-70">Aceleradores do barraco</p>
+              <p className="text-base font-bold text-cyan-300">
+                {formatBarracoDuration(acceleratorSeconds * 1000)} disponível
+              </p>
+              {canAccelerate && (
+                <button
+                  onClick={handleAccelerate}
+                  disabled={isSubmitting}
+                  className="mt-3 w-full rounded-lg bg-cyan-500 px-3 py-2 text-sm font-bold text-black hover:bg-cyan-400 disabled:opacity-50"
+                >
+                  Usar acelerador disponível
+                </button>
+              )}
+              {!canAccelerate && !isUpgradeReady && (
+                <p className="mt-1 text-xs opacity-60">
+                  Sistema pronto para loja/eventos concederem aceleradores de tempo.
+                </p>
+              )}
+            </div>
+          )}
+
+          {activeUpgrade ? (
+            <button
+              onClick={handleClaimUpgrade}
+              disabled={!canClaimUpgrade}
+              className={`w-full py-3 rounded-xl font-bold transition ${
+                canClaimUpgrade
+                  ? 'bg-emerald-500 hover:bg-emerald-600 text-black'
+                  : 'bg-gray-700 opacity-50 cursor-not-allowed'
+              }`}
+            >
+              {isSubmitting ? 'Processando...' : isUpgradeReady ? 'Finalizar Evolução' : `Aguardando · ${formatBarracoDuration(remainingMs)}`}
+            </button>
+          ) : (
+            <button
+              onClick={handleStartUpgrade}
+              disabled={!canStartUpgrade}
+              className={`w-full py-3 rounded-xl font-bold transition ${
+                canStartUpgrade
+                  ? 'bg-emerald-500 hover:bg-emerald-600 text-black'
+                  : 'bg-gray-700 opacity-50 cursor-not-allowed'
+              }`}
+            >
+              {isSubmitting ? 'Iniciando...' : isMaxLevel ? 'Nível máximo atingido' : 'Iniciar Evolução'}
+            </button>
+          )}
+
+          {upgradeNotice && (
+            <p className="mt-3 text-center text-sm text-emerald-300">
+              {upgradeNotice}
+            </p>
+          )}
 
           {upgradeError && (
             <p className="mt-3 text-center text-sm text-red-400">
@@ -150,7 +290,7 @@ export default function BarracoPage() {
             </p>
           )}
 
-          {!canUpgrade && !upgradeError && (
+          {!activeUpgrade && !requirements.allowed && !upgradeError && (
             <p className="mt-3 text-center text-sm text-yellow-400">
               {missingCleanMoney > 0
                 ? `Faltam ${missingCleanMoney.toLocaleString('pt-BR')} 💰 de dinheiro limpo.`
@@ -159,7 +299,6 @@ export default function BarracoPage() {
           )}
         </motion.div>
 
-        {/* Modal de Sucesso */}
         {showSuccessModal && (
           <motion.div
             className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
@@ -185,10 +324,10 @@ export default function BarracoPage() {
 
               <div className="text-center">
                 <h2 className="text-2xl font-bold mb-4 text-emerald-400">
-                  🎉 Parabéns!
+                  🎉 Evolução concluída!
                 </h2>
                 <p className="text-white mb-2">
-                  Seu barraco evoluiu para o nível {upgradedToLevel ?? level}!
+                  Seu barraco evoluiu para o nível {upgradedToLevel ?? level}.
                 </p>
                 <p className="text-sm opacity-70 mb-2">
                   {getBarracoName(upgradedToLevel ?? level)}
@@ -201,7 +340,7 @@ export default function BarracoPage() {
                     setShowSuccessModal(false);
                     setUpgradedToLevel(null);
                   }}
-                  className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg font-bold transition"
+                  className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg font-bold transition text-black"
                 >
                   Fechar
                 </button>
