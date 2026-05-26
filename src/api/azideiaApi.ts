@@ -4,24 +4,27 @@ import type {
   AzideiaClaimResult,
   AzideiaRewardStatus,
   AzideiaTargetsResponse,
-} from '@/types/azideia';
+} from "@/types/azideia";
 
-const BACKEND_URL = 'https://comando-backend.onrender.com';
+const BACKEND_URL = "https://comando-backend.onrender.com";
 const TIMEOUT_MS = 10_000;
 
 function getToken(): string {
-  const token = localStorage.getItem('authToken');
-  if (!token?.trim()) throw new Error('Usuário não autenticado');
+  const token = localStorage.getItem("authToken");
+  if (!token?.trim()) throw new Error("Usuário não autenticado");
   return token.trim();
 }
 
 function buildUrl(path: string): string {
-  const base = BACKEND_URL.replace(/\/+$/, '');
-  const endpoint = path.startsWith('/') ? path : `/${path}`;
+  const base = BACKEND_URL.replace(/\/+$/, "");
+  const endpoint = path.startsWith("/") ? path : `/${path}`;
   return `${base}${endpoint}`;
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -30,21 +33,29 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       ...options,
       signal: controller.signal,
       headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
+        "Content-Type": "application/json",
+        Accept: "application/json",
         Authorization: `Bearer ${getToken()}`,
         ...(options.headers ?? {}),
       },
     });
 
     let data: unknown = null;
-    try { data = await response.json(); } catch { data = null; }
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
 
     if (!response.ok) {
-      const message = (data as any)?.error
-        ?? (data as any)?.message
-        ?? `Erro ${response.status}: ${response.statusText}`;
-      throw Object.assign(new Error(message), { status: response.status, data });
+      const message =
+        (data as any)?.error ??
+        (data as any)?.message ??
+        `Erro ${response.status}: ${response.statusText}`;
+      throw Object.assign(new Error(message), {
+        status: response.status,
+        data,
+      });
     }
 
     return data as T;
@@ -54,45 +65,80 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export async function getAzideiaTargets(): Promise<AzideiaTargetsResponse> {
-  return request<AzideiaTargetsResponse>('/azideia/targets', { method: 'GET' });
+  return request<AzideiaTargetsResponse>("/azideia/targets", { method: "GET" });
 }
 
 export async function getAzideiaX9Targets(): Promise<AzideiaTargetsResponse> {
   return getAzideiaTargets();
 }
 
-export async function attackAzideiaX9(targetId: string): Promise<AzideiaAttackResult> {
-  return request<AzideiaAttackResult>(`/azideia/x9/${encodeURIComponent(targetId)}/attack`, {
-    method: 'POST',
-  });
+export async function attackAzideiaX9(
+  targetId: string,
+): Promise<AzideiaAttackResult> {
+  return request<AzideiaAttackResult>(
+    `/azideia/x9/${encodeURIComponent(targetId)}/attack`,
+    {
+      method: "POST",
+    },
+  );
 }
 
-export async function negotiateAzideiaCorreria(targetId: string): Promise<AzideiaAttackResult> {
-  return request<AzideiaAttackResult>(`/azideia/correria/${encodeURIComponent(targetId)}/negotiate`, {
-    method: 'POST',
-  });
+export async function negotiateAzideiaCorreria(
+  targetId: string,
+): Promise<AzideiaAttackResult> {
+  return request<AzideiaAttackResult>(
+    `/azideia/correria/${encodeURIComponent(targetId)}/negotiate`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function payAzideiaMestreObras(
+  targetId: string,
+): Promise<AzideiaAttackResult> {
+  return request<AzideiaAttackResult>(
+    `/azideia/mestre-obras/${encodeURIComponent(targetId)}/pay`,
+    {
+      method: "POST",
+    },
+  );
 }
 
 export async function getActiveAzideiaMissions(): Promise<AzideiaActiveMissionsResponse> {
-  return request<AzideiaActiveMissionsResponse>('/azideia/missions/active', { method: 'GET' });
-}
-
-export async function confirmAzideiaMissionArrival(missionId: string): Promise<AzideiaAttackResult> {
-  return request<AzideiaAttackResult>(`/azideia/missions/${encodeURIComponent(missionId)}/arrive`, {
-    method: 'POST',
+  return request<AzideiaActiveMissionsResponse>("/azideia/missions/active", {
+    method: "GET",
   });
 }
 
-export async function confirmAzideiaMissionReturn(missionId: string): Promise<AzideiaAttackResult> {
-  return request<AzideiaAttackResult>(`/azideia/missions/${encodeURIComponent(missionId)}/return`, {
-    method: 'POST',
-  });
+export async function confirmAzideiaMissionArrival(
+  missionId: string,
+): Promise<AzideiaAttackResult> {
+  return request<AzideiaAttackResult>(
+    `/azideia/missions/${encodeURIComponent(missionId)}/arrive`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function confirmAzideiaMissionReturn(
+  missionId: string,
+): Promise<AzideiaAttackResult> {
+  return request<AzideiaAttackResult>(
+    `/azideia/missions/${encodeURIComponent(missionId)}/return`,
+    {
+      method: "POST",
+    },
+  );
 }
 
 export async function getAzideiaRewardStatus(): Promise<AzideiaRewardStatus> {
-  return request<AzideiaRewardStatus>('/azideia/rewards/me', { method: 'GET' });
+  return request<AzideiaRewardStatus>("/azideia/rewards/me", { method: "GET" });
 }
 
 export async function claimAzideiaRewards(): Promise<AzideiaClaimResult> {
-  return request<AzideiaClaimResult>('/azideia/rewards/claim', { method: 'POST' });
+  return request<AzideiaClaimResult>("/azideia/rewards/claim", {
+    method: "POST",
+  });
 }
