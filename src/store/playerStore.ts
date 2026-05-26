@@ -37,9 +37,9 @@ import {
   laundryStartWithFaction,
   fetchCurrentPlayerWithFaction,
   syncPlayerUpdateWithFaction,
+  upgradeBarracoWithFaction,
 } from '@/api/playerApi';
 import { GAME_MODE } from '@/config/gameMode';
-import { getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
 import {
   clearExpiredPunishments,
   isCleanMoneyBlocked,
@@ -58,8 +58,15 @@ function getStoredAuthToken(): string | null {
   try { return localStorage.getItem('authToken') ?? null; } catch { return null; }
 }
 
-function stripGangState<T extends Partial<PlayerState>>(playerData: T): T {
+function stripServerControlledState<T extends Partial<PlayerState>>(playerData: T): T {
   const clone = { ...(playerData as any) };
+
+  // Esses campos agora são controlados por endpoints oficiais do backend.
+  // /player/update não deve persistir economia nem progressão.
+  delete clone.niveis;
+  delete clone.balances;
+  delete clone.pageLevels;
+
   delete clone.gang;
   delete clone.gangMembers;
   delete clone.gangStats;
@@ -148,7 +155,7 @@ type PlayerStore = {
   pollPlayerFromBackend:    () => Promise<void>;   // no-op
 
   // ── Upgrades locais ─────────────────────────────────────────────────────
-  upgradeBarracoLocal:      () => { ok: boolean; reason?: string; cost?: number };
+  upgradeBarracoLocal:      () => Promise<{ ok: boolean; reason?: string; cost?: number; previousLevel?: number; currentLevel?: number }>;
   purchaseLuxuryItemLocal:  (payload: { itemId: number; name: string; price: number; skillType: string; skillBonusPercent: number; insurance: boolean }) => { ok: boolean; reason?: string };
 
   // ── Balances ────────────────────────────────────────────────────────────
@@ -473,7 +480,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   syncPlayerToBackend: async () => {
     if (get().isSyncing) return;
     if (!getStoredAuthToken()) return;
-    const player = stripGangState(get().player);
+    const player = stripServerControlledState(get().player);
     try {
       set({ isSyncing: true, syncError: null });
       await syncPlayerUpdateWithFaction(player);
@@ -564,11 +571,32 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     return u;
   }),
 
-  upgradeBarracoLocal: () => {
-    const r = getBarracoUpgradeRequirements(get().player);
-    if (!r.allowed) return { ok: false, reason: r.reason };
-    get().applyPlayerUpdate((p) => ({ ...p, niveis: { ...p.niveis, barracoLevel: p.niveis.barracoLevel + 1 }, pageLevels: { ...p.pageLevels, barraco: p.niveis.barracoLevel + 1 }, balances: { ...p.balances, cleanMoney: Math.max(0, p.balances.cleanMoney - r.cost) } }));
-    return { ok: true, cost: r.cost };
+  upgradeBarracoLocal: async () => {
+    try {
+      const response = await upgradeBarracoWithFaction();
+      const merged = clearExpiredPunishments(mergePlayer(response.player));
+
+      set({
+        player: merged,
+        lastSyncAt: Date.now(),
+        pendingLocalChanges: false,
+        lastServerHydrationAt: Date.now(),
+        syncError: null,
+      });
+
+      await syncFactionStoreFromEnvelope(response.faction);
+
+      return {
+        ok: true,
+        cost: response.barraco?.cost,
+        previousLevel: response.barraco?.previousLevel,
+        currentLevel: response.barraco?.currentLevel,
+      };
+    } catch (error: any) {
+      const reason = error?.message || 'Erro ao evoluir barraco';
+      set({ syncError: reason });
+      return { ok: false, reason };
+    }
   },
 
   purchaseLuxuryItemLocal: ({ itemId, name, price, skillType, skillBonusPercent, insurance }) => {
