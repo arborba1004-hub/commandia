@@ -3,7 +3,11 @@ import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { getBarracoName, getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
+import {
+  getBarracoName,
+  getBarracoUpgradeRequirements,
+  MAX_BARRACO_LEVEL,
+} from '@/services/barracoProgressionService';
 
 export default function BarracoPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -32,6 +36,10 @@ export default function BarracoPage() {
   const requirements = getBarracoUpgradeRequirements(player);
   const upgradeCost = requirements.cost;
   const canUpgrade = requirements.allowed;
+  const cleanMoney = Number(player?.balances?.cleanMoney ?? 0);
+  const nextLevel = Math.min(MAX_BARRACO_LEVEL, level + 1);
+  const isMaxLevel = level >= MAX_BARRACO_LEVEL;
+  const missingCleanMoney = Math.max(0, upgradeCost - cleanMoney);
 
   const handleUpgrade = async () => {
     if (isUpgrading) return;
@@ -85,12 +93,26 @@ export default function BarracoPage() {
             </span>
           </div>
 
-          <div className="mb-6 text-center">
-            <p className="text-sm opacity-70">
-              Custo do upgrade
-            </p>
-            <p className="text-lg font-bold text-emerald-400">
-              {upgradeCost.toLocaleString('pt-BR')} 💰
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-900/20 p-3 text-center">
+              <p className="text-xs opacity-70">Seu dinheiro limpo</p>
+              <p className="text-lg font-bold text-emerald-400">
+                {cleanMoney.toLocaleString('pt-BR')} 💰
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-blue-500/20 bg-blue-900/20 p-3 text-center">
+              <p className="text-xs opacity-70">Custo do upgrade</p>
+              <p className="text-lg font-bold text-blue-400">
+                {upgradeCost.toLocaleString('pt-BR')} 💰
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-3 text-center">
+            <p className="text-xs opacity-60">Próximo estágio</p>
+            <p className="font-bold">
+              {isMaxLevel ? 'Topo absoluto do comando' : `Nível ${nextLevel} · ${getBarracoName(nextLevel)}`}
             </p>
           </div>
 
@@ -103,7 +125,7 @@ export default function BarracoPage() {
                 : 'bg-gray-700 opacity-50 cursor-not-allowed'
             }`}
           >
-            {isUpgrading ? 'Evoluindo...' : 'Evoluir Barraco'}
+            {isUpgrading ? 'Evoluindo...' : isMaxLevel ? 'Nível máximo atingido' : 'Evoluir Barraco'}
           </button>
 
           {upgradeError && (
@@ -112,9 +134,11 @@ export default function BarracoPage() {
             </p>
           )}
 
-          {!canUpgrade && requirements.reason && !upgradeError && (
+          {!canUpgrade && !upgradeError && (
             <p className="mt-3 text-center text-sm text-yellow-400">
-              {requirements.reason}
+              {missingCleanMoney > 0
+                ? `Faltam ${missingCleanMoney.toLocaleString('pt-BR')} 💰 de dinheiro limpo.`
+                : requirements.reason}
             </p>
           )}
         </motion.div>

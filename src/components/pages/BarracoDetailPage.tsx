@@ -254,9 +254,11 @@ export default function BarracoDetailPage() {
               {isUpgrading ? 'Evoluindo...' : 'Evoluir Barraco'}
             </button>
 
-            {!requirements.allowed && cleanMoney < upgradeCost && (
+            {!requirements.allowed && (
               <p className="text-center text-sm text-red-300 mt-4 font-paragraph">
-                Você precisa de {(upgradeCost - cleanMoney).toLocaleString('pt-BR')} 💰 a mais
+                {cleanMoney < upgradeCost
+                  ? `Você precisa de ${(upgradeCost - cleanMoney).toLocaleString('pt-BR')} 💰 a mais`
+                  : requirements.reason}
               </p>
             )}
           </div>
