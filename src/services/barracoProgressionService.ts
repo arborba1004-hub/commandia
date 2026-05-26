@@ -1,5 +1,6 @@
 import type { PlayerState } from '@/store/playerStore';
 
+export const MAX_BARRACO_LEVEL = 100;
 const BASE_COST = 500;
 const MULTIPLIER = 1.115;
 
@@ -26,6 +27,16 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
   const hierarchyRequirement = Math.max(1, Math.floor(barracoLevel / 15));
 
   const rules = [
+    {
+      key: 'maxLevel',
+      ok: barracoLevel < MAX_BARRACO_LEVEL,
+      reason: `Seu barraco já está no nível máximo (${MAX_BARRACO_LEVEL}).`,
+    },
+    {
+      key: 'levelProgressionBlocked',
+      ok: player?.punishments?.levelProgressionBlocked !== true,
+      reason: 'A evolução de nível está bloqueada por uma punição ativa.',
+    },
     {
       key: 'cleanMoney',
       ok: cleanMoney >= cost,
@@ -63,6 +74,7 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
 }
 
 export function getBarracoName(level: number) {
+  if (level >= 100) return 'Castelo do Comando';
   if (level >= 90) return 'Mansão com Heliporto';
   if (level >= 80) return 'Mansão Blindada';
   if (level >= 70) return 'Mansão do Complexo';
