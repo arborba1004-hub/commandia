@@ -58,15 +58,43 @@ export type PlayerApiEnvelope = {
   faction: FactionApiPayload;
 };
 
+export type BarracoUpgradeOperationPayload = {
+  active?: boolean;
+  status?: 'idle' | 'building' | 'ready' | 'completed' | string;
+  fromLevel?: number;
+  toLevel?: number;
+  cost?: number;
+  durationMs?: number;
+  startedAt?: string | null;
+  endsAt?: string | null;
+  completedAt?: string | null;
+  acceleratedMs?: number;
+  remainingMs?: number;
+};
+
 export type BarracoUpgradeApiResponse = PlayerApiEnvelope & {
   barraco?: {
+    action?: 'status' | 'started' | 'claimed' | 'accelerated' | string;
     previousLevel?: number;
     currentLevel?: number;
+    targetLevel?: number;
     nextLevel?: number;
     maxLevel?: number;
     cost?: number;
     name?: string;
+    durationMs?: number;
+    durationText?: string;
+    remainingMs?: number;
+    remainingText?: string;
+    hasActiveUpgrade?: boolean;
+    isReady?: boolean;
+    acceleratorSeconds?: number;
+    appliedSeconds?: number;
+    appliedMs?: number;
+    upgrade?: BarracoUpgradeOperationPayload;
+    requirements?: Record<string, any>;
   };
+  message?: string;
 };
 
 // ==========================================
@@ -320,11 +348,7 @@ export async function fetchCurrentPlayerWithFaction(): Promise<PlayerApiEnvelope
  * Evolui o barraco pelo backend autoritativo.
  * Endpoint: POST /barraco/upgrade
  */
-export async function upgradeBarracoWithFaction(): Promise<BarracoUpgradeApiResponse> {
-  const data = await makeRequest<any>('/barraco/upgrade', {
-    method: 'POST',
-  });
-
+function extractBarracoEnvelope(data: unknown): BarracoUpgradeApiResponse {
   const envelope = extractEnvelope(data);
   const obj = ensureObject(data);
   const barraco = ensureObject(obj?.barraco) || ensureObject(obj?.data?.barraco) || undefined;
@@ -332,7 +356,41 @@ export async function upgradeBarracoWithFaction(): Promise<BarracoUpgradeApiResp
   return {
     ...envelope,
     barraco: barraco as BarracoUpgradeApiResponse['barraco'],
+    message: typeof obj?.message === 'string' ? obj.message : undefined,
   };
+}
+
+export async function upgradeBarracoWithFaction(): Promise<BarracoUpgradeApiResponse> {
+  const data = await makeRequest<any>('/barraco/upgrade', {
+    method: 'POST',
+  });
+
+  return extractBarracoEnvelope(data);
+}
+
+export async function claimBarracoUpgradeWithFaction(): Promise<BarracoUpgradeApiResponse> {
+  const data = await makeRequest<any>('/barraco/upgrade/claim', {
+    method: 'POST',
+  });
+
+  return extractBarracoEnvelope(data);
+}
+
+export async function fetchBarracoUpgradeStatusWithFaction(): Promise<BarracoUpgradeApiResponse> {
+  const data = await makeRequest<any>('/barraco/upgrade/status', {
+    method: 'GET',
+  });
+
+  return extractBarracoEnvelope(data);
+}
+
+export async function accelerateBarracoUpgradeWithFaction(seconds: number): Promise<BarracoUpgradeApiResponse> {
+  const data = await makeRequest<any>('/barraco/upgrade/accelerate', {
+    method: 'POST',
+    body: JSON.stringify({ seconds }),
+  });
+
+  return extractBarracoEnvelope(data);
 }
 
 /**
