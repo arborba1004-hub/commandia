@@ -1,7 +1,14 @@
-export const AZIDEIA_X9_MODEL_URL = 'https://static.wixstatic.com/3d/50f4bf_d07bb1c9327e4f0aaec0681e47314a9e.glb';
-export const AZIDEIA_CORRERIA_MODEL_URL = 'https://static.wixstatic.com/3d/50f4bf_20d89e99d4084eb4a12aea96fa04556d.glb';
-export const AZIDEIA_ICON_URL = 'https://static.wixstatic.com/media/50f4bf_ce2c97a1cf324091851178166ed02d29~mv2.png';
-export const AZIDEIA_CORRERIA_ICON_URL = 'https://static.wixstatic.com/media/50f4bf_9bda4af1a12b47679336479a80b16eb8~mv2.png';
+export const AZIDEIA_X9_MODEL_URL =
+  "https://static.wixstatic.com/3d/50f4bf_d07bb1c9327e4f0aaec0681e47314a9e.glb";
+export const AZIDEIA_CORRERIA_MODEL_URL =
+  "https://static.wixstatic.com/3d/50f4bf_20d89e99d4084eb4a12aea96fa04556d.glb";
+export const AZIDEIA_MESTRE_OBRAS_MODEL_URL =
+  "https://static.wixstatic.com/3d/50f4bf_a57dc1f7521241bcb8f14e0912af8855.glb";
+export const AZIDEIA_ICON_URL =
+  "https://static.wixstatic.com/media/50f4bf_ce2c97a1cf324091851178166ed02d29~mv2.png";
+export const AZIDEIA_CORRERIA_ICON_URL =
+  "https://static.wixstatic.com/media/50f4bf_9bda4af1a12b47679336479a80b16eb8~mv2.png";
+export const AZIDEIA_MESTRE_OBRAS_ICON_EMOJI = "🏗️";
 
 export const AZIDEIA_X9_COST_DIRTY = 5000;
 export const AZIDEIA_X9_DAILY_LIMIT = 20;
@@ -12,3 +19,9 @@ export const AZIDEIA_CORRERIA_COST_DIRTY = 0;
 export const AZIDEIA_CORRERIA_DAILY_LIMIT = 10;
 export const AZIDEIA_ACTIVE_CORRERIA_COUNT = 10;
 export const AZIDEIA_CORRERIA_FACTION_DAILY_LIMIT = 100;
+
+export const AZIDEIA_MESTRE_OBRAS_DAILY_LIMIT = 10;
+export const AZIDEIA_ACTIVE_MESTRE_OBRAS_COUNT = 10;
+export const AZIDEIA_MESTRE_OBRAS_FACTION_DAILY_LIMIT = 100;
+export const AZIDEIA_MESTRE_OBRAS_INDIVIDUAL_REWARD_SECONDS = 3660;
+export const AZIDEIA_MESTRE_OBRAS_FACTION_REWARD_SECONDS = 300;
