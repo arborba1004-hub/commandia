@@ -3,6 +3,17 @@ import type { PlayerState } from '@/store/playerStore';
 export const MAX_BARRACO_LEVEL = 100;
 const BASE_COST = 500;
 const MULTIPLIER = 1.115;
+export const BARRACO_GANG_STAT_BONUS_PER_LEVEL = 1;
+
+export function getBarracoGangStatsBonusPercent(level: number) {
+  const safeLevel = Math.max(1, Math.min(MAX_BARRACO_LEVEL, Math.floor(Number(level) || 1)));
+  return Math.max(0, (safeLevel - 1) * BARRACO_GANG_STAT_BONUS_PER_LEVEL);
+}
+
+export function getNextBarracoGangStatsBonusPercent(level: number) {
+  const nextLevel = Math.max(1, Math.min(MAX_BARRACO_LEVEL, Math.floor(Number(level) || 1) + 1));
+  return getBarracoGangStatsBonusPercent(nextLevel);
+}
 
 export function getBarracoUpgradeCost(level: number) {
   return Math.floor(BASE_COST * Math.pow(MULTIPLIER, Math.max(0, level - 1)));
