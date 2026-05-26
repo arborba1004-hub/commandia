@@ -11,15 +11,14 @@ export function getBarracoUpgradeCost(level: number) {
 export function getBarracoUpgradeRequirements(player: PlayerState) {
   const barracoLevel = player?.niveis?.barracoLevel ?? 1;
   const cleanMoney = player?.balances?.cleanMoney ?? 0;
-  const power = player?.power ?? 0;
   const lavagemLevel = player?.pageLevels?.lavagem ?? 1;
   const luxuryLevel = player?.pageLevels?.luxury ?? 1;
   const hierarchyLevel = player?.niveis?.hierarchyLevel ?? 1;
 
   const cost = getBarracoUpgradeCost(barracoLevel);
 
-  // Requisitos de poder reduzidos para funcionalidade (baseado em skills)
-  const powerRequirement = Math.max(50, Math.floor(barracoLevel * 25));
+  // Power continua existindo como estatística do jogador, mas não bloqueia o barraco.
+  // A evolução é limitada por dinheiro limpo, punições e progressão lateral.
   
   // Requisitos de níveis secundários mais flexíveis
   const lavagemRequirement = Math.max(1, Math.floor(barracoLevel / 10));
@@ -41,11 +40,6 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
       key: 'cleanMoney',
       ok: cleanMoney >= cost,
       reason: `Você precisa de ${cost.toLocaleString('pt-BR')} de dinheiro limpo.`,
-    },
-    {
-      key: 'power',
-      ok: power >= powerRequirement,
-      reason: `Você precisa de poder mínimo ${powerRequirement}. Atual: ${power}.`,
     },
     {
       key: 'lavagem',
