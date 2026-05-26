@@ -4,8 +4,10 @@ import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import {
+  getBarracoGangStatsBonusPercent,
   getBarracoName,
   getBarracoUpgradeRequirements,
+  getNextBarracoGangStatsBonusPercent,
   MAX_BARRACO_LEVEL,
 } from '@/services/barracoProgressionService';
 
@@ -40,6 +42,8 @@ export default function BarracoPage() {
   const nextLevel = Math.min(MAX_BARRACO_LEVEL, level + 1);
   const isMaxLevel = level >= MAX_BARRACO_LEVEL;
   const missingCleanMoney = Math.max(0, upgradeCost - cleanMoney);
+  const currentGangStatsBonus = getBarracoGangStatsBonusPercent(level);
+  const nextGangStatsBonus = getNextBarracoGangStatsBonusPercent(level);
 
   const handleUpgrade = async () => {
     if (isUpgrading) return;
@@ -109,11 +113,23 @@ export default function BarracoPage() {
             </div>
           </div>
 
-          <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-3 text-center">
+          <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-3 text-center">
             <p className="text-xs opacity-60">Próximo estágio</p>
             <p className="font-bold">
               {isMaxLevel ? 'Topo absoluto do comando' : `Nível ${nextLevel} · ${getBarracoName(nextLevel)}`}
             </p>
+          </div>
+
+          <div className="mb-6 rounded-xl border border-orange-500/20 bg-orange-950/30 p-3 text-center">
+            <p className="text-xs opacity-70">Bônus do barraco na gangue</p>
+            <p className="text-lg font-bold text-orange-300">
+              +{currentGangStatsBonus}% em Rajada, Blindagem, Fôlego e Quebra
+            </p>
+            {!isMaxLevel && (
+              <p className="text-xs opacity-70 mt-1">
+                Próximo nível: +{nextGangStatsBonus}% para os 8 membros da gangue
+              </p>
+            )}
           </div>
 
           <button
@@ -174,8 +190,11 @@ export default function BarracoPage() {
                 <p className="text-white mb-2">
                   Seu barraco evoluiu para o nível {upgradedToLevel ?? level}!
                 </p>
-                <p className="text-sm opacity-70 mb-6">
+                <p className="text-sm opacity-70 mb-2">
                   {getBarracoName(upgradedToLevel ?? level)}
+                </p>
+                <p className="text-sm text-orange-300 mb-6">
+                  Bônus da gangue atualizado para +{getBarracoGangStatsBonusPercent(upgradedToLevel ?? level)}% em Rajada, Blindagem, Fôlego e Quebra.
                 </p>
                 <button
                   onClick={() => {

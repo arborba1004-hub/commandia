@@ -4,7 +4,11 @@ import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { Model3D } from '@/components/Model3D';
-import { getBarracoUpgradeRequirements } from '@/services/barracoProgressionService';
+import {
+  getBarracoGangStatsBonusPercent,
+  getBarracoUpgradeRequirements,
+  getNextBarracoGangStatsBonusPercent,
+} from '@/services/barracoProgressionService';
 
 const BARRACO_MODELS = [
   {
@@ -144,6 +148,8 @@ export default function BarracoDetailPage() {
   const upgradeCost = requirements.cost;
   const canUpgrade = requirements.allowed && !isUpgrading;
   const modelUrl = getBarracoModelUrl(level);
+  const currentGangStatsBonus = getBarracoGangStatsBonusPercent(level);
+  const nextGangStatsBonus = getNextBarracoGangStatsBonusPercent(level);
 
   const handleUpgrade = async () => {
     if (!canUpgrade) return;
@@ -227,12 +233,25 @@ export default function BarracoDetailPage() {
               </div>
             </div>
 
-            <div className="mb-8 p-6 rounded-xl bg-purple-900/30 border border-purple-500/20">
+            <div className="mb-4 p-6 rounded-xl bg-purple-900/30 border border-purple-500/20">
               <p className="text-xs opacity-70 font-heading uppercase tracking-wider mb-2">
                 Próximo Nível
               </p>
               <p className="text-xl font-bold text-purple-300">
                 {getNextLevelName(level)}
+              </p>
+            </div>
+
+            <div className="mb-8 p-6 rounded-xl bg-orange-950/40 border border-orange-500/20">
+              <p className="text-xs opacity-70 font-heading uppercase tracking-wider mb-2">
+                Estatísticas da Gangue
+              </p>
+              <p className="text-xl font-bold text-orange-300">
+                +{currentGangStatsBonus}% em Rajada, Blindagem, Fôlego e Quebra
+              </p>
+              <p className="text-sm opacity-70 mt-2 font-paragraph">
+                Cada novo nível do barraco adiciona +1% para os 8 membros da gangue.
+                Próximo upgrade: +{nextGangStatsBonus}% total.
               </p>
             </div>
 
