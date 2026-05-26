@@ -125,9 +125,7 @@ export default function BarracoDetailPage() {
 
   const player = usePlayerStore((state) => state.player);
   const upgradeBarracoLocal = usePlayerStore((state) => state.upgradeBarracoLocal);
-  const syncPlayerToBackend = usePlayerStore((state) => state.syncPlayerToBackend);
   const isLoaded = usePlayerStore((state) => state.isLoaded);
-  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
 
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,14 +152,12 @@ export default function BarracoDetailPage() {
     setIsUpgrading(true);
 
     try {
-      const result = upgradeBarracoLocal();
+      const result = await upgradeBarracoLocal();
 
       if (!result.ok) {
         setError(result.reason || 'Erro ao evoluir barraco');
         return;
       }
-
-      await syncPlayerToBackend();
     } catch (err: any) {
       setError(err?.message || 'Erro ao evoluir barraco');
     } finally {

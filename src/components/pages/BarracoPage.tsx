@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { usePlayerStore } from '@/store/playerStore';
 import { motion } from 'framer-motion';
 import Header from '@/components/Header';
@@ -33,7 +33,7 @@ export default function BarracoPage() {
   const upgradeCost = requirements.cost;
   const canUpgrade = requirements.allowed;
 
-  const handleUpgrade = () => {
+  const handleUpgrade = async () => {
     if (isUpgrading) return;
 
     setIsUpgrading(true);
@@ -41,14 +41,14 @@ export default function BarracoPage() {
 
     try {
       const currentLevel = level;
-      const result = upgradeBarracoLocal();
+      const result = await upgradeBarracoLocal();
 
       if (!result?.ok) {
         setUpgradeError(result?.reason || 'Não foi possível evoluir o barraco.');
         return;
       }
 
-      setUpgradedToLevel(currentLevel + 1);
+      setUpgradedToLevel(result.currentLevel ?? currentLevel + 1);
       setShowSuccessModal(true);
     } catch (error) {
       setUpgradeError(error instanceof Error ? error.message : 'Erro ao evoluir barraco');
