@@ -4,6 +4,8 @@ import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import Layout from '@/components/Layout';
+import FeatureGateRoute from '@/components/routes/FeatureGateRoute';
+import ProtectedRoute from '@/components/routes/ProtectedRoute';
 
 // Lazy load all page components
 const HomePage = lazy(() => import('@/components/pages/HomePage'));
@@ -25,8 +27,6 @@ const TalentsPage = lazy(() => import('@/components/pages/TalentsPage'));
 const FactionPage = lazy(() => import('@/components/pages/FactionPage'));
 const RankingPage = lazy(() => import('@/components/pages/RankingPage'));
 const GangPage = lazy(() => import('@/components/gang/GangPage'));
-const FeatureGateRoute = lazy(() => import('@/components/routes/FeatureGateRoute'));
-const ProtectedRoute = lazy(() => import('@/components/routes/ProtectedRoute'));
 
 const LoadingFallback = () => <div className="flex items-center justify-center min-h-screen"><LoadingSpinner /></div>;
 
@@ -52,9 +52,11 @@ const router = createBrowserRouter(
           path: 'galeria',
           element: (
             <Suspense fallback={<LoadingFallback />}>
-              <FeatureGateRoute branch="luxury">
-                <GaleriaPage />
-              </FeatureGateRoute>
+              <ProtectedRoute>
+                <FeatureGateRoute branch="luxury">
+                  <GaleriaPage />
+                </FeatureGateRoute>
+              </ProtectedRoute>
             </Suspense>
           ),
         },
