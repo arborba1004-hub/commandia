@@ -78,6 +78,38 @@ export type CorrePackageBrickPaymentResult = {
   message?: string;
 };
 
+export type BarracoAcceleratorPackage = {
+  id: string;
+  name: string;
+  description: string;
+  acceleratorCount: number;
+  secondsPerAccelerator: number;
+  totalSeconds: number;
+  price: number;
+  currency: 'BRL' | string;
+  badge?: string;
+};
+
+export type BarracoAcceleratorPackageBrickPaymentResult = {
+  purchaseId: string;
+  paymentId?: string | number;
+  status: string;
+  statusDetail?: string;
+  paymentTypeId?: string;
+  paymentMethodId?: string;
+  packageId: string;
+  acceleratorCount: number;
+  secondsPerAccelerator: number;
+  totalSeconds: number;
+  amount: number;
+  currency: string;
+  qrCode?: string;
+  qrCodeBase64?: string;
+  ticketUrl?: string;
+  player?: unknown;
+  message?: string;
+};
+
 export const CORRE_STARTER_PACKAGE: CorrePackage = {
   id: 'corre_10_099',
   name: 'Pacote Relâmpago de Corres',
@@ -86,6 +118,18 @@ export const CORRE_STARTER_PACKAGE: CorrePackage = {
   price: 0.99,
   currency: 'BRL',
   badge: 'OFERTA DE ENTRADA',
+};
+
+export const BARRACO_ACCELERATOR_STARTER_PACKAGE: BarracoAcceleratorPackage = {
+  id: 'barraco_accel_20x2h_099',
+  name: 'Pacote Obra Relâmpago',
+  description: '20 aceleradores de 2 horas para acelerar a evolução do barraco sem sair do jogo.',
+  acceleratorCount: 20,
+  secondsPerAccelerator: 2 * 60 * 60,
+  totalSeconds: 20 * 2 * 60 * 60,
+  price: 0.99,
+  currency: 'BRL',
+  badge: 'OBRA EXPRESSA',
 };
 
 export function formatBRL(value: number): string {
@@ -101,6 +145,17 @@ export async function createMercadoPagoBrickCorrePackagePayment(
   paymentData: unknown,
 ): Promise<CorrePackageBrickPaymentResult> {
   return request<CorrePackageBrickPaymentResult>('/payments/brick/corre-package', {
+    method: 'POST',
+    body: JSON.stringify({ packageId, paymentData }),
+  });
+}
+
+
+export async function createMercadoPagoBrickBarracoAcceleratorPackagePayment(
+  packageId: string,
+  paymentData: unknown,
+): Promise<BarracoAcceleratorPackageBrickPaymentResult> {
+  return request<BarracoAcceleratorPackageBrickPaymentResult>('/payments/brick/barraco-accelerator-package', {
     method: 'POST',
     body: JSON.stringify({ packageId, paymentData }),
   });
