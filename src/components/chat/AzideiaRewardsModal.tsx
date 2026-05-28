@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image } from "@/components/ui/image";
 import { claimAzideiaRewards, getAzideiaRewardStatus } from "@/api/azideiaApi";
 import {
@@ -19,6 +19,15 @@ function formatSeconds(seconds: number) {
   return `${total}s`;
 }
 
+// [PATCH] Helper para detectar se um erro é de abort (timeout/cancelamento intencional).
+// Esses erros não devem ser exibidos na UI — são silenciosos por design.
+function isAbortError(err: unknown): boolean {
+  if (!err) return false;
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  const msg = String((err as any)?.message ?? "").toLowerCase();
+  return msg.includes("aborted") || msg.includes("abort");
+}
+
 export default function AzideiaRewardsModal({
   open,
   onClose,
@@ -32,20 +41,44 @@ export default function AzideiaRewardsModal({
   const [error, setError] = useState<string | null>(null);
   const [claimedMessage, setClaimedMessage] = useState<string | null>(null);
 
+  // [PATCH] Ref para o AbortController ativo, permitindo cancelar a request
+  // anterior quando uma nova load() é disparada ou quando o modal fecha.
+  const abortRef = useRef<AbortController | null>(null);
+
   async function load() {
+    // [PATCH] Cancela request anterior antes de iniciar nova
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setIsLoading(true);
     setError(null);
     try {
-      setStatus(await getAzideiaRewardStatus());
+      const result = await getAzideiaRewardStatus(controller.signal);
+      // [PATCH] Não atualiza estado se já foi abortado (modal fechou)
+      if (!controller.signal.aborted) {
+        setStatus(result);
+      }
     } catch (err: any) {
-      setError(err?.message ?? "Erro ao carregar recompensas Azidéia");
+      // [PATCH] Erros de abort são silenciosos — não exibir na UI
+      if (!isAbortError(err)) {
+        setError(err?.message ?? "Erro ao carregar recompensas Azidéia");
+      }
     } finally {
-      setIsLoading(false);
+      if (!controller.signal.aborted) {
+        setIsLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    if (open) void load();
+    if (open) {
+      void load();
+    }
+    return () => {
+      // [PATCH] Cancela request em andamento ao fechar o modal
+      abortRef.current?.abort();
+    };
   }, [open]);
 
   useEffect(() => {
@@ -96,7 +129,9 @@ export default function AzideiaRewardsModal({
           : "Nada para coletar agora.",
       );
     } catch (err: any) {
-      setError(err?.message ?? "Erro ao coletar recompensas");
+      if (!isAbortError(err)) {
+        setError(err?.message ?? "Erro ao coletar recompensas");
+      }
     } finally {
       setIsClaiming(false);
     }
