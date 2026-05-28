@@ -21,22 +21,37 @@ function buildUrl(path: string): string {
   return `${base}${endpoint}`;
 }
 
+// [PATCH] Aceita signal externo opcional. Se fornecido, usa ele diretamente
+// (o caller controla o ciclo de vida). Caso contrário, cria timeout interno.
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {},
+  options: RequestInit & { externalSignal?: AbortSignal } = {},
 ): Promise<T> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const { externalSignal, ...fetchOptions } = options;
+
+  let controller: AbortController | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let signal: AbortSignal;
+
+  if (externalSignal) {
+    // Usa o signal do caller — ele é responsável por cancelar
+    signal = externalSignal;
+  } else {
+    // Cria timeout interno padrão
+    controller = new AbortController();
+    timeoutId = setTimeout(() => controller!.abort(), TIMEOUT_MS);
+    signal = controller.signal;
+  }
 
   try {
     const response = await fetch(buildUrl(endpoint), {
-      ...options,
-      signal: controller.signal,
+      ...fetchOptions,
+      signal,
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
         Authorization: `Bearer ${getToken()}`,
-        ...(options.headers ?? {}),
+        ...(fetchOptions.headers ?? {}),
       },
     });
 
@@ -60,7 +75,7 @@ async function request<T>(
 
     return data as T;
   } finally {
-    clearTimeout(timeoutId);
+    if (timeoutId !== null) clearTimeout(timeoutId);
   }
 }
 
@@ -77,9 +92,7 @@ export async function attackAzideiaX9(
 ): Promise<AzideiaAttackResult> {
   return request<AzideiaAttackResult>(
     `/azideia/x9/${encodeURIComponent(targetId)}/attack`,
-    {
-      method: "POST",
-    },
+    { method: "POST" },
   );
 }
 
@@ -88,9 +101,7 @@ export async function negotiateAzideiaCorreria(
 ): Promise<AzideiaAttackResult> {
   return request<AzideiaAttackResult>(
     `/azideia/correria/${encodeURIComponent(targetId)}/negotiate`,
-    {
-      method: "POST",
-    },
+    { method: "POST" },
   );
 }
 
@@ -99,9 +110,7 @@ export async function payAzideiaMestreObras(
 ): Promise<AzideiaAttackResult> {
   return request<AzideiaAttackResult>(
     `/azideia/mestre-obras/${encodeURIComponent(targetId)}/pay`,
-    {
-      method: "POST",
-    },
+    { method: "POST" },
   );
 }
 
@@ -116,9 +125,7 @@ export async function confirmAzideiaMissionArrival(
 ): Promise<AzideiaAttackResult> {
   return request<AzideiaAttackResult>(
     `/azideia/missions/${encodeURIComponent(missionId)}/arrive`,
-    {
-      method: "POST",
-    },
+    { method: "POST" },
   );
 }
 
@@ -127,14 +134,19 @@ export async function confirmAzideiaMissionReturn(
 ): Promise<AzideiaAttackResult> {
   return request<AzideiaAttackResult>(
     `/azideia/missions/${encodeURIComponent(missionId)}/return`,
-    {
-      method: "POST",
-    },
+    { method: "POST" },
   );
 }
 
-export async function getAzideiaRewardStatus(): Promise<AzideiaRewardStatus> {
-  return request<AzideiaRewardStatus>("/azideia/rewards/me", { method: "GET" });
+// [PATCH] Aceita AbortSignal externo para que o caller (modal) possa cancelar
+// ao fechar, evitando o erro "signal is aborted without reason" na UI.
+export async function getAzideiaRewardStatus(
+  signal?: AbortSignal,
+): Promise<AzideiaRewardStatus> {
+  return request<AzideiaRewardStatus>("/azideia/rewards/me", {
+    method: "GET",
+    externalSignal: signal,
+  });
 }
 
 export async function claimAzideiaRewards(): Promise<AzideiaClaimResult> {
