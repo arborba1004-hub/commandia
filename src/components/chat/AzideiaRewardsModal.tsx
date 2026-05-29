@@ -40,53 +40,71 @@ export default function AzideiaRewardsModal({
   const [error, setError] = useState<string | null>(null);
   const [claimedMessage, setClaimedMessage] = useState<string | null>(null);
 
-  // Evita AbortController no modal. O React pode montar/desmontar efeitos duas
-  // vezes em desenvolvimento e o polling de 5s pode cancelar a request anterior,
-  // causando o erro cru "signal is aborted without reason". Em vez disso, cada
-  // chamada recebe uma sequência e respostas antigas são simplesmente ignoradas.
-  const loadSeqRef = useRef(0);
+  // O problema real aqui era concorrência: o polling de 5s disparava novas
+  // requests enquanto a anterior ainda estava em voo. Quando o backend demorava
+  // mais que 5s, a sequência era incrementada sem parar e o modal podia ficar em
+  // "Carregando..." para sempre. Agora existe no máximo 1 request em voo.
   const mountedRef = useRef(false);
+  const inFlightRef = useRef(false);
+  const pollTimerRef = useRef<number | null>(null);
+
+  function clearPollTimer() {
+    if (pollTimerRef.current !== null) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }
+
+  function scheduleNextPoll() {
+    clearPollTimer();
+    if (!mountedRef.current) return;
+    pollTimerRef.current = window.setTimeout(() => {
+      void load(true);
+    }, 5000);
+  }
 
   async function load(silent = false) {
-    const seq = ++loadSeqRef.current;
+    if (!mountedRef.current || inFlightRef.current) return;
+
+    inFlightRef.current = true;
     if (!silent) setIsLoading(true);
     setError(null);
+
     try {
       const result = await getAzideiaRewardStatus();
-      if (mountedRef.current && seq === loadSeqRef.current) {
+      if (mountedRef.current) {
         setStatus(result);
       }
     } catch (err: any) {
-      if (mountedRef.current && seq === loadSeqRef.current && !isAbortError(err)) {
+      if (mountedRef.current && !isAbortError(err)) {
         setError(err?.message ?? "Erro ao carregar recompensas Azidéia");
       }
     } finally {
-      if (mountedRef.current && seq === loadSeqRef.current) {
-        setIsLoading(false);
+      inFlightRef.current = false;
+      if (mountedRef.current) {
+        if (!silent) setIsLoading(false);
+        scheduleNextPoll();
       }
     }
   }
 
   useEffect(() => {
     mountedRef.current = open;
+
     if (open) {
+      clearPollTimer();
       void load(false);
     } else {
-      loadSeqRef.current += 1;
+      clearPollTimer();
+      inFlightRef.current = false;
       setIsLoading(false);
     }
+
     return () => {
       mountedRef.current = false;
-      loadSeqRef.current += 1;
+      clearPollTimer();
+      inFlightRef.current = false;
     };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const intervalId = window.setInterval(() => {
-      void load(true);
-    }, 5000);
-    return () => window.clearInterval(intervalId);
   }, [open]);
 
   if (!open) return null;
