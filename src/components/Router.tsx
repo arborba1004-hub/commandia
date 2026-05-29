@@ -20,6 +20,7 @@ const DelacaoPremiadaPage = lazy(() => import('@/components/pages/DelacaoPremiad
 const ArsenalPage = lazy(() => import('@/components/pages/ArsenalPage'));
 const ArmasPage = lazy(() => import('@/components/pages/ArmasPage'));
 const LuxoItemPage = lazy(() => import('@/components/pages/LuxoItemPage'));
+const LuxuryshowroomPage = lazy(() => import('@/components/pages/LuxuryshowroomPage'));
 const BarracoPage = lazy(() => import('@/components/pages/BarracoPage'));
 const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPage'));
 const ChatPage = lazy(() => import('@/components/pages/ChatPage'));
@@ -153,7 +154,18 @@ const router = createBrowserRouter(
         { path: 'faccao',  element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><FactionPage /></ProtectedRoute></Suspense> },
         { path: 'ranking', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><RankingPage /></ProtectedRoute></Suspense> },
         { path: 'gang',    element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GangPage /></ProtectedRoute></Suspense> },
-        { path: 'luxuryshowroom', element: <Navigate to="/galeria" replace /> },
+        {
+          path: 'luxuryshowroom',
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <ProtectedRoute>
+                <FeatureGateRoute branch="luxury">
+                  <LuxuryshowroomPage />
+                </FeatureGateRoute>
+              </ProtectedRoute>
+            </Suspense>
+          ),
+        },
         { path: 'lavagemdedinheiro', element: <Navigate to="/lavagem-de-dinheiro" replace /> },
         { path: 'subornoilustrado', element: <Navigate to="/suborno-ilustrado" replace /> },
         { path: 'delacaopremiada', element: <Navigate to="/delacao-premiada" replace /> },
