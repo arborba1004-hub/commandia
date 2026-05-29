@@ -7,7 +7,7 @@ import type {
 } from "@/types/azideia";
 
 const BACKEND_URL = "https://comando-backend.onrender.com";
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 20_000;
 
 function getToken(): string {
   const token = localStorage.getItem("authToken");
