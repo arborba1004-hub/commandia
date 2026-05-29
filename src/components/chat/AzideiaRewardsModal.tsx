@@ -19,13 +19,12 @@ function formatSeconds(seconds: number) {
   return `${total}s`;
 }
 
-// [PATCH] Helper para detectar se um erro é de abort (timeout/cancelamento intencional).
-// Esses erros não devem ser exibidos na UI — são silenciosos por design.
 function isAbortError(err: unknown): boolean {
   if (!err) return false;
   if (err instanceof DOMException && err.name === "AbortError") return true;
+  const name = String((err as any)?.name ?? "").toLowerCase();
   const msg = String((err as any)?.message ?? "").toLowerCase();
-  return msg.includes("aborted") || msg.includes("abort");
+  return name.includes("abort") || msg.includes("aborted") || msg.includes("abort");
 }
 
 export default function AzideiaRewardsModal({
@@ -41,50 +40,51 @@ export default function AzideiaRewardsModal({
   const [error, setError] = useState<string | null>(null);
   const [claimedMessage, setClaimedMessage] = useState<string | null>(null);
 
-  // [PATCH] Ref para o AbortController ativo, permitindo cancelar a request
-  // anterior quando uma nova load() é disparada ou quando o modal fecha.
-  const abortRef = useRef<AbortController | null>(null);
+  // Evita AbortController no modal. O React pode montar/desmontar efeitos duas
+  // vezes em desenvolvimento e o polling de 5s pode cancelar a request anterior,
+  // causando o erro cru "signal is aborted without reason". Em vez disso, cada
+  // chamada recebe uma sequência e respostas antigas são simplesmente ignoradas.
+  const loadSeqRef = useRef(0);
+  const mountedRef = useRef(false);
 
-  async function load() {
-    // [PATCH] Cancela request anterior antes de iniciar nova
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setIsLoading(true);
+  async function load(silent = false) {
+    const seq = ++loadSeqRef.current;
+    if (!silent) setIsLoading(true);
     setError(null);
     try {
-      const result = await getAzideiaRewardStatus(controller.signal);
-      // [PATCH] Não atualiza estado se já foi abortado (modal fechou)
-      if (!controller.signal.aborted) {
+      const result = await getAzideiaRewardStatus();
+      if (mountedRef.current && seq === loadSeqRef.current) {
         setStatus(result);
       }
     } catch (err: any) {
-      // [PATCH] Erros de abort são silenciosos — não exibir na UI
-      if (!isAbortError(err)) {
+      if (mountedRef.current && seq === loadSeqRef.current && !isAbortError(err)) {
         setError(err?.message ?? "Erro ao carregar recompensas Azidéia");
       }
     } finally {
-      if (!controller.signal.aborted) {
+      if (mountedRef.current && seq === loadSeqRef.current) {
         setIsLoading(false);
       }
     }
   }
 
   useEffect(() => {
+    mountedRef.current = open;
     if (open) {
-      void load();
+      void load(false);
+    } else {
+      loadSeqRef.current += 1;
+      setIsLoading(false);
     }
     return () => {
-      // [PATCH] Cancela request em andamento ao fechar o modal
-      abortRef.current?.abort();
+      mountedRef.current = false;
+      loadSeqRef.current += 1;
     };
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const intervalId = window.setInterval(() => {
-      void load();
+      void load(true);
     }, 5000);
     return () => window.clearInterval(intervalId);
   }, [open]);
