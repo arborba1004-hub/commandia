@@ -21,27 +21,42 @@ function buildUrl(path: string): string {
   return `${base}${endpoint}`;
 }
 
-// [PATCH] Aceita signal externo opcional. Se fornecido, usa ele diretamente
-// (o caller controla o ciclo de vida). Caso contrário, cria timeout interno.
+function isAbortLike(error: unknown): boolean {
+  if (!error) return false;
+  if (error instanceof DOMException) {
+    return error.name === "AbortError" || error.name === "TimeoutError";
+  }
+  const name = String((error as any)?.name ?? "").toLowerCase();
+  const message = String((error as any)?.message ?? "").toLowerCase();
+  return name.includes("abort") || message.includes("aborted") || message.includes("abort");
+}
+
+function createTimeoutError(): DOMException {
+  return new DOMException(
+    "Tempo esgotado ao comunicar com o Azidéia",
+    "TimeoutError",
+  );
+}
+
+// Aceita signal externo opcional. Quando não há signal externo, a API usa um
+// timeout interno com motivo explícito para não vazar o erro cru do navegador
+// "signal is aborted without reason" para a UI.
 async function request<T>(
   endpoint: string,
   options: RequestInit & { externalSignal?: AbortSignal } = {},
 ): Promise<T> {
   const { externalSignal, ...fetchOptions } = options;
 
-  let controller: AbortController | null = null;
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let signal: AbortSignal;
+  const controller = externalSignal ? null : new AbortController();
+  const signal = externalSignal ?? controller!.signal;
+  let didTimeout = false;
 
-  if (externalSignal) {
-    // Usa o signal do caller — ele é responsável por cancelar
-    signal = externalSignal;
-  } else {
-    // Cria timeout interno padrão
-    controller = new AbortController();
-    timeoutId = setTimeout(() => controller!.abort(), TIMEOUT_MS);
-    signal = controller.signal;
-  }
+  const timeoutId = controller
+    ? window.setTimeout(() => {
+        didTimeout = true;
+        controller.abort(createTimeoutError());
+      }, TIMEOUT_MS)
+    : null;
 
   try {
     const response = await fetch(buildUrl(endpoint), {
@@ -74,8 +89,16 @@ async function request<T>(
     }
 
     return data as T;
+  } catch (error) {
+    if (didTimeout || (controller?.signal.aborted && isAbortLike(error))) {
+      throw new Error("Tempo esgotado ao carregar dados do Azidéia. Tente novamente.");
+    }
+    if (externalSignal?.aborted && isAbortLike(error)) {
+      throw new DOMException("Requisição cancelada", "AbortError");
+    }
+    throw error;
   } finally {
-    if (timeoutId !== null) clearTimeout(timeoutId);
+    if (timeoutId !== null) window.clearTimeout(timeoutId);
   }
 }
 
@@ -138,8 +161,6 @@ export async function confirmAzideiaMissionReturn(
   );
 }
 
-// [PATCH] Aceita AbortSignal externo para que o caller (modal) possa cancelar
-// ao fechar, evitando o erro "signal is aborted without reason" na UI.
 export async function getAzideiaRewardStatus(
   signal?: AbortSignal,
 ): Promise<AzideiaRewardStatus> {
