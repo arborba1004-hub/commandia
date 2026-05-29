@@ -160,3 +160,24 @@ export async function createMercadoPagoBrickBarracoAcceleratorPackagePayment(
     body: JSON.stringify({ packageId, paymentData }),
   });
 }
+
+export type BuyLuxuryShowroomItemPayload = {
+  itemKey: string;
+  level: number;
+};
+
+export type BuyLuxuryShowroomItemResponse = {
+  player: unknown;
+  item: unknown;
+  statSource: unknown;
+  message?: string;
+};
+
+export async function buyLuxuryShowroomItem(
+  payload: BuyLuxuryShowroomItemPayload,
+): Promise<BuyLuxuryShowroomItemResponse> {
+  return request<BuyLuxuryShowroomItemResponse>('/shop/luxury/buy', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
