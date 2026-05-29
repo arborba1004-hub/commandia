@@ -335,6 +335,15 @@ export default function GamePage() {
     );
   }, [mapAttack]);
 
+  const waitForAzideiaScene = useCallback(async () => {
+    let scene = sceneRef.current;
+    for (let attempt = 0; !scene && attempt < 24; attempt += 1) {
+      await sleep(50);
+      scene = sceneRef.current;
+    }
+    return scene;
+  }, []);
+
   const runAzideiaMissionCycle = useCallback(
     async (mission: AzideiaMission) => {
       const missionId = String(mission?.missionId || "");
@@ -347,10 +356,14 @@ export default function GamePage() {
 
       try {
         let current: AzideiaMission = mission;
-        const scene = sceneRef.current;
+        const scene = await waitForAzideiaScene();
         const currentPlayer = usePlayerStore.getState().player as any;
-        const equippedSkinId =
-          currentPlayer?.convoys?.equippedSkinId ?? "comboio_padrao";
+        const ownerId = String(current.playerId || "");
+        const currentPlayerId = String(currentPlayer?._id || player?._id || "");
+        const visualOnly = Boolean(ownerId && currentPlayerId && ownerId !== currentPlayerId);
+        const equippedSkinId = visualOnly
+          ? "comboio_padrao"
+          : currentPlayer?.convoys?.equippedSkinId ?? "comboio_padrao";
         const skin = getConvoySkin(equippedSkinId);
 
         if (current.status === "travelling") {
@@ -390,19 +403,21 @@ export default function GamePage() {
             await waitUntilIso(current.arriveAtIso);
           }
 
-          const arrival = await confirmAzideiaMissionArrival(missionId);
-          if (arrival.player) {
-            usePlayerStore
-              .getState()
-              .hydratePlayerFromServer(arrival.player as any);
+          if (visualOnly) {
+            current = { ...current, status: "returning" };
+          } else {
+            const arrival = await confirmAzideiaMissionArrival(missionId);
+            if (arrival.player) {
+              usePlayerStore
+                .getState()
+                .hydratePlayerFromServer(arrival.player as any);
+            }
+
+            current = { ...current, ...arrival, status: "returning" };
           }
 
-          current = { ...current, ...arrival, status: "returning" };
-
-          // O X9 deve cair sem travar o ciclo visual. Antes o retorno só
-          // começava depois da animação de morte (~950ms), criando uma sensação
-          // de “efeito”/pausa no impacto. Agora o comboio inicia a volta
-          // imediatamente, e o X9 é removido/atualizado em paralelo.
+          // O X9 deve cair sem travar o ciclo visual. Para espectadores, isso é
+          // só visual: quem confirma e salva a recompensa é o dono da missão no backend.
           const arrivalAnimation = getAzideiaArrivalAnimation(
             current.targetType,
           );
@@ -464,11 +479,13 @@ export default function GamePage() {
             await waitUntilIso(current.returnAtIso);
           }
 
-          const returned = await confirmAzideiaMissionReturn(missionId);
-          if (returned.player) {
-            usePlayerStore
-              .getState()
-              .hydratePlayerFromServer(returned.player as any);
+          if (!visualOnly) {
+            const returned = await confirmAzideiaMissionReturn(missionId);
+            if (returned.player) {
+              usePlayerStore
+                .getState()
+                .hydratePlayerFromServer(returned.player as any);
+            }
           }
           void azideiaLayerRef.current?.refresh();
         }
@@ -481,7 +498,7 @@ export default function GamePage() {
         activeAzideiaVisualsRef.current.delete(missionId);
       }
     },
-    [],
+    [player?._id, waitForAzideiaScene],
   );
 
   useEffect(() => {
@@ -883,12 +900,14 @@ export default function GamePage() {
       reason?: string;
       targetId?: string;
       targetType?: string;
+      mission?: AzideiaMission | null;
     }) {
       if (!isMounted) return;
 
       const reason = String(payload?.reason || "");
       const targetId = String(payload?.targetId || "");
       const targetType = String(payload?.targetType || "");
+      const payloadMission = payload?.mission;
 
       // Não pode dar refresh seco quando o alvo morre/é negociado, porque o
       // backend já remove o alvo do pool ativo e o refresh apagaria o modelo
@@ -917,6 +936,15 @@ export default function GamePage() {
         });
       } else {
         void azideiaLayer.refresh();
+      }
+
+      // Para espectadores, a missão vem no próprio socket. Não dá para buscar
+      // /active do outro jogador, porque esse endpoint só retorna as missões do
+      // usuário autenticado. Então processamos o payload direto e o ciclo roda
+      // em modo visual-only quando playerId !== jogador atual.
+      if (payloadMission?.missionId) {
+        void runAzideiaMissionCycle(payloadMission);
+        return;
       }
 
       void getActiveAzideiaMissions()
