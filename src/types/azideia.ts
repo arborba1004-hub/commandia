@@ -23,6 +23,9 @@ export type AzideiaX9Target = {
 
 export type AzideiaMission = {
   missionId: string;
+  playerId?: string;
+  playerName?: string;
+  factionId?: string | null;
   status: AzideiaMissionStatus;
   targetId: string;
   targetType: AzideiaTargetType;
