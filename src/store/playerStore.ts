@@ -82,7 +82,7 @@ function stripServerControlledState<T extends Partial<PlayerState>>(playerData: 
 
 type Balances          = { dirtyMoney: number; cleanMoney: number; corre: number };
 type Inventory         = { items: any[]; gifts: any[]; rewards: any[] };
-type PageLevels        = { barraco: number; giro: number; lavagem: number; luxury: number; arsenal: number; fuga: number; bribery: number; hierarchy: number; home: number; game: number; [key: string]: number };
+type PageLevels        = { barraco: number; giro: number; lavagem: number; luxury: number; fuga: number; arsenal: number; bribery: number; hierarchy: number; home: number; game: number; [key: string]: number };
 type Skills            = { attack: number; defense: number; intelligence: number; agility: number; respect: number; vigor: number; [key: string]: number };
 type Niveis            = { playerLevel: number; barracoLevel: number; hierarchyLevel: number; arsenalLevel: number; giroLevel: number; lavagemLevel: number; luxuryLevel: number; briberyLevel: number };
 type HeaderCustomization = { playerNameFont: string; playerNameFontSize?: string; playerNameColor?: string; customName?: string; customAvatar?: string };
@@ -255,7 +255,7 @@ const initialPlayer: PlayerState = {
   niveis:    { playerLevel: 1, barracoLevel: 1, hierarchyLevel: 1, arsenalLevel: 1, giroLevel: 1, lavagemLevel: 1, luxuryLevel: 1, briberyLevel: 1 },
   balances:  { dirtyMoney: GAME_MODE.debugEconomy ? GAME_MODE.debugDirtyMoney : 35000, cleanMoney: GAME_MODE.debugEconomy ? GAME_MODE.debugCleanMoney : 2500, corre: 100 },
   inventory: { items: [], gifts: [], rewards: [] },
-  pageLevels: { barraco: 1, giro: 1, lavagem: 1, luxury: 1, arsenal: 1, fuga: 1, bribery: 1, hierarchy: 1, home: 1, game: 1 },
+  pageLevels: { barraco: 1, giro: 1, lavagem: 1, luxury: 1, fuga: 1, arsenal: 1, bribery: 1, hierarchy: 1, home: 1, game: 1 },
   skills:    { attack: 0, defense: 0, intelligence: 0, agility: 0, respect: 0, vigor: 0 },
   power:     0,
   hierarchyBadge: 'Antena',
