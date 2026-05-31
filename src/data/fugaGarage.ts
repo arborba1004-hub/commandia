@@ -10,23 +10,15 @@ export type FugaVehicleId =
   | 'dinamo_lx'
   | 'nitro_phantom';
 
-export type FugaVehicleKind =
-  | 'muscle'
-  | 'suv'
-  | 'moto'
-  | 'coupe'
-  | 'pickup'
-  | 'sedan'
-  | 'armored'
-  | 'super';
-
 export type FugaStatKey = keyof GangAtributos;
+
+export type FugaVehicleTier = 'rua' | 'blindado' | 'elite' | 'phantom';
 
 export type FugaVehicle = {
   id: FugaVehicleId;
   name: string;
   codename: string;
-  kind: FugaVehicleKind;
+  tier: FugaVehicleTier;
   unlockBarracoLevel: number;
   priceCleanMoney: number;
   targetType: GangMemberType;
@@ -36,145 +28,168 @@ export type FugaVehicle = {
   headline: string;
   lore: string;
   mechanicNote: string;
-  paint: {
-    body: string;
-    body2: string;
-    neon: string;
-    glass: string;
-    rim: string;
-  };
+  image: string;
+  accent: string;
+  accent2: string;
+  danger: string;
 };
 
 export const FUGA_BONUS_PERCENT = 1;
+
+const ASSET_BASE = '/assets/fuga';
 
 export const FUGA_VEHICLES: FugaVehicle[] = [
   {
     id: 'touro_negro',
     name: 'Touro Negro',
     codename: 'TN-01',
-    kind: 'muscle',
+    tier: 'rua',
     unlockBarracoLevel: 1,
     priceCleanMoney: 850,
     targetType: 'frente',
     targetStat: 'rajada',
     bonusPercent: FUGA_BONUS_PERCENT,
     role: 'Arrancada de intimidação',
-    headline: 'Motor bruto, saída violenta e presença na rua.',
-    lore: 'Um muscle car preparado para abrir caminho quando a fuga vira confronto. O ronco aparece antes do carro e pressiona a linha de frente.',
-    mechanicNote: 'Ajuste de torque curto, pneus largos e suspensão baixa para arrancadas agressivas.',
-    paint: { body: '#171717', body2: '#5b1111', neon: '#ff3b2f', glass: '#89f5ff', rim: '#ffd166' },
+    headline: 'Motor bruto, neon vermelho e saída violenta pela garagem clandestina.',
+    lore: 'O Touro Negro não é feito para fugir escondido. Ele abre caminho, impõe presença e transforma a primeira arrancada em pressão psicológica contra qualquer bloqueio.',
+    mechanicNote: 'Torque curto, pneus largos e frente baixa para resposta agressiva nos primeiros metros.',
+    image: `${ASSET_BASE}/touro-negro.png`,
+    accent: '#ff3355',
+    accent2: '#74f7ff',
+    danger: '#ff1d25',
   },
   {
     id: 'bastiao_vx',
     name: 'Bastião VX',
     codename: 'BVX',
-    kind: 'suv',
+    tier: 'blindado',
     unlockBarracoLevel: 5,
     priceCleanMoney: 1250,
     targetType: 'muralha',
     targetStat: 'blindagem',
     bonusPercent: FUGA_BONUS_PERCENT,
     role: 'Blindagem urbana',
-    headline: 'Um cofre sobre rodas para segurar pressão.',
-    lore: 'SUV pesado usado para retirar aliados de zonas quentes. Aguenta impacto, fecha corredor e protege o bonde.',
-    mechanicNote: 'Chapas internas, vidros reforçados e pneus run-flat para manter movimento sob perseguição.',
-    paint: { body: '#1b2a2f', body2: '#0f5f4f', neon: '#58ffd6', glass: '#a8e8ff', rim: '#c8fff2' },
+    headline: 'Um cofre de luxo sobre rodas para tirar o bonde da zona quente.',
+    lore: 'O Bastião VX segura a pressão quando a fuga vira pancada. A estrutura reforçada protege a equipe e mantém o comboio avançando mesmo sob cerco.',
+    mechanicNote: 'Chapas internas, vidros reforçados, pneus run-flat e blindagem de rota urbana.',
+    image: `${ASSET_BASE}/bastiao-vx.png`,
+    accent: '#56ffd6',
+    accent2: '#0e5f58',
+    danger: '#8bfff0',
   },
   {
     id: 'vibora_900',
     name: 'Víbora 900',
     codename: 'V900',
-    kind: 'moto',
+    tier: 'elite',
     unlockBarracoLevel: 10,
     priceCleanMoney: 1850,
     targetType: 'assassino',
     targetStat: 'quebra',
     bonusPercent: FUGA_BONUS_PERCENT,
     role: 'Escape silencioso',
-    headline: 'Some no corredor antes da sirene entender a rota.',
-    lore: 'Moto de fuga leve, baixa e precisa. Ideal para quem entra e sai sem deixar tempo para reação.',
-    mechanicNote: 'Mapa de injeção agressivo, escapamento abafado e relação final curta.',
-    paint: { body: '#260b3f', body2: '#8f1aff', neon: '#ff4fd8', glass: '#e5d3ff', rim: '#f7b7ff' },
+    headline: 'Moto baixa, veneno neon e precisão para entrar e desaparecer.',
+    lore: 'A Víbora 900 foi preparada para fugas onde tamanho atrapalha. Corta corredor, some na fumaça e entrega uma vantagem letal aos operadores mais rápidos.',
+    mechanicNote: 'Relação curta, escapamento abafado e mapa de injeção agressivo para fuga relâmpago.',
+    image: `${ASSET_BASE}/vibora-900.png`,
+    accent: '#ff42df',
+    accent2: '#7b2dff',
+    danger: '#ff78ea',
   },
   {
     id: 'mirage_gt',
     name: 'Mirage GT',
     codename: 'MGT',
-    kind: 'coupe',
+    tier: 'elite',
     unlockBarracoLevel: 15,
     priceCleanMoney: 2700,
     targetType: 'certeiro',
     targetStat: 'rajada',
     bonusPercent: FUGA_BONUS_PERCENT,
     role: 'Precisão em alta velocidade',
-    headline: 'Controle fino para fuga limpa e mira fria.',
-    lore: 'Cupê discreto com resposta precisa. Não é o mais barulhento, mas é o que mantém a rota quando tudo fecha.',
-    mechanicNote: 'Freio cerâmico, tração ajustada e eletrônica calibrada para curvas rápidas.',
-    paint: { body: '#0c2147', body2: '#1769ff', neon: '#4fd6ff', glass: '#bfefff', rim: '#e9fbff' },
+    headline: 'Cupê de controle fino para uma rota limpa quando tudo fecha.',
+    lore: 'O Mirage GT não precisa berrar para dominar. Ele mantém tração, curva e precisão no momento em que a perseguição exige frieza.',
+    mechanicNote: 'Freios cerâmicos, aerodinâmica baixa e controle eletrônico calibrado para curvas rápidas.',
+    image: `${ASSET_BASE}/mirage-gt.png`,
+    accent: '#38c8ff',
+    accent2: '#155dff',
+    danger: '#91e8ff',
   },
   {
     id: 'lastro_4x4',
     name: 'Lastro 4x4',
     codename: 'L4X',
-    kind: 'pickup',
+    tier: 'blindado',
     unlockBarracoLevel: 20,
     priceCleanMoney: 3900,
     targetType: 'capanga',
     targetStat: 'folego',
     bonusPercent: FUGA_BONUS_PERCENT,
     role: 'Carga, resistência e apoio',
-    headline: 'Quando a rota é ruim, ele continua.',
-    lore: 'Caminhonete de apoio para fuga longa. Carrega gente, equipamento e ainda atravessa trecho que carro baixo não passa.',
-    mechanicNote: 'Amortecedor reforçado, diferencial travado e caixa protegida.',
-    paint: { body: '#2c1a0c', body2: '#cc7a1f', neon: '#ffb84d', glass: '#ffe0a8', rim: '#fff0c7' },
+    headline: 'Quando a rota é ruim, ele carrega a operação e continua.',
+    lore: 'O Lastro 4x4 é a máquina de apoio do comando. Entra onde esportivo não entra, aguenta caminho quebrado e segura fuga longa.',
+    mechanicNote: 'Suspensão elevada, diferencial travado, pneus off-road e proteção inferior reforçada.',
+    image: `${ASSET_BASE}/lastro-4x4.png`,
+    accent: '#ffb23e',
+    accent2: '#55310d',
+    danger: '#ffd18b',
   },
   {
     id: 'silenciador_s',
     name: 'Silenciador S',
     codename: 'S-S',
-    kind: 'sedan',
+    tier: 'elite',
     unlockBarracoLevel: 30,
     priceCleanMoney: 5400,
     targetType: 'executor',
     targetStat: 'quebra',
     bonusPercent: FUGA_BONUS_PERCENT,
     role: 'Discrição executiva',
-    headline: 'Luxo escuro, placa fria e saída sem espetáculo.',
-    lore: 'Sedan executivo preparado para sumir no trânsito. A fuga perfeita nem sempre é a mais rápida; às vezes é a mais limpa.',
-    mechanicNote: 'Motor silencioso, película total, suspensão confortável e módulos anti-rastreamento.',
-    paint: { body: '#080b12', body2: '#3e4a62', neon: '#b8c7ff', glass: '#d6ddff', rim: '#f0f3ff' },
+    headline: 'Luxo escuro, saída limpa e presença que não chama sirene.',
+    lore: 'O Silenciador S é para missões em que a melhor fuga é não parecer fuga. Elegante, frio e preparado para sumir no trânsito.',
+    mechanicNote: 'Módulo anti-rastreamento, película total, suspensão refinada e motor preparado para resposta silenciosa.',
+    image: `${ASSET_BASE}/silenciador-s.png`,
+    accent: '#dbe3ff',
+    accent2: '#3b455f',
+    danger: '#ffffff',
   },
   {
     id: 'dinamo_lx',
     name: 'Dínamo LX',
     codename: 'DLX',
-    kind: 'armored',
+    tier: 'phantom',
     unlockBarracoLevel: 40,
     priceCleanMoney: 8200,
     targetType: 'motorista',
     targetStat: 'folego',
     bonusPercent: FUGA_BONUS_PERCENT,
     role: 'Transporte blindado',
-    headline: 'Uma muralha móvel para manter a frota viva.',
-    lore: 'Blindado compacto para retirada de equipe. Não ganha beleza, ganha tempo, resistência e respeito.',
-    mechanicNote: 'Radiador protegido, para-choque reforçado e compartimento interno de emergência.',
-    paint: { body: '#10251f', body2: '#2dd690', neon: '#8dffcb', glass: '#c7ffed', rim: '#eafff7' },
+    headline: 'Muralha móvel para manter a frota viva até o fim da rota.',
+    lore: 'O Dínamo LX é o veículo de retirada pesada. Não compete por beleza: compete por tempo, resistência e sobrevivência.',
+    mechanicNote: 'Radiador protegido, para-choque reforçado, compartimento interno de emergência e blindagem estrutural.',
+    image: `${ASSET_BASE}/dinamo-lx.png`,
+    accent: '#4fd0ff',
+    accent2: '#d4af37',
+    danger: '#ffe27a',
   },
   {
     id: 'nitro_phantom',
     name: 'Nitro Phantom',
     codename: 'NPH',
-    kind: 'super',
+    tier: 'phantom',
     unlockBarracoLevel: 50,
     priceCleanMoney: 12500,
     targetType: 'nitro',
     targetStat: 'rajada',
     bonusPercent: FUGA_BONUS_PERCENT,
     role: 'Fuga extrema',
-    headline: 'A rua vira túnel quando o nitro abre.',
-    lore: 'Supercarro clandestino de fuga final. Chamativo demais para ser discreto, rápido demais para ser alcançado.',
-    mechanicNote: 'Dois estágios de nitro, aerodinâmica baixa e mapa de potência sem piedade.',
-    paint: { body: '#1a0838', body2: '#ff2fb3', neon: '#ffe66d', glass: '#b6f5ff', rim: '#fff3a6' },
+    headline: 'A rua vira túnel quando o Phantom abre o segundo estágio.',
+    lore: 'O Nitro Phantom é a vitrine final da garagem. Chamativo demais para ser discreto, rápido demais para ser alcançado.',
+    mechanicNote: 'Dois estágios de nitro, aerodinâmica de pista e mapa de potência sem piedade.',
+    image: `${ASSET_BASE}/nitro-phantom.png`,
+    accent: '#8a4dff',
+    accent2: '#1f7bff',
+    danger: '#00d9ff',
   },
 ];
 
