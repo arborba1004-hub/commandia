@@ -47,62 +47,18 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 export type BuyFugaVehiclePayload = {
   vehicleId: string;
-  name: string;
-  level: number;
-  image?: string;
-  description?: string;
-  abilityBonusType?: string;
 };
 
-export type BuyFugaCatalogAccessoryPayload = {
-  accessoryId: string;
-  itemName: string;
-  itemDescription?: string;
-  itemPrice: number;
-  itemImage?: string;
-  skillType?: string;
-};
-
-export type BuyFugaVehicleUpgradePayload = {
-  vehicleId: string;
-  vehicleName?: string;
-  vehicleLevel: number;
-  upgradeKey: string;
-  upgradeName: string;
-  targetType: string;
-  targetStat: string;
-};
-
-export type FugaPurchaseResponse = {
-  ok?: boolean;
-  player: unknown;
-  item?: unknown;
-  accessory?: unknown;
-  upgrade?: unknown;
-  statSource?: unknown;
+export type BuyFugaVehicleResponse = {
+  player: any;
+  vehicle: any;
+  item: any;
+  statSource: any;
   message?: string;
 };
 
-export async function buyFugaVehicle(payload: BuyFugaVehiclePayload): Promise<FugaPurchaseResponse> {
-  return request<FugaPurchaseResponse>('/fuga/buy', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function buyFugaCatalogAccessory(
-  payload: BuyFugaCatalogAccessoryPayload,
-): Promise<FugaPurchaseResponse> {
-  return request<FugaPurchaseResponse>('/fuga/accessory/buy', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function buyFugaVehicleUpgrade(
-  payload: BuyFugaVehicleUpgradePayload,
-): Promise<FugaPurchaseResponse> {
-  return request<FugaPurchaseResponse>('/fuga/vehicle-upgrade/buy', {
+export async function buyFugaVehicle(payload: BuyFugaVehiclePayload): Promise<BuyFugaVehicleResponse> {
+  return request<BuyFugaVehicleResponse>('/fuga/buy', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
