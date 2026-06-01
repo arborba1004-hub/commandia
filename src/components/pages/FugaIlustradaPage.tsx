@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -47,6 +47,30 @@ const FILTER_LABEL: Record<FilterState, string> = {
   locked: 'BLOQUEADOS',
 };
 
+const STATUS_ICON = {
+  clean: (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  fleet: (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" aria-hidden="true">
+      <path d="M5 16h14l-1.4-5.3A3 3 0 0 0 14.7 8H9.3a3 3 0 0 0-2.9 2.7L5 16Z" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" />
+      <path d="M7 16v2M17 16v2M8 12h8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  ),
+  barraco: (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" aria-hidden="true">
+      <path d="M4 20h16M6 20V9l6-4 6 4v11M9 20v-6h6v6" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  bonus: (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" aria-hidden="true">
+      <path d="M12 3v18M17 7.5c-.7-1.5-2.1-2.5-4.2-2.5-2.3 0-4 1.1-4 3 0 4.8 8.6 2.2 8.6 7.7 0 2-1.8 3.3-4.5 3.3-2.3 0-4.1-1-5-2.7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  ),
+};
+
 function getVehicleStatus(player: any, vehicle: FugaVehicle, cleanMoney: number, barracoLevel: number): VehicleStatus {
   const owned = isFugaVehicleOwned(player, vehicle.id);
   const unlocked = barracoLevel >= vehicle.unlockBarracoLevel;
@@ -61,48 +85,53 @@ function getStatusLabel(status: VehicleStatus, vehicle: FugaVehicle) {
   return 'FECHAR CONTRATO';
 }
 
-function StatPill({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/55 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
-      <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background: accent ? `linear-gradient(135deg, ${accent}22, transparent 62%)` : 'linear-gradient(135deg, rgba(255,255,255,0.10), transparent 62%)' }} />
-      <p className="relative text-[9px] font-black uppercase tracking-[0.30em] text-white/42">{label}</p>
-      <p
-        className="relative mt-1 text-xl font-black tracking-tight text-white md:text-2xl"
-        style={accent ? { textShadow: `0 0 20px ${accent}70` } : undefined}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function VehicleImage({ vehicle, className = '' }: { vehicle: FugaVehicle; className?: string }) {
+function VehicleImage({ vehicle, className = '', priority = false }: { vehicle: FugaVehicle; className?: string; priority?: boolean }) {
   return (
     <img
       src={vehicle.image}
       alt={vehicle.name}
       draggable={false}
-      loading="lazy"
+      loading={priority ? 'eager' : 'lazy'}
       className={`select-none object-contain ${className}`}
     />
+  );
+}
+
+function LeftMenuStat({ icon, label, value, accent }: { icon: ReactNode; label: string; value: string; accent?: string }) {
+  return (
+    <div className="group relative flex min-h-[72px] items-center gap-4 overflow-hidden rounded-[18px] border border-white/20 bg-gradient-to-b from-[#1c2930]/95 to-[#071014]/95 px-4 py-3 shadow-[0_8px_0_rgba(0,0,0,0.40),inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-xl md:min-h-[82px] md:px-5">
+      <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(255,255,255,0.16),transparent_42%,rgba(255,255,255,0.04))] opacity-80" />
+      <div className="absolute inset-x-2 bottom-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+      <div
+        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+        style={accent ? { color: accent, boxShadow: `0 0 22px ${accent}55, inset 0 1px 0 rgba(255,255,255,0.18)` } : undefined}
+      >
+        {icon}
+      </div>
+      <div className="relative min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-[0.20em] text-white/52">{label}</p>
+        <p className="truncate text-2xl font-black uppercase leading-none text-white md:text-3xl">{value}</p>
+      </div>
+      <div className="absolute right-0 top-0 h-full w-14 bg-gradient-to-l from-white/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+    </div>
   );
 }
 
 function ContractBadge({ vehicle, status }: { vehicle: FugaVehicle; status?: VehicleStatus }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="rounded-full border border-white/15 bg-black/55 px-3 py-1 text-[9px] font-black uppercase tracking-[0.24em] text-white/74 backdrop-blur-xl">
+      <span className="rounded-full border border-white/20 bg-black/65 px-3 py-1 text-[9px] font-black uppercase tracking-[0.24em] text-white/78 backdrop-blur-xl">
         {TIER_LABEL[vehicle.tier]}
       </span>
-      <span className="rounded-full border border-white/15 bg-black/55 px-3 py-1 text-[9px] font-black uppercase tracking-[0.24em] text-white/74 backdrop-blur-xl">
-        LIBERA NV. {vehicle.unlockBarracoLevel}
+      <span className="rounded-full border border-white/20 bg-black/65 px-3 py-1 text-[9px] font-black uppercase tracking-[0.24em] text-white/78 backdrop-blur-xl">
+        Libera Nv. {vehicle.unlockBarracoLevel}
       </span>
-      <span className="rounded-full border border-white/15 bg-black/55 px-3 py-1 text-[9px] font-black uppercase tracking-[0.24em] text-white/74 backdrop-blur-xl">
+      <span className="rounded-full border border-white/20 bg-black/65 px-3 py-1 text-[9px] font-black uppercase tracking-[0.24em] text-white/78 backdrop-blur-xl">
         {vehicle.codename}
       </span>
       {status?.owned && (
-        <span className="rounded-full border border-emerald-300/25 bg-emerald-400/15 px-3 py-1 text-[9px] font-black uppercase tracking-[0.24em] text-emerald-100 backdrop-blur-xl">
-          NA FROTA
+        <span className="rounded-full border border-emerald-300/35 bg-emerald-400/20 px-3 py-1 text-[9px] font-black uppercase tracking-[0.24em] text-emerald-100 backdrop-blur-xl">
+          Na Frota
         </span>
       )}
     </div>
@@ -111,7 +140,7 @@ function ContractBadge({ vehicle, status }: { vehicle: FugaVehicle; status?: Veh
 
 function BonusLine({ vehicle, compact = false }: { vehicle: FugaVehicle; compact?: boolean }) {
   return (
-    <div className={`rounded-2xl border border-white/10 bg-black/45 ${compact ? 'px-3 py-2' : 'px-4 py-3'} shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]`}>
+    <div className={`rounded-[18px] border border-white/12 bg-black/56 ${compact ? 'px-3 py-2' : 'px-4 py-3'} shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]`}>
       <p className="text-[8px] font-black uppercase tracking-[0.30em] text-white/38">Estatística de batalha</p>
       <p className={`${compact ? 'mt-1 text-xs' : 'mt-2 text-sm'} font-black text-white`}>
         <span style={{ color: vehicle.accent }}>+{vehicle.bonusPercent}%</span>{' '}
@@ -121,12 +150,114 @@ function BonusLine({ vehicle, compact = false }: { vehicle: FugaVehicle; compact
   );
 }
 
-function TacticalInfoRow({ label, value }: { label: string; value: string }) {
+function GarageBackdrop({ selectedVehicle }: { selectedVehicle: FugaVehicle }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-white/8 py-3 last:border-b-0">
-      <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">{label}</span>
-      <span className="text-right text-xs font-black uppercase tracking-[0.14em] text-white/84">{value}</span>
-    </div>
+    <>
+      <div className="fixed inset-0 z-0 bg-cover bg-center opacity-75" style={{ backgroundImage: `url(${FUGA_GARAGE_BACKGROUNDS.hero})` }} />
+      <div className="fixed inset-0 z-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.94)_0%,rgba(0,0,0,0.78)_30%,rgba(0,0,0,0.28)_63%,rgba(0,0,0,0.72)_100%)]" />
+      <div className="fixed inset-0 z-0 opacity-65 mix-blend-screen" style={{ background: `radial-gradient(circle at 78% 34%, ${selectedVehicle.accent}74, transparent 28%), radial-gradient(circle at 62% 20%, ${selectedVehicle.accent2}48, transparent 34%)` }} />
+      <div className="fixed inset-0 z-0 opacity-18 [background-image:linear-gradient(rgba(255,255,255,.07)_1px,transparent_1px)] [background-size:100%_4px]" />
+      <div className="fixed inset-x-0 bottom-0 z-0 h-[42vh] bg-[linear-gradient(0deg,#000_0%,rgba(0,0,0,0.78)_52%,transparent_100%)]" />
+    </>
+  );
+}
+
+function HeroVehicleShowcase({ vehicle, status, onContract, loading }: { vehicle: FugaVehicle; status: VehicleStatus; onContract: () => void; loading: boolean }) {
+  return (
+    <motion.section
+      key={vehicle.id}
+      initial={{ opacity: 0, scale: 0.975, x: 28 }}
+      animate={{ opacity: 1, scale: 1, x: 0 }}
+      transition={{ duration: 0.46 }}
+      className="pointer-events-auto relative min-h-[360px] overflow-hidden rounded-[34px] border border-white/10 bg-black/20 p-3 md:min-h-[560px] md:p-5"
+    >
+      <div className="absolute inset-0 opacity-55" style={{ background: `radial-gradient(ellipse at 68% 50%, ${vehicle.accent}42, transparent 45%), radial-gradient(ellipse at 46% 74%, ${vehicle.accent2}30, transparent 42%)` }} />
+      <div className="absolute left-[18%] top-4 h-28 w-1/2 rotate-[-11deg] bg-gradient-to-b from-white/40 to-transparent blur-2xl" />
+      <div className="absolute bottom-[10%] left-[20%] h-14 w-[72%] rounded-full blur-2xl" style={{ background: `radial-gradient(ellipse, ${vehicle.accent}58, transparent 70%)` }} />
+      <div className="absolute bottom-[13%] left-[16%] h-px w-[76%] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
+
+      <div className="relative z-10 flex h-full min-h-[340px] flex-col justify-end md:min-h-[540px]">
+        <div className="ml-auto w-full max-w-[980px]">
+          <VehicleImage vehicle={vehicle} priority className="ml-auto max-h-[300px] w-full drop-shadow-[0_60px_90px_rgba(0,0,0,0.98)] md:max-h-[520px]" />
+        </div>
+
+        <div className="absolute right-3 top-3 max-w-[360px] rounded-[24px] border border-white/12 bg-black/50 p-4 backdrop-blur-2xl md:right-6 md:top-6">
+          <ContractBadge vehicle={vehicle} status={status} />
+          <h2 className="mt-3 text-2xl font-black uppercase tracking-[0.08em] text-white md:text-4xl">{vehicle.name}</h2>
+          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: vehicle.accent }}>{vehicle.classLabel} · {vehicle.role}</p>
+          <p className="mt-3 line-clamp-2 text-xs leading-5 text-white/66 md:text-sm">{vehicle.headline}</p>
+          <div className="mt-3"><BonusLine vehicle={vehicle} compact /></div>
+          <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
+            <div>
+              <p className="text-[8px] font-black uppercase tracking-[0.28em] text-white/40">Contrato</p>
+              <p className="text-lg font-black text-white">{formatFugaMoney(vehicle.priceCleanMoney)} Limpo</p>
+            </div>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onContract}
+              className={`rounded-2xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] transition disabled:opacity-50 ${status.canBuy ? 'bg-white text-black hover:brightness-110' : status.owned ? 'border border-emerald-300/35 bg-emerald-400/18 text-emerald-100' : 'bg-white/[0.08] text-white/64'}`}
+            >
+              {loading ? 'Processando' : getStatusLabel(status, vehicle)}
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function VehicleStripCard({
+  vehicle,
+  selected,
+  status,
+  onSelect,
+  onContract,
+}: {
+  vehicle: FugaVehicle;
+  selected: boolean;
+  status: VehicleStatus;
+  onSelect: () => void;
+  onContract: () => void;
+}) {
+  const locked = !status.unlocked;
+  const baseColor = status.owned ? '#123425' : locked ? '#172238' : '#5a0b16';
+
+  return (
+    <motion.button
+      type="button"
+      whileTap={{ scale: 0.97 }}
+      onClick={onSelect}
+      className={`group relative h-[164px] w-[210px] shrink-0 overflow-hidden rounded-[18px] border p-2 text-left shadow-[0_10px_0_rgba(0,0,0,0.38)] transition md:h-[184px] md:w-[244px] ${selected ? 'border-white shadow-[0_0_32px_rgba(255,255,255,0.24),0_10px_0_rgba(0,0,0,0.45)]' : 'border-white/22 hover:border-white/55'}`}
+      style={{ background: `linear-gradient(135deg, ${baseColor}, #050608 80%)` }}
+    >
+      <div className="absolute inset-0 opacity-70" style={{ background: `radial-gradient(circle at 54% 35%, ${vehicle.accent}32, transparent 48%)` }} />
+      <div className="absolute inset-x-2 top-2 flex items-center justify-between">
+        <span className={`grid h-8 w-8 place-items-center rounded-lg border border-white/25 bg-black/70 text-sm font-black ${locked ? 'text-white' : status.owned ? 'text-emerald-200' : 'text-white'}`}>
+          {locked ? '🔒' : status.owned ? '✓' : '↗'}
+        </span>
+        <span className="rounded-full border border-white/18 bg-black/65 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.22em] text-white/70">
+          Nv. {vehicle.unlockBarracoLevel}
+        </span>
+      </div>
+      <VehicleImage vehicle={vehicle} className={`absolute inset-x-1 top-8 mx-auto h-[92px] w-[96%] drop-shadow-[0_18px_24px_rgba(0,0,0,0.82)] transition duration-500 group-hover:scale-110 md:h-[108px] ${locked ? 'opacity-70 grayscale-[0.35]' : ''}`} />
+      <div className="absolute inset-x-2 bottom-2 rounded-[14px] border border-white/12 bg-black/70 px-3 py-2 backdrop-blur-lg">
+        <p className="truncate text-[10px] font-black uppercase tracking-[0.20em] text-white/50">{TIER_LABEL[vehicle.tier]} · {vehicle.codename}</p>
+        <p className="truncate text-sm font-black uppercase tracking-[0.08em] text-white">{vehicle.name}</p>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <span className="truncate text-[10px] font-black text-white/58">+{vehicle.bonusPercent}% {getFugaStatLabel(vehicle.targetStat)}</span>
+          <span className="text-[10px] font-black text-white">{formatFugaMoney(vehicle.priceCleanMoney)}</span>
+        </div>
+      </div>
+      {status.canBuy && (
+        <span
+          onClick={(event) => { event.stopPropagation(); onContract(); }}
+          className="absolute bottom-[76px] right-3 hidden rounded-full bg-white px-3 py-1 text-[8px] font-black uppercase tracking-[0.20em] text-black shadow-lg md:inline-flex"
+        >
+          Comprar
+        </span>
+      )}
+    </motion.button>
   );
 }
 
@@ -135,10 +266,10 @@ function FilterButton({ item, active, onClick }: { item: FilterState; active: bo
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full border px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.24em] transition md:px-5 ${
+      className={`shrink-0 rounded-[14px] border px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] shadow-[0_5px_0_rgba(0,0,0,0.38)] transition ${
         active
-          ? 'border-white bg-white text-black shadow-[0_0_32px_rgba(255,255,255,0.28)]'
-          : 'border-white/14 bg-white/[0.055] text-white/64 hover:border-white/35 hover:bg-white/[0.09]'
+          ? 'border-white bg-white text-black'
+          : 'border-white/18 bg-black/64 text-white/64 hover:border-white/45 hover:text-white'
       }`}
     >
       {FILTER_LABEL[item]}
@@ -146,100 +277,22 @@ function FilterButton({ item, active, onClick }: { item: FilterState; active: bo
   );
 }
 
-function VehicleStage({ vehicle }: { vehicle: FugaVehicle }) {
+function CompactFleetSummary({ stats }: { stats: { owned: number; unlocked: number; locked: number } }) {
   return (
-    <div className="relative flex min-h-[320px] items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-black/45 md:min-h-[420px]">
-      <div className="absolute inset-0 opacity-65" style={{ background: `radial-gradient(circle at 50% 70%, ${vehicle.accent}45, transparent 48%), radial-gradient(circle at 48% 20%, ${vehicle.accent2}24, transparent 40%)` }} />
-      <div className="absolute bottom-7 left-1/2 h-[46px] w-[78%] -translate-x-1/2 rounded-full blur-2xl" style={{ background: `radial-gradient(ellipse, ${vehicle.accent}40, transparent 70%)` }} />
-      <div className="absolute bottom-8 h-px w-[76%] bg-gradient-to-r from-transparent via-white/35 to-transparent" />
-      <VehicleImage
-        vehicle={vehicle}
-        className="relative z-10 max-h-[285px] w-full px-2 drop-shadow-[0_40px_72px_rgba(0,0,0,0.96)] transition-transform duration-1000 hover:scale-[1.035] md:max-h-[390px]"
-      />
-    </div>
-  );
-}
-
-function GarageVehicleCard({
-  vehicle,
-  selected,
-  player,
-  cleanMoney,
-  barracoLevel,
-  onSelect,
-  onContract,
-}: {
-  vehicle: FugaVehicle;
-  selected: boolean;
-  player: any;
-  cleanMoney: number;
-  barracoLevel: number;
-  onSelect: () => void;
-  onContract: () => void;
-}) {
-  const status = getVehicleStatus(player, vehicle, cleanMoney, barracoLevel);
-
-  return (
-    <motion.article
-      layout
-      whileHover={{ scale: 1.012, y: -2 }}
-      whileTap={{ scale: 0.985 }}
-      onClick={onSelect}
-      className={`group relative cursor-pointer overflow-hidden rounded-[30px] border bg-black/62 p-3 transition-all duration-500 ${selected ? 'border-white/55' : 'border-white/10 hover:border-white/30'}`}
-      style={{ boxShadow: selected ? `0 0 62px ${vehicle.glow}, inset 0 0 42px rgba(255,255,255,0.05)` : '0 22px 70px rgba(0,0,0,0.55)' }}
-    >
-      <div className="absolute inset-0 opacity-70" style={{ background: `radial-gradient(circle at 42% 12%, ${vehicle.accent}2f, transparent 42%), linear-gradient(180deg, rgba(255,255,255,0.065), rgba(0,0,0,0.78))` }} />
-      {!status.unlocked && (
-        <div className="absolute inset-0 z-20 bg-black/68 backdrop-blur-[2px]" />
-      )}
-
-      <div className="relative z-30 flex min-h-[380px] flex-col">
-        <div className="flex items-start justify-between gap-3 px-2 pt-2">
-          <div>
-            <p className="text-[8px] font-black uppercase tracking-[0.34em] text-white/44">Contrato de fuga</p>
-            <h3 className="mt-2 text-xl font-black uppercase tracking-[0.10em] text-white">{vehicle.name}</h3>
-          </div>
-          <span className="rounded-full border border-white/14 bg-black/55 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.24em] text-white/66">
-            {vehicle.codename}
-          </span>
-        </div>
-
-        <div className="relative mt-3 h-[156px] overflow-hidden rounded-[24px] border border-white/10 bg-black/40">
-          <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 68%, ${vehicle.accent}3d, transparent 52%)` }} />
-          <VehicleImage vehicle={vehicle} className="absolute inset-0 h-full w-full p-2 drop-shadow-[0_24px_34px_rgba(0,0,0,0.86)] transition-transform duration-700 group-hover:scale-[1.06]" />
-          {!status.unlocked && (
-            <div className="absolute inset-0 flex items-end justify-center p-4">
-              <div className="rounded-full border border-white/15 bg-black/75 px-4 py-2 text-center text-[9px] font-black uppercase tracking-[0.24em] text-white">
-                Libera no Barraco Nv. {vehicle.unlockBarracoLevel}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <p className="mt-4 line-clamp-2 px-2 text-xs leading-5 text-white/62">{vehicle.headline}</p>
-        <div className="mt-4 px-2"><BonusLine vehicle={vehicle} compact /></div>
-
-        <div className="mt-auto grid gap-2 px-2 pt-4">
-          <div className="rounded-2xl border border-white/10 bg-black/45 px-4 py-3">
-            <p className="text-[8px] font-black uppercase tracking-[0.28em] text-white/34">Valor do contrato</p>
-            <p className="mt-1 text-base font-black text-white">{formatFugaMoney(vehicle.priceCleanMoney)} Limpo</p>
-          </div>
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); status.canBuy ? onContract() : onSelect(); }}
-            className={`rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-[0.30em] transition ${
-              status.canBuy
-                ? 'bg-white text-black hover:tracking-[0.36em] hover:brightness-110'
-                : status.owned
-                ? 'border border-emerald-300/25 bg-emerald-400/15 text-emerald-100'
-                : 'bg-white/[0.08] text-white/58'
-            }`}
-          >
-            {status.owned ? 'Na frota' : status.canBuy ? 'Fechar contrato' : status.unlocked ? 'Inspecionar' : 'Bloqueado'}
-          </button>
-        </div>
+    <div className="grid grid-cols-3 gap-2 rounded-[20px] border border-white/10 bg-black/58 p-2 backdrop-blur-xl">
+      <div className="rounded-[14px] bg-white/[0.06] px-3 py-2 text-center">
+        <p className="text-[8px] font-black uppercase tracking-[0.24em] text-white/40">Liberados</p>
+        <p className="text-xl font-black text-white">{stats.unlocked}</p>
       </div>
-    </motion.article>
+      <div className="rounded-[14px] bg-emerald-400/10 px-3 py-2 text-center">
+        <p className="text-[8px] font-black uppercase tracking-[0.24em] text-emerald-100/45">Na frota</p>
+        <p className="text-xl font-black text-emerald-100">{stats.owned}</p>
+      </div>
+      <div className="rounded-[14px] bg-white/[0.06] px-3 py-2 text-center">
+        <p className="text-[8px] font-black uppercase tracking-[0.24em] text-white/40">Bloqueados</p>
+        <p className="text-xl font-black text-white">{stats.locked}</p>
+      </div>
+    </div>
   );
 }
 
@@ -333,16 +386,12 @@ export default function FugaIlustradaPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#050505] text-white">
+    <div className="min-h-screen overflow-x-hidden bg-black text-white">
       <Header />
       <FugaSmokeFX />
+      <GarageBackdrop selectedVehicle={selectedVehicle} />
 
-      <main className="relative z-20 mx-auto max-w-[1680px] px-3 pb-24 pt-[116px] sm:px-5 md:px-8 md:pt-[146px]">
-        <div className="fixed inset-0 z-0 bg-cover bg-center opacity-58" style={{ backgroundImage: `url(${FUGA_GARAGE_BACKGROUNDS.hero})` }} />
-        <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.16),transparent_30%),linear-gradient(180deg,rgba(0,0,0,0.48),#020202_78%)]" />
-        <div className="fixed inset-0 z-0 opacity-55 mix-blend-screen" style={{ background: `radial-gradient(circle at 18% 10%, ${selectedVehicle.accent}5a, transparent 34%), radial-gradient(circle at 86% 4%, ${selectedVehicle.accent2}48, transparent 36%)` }} />
-        <div className="fixed inset-x-0 bottom-0 z-0 h-[45vh] bg-[linear-gradient(0deg,#000_0%,rgba(0,0,0,0.64)_55%,transparent_100%)]" />
-
+      <main className="relative z-20 mx-auto flex min-h-screen max-w-[1920px] flex-col px-3 pb-24 pt-[104px] sm:px-5 md:px-8 md:pt-[132px]">
         <AnimatePresence>
           {message && (
             <motion.div
@@ -356,108 +405,59 @@ export default function FugaIlustradaPage() {
           )}
         </AnimatePresence>
 
-        <section className="relative overflow-hidden rounded-[36px] border border-white/10 bg-black/52 p-4 shadow-[0_38px_140px_rgba(0,0,0,0.78)] backdrop-blur-2xl md:p-7">
-          <div className="absolute inset-0 opacity-85" style={{ background: `linear-gradient(135deg, ${selectedVehicle.accent}20, transparent 44%), radial-gradient(circle at 74% 30%, ${selectedVehicle.accent2}26, transparent 42%)` }} />
-          <div className="absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+        <section className="relative grid flex-1 gap-4 lg:grid-cols-[410px_minmax(0,1fr)] lg:items-start xl:grid-cols-[460px_minmax(0,1fr)]">
+          <aside className="pointer-events-auto relative z-30 rounded-[30px] border border-white/10 bg-black/35 p-4 backdrop-blur-[2px] lg:bg-transparent lg:p-0 lg:backdrop-blur-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.50em] text-white/55">Garagem clandestina</p>
+            <h1 className="mt-2 text-5xl font-black uppercase leading-[0.86] tracking-[0.03em] text-white sm:text-6xl md:text-7xl lg:text-[78px]" style={{ textShadow: '0 0 14px rgba(255,62,74,0.80), 0 5px 0 rgba(0,0,0,0.70)' }}>
+              Garagem<br />da Fuga
+            </h1>
+            <p className="mt-4 max-w-[410px] text-xs font-bold leading-6 text-white/62 md:text-sm">
+              Frota tática comprada com Commands Limpo. Cada contrato entra no inventário e adiciona +1% permanente em estatística real da gangue usada na batalha.
+            </p>
 
-          <div className="relative grid gap-6 lg:grid-cols-[0.88fr_1.12fr] lg:items-stretch">
-            <div className="rounded-[32px] border border-white/10 bg-black/46 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl md:p-8">
-              <p className="text-[10px] font-black uppercase tracking-[0.46em] text-white/48">Garagem clandestina · Pátio privado</p>
-              <h1 className="mt-4 text-5xl font-black uppercase leading-[0.88] tracking-[0.055em] text-white sm:text-6xl md:text-7xl">
-                Garagem<br />da Fuga
-              </h1>
-              <p className="mt-6 max-w-2xl text-sm leading-7 text-white/70 md:text-base">
-                Contratos táticos de frota para fuga, perseguição e guerra de rua. Cada compra usa Commands Limpo, entra no inventário e aplica +1% permanente em estatística real da gangue usada na batalha.
-              </p>
-
-              <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <StatPill label="Commands limpo" value={formatFugaMoney(cleanMoney)} accent={selectedVehicle.accent} />
-                <StatPill label="Frota atual" value={`${ownedVehicles.length}/${FUGA_MAX_VEHICLES}`} />
-                <StatPill label="Barraco" value={`Nv. ${barracoLevel}`} />
-                <StatPill label="Bônus ativos" value={`+${ownedVehicles.length}%`} accent={selectedVehicle.accent2} />
-              </div>
-
-              <div className="mt-6 rounded-[28px] border border-white/10 bg-black/46 p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.32em] text-white/45">Progresso da frota</p>
-                  <p className="text-sm font-black text-white">{progress}%</p>
-                </div>
-                <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/[0.08]">
-                  <motion.div
-                    className="h-full rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    style={{ background: `linear-gradient(90deg, ${selectedVehicle.accent}, ${selectedVehicle.accent2})` }}
-                  />
-                </div>
-                {nextLocked && (
-                  <p className="mt-3 text-[10px] font-black uppercase tracking-[0.20em] text-white/52">
-                    Próxima liberação: <span className="text-white">{nextLocked.name}</span> no barraco Nv. {nextLocked.unlockBarracoLevel}
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                <StatPill label="Liberados" value={String(stats.unlocked)} accent={selectedVehicle.accent} />
-                <StatPill label="Na frota" value={String(stats.owned)} accent="#34d399" />
-                <StatPill label="Bloqueados" value={String(stats.locked)} />
-              </div>
+            <div className="mt-5 grid gap-3">
+              <LeftMenuStat icon={STATUS_ICON.clean} label="Commands Limpo" value={formatFugaMoney(cleanMoney)} accent={selectedVehicle.accent} />
+              <LeftMenuStat icon={STATUS_ICON.fleet} label="Frota" value={`${ownedVehicles.length}/${FUGA_MAX_VEHICLES}`} accent={selectedVehicle.accent2} />
+              <LeftMenuStat icon={STATUS_ICON.barraco} label="Barraco" value={`Nv. ${barracoLevel}`} />
+              <LeftMenuStat icon={STATUS_ICON.bonus} label="Bônus" value={`+${ownedVehicles.length}%`} accent="#ffd84a" />
             </div>
 
-            <motion.div
-              key={selectedVehicle.id}
-              initial={{ opacity: 0, scale: 0.965, filter: 'blur(8px)' }}
-              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-              transition={{ duration: 0.46 }}
-              className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black/58 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:p-6"
-              style={{ boxShadow: `0 0 96px ${selectedVehicle.glow}` }}
-            >
-              <div className="absolute inset-0 bg-cover bg-center opacity-44" style={{ backgroundImage: `url(${FUGA_GARAGE_BACKGROUNDS.contract})` }} />
-              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 52% 48%, ${selectedVehicle.accent}38, transparent 45%), linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.82))` }} />
-
-              <div className="relative z-10 flex min-h-[610px] flex-col">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <ContractBadge vehicle={selectedVehicle} status={selectedStatus} />
-                    <h2 className="mt-4 text-4xl font-black uppercase tracking-[0.08em] text-white md:text-6xl">{selectedVehicle.name}</h2>
-                    <p className="mt-2 text-xs font-black uppercase tracking-[0.28em]" style={{ color: selectedVehicle.accent }}>{selectedVehicle.classLabel} · {selectedVehicle.role}</p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={loadingVehicleId === selectedVehicle.id}
-                    onClick={() => selectedStatus.canBuy ? setContractVehicle(selectedVehicle) : setMessage({ type: selectedStatus.owned ? 'success' : 'error', text: getStatusLabel(selectedStatus, selectedVehicle) })}
-                    className={`rounded-2xl px-5 py-3 text-[10px] font-black uppercase tracking-[0.30em] transition disabled:opacity-50 ${selectedStatus.canBuy ? 'bg-white text-black hover:brightness-110' : selectedStatus.owned ? 'border border-emerald-300/25 bg-emerald-400/16 text-emerald-100' : 'bg-white/[0.09] text-white/60'}`}
-                  >
-                    {loadingVehicleId === selectedVehicle.id ? 'Processando...' : getStatusLabel(selectedStatus, selectedVehicle)}
-                  </button>
-                </div>
-
-                <div className="mt-5 flex-1"><VehicleStage vehicle={selectedVehicle} /></div>
-
-                <div className="mt-5 grid gap-3 md:grid-cols-[1fr_0.78fr]">
-                  <div className="rounded-[26px] border border-white/10 bg-black/50 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.32em] text-white/38">Dossiê da máquina</p>
-                    <p className="mt-2 text-sm leading-6 text-white/72">{selectedVehicle.lore}</p>
-                    <p className="mt-3 text-xs leading-5 text-white/45">{selectedVehicle.mechanicNote}</p>
-                  </div>
-                  <div className="grid gap-3">
-                    <BonusLine vehicle={selectedVehicle} />
-                    <div className="rounded-2xl border border-white/10 bg-black/45 px-4 py-3">
-                      <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/38">Contrato</p>
-                      <p className="mt-1 text-lg font-black text-white">{formatFugaMoney(selectedVehicle.priceCleanMoney)} Commands Limpo</p>
-                    </div>
-                  </div>
-                </div>
+            <div className="mt-4 rounded-[22px] border border-white/14 bg-black/58 p-4 shadow-[0_8px_0_rgba(0,0,0,0.38)] backdrop-blur-xl">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.30em] text-white/42">Progresso</p>
+                <p className="text-sm font-black text-white">{progress}%</p>
               </div>
-            </motion.div>
-          </div>
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/[0.10]">
+                <motion.div
+                  className="h-full rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  style={{ background: `linear-gradient(90deg, ${selectedVehicle.accent}, ${selectedVehicle.accent2})` }}
+                />
+              </div>
+              {nextLocked && (
+                <p className="mt-3 text-[10px] font-black uppercase leading-5 tracking-[0.18em] text-white/52">
+                  Próxima liberação: <span className="text-white">{nextLocked.name}</span> no barraco Nv. {nextLocked.unlockBarracoLevel}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4"><CompactFleetSummary stats={stats} /></div>
+          </aside>
+
+          <HeroVehicleShowcase
+            vehicle={selectedVehicle}
+            status={selectedStatus}
+            loading={loadingVehicleId === selectedVehicle.id}
+            onContract={() => selectedStatus.canBuy ? setContractVehicle(selectedVehicle) : setMessage({ type: selectedStatus.owned ? 'success' : 'error', text: getStatusLabel(selectedStatus, selectedVehicle) })}
+          />
         </section>
 
-        <section className="relative mt-6 rounded-[36px] border border-white/10 bg-black/52 p-4 shadow-[0_35px_118px_rgba(0,0,0,0.68)] backdrop-blur-2xl md:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <section className="pointer-events-auto relative z-40 mt-5 overflow-hidden rounded-[26px] border border-white/12 bg-black/72 p-3 shadow-[0_18px_70px_rgba(0,0,0,0.70)] backdrop-blur-2xl md:p-4">
+          <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.42em] text-white/42">20 contratos · liberação a cada 5 níveis · estatísticas reais</p>
-              <h2 className="mt-2 text-3xl font-black uppercase tracking-[0.08em] md:text-4xl">Pátio da Fuga</h2>
+              <p className="text-[9px] font-black uppercase tracking-[0.36em] text-white/38">20 contratos · liberação a cada 5 níveis · estatísticas reais</p>
+              <h2 className="mt-1 text-xl font-black uppercase tracking-[0.12em] text-white md:text-2xl">Pátio da Fuga</h2>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1 md:overflow-visible">
               {(['all', 'unlocked', 'owned', 'locked'] as FilterState[]).map((item) => (
@@ -466,19 +466,20 @@ export default function FugaIlustradaPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {filteredVehicles.map((vehicle) => (
-              <GarageVehicleCard
-                key={vehicle.id}
-                vehicle={vehicle}
-                selected={selectedVehicle.id === vehicle.id}
-                player={player}
-                cleanMoney={cleanMoney}
-                barracoLevel={barracoLevel}
-                onSelect={() => setSelectedVehicleId(vehicle.id)}
-                onContract={() => { setSelectedVehicleId(vehicle.id); setContractVehicle(vehicle); }}
-              />
-            ))}
+          <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
+            {filteredVehicles.map((vehicle) => {
+              const status = getVehicleStatus(player, vehicle, cleanMoney, barracoLevel);
+              return (
+                <VehicleStripCard
+                  key={vehicle.id}
+                  vehicle={vehicle}
+                  selected={selectedVehicle.id === vehicle.id}
+                  status={status}
+                  onSelect={() => setSelectedVehicleId(vehicle.id)}
+                  onContract={() => { setSelectedVehicleId(vehicle.id); setContractVehicle(vehicle); }}
+                />
+              );
+            })}
           </div>
         </section>
       </main>
@@ -486,7 +487,7 @@ export default function FugaIlustradaPage() {
       <AnimatePresence>
         {contractVehicle && (
           <motion.div
-            className="fixed inset-0 z-[90] flex items-end justify-center bg-black/82 p-3 backdrop-blur-md md:items-center md:p-6"
+            className="fixed inset-0 z-[90] flex items-end justify-center bg-black/86 p-3 backdrop-blur-md md:items-center md:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -507,10 +508,13 @@ export default function FugaIlustradaPage() {
                   <ContractBadge vehicle={contractVehicle} status={getVehicleStatus(player, contractVehicle, cleanMoney, barracoLevel)} />
                   <h3 className="mt-4 text-4xl font-black uppercase tracking-[0.08em] text-white md:text-5xl">{contractVehicle.name}</h3>
                   <p className="mt-3 text-sm leading-7 text-white/68">{contractVehicle.lore}</p>
-                  <div className="mt-5"><VehicleStage vehicle={contractVehicle} /></div>
+                  <div className="relative mt-5 flex min-h-[300px] items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-black/52 md:min-h-[390px]">
+                    <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 52% 68%, ${contractVehicle.accent}45, transparent 48%)` }} />
+                    <VehicleImage vehicle={contractVehicle} priority className="relative z-10 max-h-[280px] w-full drop-shadow-[0_45px_80px_rgba(0,0,0,0.95)] md:max-h-[360px]" />
+                  </div>
                 </div>
 
-                <div className="rounded-[28px] border border-white/10 bg-black/60 p-5 backdrop-blur-2xl">
+                <div className="rounded-[28px] border border-white/10 bg-black/62 p-5 backdrop-blur-2xl">
                   <p className="text-[10px] font-black uppercase tracking-[0.34em] text-white/42">Contrato tático</p>
                   <div className="mt-4 grid gap-3">
                     <BonusLine vehicle={contractVehicle} />
@@ -525,7 +529,11 @@ export default function FugaIlustradaPage() {
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3">
                       <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/38">Batalha</p>
-                      <p className="mt-1 text-xs leading-5 text-white/58">O backend salva esta compra em <span className="text-white">gang.statSources</span>; o motor de ataque usa o snapshot efetivo da gangue na resolução.</p>
+                      <p className="mt-1 text-xs leading-5 text-white/58">A compra é salva em <span className="text-white">gang.statSources</span>; o motor de ataque usa o snapshot efetivo da gangue na resolução.</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3">
+                      <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/38">Nota do mecânico</p>
+                      <p className="mt-1 text-xs leading-5 text-white/58">{contractVehicle.mechanicNote}</p>
                     </div>
                   </div>
 
