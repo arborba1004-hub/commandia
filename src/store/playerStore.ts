@@ -121,7 +121,7 @@ type CardCollectionState = { cards: GiroCard[]; completedSets: string[]; totalCa
 export type PlayerState = {
   _id?: string; googleId?: string; email?: string; name?: string; avatar?: string;
   niveis: Niveis; balances: Balances; inventory: Inventory; pageLevels: PageLevels; skills: Skills;
-  power: number; hierarchyBadge: string; currentRank?: string; unlockedRanks?: string[];
+  power: number; battlePrestige?: number; hierarchyBadge: string; currentRank?: string; unlockedRanks?: string[];
   barracoPosition: BarracoPosition; mapPosition?: MapPosition;
   laundryProgress: LaundryProgress; punishments: PunishmentsState;
   skillBoostMultiplier: number; headerCustomization?: HeaderCustomization;
@@ -258,6 +258,7 @@ const initialPlayer: PlayerState = {
   pageLevels: { barraco: 1, giro: 1, lavagem: 1, luxury: 1, fuga: 1, arsenal: 1, bribery: 1, hierarchy: 1, home: 1, game: 1 },
   skills:    { attack: 0, defense: 0, intelligence: 0, agility: 0, respect: 0, vigor: 0 },
   power:     0,
+  battlePrestige: 0,
   hierarchyBadge: 'Antena',
   currentRank:    'Atividade',
   unlockedRanks:  ['Atividade'],
