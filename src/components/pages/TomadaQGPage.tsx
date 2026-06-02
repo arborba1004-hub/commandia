@@ -206,7 +206,7 @@ function TacticalMap({
                 <p className="text-xs font-black uppercase tracking-[4px] text-yellow-200/60">Prédio central</p>
                 <h2 className="mt-2 text-4xl font-black uppercase tracking-tight text-white md:text-6xl">QG</h2>
                 <p className="mt-3 max-w-md text-sm font-medium leading-relaxed text-white/60">
-                  Segure este prédio por 8 horas seguidas. Os CTs inimigos drenam a guarnição do QG a cada 30 segundos.
+                  Ocupe este prédio pelo maior tempo possível entre 18h e 00h. Os CTs inimigos drenam a guarnição do QG a cada 30 segundos.
                 </p>
               </div>
               <span className="rounded-full border border-yellow-200/25 bg-yellow-400/10 px-4 py-2 text-[11px] font-black uppercase tracking-[3px] text-yellow-100">
@@ -237,7 +237,7 @@ function Leaderboard({ state }: { state: QgEventState | null }) {
   return (
     <div className="rounded-[2rem] border border-white/10 bg-black/70 p-4 shadow-2xl backdrop-blur-2xl md:p-5">
       <h3 className="text-lg font-black uppercase tracking-tight text-white">Ranking da tomada</h3>
-      <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-white/40">Prioridade: maior ocupação contínua do QG</p>
+      <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-white/40">Prioridade: maior tempo acumulado no QG</p>
       <div className="mt-4 space-y-3">
         {rows.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/55">Nenhuma facção pontuou ainda.</p>}
         {rows.slice(0, 8).map((item) => (
@@ -248,7 +248,7 @@ function Leaderboard({ state }: { state: QgEventState | null }) {
             <div className="min-w-0">
               <p className="truncate text-sm font-black uppercase text-white">[{item.factionTag}] {item.factionName}</p>
               <p className="text-[11px] font-bold uppercase tracking-widest text-white/40">
-                QG {formatQGDuration(item.qgMaxContinuousHoldMs)} • CTs {item.ctCaptures} • dano {formatQGNumber(item.ctDamageDealt)}
+                QG {formatQGDuration(item.qgHoldMs)} • maior sequência {formatQGDuration(item.qgMaxContinuousHoldMs)} • CTs {item.ctCaptures}
               </p>
             </div>
             <p className="text-right text-xl font-black text-white">{formatQGNumber(item.contribution)}</p>
@@ -702,7 +702,7 @@ export default function TomadaQGPage() {
                 Tomada do <span className={`bg-gradient-to-r ${theme.gradient} bg-clip-text text-transparent`}>QG</span>
               </h1>
               <p className="mt-4 max-w-3xl text-sm font-medium leading-relaxed text-white/62 md:text-base">
-                O QG central é a Prefeitura do Commandia. A facção precisa segurar o prédio por 8 horas seguidas. Os 4 CTs reais do mapa funcionam como fortalezas: se forem inimigos do dono do QG, drenam a guarnição a cada 30 segundos.
+                O QG central é a Prefeitura do Commandia. A guerra acontece das 18h à 00h e vence a facção que somar mais tempo ocupando o QG. Os 4 CTs reais do mapa funcionam como fortalezas: se forem inimigos do dono do QG, drenam a guarnição a cada 30 segundos.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:min-w-[680px]">
@@ -767,8 +767,8 @@ export default function TomadaQGPage() {
             <div className="rounded-[2rem] border border-white/10 bg-black/70 p-4 shadow-2xl backdrop-blur-2xl md:p-5">
               <h3 className="text-lg font-black uppercase tracking-tight text-white">Regras essenciais</h3>
               <ul className="mt-4 space-y-3 text-sm font-medium leading-relaxed text-white/58">
-                <li><b className="text-white">1.</b> Evento automático às 22h a cada 72 horas.</li>
-                <li><b className="text-white">2.</b> O QG precisa ser ocupado por 8 horas seguidas.</li>
+                <li><b className="text-white">1.</b> Evento automático às 18h a cada 72 horas.</li>
+                <li><b className="text-white">2.</b> A batalha vai das 18h à 00h e vence quem acumular mais tempo no QG.</li>
                 <li><b className="text-white">3.</b> CT inimigo do dono do QG causa desgaste a cada 30 segundos.</li>
                 <li><b className="text-white">4.</b> Vencedor recebe janela de nomeação e mandato até a próxima Tomada.</li>
                 <li><b className="text-white">5.</b> Bônus do mandato entram em <b className="text-white">gang.statSources</b> e valem na batalha real.</li>
