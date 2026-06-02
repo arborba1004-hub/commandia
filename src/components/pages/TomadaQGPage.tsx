@@ -9,6 +9,9 @@ import {
   QG_MEMBER_LABELS,
   QG_MEMBER_TYPES,
   appointQgRole,
+  assignQgServant,
+  sendQgMandatePack,
+  useQgMandateAbility,
   formatQGClock,
   formatQGDuration,
   formatQGNumber,
@@ -18,6 +21,8 @@ import {
   type QgEventState,
   type QgLocationKey,
   type QgLocationState,
+  type QgMandateCost,
+  type QgMandateReward,
   type QgMemberType,
   type QgSelection,
 } from '@/api/qgEventApi';
@@ -66,6 +71,25 @@ function StatusBadge({ status }: { status?: string | null }) {
       {QG_STATUS_LABELS[status || 'closed'] || 'Tomada do QG'}
     </div>
   );
+}
+
+
+function formatMandateCost(cost?: QgMandateCost | null): string {
+  const parts: string[] = [];
+  if (cost?.dirtyMoney) parts.push(`${formatQGNumber(cost.dirtyMoney)} Sujo`);
+  if (cost?.cleanMoney) parts.push(`${formatQGNumber(cost.cleanMoney)} Limpo`);
+  if (cost?.corre) parts.push(`${formatQGNumber(cost.corre)} Corre`);
+  return parts.length ? parts.join(' • ') : 'Sem custo';
+}
+
+function formatMandateReward(reward?: QgMandateReward | null): string {
+  const parts: string[] = [];
+  if (reward?.dirtyMoney) parts.push(`${formatQGNumber(reward.dirtyMoney)} Sujo`);
+  if (reward?.cleanMoney) parts.push(`${formatQGNumber(reward.cleanMoney)} Limpo`);
+  if (reward?.corre) parts.push(`${formatQGNumber(reward.corre)} Corre`);
+  if (reward?.barracoAcceleratorSeconds) parts.push(`${Math.floor(reward.barracoAcceleratorSeconds / 60)}min obra`);
+  if (reward?.convoyAcceleratorTwoX) parts.push(`${reward.convoyAcceleratorTwoX} acelerador comboio`);
+  return parts.length ? parts.join(' • ') : 'Recompensa especial';
 }
 
 function LocationNode({
@@ -335,6 +359,155 @@ function SelectionPanel({
   );
 }
 
+
+function MandateTools({
+  state,
+  busy,
+  onAbility,
+  onPack,
+  onServant,
+}: {
+  state: QgEventState | null;
+  busy: boolean;
+  onAbility: (abilityId: string) => void;
+  onPack: (packId: string, playerId: string) => void;
+  onServant: (penaltyId: string, playerId: string) => void;
+}) {
+  const [packTarget, setPackTarget] = useState('');
+  const [servantTarget, setServantTarget] = useState('');
+  const mandate = state?.event?.mandate;
+  const winnerFactionId = state?.event?.winnerFactionId || mandate?.factionId;
+  const winnerParticipants = (state?.event?.topParticipants || []).filter((p) => p.factionId === winnerFactionId);
+  const rivalParticipants = (state?.event?.topParticipants || []).filter((p) => p.factionId && p.factionId !== winnerFactionId);
+
+  useEffect(() => {
+    if (!packTarget && winnerParticipants[0]?.playerId) setPackTarget(winnerParticipants[0].playerId);
+  }, [packTarget, winnerParticipants]);
+
+  useEffect(() => {
+    if (!servantTarget && rivalParticipants[0]?.playerId) setServantTarget(rivalParticipants[0].playerId);
+  }, [servantTarget, rivalParticipants]);
+
+  if (state?.event?.status !== 'mandate') return null;
+
+  return (
+    <div className="rounded-[2rem] border border-yellow-300/15 bg-black/75 p-4 shadow-2xl backdrop-blur-2xl md:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-black uppercase tracking-tight text-white">Administração do Complexo</h3>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-white/40">
+            Habilidades, pacotes e servos do mandato
+          </p>
+        </div>
+        <span className="rounded-full border border-yellow-300/20 bg-yellow-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-yellow-100">
+          {state.eligibility?.mandateRoleTitle || 'sem cargo'}
+        </span>
+      </div>
+
+      <div className="mt-5 space-y-5">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[3px] text-white/45">Habilidades do QG</p>
+          <div className="mt-3 grid gap-3">
+            {(state.config?.mandateAbilities || []).map((ability) => (
+              <div key={ability.id} className="rounded-2xl border border-white/10 bg-white/[0.045] p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black uppercase text-white">{ability.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-white/52">{ability.description}</p>
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-yellow-100/70">
+                      Custo: {formatMandateCost(ability.cost)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onAbility(ability.id)}
+                    disabled={busy || !state.eligibility?.canUseMandatePower}
+                    className="shrink-0 rounded-xl border border-white/15 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-black disabled:opacity-35"
+                  >
+                    Ativar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[3px] text-white/45">Pacotes do mandato</p>
+          <select
+            value={packTarget}
+            onChange={(e) => setPackTarget(e.target.value)}
+            className="mt-3 w-full rounded-2xl border border-white/10 bg-black/70 px-3 py-3 text-sm font-bold text-white outline-none"
+          >
+            {winnerParticipants.map((p) => <option key={p.playerId} value={p.playerId}>{p.playerName} [{p.factionTag}]</option>)}
+            {!winnerParticipants.length && <option value="">Sem participantes da facção vencedora</option>}
+          </select>
+          <div className="mt-3 grid gap-3">
+            {(state.config?.rewardPacks || []).map((pack) => (
+              <div key={pack.id} className="rounded-2xl border border-white/10 bg-white/[0.045] p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black uppercase text-white">{pack.title}</p>
+                    <p className="mt-1 text-xs text-white/50">{pack.description}</p>
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-white/45">Custo: {formatMandateCost(pack.cost)}</p>
+                    <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-emerald-200/70">Entrega: {formatMandateReward(pack.reward)}</p>
+                  </div>
+                  <button
+                    onClick={() => packTarget && onPack(pack.id, packTarget)}
+                    disabled={busy || !packTarget || !state.eligibility?.canSendMandatePack}
+                    className="shrink-0 rounded-xl border border-emerald-300/20 bg-emerald-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-100 disabled:opacity-35"
+                  >
+                    Enviar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[3px] text-white/45">Servos / penalidades</p>
+          <select
+            value={servantTarget}
+            onChange={(e) => setServantTarget(e.target.value)}
+            className="mt-3 w-full rounded-2xl border border-white/10 bg-black/70 px-3 py-3 text-sm font-bold text-white outline-none"
+          >
+            {rivalParticipants.map((p) => <option key={p.playerId} value={p.playerId}>{p.playerName} [{p.factionTag}]</option>)}
+            {!rivalParticipants.length && <option value="">Sem rivais elegíveis</option>}
+          </select>
+          <div className="mt-3 grid gap-3">
+            {(state.config?.servantPenalties || []).map((penalty) => (
+              <div key={penalty.id} className="rounded-2xl border border-red-300/15 bg-red-500/[0.06] p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black uppercase text-white">{penalty.title}</p>
+                    <p className="mt-1 text-xs text-white/50">{penalty.description}</p>
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-red-100/70">
+                      {Object.entries(penalty.percent || {}).filter(([, v]) => Number(v) !== 0).map(([k, v]) => `${k} ${v}%`).join(' • ')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => servantTarget && onServant(penalty.id, servantTarget)}
+                    disabled={busy || !servantTarget || !state.eligibility?.canAssignServant}
+                    className="shrink-0 rounded-xl border border-red-300/20 bg-red-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-100 disabled:opacity-35"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <StatCard label="Habilidades usadas" value={String(mandate?.abilityUses?.length || 0)} />
+          <StatCard label="Pacotes enviados" value={String(mandate?.packagesSent?.length || 0)} />
+          <StatCard label="Servos ativos" value={String(mandate?.servants?.length || 0)} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TomadaQGPage() {
   const hydratePlayerFromServer = usePlayerStore((s) => s.hydratePlayerFromServer);
   const [state, setState] = useState<QgEventState | null>(null);
@@ -342,6 +515,7 @@ export default function TomadaQGPage() {
   const [selection, setSelection] = useState<Record<QgMemberType, number>>({ ...DEFAULT_SELECTION });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [mandateBusy, setMandateBusy] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const [, forceTick] = useState(0);
 
@@ -417,6 +591,48 @@ export default function TomadaQGPage() {
       setToast({ type: 'success', text: 'Cargo atualizado.' });
     } catch (error: any) {
       setToast({ type: 'error', text: error?.message || 'Erro ao nomear cargo' });
+    }
+  };
+
+  const handleMandateAbility = async (abilityId: string) => {
+    if (mandateBusy) return;
+    setMandateBusy(true);
+    try {
+      const payload = await useQgMandateAbility(abilityId);
+      setState(payload);
+      setToast({ type: 'success', text: 'Habilidade do QG ativada.' });
+    } catch (error: any) {
+      setToast({ type: 'error', text: error?.message || 'Erro ao ativar habilidade do QG' });
+    } finally {
+      setMandateBusy(false);
+    }
+  };
+
+  const handleMandatePack = async (packId: string, playerId: string) => {
+    if (mandateBusy) return;
+    setMandateBusy(true);
+    try {
+      const payload = await sendQgMandatePack(packId, playerId);
+      setState(payload);
+      setToast({ type: 'success', text: 'Pacote do mandato enviado.' });
+    } catch (error: any) {
+      setToast({ type: 'error', text: error?.message || 'Erro ao enviar pacote do mandato' });
+    } finally {
+      setMandateBusy(false);
+    }
+  };
+
+  const handleMandateServant = async (penaltyId: string, playerId: string) => {
+    if (mandateBusy) return;
+    setMandateBusy(true);
+    try {
+      const payload = await assignQgServant(penaltyId, playerId);
+      setState(payload);
+      setToast({ type: 'success', text: 'Servo do mandato aplicado.' });
+    } catch (error: any) {
+      setToast({ type: 'error', text: error?.message || 'Erro ao aplicar servo do mandato' });
+    } finally {
+      setMandateBusy(false);
     }
   };
 
@@ -512,6 +728,13 @@ export default function TomadaQGPage() {
               setSelection={setSelection}
               submitting={submitting}
               onSend={handleSend}
+            />
+            <MandateTools
+              state={state}
+              busy={mandateBusy}
+              onAbility={handleMandateAbility}
+              onPack={handleMandatePack}
+              onServant={handleMandateServant}
             />
             <div className="rounded-[2rem] border border-white/10 bg-black/70 p-4 shadow-2xl backdrop-blur-2xl md:p-5">
               <h3 className="text-lg font-black uppercase tracking-tight text-white">Regras essenciais</h3>
