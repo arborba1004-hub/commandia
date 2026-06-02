@@ -18,6 +18,7 @@ import {
   formatQGTimeLeft,
   getQgEventState,
   sendQgMarch,
+  withdrawQgGarrison,
   type QgEventState,
   type QgLocationKey,
   type QgLocationState,
@@ -265,6 +266,7 @@ function SelectionPanel({
   setSelection,
   submitting,
   onSend,
+  onWithdraw,
 }: {
   state: QgEventState | null;
   selectedLocation?: QgLocationState;
@@ -272,6 +274,7 @@ function SelectionPanel({
   setSelection: (next: Record<QgMemberType, number>) => void;
   submitting: boolean;
   onSend: () => void;
+  onWithdraw: () => void;
 }) {
   const player = usePlayerStore((s) => s.player);
   const available = useMemo(() => {
@@ -287,6 +290,7 @@ function SelectionPanel({
 
   const selectedTotal = Object.values(selection).reduce((sum, value) => sum + Math.max(0, Number(value || 0)), 0);
   const canMarch = Boolean(state?.eligibility?.canMarch && selectedLocation && selectedTotal > 0 && !submitting);
+  const canWithdraw = Boolean(state?.eligibility?.canWithdraw && selectedLocation && !submitting);
 
   const quickFill = (ratio: number) => {
     const next: Record<QgMemberType, number> = { ...DEFAULT_SELECTION };
@@ -348,13 +352,22 @@ function SelectionPanel({
         })}
       </div>
 
-      <button
-        onClick={onSend}
-        disabled={!canMarch}
-        className="mt-5 w-full rounded-2xl bg-white px-5 py-4 text-sm font-black uppercase tracking-[3px] text-black transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {submitting ? 'Enviando...' : selectedLocation?.occupantFactionId && selectedLocation.occupantFactionId !== state?.eligibility.factionId ? 'Atacar ocupante' : selectedLocation?.occupantFactionId ? 'Reforçar posição' : 'Ocupar posição'}
-      </button>
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+        <button
+          onClick={onSend}
+          disabled={!canMarch}
+          className="w-full rounded-2xl bg-white px-5 py-4 text-sm font-black uppercase tracking-[3px] text-black transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {submitting ? 'Enviando...' : selectedLocation?.occupantFactionId && selectedLocation.occupantFactionId !== state?.eligibility.factionId ? 'Atacar ocupante' : selectedLocation?.occupantFactionId ? 'Reforçar posição' : 'Ocupar posição'}
+        </button>
+        <button
+          onClick={onWithdraw}
+          disabled={!canWithdraw}
+          className="rounded-2xl border border-white/15 bg-white/[0.06] px-5 py-4 text-xs font-black uppercase tracking-[3px] text-white transition hover:border-white/35 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          Retirar
+        </button>
+      </div>
     </div>
   );
 }
@@ -581,6 +594,20 @@ export default function TomadaQGPage() {
     }
   };
 
+  const handleWithdraw = async () => {
+    if (!selectedLocation || submitting) return;
+    setSubmitting(true);
+    try {
+      const payload = await withdrawQgGarrison(selectedLocation.key);
+      setState(payload);
+      setToast({ type: 'success', text: `${payload.withdrawResult?.membersReturned || 0} membros voltaram da guarnição.` });
+    } catch (error: any) {
+      setToast({ type: 'error', text: error?.message || 'Erro ao retirar guarnição' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleAutoAppoint = async () => {
     const role = state?.config?.mandateRoles?.[0];
     const candidate = state?.event?.topParticipants?.find((p) => p.factionId === state?.event?.winnerFactionId);
@@ -728,6 +755,7 @@ export default function TomadaQGPage() {
               setSelection={setSelection}
               submitting={submitting}
               onSend={handleSend}
+              onWithdraw={handleWithdraw}
             />
             <MandateTools
               state={state}
