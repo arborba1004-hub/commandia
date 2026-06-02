@@ -23,7 +23,7 @@ export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
     x: 0,
     z: 0,
     footprint: 10,
-    comingSoon: true,
+    route: '/tomada-qg',
   },
 
   {
