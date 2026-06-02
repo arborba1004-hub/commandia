@@ -23,6 +23,7 @@ const LuxoItemPage = lazy(() => import('@/components/pages/LuxoItemPage'));
 const LuxuryshowroomPage = lazy(() => import('@/components/pages/LuxuryshowroomPage'));
 const BarracoPage = lazy(() => import('@/components/pages/BarracoPage'));
 const FugaIlustradaPage = lazy(() => import('@/components/pages/FugaIlustradaPage'));
+const TomadaQGPage = lazy(() => import('@/components/pages/TomadaQGPage'));
 const ChatPage = lazy(() => import('@/components/pages/ChatPage'));
 const TalentsPage = lazy(() => import('@/components/pages/TalentsPage'));
 const FactionPage = lazy(() => import('@/components/pages/FactionPage'));
@@ -154,6 +155,7 @@ const router = createBrowserRouter(
         { path: 'faccao',  element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><FactionPage /></ProtectedRoute></Suspense> },
         { path: 'ranking', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><RankingPage /></ProtectedRoute></Suspense> },
         { path: 'gang',    element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GangPage /></ProtectedRoute></Suspense> },
+        { path: 'tomada-qg', element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><TomadaQGPage /></ProtectedRoute></Suspense> },
         {
           path: 'luxuryshowroom',
           element: (
@@ -170,6 +172,7 @@ const router = createBrowserRouter(
         { path: 'subornoilustrado', element: <Navigate to="/suborno-ilustrado" replace /> },
         { path: 'delacaopremiada', element: <Navigate to="/delacao-premiada" replace /> },
         { path: 'fuga', element: <Navigate to="/fuga-ilustrada" replace /> },
+        { path: 'qg', element: <Navigate to="/tomada-qg" replace /> },
 
         { path: '*', element: <Navigate to="/" replace /> },
       ],
