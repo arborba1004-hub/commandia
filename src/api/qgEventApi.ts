@@ -103,6 +103,15 @@ export type QgServantPenaltyConfig = {
   allowedRoles: string[];
 };
 
+export type QgResourceDecreeConfig = {
+  id: string;
+  title: string;
+  description: string;
+  cost: QgMandateCost;
+  allowedRoles: string[];
+  effect: string;
+};
+
 export type QgLocationState = {
   key: QgLocationKey;
   kind: 'qg' | 'ct';
@@ -180,6 +189,7 @@ export type QgEventState = {
     mandateAbilities: QgMandateAbilityConfig[];
     rewardPacks: QgRewardPackConfig[];
     servantPenalties: QgServantPenaltyConfig[];
+    resourceDecrees: QgResourceDecreeConfig[];
     factionBuff: Record<string, number>;
   };
   eligibility: {
@@ -196,6 +206,7 @@ export type QgEventState = {
     canUseMandatePower?: boolean;
     canSendMandatePack?: boolean;
     canAssignServant?: boolean;
+    canSetResourceDecree?: boolean;
     barracoLevel: number;
     minBarracoLevel: number;
     marchCapacity: number;
@@ -329,5 +340,13 @@ export async function assignQgServant(penaltyId: string, playerId: string): Prom
   return request<QgEventState>('/qg-event/mandate/servant', {
     method: 'POST',
     body: JSON.stringify({ penaltyId, playerId }),
+  });
+}
+
+
+export async function setQgResourceDecree(decreeId: string): Promise<QgEventState> {
+  return request<QgEventState>('/qg-event/mandate/decree', {
+    method: 'POST',
+    body: JSON.stringify({ decreeId }),
   });
 }
