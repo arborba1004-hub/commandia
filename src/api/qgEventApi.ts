@@ -63,6 +63,44 @@ export type QgMandateRoleConfig = {
   title: string;
   description: string;
   percent: Record<string, number>;
+  powers?: string[];
+};
+
+export type QgMandateCost = { dirtyMoney?: number; cleanMoney?: number; corre?: number };
+export type QgMandateReward = {
+  dirtyMoney?: number;
+  cleanMoney?: number;
+  corre?: number;
+  barracoAcceleratorSeconds?: number;
+  convoyAcceleratorTwoX?: number;
+};
+
+export type QgMandateAbilityConfig = {
+  id: string;
+  title: string;
+  description: string;
+  cost: QgMandateCost;
+  durationMs?: number;
+  rewardTreasury?: QgMandateCost;
+  allowedRoles: string[];
+  effect: string;
+};
+
+export type QgRewardPackConfig = {
+  id: string;
+  title: string;
+  description: string;
+  cost: QgMandateCost;
+  reward: QgMandateReward;
+  allowedRoles: string[];
+};
+
+export type QgServantPenaltyConfig = {
+  id: string;
+  title: string;
+  description: string;
+  percent: Record<string, number>;
+  allowedRoles: string[];
 };
 
 export type QgLocationState = {
@@ -139,6 +177,9 @@ export type QgEventState = {
     tickMs: number;
     locations: QgLocationConfig[];
     mandateRoles: QgMandateRoleConfig[];
+    mandateAbilities: QgMandateAbilityConfig[];
+    rewardPacks: QgRewardPackConfig[];
+    servantPenalties: QgServantPenaltyConfig[];
     factionBuff: Record<string, number>;
   };
   eligibility: {
@@ -147,8 +188,13 @@ export type QgEventState = {
     factionName: string | null;
     factionTag: string | null;
     role: string | null;
+    mandateRoleId?: string | null;
+    mandateRoleTitle?: string | null;
     canMarch: boolean;
     canAppoint: boolean;
+    canUseMandatePower?: boolean;
+    canSendMandatePack?: boolean;
+    canAssignServant?: boolean;
     barracoLevel: number;
     minBarracoLevel: number;
     marchCapacity: number;
@@ -250,4 +296,26 @@ export async function appointQgRole(roleId: string, playerId: string): Promise<Q
 
 export async function reconcileQgEvent(): Promise<QgEventState> {
   return request<QgEventState>('/qg-event/reconcile', { method: 'POST', body: JSON.stringify({}) });
+}
+
+
+export async function useQgMandateAbility(abilityId: string): Promise<QgEventState> {
+  return request<QgEventState>('/qg-event/mandate/ability', {
+    method: 'POST',
+    body: JSON.stringify({ abilityId }),
+  });
+}
+
+export async function sendQgMandatePack(packId: string, playerId: string): Promise<QgEventState> {
+  return request<QgEventState>('/qg-event/mandate/pack', {
+    method: 'POST',
+    body: JSON.stringify({ packId, playerId }),
+  });
+}
+
+export async function assignQgServant(penaltyId: string, playerId: string): Promise<QgEventState> {
+  return request<QgEventState>('/qg-event/mandate/servant', {
+    method: 'POST',
+    body: JSON.stringify({ penaltyId, playerId }),
+  });
 }
