@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { usePlayerStore } from '@/store/playerStore';
+import { useFactionStore } from '@/store/factionStore';
 import { getSocket } from '@/socket';
 import {
   QG_MEMBER_LABELS,
@@ -11,6 +13,7 @@ import {
   appointQgRole,
   assignQgServant,
   sendQgMandatePack,
+  setQgResourceDecree,
   useQgMandateAbility,
   formatQGClock,
   formatQGDuration,
@@ -373,18 +376,95 @@ function SelectionPanel({
 }
 
 
+
+function RoleAppointmentPanel({
+  state,
+  busy,
+  onAppoint,
+}: {
+  state: QgEventState | null;
+  busy: boolean;
+  onAppoint: (roleId: string, playerId: string) => void;
+}) {
+  const myFaction = useFactionStore((s) => s.myFaction);
+  const members = useMemo(() => {
+    const factionMembers = Array.isArray(myFaction?.members) ? myFaction.members : [];
+    if (factionMembers.length > 0) {
+      return factionMembers.map((m: any) => ({ playerId: String(m.playerId), playerName: String(m.playerName || 'Jogador') }));
+    }
+    const winnerFactionId = state?.event?.winnerFactionId || state?.event?.mandate?.factionId;
+    return (state?.event?.topParticipants || [])
+      .filter((p) => p.factionId === winnerFactionId)
+      .map((p) => ({ playerId: p.playerId, playerName: p.playerName }));
+  }, [myFaction, state]);
+
+  const roles = state?.config?.mandateRoles || [];
+  const currentRoles = state?.event?.mandate?.roles || [];
+  const [targets, setTargets] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    for (const role of roles) {
+      const current = currentRoles.find((item: any) => item.roleId === role.id);
+      next[role.id] = String(current?.playerId || members[0]?.playerId || '');
+    }
+    setTargets((old) => ({ ...next, ...old }));
+  }, [roles, currentRoles, members]);
+
+  if (!state?.eligibility?.canAppoint || !['appointment', 'mandate'].includes(String(state?.event?.status))) return null;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-yellow-300/20 bg-yellow-400/[0.06] p-3">
+      <p className="text-[11px] font-black uppercase tracking-[3px] text-yellow-100/70">Nomeação oficial</p>
+      <p className="mt-1 text-xs font-semibold text-white/50">
+        O líder da facção vencedora define os cargos. Durante o mandato, o Líder do Complexo não pode ser trocado.
+      </p>
+      <div className="mt-3 space-y-3">
+        {roles.map((role: any) => {
+          const disabledByMandate = state.event?.status === 'mandate' && role.id === 'lider_complexo';
+          return (
+            <div key={role.id} className="grid gap-2 rounded-xl border border-white/10 bg-black/45 p-3 sm:grid-cols-[1fr_auto]">
+              <label className="min-w-0">
+                <span className="text-xs font-black uppercase tracking-widest text-white/60">{role.title}</span>
+                <select
+                  value={targets[role.id] || ''}
+                  onChange={(e) => setTargets((old) => ({ ...old, [role.id]: e.target.value }))}
+                  disabled={disabledByMandate}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/70 px-3 py-3 text-sm font-bold text-white outline-none disabled:opacity-45"
+                >
+                  {members.map((member) => <option key={member.playerId} value={member.playerId}>{member.playerName}</option>)}
+                  {!members.length && <option value="">Sem membros carregados</option>}
+                </select>
+              </label>
+              <button
+                disabled={busy || disabledByMandate || !targets[role.id]}
+                onClick={() => onAppoint(role.id, targets[role.id])}
+                className="rounded-xl border border-white/15 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-black disabled:opacity-35"
+              >
+                Nomear
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function MandateTools({
   state,
   busy,
   onAbility,
   onPack,
   onServant,
+  onDecree,
 }: {
   state: QgEventState | null;
   busy: boolean;
   onAbility: (abilityId: string) => void;
   onPack: (packId: string, playerId: string) => void;
   onServant: (penaltyId: string, playerId: string) => void;
+  onDecree: (decreeId: string) => void;
 }) {
   const [packTarget, setPackTarget] = useState('');
   const [servantTarget, setServantTarget] = useState('');
@@ -523,8 +603,12 @@ function MandateTools({
 
 export default function TomadaQGPage() {
   const hydratePlayerFromServer = usePlayerStore((s) => s.hydratePlayerFromServer);
+  const [searchParams] = useSearchParams();
   const [state, setState] = useState<QgEventState | null>(null);
-  const [selectedKey, setSelectedKey] = useState<QgLocationKey>('qg');
+  const [selectedKey, setSelectedKey] = useState<QgLocationKey>(() => {
+    const initial = searchParams.get('location') as QgLocationKey | null;
+    return initial && ['qg', 'ct_nw', 'ct_ne', 'ct_sw', 'ct_se'].includes(initial) ? initial : 'qg';
+  });
   const [selection, setSelection] = useState<Record<QgMemberType, number>>({ ...DEFAULT_SELECTION });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -579,6 +663,13 @@ export default function TomadaQGPage() {
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const requestedLocation = searchParams.get('location') as QgLocationKey | null;
+    if (requestedLocation && ['qg', 'ct_nw', 'ct_ne', 'ct_sw', 'ct_se'].includes(requestedLocation)) {
+      setSelectedKey(requestedLocation);
+    }
+  }, [searchParams]);
+
   const handleSend = async () => {
     if (!selectedLocation || submitting) return;
     setSubmitting(true);
@@ -608,16 +699,17 @@ export default function TomadaQGPage() {
     }
   };
 
-  const handleAutoAppoint = async () => {
-    const role = state?.config?.mandateRoles?.[0];
-    const candidate = state?.event?.topParticipants?.find((p) => p.factionId === state?.event?.winnerFactionId);
-    if (!role || !candidate) return;
+  const handleAppointRole = async (roleId: string, playerId: string) => {
+    if (!roleId || !playerId || mandateBusy) return;
+    setMandateBusy(true);
     try {
-      const payload = await appointQgRole(role.id, candidate.playerId);
+      const payload = await appointQgRole(roleId, playerId);
       setState(payload);
       setToast({ type: 'success', text: 'Cargo atualizado.' });
     } catch (error: any) {
       setToast({ type: 'error', text: error?.message || 'Erro ao nomear cargo' });
+    } finally {
+      setMandateBusy(false);
     }
   };
 
@@ -658,6 +750,20 @@ export default function TomadaQGPage() {
       setToast({ type: 'success', text: 'Servo do mandato aplicado.' });
     } catch (error: any) {
       setToast({ type: 'error', text: error?.message || 'Erro ao aplicar servo do mandato' });
+    } finally {
+      setMandateBusy(false);
+    }
+  };
+
+  const handleResourceDecree = async (decreeId: string) => {
+    if (mandateBusy) return;
+    setMandateBusy(true);
+    try {
+      const payload = await setQgResourceDecree(decreeId);
+      setState(payload);
+      setToast({ type: 'success', text: 'Decreto de recurso ativado.' });
+    } catch (error: any) {
+      setToast({ type: 'error', text: error?.message || 'Erro ao ativar decreto de recurso' });
     } finally {
       setMandateBusy(false);
     }
@@ -738,11 +844,7 @@ export default function TomadaQGPage() {
                     </div>
                   ))}
                 </div>
-                {state?.eligibility?.canAppoint && (
-                  <button onClick={handleAutoAppoint} className="mt-4 w-full rounded-2xl border border-yellow-300/30 bg-yellow-400/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-yellow-100">
-                    Nomeação rápida do Líder do Complexo
-                  </button>
-                )}
+                <RoleAppointmentPanel state={state} busy={mandateBusy} onAppoint={handleAppointRole} />
               </div>
             </div>
           </div>
@@ -763,6 +865,7 @@ export default function TomadaQGPage() {
               onAbility={handleMandateAbility}
               onPack={handleMandatePack}
               onServant={handleMandateServant}
+              onDecree={handleResourceDecree}
             />
             <div className="rounded-[2rem] border border-white/10 bg-black/70 p-4 shadow-2xl backdrop-blur-2xl md:p-5">
               <h3 className="text-lg font-black uppercase tracking-tight text-white">Regras essenciais</h3>

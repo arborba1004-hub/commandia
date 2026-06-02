@@ -54,6 +54,7 @@ import {
 import type { AzideiaMission, AzideiaX9Target } from "@/types/azideia";
 import { mountAttackConvoy3D } from "@/components/game/convoy/convoy3DAnimator";
 import { getConvoySkin } from "@/data/convoyCatalog";
+import { getQgEventState } from "@/api/qgEventApi";
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -646,11 +647,25 @@ export default function GamePage() {
       camera,
       container: mountEl,
       onNavigate: (path: string) => {
-        // Intercepta cliques em CTs para abrir modal de treinamento
+        // CTs continuam sendo CTs de treino fora da Tomada.
+        // Durante preparação/guerra do QG, o treino fica bloqueado e o clique leva
+        // direto para a disputa daquele CT real do mapa.
         if (path.startsWith("ct:")) {
           const ctKey = path.replace("ct:", "");
-          setSelectedCT(ctKey);
-          setTrainingModalOpen(true);
+          getQgEventState()
+            .then((payload) => {
+              const status = String(payload?.event?.status || '');
+              if (status === 'preparation' || status === 'active') {
+                navigate(`/tomada-qg?location=${encodeURIComponent(ctKey)}`);
+                return;
+              }
+              setSelectedCT(ctKey);
+              setTrainingModalOpen(true);
+            })
+            .catch(() => {
+              setSelectedCT(ctKey);
+              setTrainingModalOpen(true);
+            });
         } else {
           navigate(path);
         }
