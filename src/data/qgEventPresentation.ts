@@ -2,6 +2,7 @@ import type { QgEventStatus, QgLocationKey } from '@/api/qgEventApi';
 
 export const QG_STATUS_LABELS: Record<string, string> = {
   scheduled: 'Agendado',
+  preparation: 'Preparação',
   active: 'Guerra pelo QG',
   appointment: 'Nomeação',
   mandate: 'Mandato ativo',
@@ -11,6 +12,7 @@ export const QG_STATUS_LABELS: Record<string, string> = {
 
 export const QG_STATUS_DESCRIPTIONS: Record<string, string> = {
   scheduled: 'A Tomada do QG abre automaticamente às 22h a cada 72 horas.',
+  preparation: 'Alerta de guerra: a Tomada abre às 22h. Facções devem preparar marcha e estratégia de CTs.',
   active: 'Facções disputam o QG central e os 4 CTs. O QG precisa ser segurado por 8 horas seguidas.',
   appointment: 'A facção vencedora tem 2 horas para definir os cargos do mandato.',
   mandate: 'O Complexo está sob mandato da facção vencedora. Bônus temporários estão ativos.',
@@ -22,6 +24,8 @@ export function getQGStatusTheme(status?: QgEventStatus | null) {
   switch (status) {
     case 'scheduled':
       return { accent: '#38bdf8', accent2: '#0ea5e9', glow: 'rgba(56,189,248,0.36)', gradient: 'from-sky-400 via-cyan-300 to-white' };
+    case 'preparation':
+      return { accent: '#f97316', accent2: '#facc15', glow: 'rgba(249,115,22,0.36)', gradient: 'from-orange-400 via-yellow-300 to-white' };
     case 'appointment':
       return { accent: '#facc15', accent2: '#f97316', glow: 'rgba(250,204,21,0.34)', gradient: 'from-yellow-300 via-orange-400 to-white' };
     case 'mandate':
@@ -51,6 +55,7 @@ export function describeQgOutcome(outcome?: string) {
     case 'qg_captured': return 'Sua facção expulsou o ocupante e tomou o QG.';
     case 'ct_captured': return 'Sua facção tomou o CT rival.';
     case 'attack_repelled': return 'A guarnição rival segurou o ponto.';
+    case 'garrison_withdrawn': return 'Sua guarnição voltou do ponto selecionado.';
     default: return 'Marcha enviada para a Tomada do QG.';
   }
 }
