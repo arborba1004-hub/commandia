@@ -11,9 +11,9 @@ export const QG_STATUS_LABELS: Record<string, string> = {
 };
 
 export const QG_STATUS_DESCRIPTIONS: Record<string, string> = {
-  scheduled: 'A Tomada do QG abre automaticamente às 22h a cada 72 horas.',
-  preparation: 'Alerta de guerra: a Tomada abre às 22h. Facções devem preparar marcha e estratégia de CTs.',
-  active: 'Facções disputam o QG central e os 4 CTs. O QG precisa ser segurado por 8 horas seguidas.',
+  scheduled: 'A Tomada do QG abre automaticamente às 18h a cada 72 horas.',
+  preparation: 'Alerta de guerra: a Tomada abre às 18h. Facções devem preparar marcha e estratégia de CTs.',
+  active: 'Facções disputam o QG central e os 4 CTs das 18h à 00h. Vence quem somar mais tempo ocupando o QG.',
   appointment: 'A facção vencedora tem 2 horas para definir os cargos do mandato.',
   mandate: 'O Complexo está sob mandato da facção vencedora. Bônus temporários estão ativos.',
   closed: 'A última disputa foi encerrada. Aguarde o próximo ciclo automático.',
