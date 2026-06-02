@@ -20,6 +20,7 @@ import {
   getOwnedFugaVehicles,
   isFugaVehicleOwned,
 } from '@/data/fugaGarage';
+import { Image } from '@/components/ui/image';
 
 type MessageState = { type: 'success' | 'error'; text: string } | null;
 type FilterState = 'all' | 'unlocked' | 'owned' | 'locked';
@@ -78,13 +79,7 @@ function CompactStat({ label, value, accent }: { label: string; value: string; a
 
 function VehicleImage({ vehicle, className = '', eager = false }: { vehicle: FugaVehicle; className?: string; eager?: boolean }) {
   return (
-    <img
-      src={vehicle.image}
-      alt={vehicle.name}
-      draggable={false}
-      loading={eager ? 'eager' : 'lazy'}
-      className={`select-none object-contain ${className}`}
-    />
+    <Image src={vehicle.image} alt={vehicle.name} draggable={false} loading={eager ? 'eager' : 'lazy'} className={`select-none object-contain ${className}`} />
   );
 }
 
