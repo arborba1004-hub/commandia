@@ -43,7 +43,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 }
 
-export type QgEventStatus = 'scheduled' | 'active' | 'appointment' | 'mandate' | 'closed' | 'cancelled' | string;
+export type QgEventStatus = 'scheduled' | 'preparation' | 'active' | 'appointment' | 'mandate' | 'closed' | 'cancelled' | string;
 export type QgLocationKey = 'qg' | 'ct_nw' | 'ct_ne' | 'ct_sw' | 'ct_se';
 export type QgMemberType = 'capanga' | 'frente' | 'executor' | 'assassino' | 'muralha' | 'certeiro' | 'motorista' | 'nitro';
 export type QgSelection = Partial<Record<QgMemberType, number>>;
@@ -191,6 +191,7 @@ export type QgEventState = {
     mandateRoleId?: string | null;
     mandateRoleTitle?: string | null;
     canMarch: boolean;
+    canWithdraw?: boolean;
     canAppoint: boolean;
     canUseMandatePower?: boolean;
     canSendMandatePack?: boolean;
@@ -231,6 +232,10 @@ export type QgEventState = {
     power: number;
     attackerLost: number;
     defenderLost: number;
+  };
+  withdrawResult?: {
+    locationKey: QgLocationKey;
+    membersReturned: number;
   };
 };
 
@@ -284,6 +289,13 @@ export async function sendQgMarch(locationKey: QgLocationKey, selection: QgSelec
   return request<QgEventState>('/qg-event/march', {
     method: 'POST',
     body: JSON.stringify({ locationKey, selection }),
+  });
+}
+
+export async function withdrawQgGarrison(locationKey: QgLocationKey): Promise<QgEventState> {
+  return request<QgEventState>('/qg-event/withdraw', {
+    method: 'POST',
+    body: JSON.stringify({ locationKey }),
   });
 }
 
