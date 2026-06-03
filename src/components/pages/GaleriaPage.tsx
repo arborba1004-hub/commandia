@@ -79,12 +79,10 @@ const GALLERY_ITEMS: GalleryItemMeta[] = [
 ];
 
 export default function GaleriaPage() {
-  const {
-    player,
-    isLoaded,
-    loadPlayer,
-    purchaseLuxuryItemLocal,
-  } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const loadPlayer = usePlayerStore((state) => state.loadPlayer);
+  const purchaseLuxuryItemLocal = usePlayerStore((state) => state.purchaseLuxuryItemLocal);
 
   const playerLevel = player?.niveis?.playerLevel ?? 1;
   const collectionName = getCollectionNameByLevel(playerLevel);

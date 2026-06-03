@@ -1265,7 +1265,7 @@ export default function GamePage() {
         });
 
         // Atualiza store de forma otimista
-        usePlayerStore.getState().applyPlayerUpdate((p) => ({
+        usePlayerStore.getState().applyLocalPlayerUpdate((p) => ({
           ...p,
           mapPosition: {
             tileX: result.tileX,

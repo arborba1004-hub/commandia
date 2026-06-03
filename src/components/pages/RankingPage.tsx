@@ -21,7 +21,7 @@ export default function RankingPage() {
   const [topBarracos, setTopBarracos] = useState<RankedPlayer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { player } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
   const { unlockedAchievements } = useAchievementStore();
 
   useEffect(() => {

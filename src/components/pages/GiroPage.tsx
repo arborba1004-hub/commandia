@@ -167,7 +167,9 @@ function InfoCard({ title, icon, children }: { title: string; icon: ReactNode; c
 }
 
 export default function GiroPage() {
-  const { player, isLoaded, hydratePlayerFromServer } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const hydratePlayerFromServer = usePlayerStore((state) => state.hydratePlayerFromServer);
 
   const [displayedReels, setDisplayedReels] = useState<DisplaySymbol[]>(DEFAULT_REELS);
   const [lockedReels, setLockedReels] = useState<boolean[]>([true, true, true]);

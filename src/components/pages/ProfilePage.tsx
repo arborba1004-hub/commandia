@@ -9,7 +9,9 @@ import { disconnectSocket }  from '@/socket';
 
 export default function ProfilePage() {
   const navigate  = useNavigate();
-  const { player, isLoaded, clearPlayer } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const clearPlayer = usePlayerStore((state) => state.clearPlayer);
 
   // Socket envia playerInit → isLoaded fica true automaticamente
   // Não é mais necessário chamar loadPlayer()

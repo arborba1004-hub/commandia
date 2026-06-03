@@ -108,14 +108,12 @@ export default function LavagemDeDinheiroPage() {
   const animationTimeoutRef = useRef<number | null>(null);
   const completingOperationsRef = useRef<Set<string>>(new Set());
 
-  const {
-    player,
-    isLoaded,
-    startLaundryOperation,
-    completeLaundryOperation,
-    canOperateLaundryToday,
-    clearFinishedLaundryOperations,
-  } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
+  const startLaundryOperation = usePlayerStore((state) => state.startLaundryOperation);
+  const completeLaundryOperation = usePlayerStore((state) => state.completeLaundryOperation);
+  const canOperateLaundryToday = usePlayerStore((state) => state.canOperateLaundryToday);
+  const clearFinishedLaundryOperations = usePlayerStore((state) => state.clearFinishedLaundryOperations);
 
   const { getLaundryTaxReduction } = useGangBonus();
 

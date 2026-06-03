@@ -5,7 +5,6 @@ import Footer from '@/components/Footer';
 import { useFactionStore } from '@/store/factionStore';
 import { useFactionInviteStore } from '@/store/factionInviteStore';
 import { usePlayerStore } from '@/store/playerStore';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { FactionInvestmentBranch, FactionRole } from '@/types/faction';
 import {
@@ -67,36 +66,7 @@ function getCurrentPlayerFactionRole(
 }
 
 export default function FactionPage() {
-  const navigate = useNavigate();
-  const { isAuthenticated, isLoading: authLoading } = useGoogleAuth();
   const player = usePlayerStore((state) => state.player);
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate('/');
-    }
-  }, [authLoading, isAuthenticated, navigate]);
-
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
-        <div className="text-center">
-          <p className="text-red-300">
-            Você precisa estar autenticado para acessar a facção.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return <FactionPageContent player={player} />;
 }
 
@@ -138,7 +108,7 @@ function FactionPageContent({ player }: { player: any }) {
   const acceptJoinRequest = useFactionStore((state) => state.acceptJoinRequest);
   const rejectJoinRequest = useFactionStore((state) => state.rejectJoinRequest);
 
-  const isInitialLoading = isLoadingMyFaction && !myFaction && factionList.length === 0;
+  const isInitialLoading = isLoadingMyFaction;
 
   const [activeTab, setActiveTab] = useState<FactionTab>('overview');
   const [localError, setLocalError] = useState('');
@@ -174,10 +144,12 @@ function FactionPageContent({ player }: { player: any }) {
 
     async function boot() {
       try {
-        // Carrega a facção do jogador primeiro para a aba Membros aparecer rápido.
-        // A lista pública de facções não deve bloquear a página inteira.
+        // Primeiro carrega a facção do jogador. Não bloqueia membros esperando
+        // ranking/lista pública/convites, que são dados secundários.
         await loadMyFaction();
-        if (!cancelled) void loadFactionList();
+        if (!cancelled) {
+          void loadFactionList();
+        }
       } catch (error) {
         if (!cancelled) {
           console.error(error);
@@ -228,15 +200,8 @@ function FactionPageContent({ player }: { player: any }) {
   useEffect(() => {
     if (activeTab !== 'members') return;
     if (!canInvite) return;
-    if (playersWithoutFaction.length > 0 || isLoadingPlayersWithoutFaction) return;
     void loadPlayersWithoutFaction();
-  }, [
-    activeTab,
-    canInvite,
-    playersWithoutFaction.length,
-    isLoadingPlayersWithoutFaction,
-    loadPlayersWithoutFaction,
-  ]);
+  }, [activeTab, canInvite, loadPlayersWithoutFaction]);
 
   const safeMembers = Array.isArray(myFaction?.members) ? myFaction.members : [];
   const memberCount = safeMembers.length;
