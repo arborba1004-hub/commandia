@@ -68,7 +68,7 @@ export async function handleTileInvasion(
   tileY: number,
   otherPlayers: OtherPlayer[] = []
 ): Promise<boolean> {
-  const { player, applyPlayerUpdate } = usePlayerStore.getState();
+  const { player, applyLocalPlayerUpdate } = usePlayerStore.getState();
 
   if (!player?._id) {
     console.error('Player not found');
@@ -98,7 +98,7 @@ export async function handleTileInvasion(
   const { worldX, worldZ } = getTileWorldPosition(tileX, tileY);
 
   // Atualiza store local (otimista)
-  applyPlayerUpdate((currentPlayer) => ({
+  applyLocalPlayerUpdate((currentPlayer) => ({
     ...currentPlayer,
     mapPosition: { tileX, tileY, worldX, worldY: worldZ },
   }));
