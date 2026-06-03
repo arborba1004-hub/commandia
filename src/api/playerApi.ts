@@ -2,6 +2,8 @@ import type { PlayerState } from '@/store/playerStore';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
 const REQUEST_TIMEOUT_MS = 30000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
 
 // ==========================================
 // TIPOS AUXILIARES
@@ -267,11 +269,12 @@ function deepStripUndefined<T>(value: T): T {
 }
 
 // ==========================================
-// CORE REQUEST
+// CORE REQUEST WITH RETRY LOGIC
 // ==========================================
 async function makeRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retryCount = 0
 ): Promise<T> {
   const token = getAuthToken();
   const controller = createTimeoutSignal(REQUEST_TIMEOUT_MS);
@@ -299,6 +302,12 @@ async function makeRequest<T>(
       cache: 'no-store',
     });
   } catch (error: any) {
+    // Retry on network errors or timeouts
+    if (retryCount < MAX_RETRIES && (error?.name === 'AbortError' || !response)) {
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * (retryCount + 1)));
+      return makeRequest<T>(endpoint, options, retryCount + 1);
+    }
+
     if (error?.name === 'AbortError') {
       throw buildApiError(
         `Tempo limite excedido ao acessar ${endpoint}`,
@@ -319,6 +328,12 @@ async function makeRequest<T>(
   const data = await safeReadResponseBody(response);
 
   if (!response.ok) {
+    // Retry on 5xx errors (server errors)
+    if (retryCount < MAX_RETRIES && response.status >= 500) {
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * (retryCount + 1)));
+      return makeRequest<T>(endpoint, options, retryCount + 1);
+    }
+
     const message =
       (ensureObject(data)?.error as string) ||
       (ensureObject(data)?.message as string) ||
