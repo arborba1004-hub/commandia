@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import AchievementNotification from '@/components/AchievementNotification';
+import VersionUpdateNotification from '@/components/VersionUpdateNotification';
 import { useGameSocket } from '@/hooks/useGameSocket';
 
 export default function Layout() {
@@ -16,6 +17,7 @@ export default function Layout() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       <AchievementNotification />
+      <VersionUpdateNotification />
       
       <main className="flex-1 pt-20">
         <Outlet />
