@@ -55,7 +55,7 @@ const GRID_HEIGHT = 120;
 
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
 let loadPlayerPromise: Promise<void> | null = null;
-let lastLoadPlayerToken: string | null = null;
+
 
 function getStoredAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -192,6 +192,7 @@ type PlayerStore = {
   hydratePlayerFromServer:  (playerData: Partial<PlayerState>) => void;
   clearPlayer:              () => void;
   applyPlayerUpdate:        (updater: (current: PlayerState) => PlayerState) => void;
+  applyLocalPlayerUpdate:   (updater: (current: PlayerState) => PlayerState) => void;
 
   // ── Sync ────────────────────────────────────────────────────────────────
   saveLocal:                () => void;            // no-op
@@ -339,8 +340,30 @@ const initialPlayer: PlayerState = {
 
 // ─── mergePlayer (sem writes de localStorage) ─────────────────────────────────
 
-function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
+function hasOwn<T extends object>(obj: T, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function hasPersistablePlayerUpdate(playerData: Partial<PlayerState>): boolean {
+  const clean = stripServerControlledState(playerData || {});
+  return Object.keys(clean as Record<string, unknown>).length > 0;
+}
+
+function stableJson(value: unknown): string {
+  try { return JSON.stringify(value ?? null); } catch { return ''; }
+}
+
+function getPlayerIdentifier(player?: Partial<PlayerState> | null): string {
+  return String((player as any)?._id || (player as any)?.id || player?.googleId || '').trim();
+}
+
+function mergePlayer(
+  incoming?: Partial<PlayerState> | null,
+  basePlayer?: Partial<PlayerState> | null
+): PlayerState {
   const inc = incoming || {};
+  const base = mergePlayerBase(basePlayer);
+
   const niveis       = (inc.niveis              && typeof inc.niveis              === 'object') ? inc.niveis              : {};
   const balances     = (inc.balances            && typeof inc.balances            === 'object') ? inc.balances            : {};
   const inventory    = (inc.inventory           && typeof inc.inventory           === 'object') ? inc.inventory           : {};
@@ -362,64 +385,112 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
     ? (inc as any).barracoUpgrade
     : {};
 
+  const baseMapPosition = base.mapPosition || initialPlayer.mapPosition!;
+  const baseHeader = base.headerCustomization || initialPlayer.headerCustomization || {};
+  const baseLaundry = base.laundryProgress || initialPlayer.laundryProgress;
+  const basePunishments = base.punishments || initialPlayer.punishments;
+  const baseBarracoUpgrade = base.barracoUpgrade || initialPlayer.barracoUpgrade!;
+
   return {
     ...initialPlayer,
+    ...base,
     ...inc,
-    _id: (inc as any)?._id || (inc as any)?.id || (inc as any)?.googleId || initialPlayer._id,
-    niveis:       { ...initialPlayer.niveis,    ...niveis },
-    balances:     { ...initialPlayer.balances,  ...balances },
-    inventory:    { ...initialPlayer.inventory, ...inventory, items: (inventory as any)?.items ?? initialPlayer.inventory.items, gifts: (inventory as any)?.gifts ?? initialPlayer.inventory.gifts, rewards: (inventory as any)?.rewards ?? initialPlayer.inventory.rewards },
-    pageLevels:   { ...initialPlayer.pageLevels, ...pageLevels },
-    skills:       { ...initialPlayer.skills,    ...skills },
-    barracoPosition: { ...initialPlayer.barracoPosition, ...barracoPos },
-    mapPosition:  { tileX: (mapPos as any)?.tileX ?? GRID_WIDTH / 2, tileY: (mapPos as any)?.tileY ?? GRID_HEIGHT / 2, worldX: (mapPos as any)?.worldX ?? 0, worldY: (mapPos as any)?.worldY ?? 0 },
-    headerCustomization: { playerNameFont: (headerCust as any)?.playerNameFont || 'oswald', playerNameFontSize: (headerCust as any)?.playerNameFontSize || '1.875rem', playerNameColor: (headerCust as any)?.playerNameColor || '#1a1205', customName: (headerCust as any)?.customName || '', customAvatar: (headerCust as any)?.customAvatar || '' },
-    laundryProgress: { activeOperations: (laundryProg as any)?.activeOperations ?? initialPlayer.laundryProgress.activeOperations, dailyOperations: (laundryProg as any)?.dailyOperations ?? initialPlayer.laundryProgress.dailyOperations },
-    punishments: { active: (punishments as any)?.active ?? initialPlayer.punishments.active, delacao: (punishments as any)?.delacao ?? initialPlayer.punishments.delacao, inventoryBlocked: (punishments as any)?.inventoryBlocked ?? false, dirtyMoneyBlocked: (punishments as any)?.dirtyMoneyBlocked ?? false, cleanMoneyBlocked: (punishments as any)?.cleanMoneyBlocked ?? false, levelProgressionBlocked: (punishments as any)?.levelProgressionBlocked ?? false, inventoryBonusReductionPercent: (punishments as any)?.inventoryBonusReductionPercent ?? 0, pvpProtectionUntil: (punishments as any)?.pvpProtectionUntil ?? null, delacaoRewardPending: (punishments as any)?.delacaoRewardPending ?? false, delacaoRewardUnlockAt: (punishments as any)?.delacaoRewardUnlockAt ?? null, pendingSkillBoost: (punishments as any)?.pendingSkillBoost ?? 0, lastVehicleLost: (punishments as any)?.lastVehicleLost ?? false },
-    skillBoostMultiplier: inc?.skillBoostMultiplier ?? 1.0,
-    ownedVehicles: inc?.ownedVehicles || [],
-    accessories:   inc?.accessories   || {},
-    purchasedAccessories: inc?.purchasedAccessories || [],
-    convoyAccelerators: { twoX: Math.max(0, Math.floor(Number((convoyAccelerators as any).twoX ?? initialPlayer.convoyAccelerators?.twoX ?? 0))) },
-    barracoAccelerators: { seconds: Math.max(0, Math.floor(Number((barracoAccelerators as any).seconds ?? initialPlayer.barracoAccelerators?.seconds ?? 0))) },
-    barracoUpgrade: {
-      active: Boolean((barracoUpgrade as any).active ?? false),
-      status: String((barracoUpgrade as any).status ?? 'idle'),
-      fromLevel: Math.max(1, Math.floor(Number((barracoUpgrade as any).fromLevel ?? initialPlayer.niveis.barracoLevel ?? 1))),
-      toLevel: Math.max(1, Math.floor(Number((barracoUpgrade as any).toLevel ?? initialPlayer.niveis.barracoLevel ?? 1))),
-      cost: Math.max(0, Math.floor(Number((barracoUpgrade as any).cost ?? 0))),
-      durationMs: Math.max(0, Math.floor(Number((barracoUpgrade as any).durationMs ?? 0))),
-      startedAt: (barracoUpgrade as any).startedAt ?? null,
-      endsAt: (barracoUpgrade as any).endsAt ?? null,
-      completedAt: (barracoUpgrade as any).completedAt ?? null,
-      acceleratedMs: Math.max(0, Math.floor(Number((barracoUpgrade as any).acceleratedMs ?? 0))),
+    _id: (inc as any)?._id || (inc as any)?.id || (inc as any)?.googleId || base._id || base.googleId || initialPlayer._id,
+    niveis:       { ...initialPlayer.niveis,    ...(base.niveis || {}),    ...niveis },
+    balances:     { ...initialPlayer.balances,  ...(base.balances || {}),  ...balances },
+    inventory:    {
+      ...initialPlayer.inventory,
+      ...(base.inventory || {}),
+      ...inventory,
+      items: (inventory as any)?.items ?? base.inventory?.items ?? initialPlayer.inventory.items,
+      gifts: (inventory as any)?.gifts ?? base.inventory?.gifts ?? initialPlayer.inventory.gifts,
+      rewards: (inventory as any)?.rewards ?? base.inventory?.rewards ?? initialPlayer.inventory.rewards,
     },
-    notifications: inc?.notifications || [],
-    attackHistory: inc?.attackHistory || [],
-    factionId:     inc?.factionId ?? null,
-    gangId:        inc?.gangId    ?? null,
-    gang:          incomingGang ?? inc.gang ?? initialPlayer.gang,
-    gangMembers:   incomingGang?.members ?? inc.gangMembers ?? initialPlayer.gangMembers,
-    gangStats:     incomingGang?.stats ?? inc.gangStats ?? initialPlayer.gangStats,
-    lastAttackAt:  inc?.lastAttackAt  ?? null,
-    pvpProtectionUntil: inc?.pvpProtectionUntil ?? (punishments as any)?.pvpProtectionUntil ?? null,
+    pageLevels:   { ...initialPlayer.pageLevels, ...(base.pageLevels || {}), ...pageLevels },
+    skills:       { ...initialPlayer.skills,    ...(base.skills || {}),    ...skills },
+    barracoPosition: { ...initialPlayer.barracoPosition, ...(base.barracoPosition || {}), ...barracoPos },
+    mapPosition:  {
+      tileX: (mapPos as any)?.tileX ?? baseMapPosition.tileX ?? GRID_WIDTH / 2,
+      tileY: (mapPos as any)?.tileY ?? baseMapPosition.tileY ?? GRID_HEIGHT / 2,
+      worldX: (mapPos as any)?.worldX ?? baseMapPosition.worldX ?? 0,
+      worldY: (mapPos as any)?.worldY ?? baseMapPosition.worldY ?? 0,
+    },
+    headerCustomization: {
+      playerNameFont: (headerCust as any)?.playerNameFont || (baseHeader as any)?.playerNameFont || 'oswald',
+      playerNameFontSize: (headerCust as any)?.playerNameFontSize || (baseHeader as any)?.playerNameFontSize || '1.875rem',
+      playerNameColor: (headerCust as any)?.playerNameColor || (baseHeader as any)?.playerNameColor || '#1a1205',
+      customName: (headerCust as any)?.customName ?? (baseHeader as any)?.customName ?? '',
+      customAvatar: (headerCust as any)?.customAvatar ?? (baseHeader as any)?.customAvatar ?? '',
+    },
+    laundryProgress: {
+      activeOperations: (laundryProg as any)?.activeOperations ?? baseLaundry.activeOperations ?? initialPlayer.laundryProgress.activeOperations,
+      dailyOperations: (laundryProg as any)?.dailyOperations ?? baseLaundry.dailyOperations ?? initialPlayer.laundryProgress.dailyOperations,
+    },
+    punishments: {
+      active: (punishments as any)?.active ?? basePunishments.active ?? initialPlayer.punishments.active,
+      delacao: (punishments as any)?.delacao ?? basePunishments.delacao ?? initialPlayer.punishments.delacao,
+      inventoryBlocked: (punishments as any)?.inventoryBlocked ?? basePunishments.inventoryBlocked ?? false,
+      dirtyMoneyBlocked: (punishments as any)?.dirtyMoneyBlocked ?? basePunishments.dirtyMoneyBlocked ?? false,
+      cleanMoneyBlocked: (punishments as any)?.cleanMoneyBlocked ?? basePunishments.cleanMoneyBlocked ?? false,
+      levelProgressionBlocked: (punishments as any)?.levelProgressionBlocked ?? basePunishments.levelProgressionBlocked ?? false,
+      inventoryBonusReductionPercent: (punishments as any)?.inventoryBonusReductionPercent ?? basePunishments.inventoryBonusReductionPercent ?? 0,
+      pvpProtectionUntil: (punishments as any)?.pvpProtectionUntil ?? basePunishments.pvpProtectionUntil ?? null,
+      delacaoRewardPending: (punishments as any)?.delacaoRewardPending ?? basePunishments.delacaoRewardPending ?? false,
+      delacaoRewardUnlockAt: (punishments as any)?.delacaoRewardUnlockAt ?? basePunishments.delacaoRewardUnlockAt ?? null,
+      pendingSkillBoost: (punishments as any)?.pendingSkillBoost ?? basePunishments.pendingSkillBoost ?? 0,
+      lastVehicleLost: (punishments as any)?.lastVehicleLost ?? basePunishments.lastVehicleLost ?? false,
+    },
+    skillBoostMultiplier: inc?.skillBoostMultiplier ?? base.skillBoostMultiplier ?? 1.0,
+    ownedVehicles: inc?.ownedVehicles ?? base.ownedVehicles ?? [],
+    accessories:   inc?.accessories   ?? base.accessories   ?? {},
+    purchasedAccessories: inc?.purchasedAccessories ?? base.purchasedAccessories ?? [],
+    convoyAccelerators: {
+      twoX: Math.max(0, Math.floor(Number((convoyAccelerators as any).twoX ?? base.convoyAccelerators?.twoX ?? initialPlayer.convoyAccelerators?.twoX ?? 0)))
+    },
+    barracoAccelerators: {
+      seconds: Math.max(0, Math.floor(Number((barracoAccelerators as any).seconds ?? base.barracoAccelerators?.seconds ?? initialPlayer.barracoAccelerators?.seconds ?? 0)))
+    },
+    barracoUpgrade: {
+      active: Boolean((barracoUpgrade as any).active ?? baseBarracoUpgrade.active ?? false),
+      status: String((barracoUpgrade as any).status ?? baseBarracoUpgrade.status ?? 'idle'),
+      fromLevel: Math.max(1, Math.floor(Number((barracoUpgrade as any).fromLevel ?? baseBarracoUpgrade.fromLevel ?? base.niveis?.barracoLevel ?? 1))),
+      toLevel: Math.max(1, Math.floor(Number((barracoUpgrade as any).toLevel ?? baseBarracoUpgrade.toLevel ?? base.niveis?.barracoLevel ?? 1))),
+      cost: Math.max(0, Math.floor(Number((barracoUpgrade as any).cost ?? baseBarracoUpgrade.cost ?? 0))),
+      durationMs: Math.max(0, Math.floor(Number((barracoUpgrade as any).durationMs ?? baseBarracoUpgrade.durationMs ?? 0))),
+      startedAt: (barracoUpgrade as any).startedAt ?? baseBarracoUpgrade.startedAt ?? null,
+      endsAt: (barracoUpgrade as any).endsAt ?? baseBarracoUpgrade.endsAt ?? null,
+      completedAt: (barracoUpgrade as any).completedAt ?? baseBarracoUpgrade.completedAt ?? null,
+      acceleratedMs: Math.max(0, Math.floor(Number((barracoUpgrade as any).acceleratedMs ?? baseBarracoUpgrade.acceleratedMs ?? 0))),
+    },
+    notifications: inc?.notifications ?? base.notifications ?? [],
+    attackHistory: inc?.attackHistory ?? base.attackHistory ?? [],
+    factionId:     hasOwn(inc, 'factionId') ? (inc.factionId ?? null) : (base.factionId ?? null),
+    gangId:        hasOwn(inc, 'gangId') ? (inc.gangId ?? null) : (base.gangId ?? null),
+    gang:          incomingGang ?? inc.gang ?? base.gang ?? initialPlayer.gang,
+    gangMembers:   incomingGang?.members ?? inc.gangMembers ?? base.gangMembers ?? initialPlayer.gangMembers,
+    gangStats:     incomingGang?.stats ?? inc.gangStats ?? base.gangStats ?? initialPlayer.gangStats,
+    lastAttackAt:  hasOwn(inc, 'lastAttackAt') ? (inc.lastAttackAt ?? null) : (base.lastAttackAt ?? null),
+    pvpProtectionUntil: hasOwn(inc, 'pvpProtectionUntil')
+      ? (inc.pvpProtectionUntil ?? (punishments as any)?.pvpProtectionUntil ?? null)
+      : (base.pvpProtectionUntil ?? basePunishments.pvpProtectionUntil ?? null),
     dailyCorre: (inc as any)?.dailyCorre && typeof (inc as any).dailyCorre === 'object'
-      ? { ...initialPlayer.dailyCorre!, ...(inc as any).dailyCorre }
-      : initialPlayer.dailyCorre,
+      ? { ...initialPlayer.dailyCorre!, ...(base.dailyCorre || {}), ...(inc as any).dailyCorre }
+      : (base.dailyCorre ?? initialPlayer.dailyCorre),
     prisonHistory: (inc as any)?.prisonHistory && typeof (inc as any).prisonHistory === 'object'
-      ? { ...initialPlayer.prisonHistory!, ...(inc as any).prisonHistory }
-      : initialPlayer.prisonHistory,
+      ? { ...initialPlayer.prisonHistory!, ...(base.prisonHistory || {}), ...(inc as any).prisonHistory }
+      : (base.prisonHistory ?? initialPlayer.prisonHistory),
     spinRateLimit: (inc as any)?.spinRateLimit && typeof (inc as any).spinRateLimit === 'object'
-      ? { ...initialPlayer.spinRateLimit!, ...(inc as any).spinRateLimit }
-      : initialPlayer.spinRateLimit,
+      ? { ...initialPlayer.spinRateLimit!, ...(base.spinRateLimit || {}), ...(inc as any).spinRateLimit }
+      : (base.spinRateLimit ?? initialPlayer.spinRateLimit),
     cardCollection: (inc as any)?.cardCollection && typeof (inc as any).cardCollection === 'object'
-      ? { ...initialPlayer.cardCollection!, ...(inc as any).cardCollection }
-      : initialPlayer.cardCollection,
+      ? { ...initialPlayer.cardCollection!, ...(base.cardCollection || {}), ...(inc as any).cardCollection }
+      : (base.cardCollection ?? initialPlayer.cardCollection),
   };
 }
 
-function hasFullFactionPayload(faction: any): boolean {
-  return Boolean(faction && typeof faction === 'object' && Array.isArray(faction.members));
+function mergePlayerBase(basePlayer?: Partial<PlayerState> | null): PlayerState {
+  if (!basePlayer || basePlayer === initialPlayer) return initialPlayer;
+  return { ...initialPlayer, ...(basePlayer as PlayerState) };
 }
 
 async function syncFactionStoreFromEnvelope(faction: any, options?: { allowClear?: boolean }) {
@@ -427,31 +498,25 @@ async function syncFactionStoreFromEnvelope(faction: any, options?: { allowClear
     const { useFactionStore } = await import('@/store/factionStore');
     const factionStore = useFactionStore.getState();
 
-    if (faction && typeof faction === 'object') {
-      // /player/me devolve apenas um resumo da facção para buff/contexto. Esse
-      // resumo NÃO possui members e não pode sobrescrever a facção completa da
-      // FactionPage, senão a aba "Membros" fica vazia até /faction/my responder.
-      if (!hasFullFactionPayload(faction)) {
-        const current = factionStore.myFaction;
-        if (current?.id && String(current.id) === String(faction.id || '')) {
-          factionStore.setFaction({
-            ...current,
-            ...faction,
-            members: current.members,
-            joinRequests: current.joinRequests,
-            invites: current.invites,
-            activityLog: current.activityLog,
-            investmentLog: current.investmentLog,
-          } as any);
-        }
-        return;
-      }
+    if (faction) {
+      const current = factionStore.myFaction;
+      const incomingHasMembers = Array.isArray(faction.members);
+      const currentHasMembers = Array.isArray(current?.members) && current.members.length > 0;
+      const sameFaction = current && String((current as any).id || '') === String((faction as any).id || '');
 
-      factionStore.setFaction(faction);
+      // /player/me pode devolver facção resumida. Nunca deixe esse resumo apagar
+      // members/joinRequests/invites já carregados por /faction/my.
+      if (!incomingHasMembers && sameFaction && currentHasMembers) {
+        factionStore.setFaction({ ...current, ...faction, members: current.members } as any);
+      } else {
+        factionStore.setFaction(faction);
+      }
       return;
     }
 
-    if (options?.allowClear) { factionStore.setFaction(null); }
+    if (options?.allowClear) {
+      factionStore.setFaction(null);
+    }
   } catch (error) {
     console.warn('Não foi possível sincronizar factionStore:', error);
   }
@@ -478,23 +543,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   // O socket continua sendo realtime, mas /player/me garante que ProtectedRoute,
   // Header e GamePage não fiquem pretos se o playerInit atrasar ou for perdido.
   loadPlayer: async () => {
-    if (get().isLoaded) return;
+    const current = get().player;
+    if (get().isLoaded && getPlayerIdentifier(current)) return;
+    if (!getStoredAuthToken()) return;
+    if (loadPlayerPromise) return loadPlayerPromise;
 
-    const token = getStoredAuthToken();
-    if (!token) return;
-
-    // Várias páginas protegidas podem montar ao mesmo tempo no Wix/mobile. Sem
-    // dedupe, todas disparam /player/me e deixam o playerStore parecendo lento.
-    if (loadPlayerPromise && lastLoadPlayerToken === token) {
-      return loadPlayerPromise;
-    }
-
-    lastLoadPlayerToken = token;
     loadPlayerPromise = (async () => {
       try {
         set({ isSyncing: true, syncError: null });
         const envelope = await fetchCurrentPlayerWithFaction();
-        const merged = clearExpiredPunishments(mergePlayer(envelope.player));
+        const merged = clearExpiredPunishments(mergePlayer(envelope.player, get().player));
         const normalized = {
           ...merged,
           _id: String((envelope.player as any)?._id || (envelope.player as any)?.id || (envelope.player as any)?.googleId || merged._id || ''),
@@ -550,7 +608,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         return;
       }
       
-      const merged = clearExpiredPunishments(mergePlayer(playerData));
+      const merged = clearExpiredPunishments(mergePlayer(playerData, get().player));
       const normalized = {
         ...merged,
         _id: String((playerData as any)?._id || (playerData as any)?.id || (playerData as any)?.googleId || merged._id || ''),
@@ -576,15 +634,41 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   setPlayer: (incoming) => {
-    const merged = clearExpiredPunishments(mergePlayer({ ...get().player, ...incoming }));
-    set({ player: merged, localVersion: get().localVersion + 1, lastLocalMutationAt: Date.now(), pendingLocalChanges: true });
-    get().scheduleSync();
+    const current = get().player;
+    const merged = clearExpiredPunishments(mergePlayer(incoming, current));
+    const shouldPersist = hasPersistablePlayerUpdate(incoming);
+    set({ player: merged, localVersion: get().localVersion + 1, lastLocalMutationAt: Date.now(), pendingLocalChanges: shouldPersist });
+    if (shouldPersist) get().scheduleSync();
   },
 
   applyPlayerUpdate: (updater) => {
-    const updated = clearExpiredPunishments(mergePlayer(updater(get().player)));
-    set({ player: updated, localVersion: get().localVersion + 1, lastLocalMutationAt: Date.now(), pendingLocalChanges: true });
-    get().scheduleSync();
+    const current = get().player;
+    const updated = clearExpiredPunishments(mergePlayer(updater(current), current));
+    const beforePersistable = stripServerControlledState(current);
+    const afterPersistable = stripServerControlledState(updated);
+    const shouldPersist = stableJson(beforePersistable) !== stableJson(afterPersistable);
+
+    set({
+      player: updated,
+      localVersion: get().localVersion + 1,
+      lastLocalMutationAt: Date.now(),
+      pendingLocalChanges: shouldPersist,
+    });
+
+    // Depois do fechamento de /player/update, só customização do cabeçalho pode
+    // persistir por este caminho. Economia/gangue/mapa/punições vêm dos endpoints oficiais.
+    if (shouldPersist) get().scheduleSync();
+  },
+
+  applyLocalPlayerUpdate: (updater) => {
+    const current = get().player;
+    const updated = clearExpiredPunishments(mergePlayer(updater(current), current));
+    set({
+      player: updated,
+      localVersion: get().localVersion + 1,
+      lastLocalMutationAt: Date.now(),
+      pendingLocalChanges: false,
+    });
   },
 
   clearPlayer: () => {
@@ -609,6 +693,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     if (get().isSyncing) return;
     if (!getStoredAuthToken()) return;
     const player = stripServerControlledState(get().player);
+    if (Object.keys(player as Record<string, unknown>).length === 0) {
+      set({ pendingLocalChanges: false, syncError: null, lastSyncAt: Date.now() });
+      return;
+    }
     try {
       set({ isSyncing: true, syncError: null });
       await syncPlayerUpdateWithFaction(player);
@@ -631,7 +719,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         businessId: operation.businessId,
         businessName: operation.businessName,
       });
-      const merged = clearExpiredPunishments(mergePlayer(response.player));
+      const merged = clearExpiredPunishments(mergePlayer(response.player, get().player));
       set({ player: merged, lastSyncAt: Date.now(), pendingLocalChanges: false, lastServerHydrationAt: Date.now() });
       await syncFactionStoreFromEnvelope(response.faction);
       return true;
@@ -642,7 +730,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     if (get().player.laundryProgress.activeOperations.findIndex((op) => op.operationId === operationId && op.status === 'processing') === -1) return false;
     try {
       const response = await laundryCompleteWithFaction(operationId);
-      const merged = clearExpiredPunishments(mergePlayer(response.player));
+      const merged = clearExpiredPunishments(mergePlayer(response.player, get().player));
       set({ player: merged, lastSyncAt: Date.now(), pendingLocalChanges: false, lastServerHydrationAt: Date.now() });
       await syncFactionStoreFromEnvelope(response.faction);
       get().clearFinishedLaundryOperations();
@@ -653,7 +741,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   clearFinishedLaundryOperations: () => {
     const today = new Date().toISOString().split('T')[0];
     const c = get().player;
-    set({ player: clearExpiredPunishments(mergePlayer({ ...c, laundryProgress: { ...c.laundryProgress, dailyOperations: c.laundryProgress.dailyOperations.filter((op) => op.date === today) } })) });
+    set({ player: clearExpiredPunishments(mergePlayer({ ...c, laundryProgress: { ...c.laundryProgress, dailyOperations: c.laundryProgress.dailyOperations.filter((op) => op.date === today) } }, c)) });
   },
 
   canOperateLaundryToday: async (businessId) => {
@@ -705,7 +793,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   upgradeBarracoLocal: async () => {
     try {
       const response = await upgradeBarracoWithFaction();
-      const merged = clearExpiredPunishments(mergePlayer(response.player));
+      const merged = clearExpiredPunishments(mergePlayer(response.player, get().player));
 
       set({
         player: merged,
@@ -738,7 +826,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   claimBarracoUpgradeLocal: async () => {
     try {
       const response = await claimBarracoUpgradeWithFaction();
-      const merged = clearExpiredPunishments(mergePlayer(response.player));
+      const merged = clearExpiredPunishments(mergePlayer(response.player, get().player));
 
       set({
         player: merged,
@@ -766,7 +854,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   accelerateBarracoUpgradeLocal: async (seconds) => {
     try {
       const response = await accelerateBarracoUpgradeWithFaction(seconds);
-      const merged = clearExpiredPunishments(mergePlayer(response.player));
+      const merged = clearExpiredPunishments(mergePlayer(response.player, get().player));
 
       set({
         player: merged,

@@ -179,7 +179,7 @@ function syncBalances(playerBalances?: {
 }) {
   if (!playerBalances) return;
 
-  usePlayerStore.getState().applyPlayerUpdate((p) => ({
+  usePlayerStore.getState().applyLocalPlayerUpdate((p) => ({
     ...p,
     balances: {
       ...p.balances,

@@ -85,6 +85,28 @@ function endLoadingFactionList(set: (partial: Partial<FactionStore>) => void) {
   set({ isLoadingFactionList: false });
 }
 
+
+function mergeFactionWithoutLosingMembers(current: Faction | null, incoming: Faction | null): Faction | null {
+  if (!incoming) return null;
+  if (!current || String(current.id) !== String(incoming.id)) return incoming;
+
+  const incomingHasMembers = Array.isArray((incoming as any).members) && (incoming as any).members.length > 0;
+  const currentHasMembers = Array.isArray((current as any).members) && (current as any).members.length > 0;
+
+  if (!incomingHasMembers && currentHasMembers) {
+    return {
+      ...current,
+      ...incoming,
+      members: current.members,
+      joinRequests: Array.isArray((incoming as any).joinRequests) ? (incoming as any).joinRequests : current.joinRequests,
+      invites: Array.isArray((incoming as any).invites) ? (incoming as any).invites : current.invites,
+      activityLog: Array.isArray((incoming as any).activityLog) ? (incoming as any).activityLog : current.activityLog,
+    };
+  }
+
+  return incoming;
+}
+
 function syncPlayerFactionId(factionId: string | null) {
   try {
     const playerStore = usePlayerStore.getState();
@@ -175,11 +197,11 @@ export const useFactionStore = create<FactionStore>((set, get) => ({
 
       const faction = await fetchMyFaction();
 
-      set({
-        myFaction: faction,
+      set((state) => ({
+        myFaction: mergeFactionWithoutLosingMembers(state.myFaction, faction),
         error: null,
         lastLoadedAt: Date.now(),
-      });
+      }));
 
       syncPlayerFactionId(faction?.id || null);
       return Boolean(faction);
@@ -536,33 +558,14 @@ clearFaction: () => {
   },
 
   setFaction: (faction) => {
-    const current = get().myFaction;
-    const incomingHasMembers = Boolean(faction && Array.isArray((faction as any).members));
-    const shouldPreserveFullMembers = Boolean(
-      faction &&
-      current &&
-      String(current.id) === String((faction as any).id || '') &&
-      !incomingHasMembers
-    );
-
-    set({
-      myFaction: shouldPreserveFullMembers
-        ? ({
-            ...current,
-            ...(faction as any),
-            members: current.members,
-            joinRequests: current.joinRequests,
-            invites: current.invites,
-            activityLog: current.activityLog,
-            investmentLog: current.investmentLog,
-          } as Faction)
-        : faction,
+    set((state) => ({
+      myFaction: mergeFactionWithoutLosingMembers(state.myFaction, faction),
       error: null,
       isLoadingMyFaction: false,
       isLoadingFactionList: false,
       isSubmitting: false,
       lastLoadedAt: Date.now(),
-    });
+    }));
 
     syncPlayerFactionId(faction?.id || null);
   },

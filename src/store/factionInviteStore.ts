@@ -5,11 +5,15 @@ import {
   type PlayerWithoutFaction,
 } from '@/services/factionInviteService';
 
+let playersWithoutFactionPromise: Promise<boolean> | null = null;
+const PLAYERS_WITHOUT_FACTION_CACHE_MS = 60_000;
+
 type FactionInviteStore = {
   playersWithoutFaction: PlayerWithoutFaction[];
   isLoadingPlayersWithoutFaction: boolean;
   isSubmittingInvite: boolean;
   error: string | null;
+  lastLoadedAt: number | null;
 
   loadPlayersWithoutFaction: () => Promise<boolean>;
   sendFactionInvite: (targetPlayerId: string) => Promise<boolean>;
@@ -21,33 +25,48 @@ export const useFactionInviteStore = create<FactionInviteStore>((set) => ({
   isLoadingPlayersWithoutFaction: false,
   isSubmittingInvite: false,
   error: null,
+  lastLoadedAt: null,
 
   loadPlayersWithoutFaction: async () => {
-    try {
-      set({
-        isLoadingPlayersWithoutFaction: true,
-        error: null,
-      });
-
-      const players = await fetchPlayersWithoutFaction();
-
-      set({
-        playersWithoutFaction: players,
-        isLoadingPlayersWithoutFaction: false,
-        error: null,
-      });
-
+    const currentState = useFactionInviteStore.getState();
+    const cacheAge = currentState.lastLoadedAt ? Date.now() - currentState.lastLoadedAt : Infinity;
+    if (currentState.playersWithoutFaction.length > 0 && cacheAge < PLAYERS_WITHOUT_FACTION_CACHE_MS) {
       return true;
-    } catch (error) {
-      set({
-        isLoadingPlayersWithoutFaction: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Erro ao carregar jogadores sem facção',
-      });
-      return false;
     }
+    if (playersWithoutFactionPromise) return playersWithoutFactionPromise;
+
+    playersWithoutFactionPromise = (async () => {
+      try {
+        set({
+          isLoadingPlayersWithoutFaction: true,
+          error: null,
+        });
+
+        const players = await fetchPlayersWithoutFaction();
+
+        set({
+          playersWithoutFaction: players,
+          isLoadingPlayersWithoutFaction: false,
+          error: null,
+          lastLoadedAt: Date.now(),
+        });
+
+        return true;
+      } catch (error) {
+        set({
+          isLoadingPlayersWithoutFaction: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Erro ao carregar jogadores sem facção',
+        });
+        return false;
+      } finally {
+        playersWithoutFactionPromise = null;
+      }
+    })();
+
+    return playersWithoutFactionPromise;
   },
 
   sendFactionInvite: async (targetPlayerId) => {
