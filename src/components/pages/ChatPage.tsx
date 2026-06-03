@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Smile } from 'lucide-react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import { useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Send } from 'lucide-react';
 import ChatTabs from '@/components/chat/chatTabs';
 import ChatMessageList from '@/components/chat/ChatMessageList';
 import ChatComposer from '@/components/chat/ChatComposer';
 import { useChatStore } from '@/store/chatStore';
 import type { ChatMessage } from '@/store/chatStore';
 import { usePlayerStore } from '@/store/playerStore';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import AzideiaRewardsModal from '@/components/chat/AzideiaRewardsModal';
 import { Image } from '@/components/ui/image';
@@ -272,9 +269,8 @@ function ConversationView({
 // ── ChatPage principal ─────────────────────────────────────────────────────────
 export default function ChatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { isAuthenticated, isLoading: authLoading } = useGoogleAuth();
   const player = usePlayerStore((state) => state.player) as ExtendedPlayer | null;
+  const playerLoaded = usePlayerStore((state) => state.isLoaded);
 
   const activeChannel    = useChatStore((s) => s.activeChannel);
   const setActiveChannel = useChatStore((s) => s.setActiveChannel);
@@ -308,10 +304,6 @@ export default function ChatPage() {
   const currentUserId = String(player?._id || player?.googleId || '');
   const hasFaction    = Boolean(player?.factionId);
 
-  // Redireciona se não autenticado
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) navigate('/');
-  }, [isAuthenticated, authLoading, navigate]);
 
   // Bootstrap: lê canal e destinatário da URL
   useEffect(() => {
@@ -413,7 +405,7 @@ export default function ChatPage() {
     setSelectedPartnerName('');
   };
 
-  if (authLoading) {
+  if (!playerLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <LoadingSpinner />
@@ -421,7 +413,7 @@ export default function ChatPage() {
     );
   }
 
-  if (!isAuthenticated || !player) {
+  if (!player) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-red-300">Você precisa estar autenticado para acessar o chat.</p>
@@ -442,8 +434,7 @@ export default function ChatPage() {
 
     return (
       <div className="flex min-h-screen flex-col bg-background text-foreground">
-        <Header />
-        <div className="flex flex-1 flex-col pt-[104px]" style={{ height: 'calc(100vh - 104px)' }}>
+        <div className="flex flex-1 flex-col" style={{ height: '100vh' }}>
           <ConversationView
             conversation={conv}
             currentUserId={currentUserId}
@@ -461,9 +452,7 @@ export default function ChatPage() {
   // ── LAYOUT PRINCIPAL ─────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header />
-
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-28 pt-[140px] md:pt-[160px]">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-28 pt-8 md:pt-10">
         <div className="mb-4">
           <h1 className="font-heading text-3xl font-black uppercase tracking-wide">
             Comunicação
@@ -568,7 +557,6 @@ export default function ChatPage() {
       </main>
 
       <AzideiaRewardsModal open={azideiaRewardsOpen} onClose={() => setAzideiaRewardsOpen(false)} />
-      <Footer />
     </div>
   );
 }

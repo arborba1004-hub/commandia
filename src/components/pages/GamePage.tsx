@@ -421,9 +421,10 @@ export default function GamePage() {
         const ownerId = String(current.playerId || "");
         const currentPlayerId = String(currentPlayer?._id || player?._id || "");
         const visualOnly = Boolean(ownerId && currentPlayerId && ownerId !== currentPlayerId);
-        const equippedSkinId = visualOnly
-          ? "comboio_padrao"
-          : currentPlayer?.convoys?.equippedSkinId ?? "comboio_padrao";
+        const equippedSkinId =
+          current.convoySkinId ||
+          (visualOnly ? "comboio_padrao" : currentPlayer?.convoys?.equippedSkinId) ||
+          "comboio_padrao";
         const skin = getConvoySkin(equippedSkinId);
 
         if (current.status === "travelling") {

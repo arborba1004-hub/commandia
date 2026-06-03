@@ -111,7 +111,7 @@ export default function BarracoPage() {
       {
         key: 'fuga',
         title: 'Fuga',
-        subtitle: 'proteção, veículos e redução de perdas',
+        subtitle: 'garagem/veículos — 1 estágio a cada 5 níveis do barraco',
         current: Number(levels.fuga || 1),
         required: Number(required.fuga || level),
       },
@@ -345,7 +345,7 @@ export default function BarracoPage() {
           <div className="rounded-[2rem] border border-white/10 bg-black/60 p-5 shadow-xl backdrop-blur">
             <h2 className="text-xl font-black">Requisitos oficiais</h2>
             <p className="mt-1 text-xs text-zinc-400">
-              Para evoluir o barraco, Arsenal, Fuga, Suborno e Artigos de Luxo precisam acompanhar o nível atual do barraco.
+              Para evoluir o barraco, Arsenal, Suborno e Artigos de Luxo acompanham o nível atual. A Fuga usa os 20 estágios da garagem: 1 estágio a cada 5 níveis do barraco.
             </p>
 
             <div className="mt-4 space-y-3">
