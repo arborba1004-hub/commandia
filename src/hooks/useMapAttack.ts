@@ -309,6 +309,10 @@ export function useMapAttack(): UseMapAttackReturn {
         convoySkinId: selectedConvoySkin.id,
       });
 
+      if ((startResp as any).player) {
+        usePlayerStore.getState().hydratePlayerFromServer((startResp as any).player);
+      }
+
       // Rota de tiles para a animação de ida (já com tiles centralizados)
       const fwdFromX = Number(startResp.route?.fromTileX ?? originTileX);
       const fwdFromY = Number(startResp.route?.fromTileY ?? originTileY);
@@ -381,6 +385,9 @@ export function useMapAttack(): UseMapAttackReturn {
       // ── Resolver no backend ─────────────────────────────────────────────
       store.setPhase('resolving');
       const report = await resolveBattle(startResp.battleId);
+      if ((report as any).player) {
+        usePlayerStore.getState().hydratePlayerFromServer((report as any).player);
+      }
 
       setResolution(report.resolution);
       store.setResolution(report.resolution);
