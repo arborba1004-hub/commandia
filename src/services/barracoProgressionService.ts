@@ -27,6 +27,11 @@ function parseIsoTime(value?: string | null) {
   return Number.isFinite(time) ? time : 0;
 }
 
+export function getFugaRequirementForBarracoLevel(level: number) {
+  const safeLevel = toLevel(level, 1);
+  return clamp(Math.ceil(safeLevel / 5), 1, 20);
+}
+
 export function getBarracoGangStatsBonusPercent(level: number) {
   const safeLevel = Math.max(1, Math.min(MAX_BARRACO_LEVEL, Math.floor(Number(level) || 1)));
   return Math.max(0, (safeLevel - 1) * BARRACO_GANG_STAT_BONUS_PER_LEVEL);
@@ -94,6 +99,7 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
   const cost = getBarracoUpgradeCost(barracoLevel);
   const durationMs = getBarracoUpgradeDurationMs(barracoLevel);
   const sideRequirement = Math.max(1, Math.floor(Number(barracoLevel) || 1));
+  const fugaRequirement = getFugaRequirementForBarracoLevel(barracoLevel);
 
   const rules = [
     {
@@ -130,8 +136,8 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
     },
     {
       key: 'fuga',
-      ok: fugaLevel >= sideRequirement,
-      reason: `Sua Fuga precisa estar no nível ${sideRequirement}. Atual: ${fugaLevel}.`,
+      ok: fugaLevel >= fugaRequirement,
+      reason: `Sua Fuga precisa estar no estágio ${fugaRequirement} da garagem. Atual: ${fugaLevel}.`,
     },
     {
       key: 'bribery',
@@ -166,13 +172,13 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
     },
     requiredSystemLevels: {
       arsenal: sideRequirement,
-      fuga: sideRequirement,
+      fuga: fugaRequirement,
       bribery: sideRequirement,
       luxury: sideRequirement,
     },
     requirements: {
       arsenal: sideRequirement,
-      fuga: sideRequirement,
+      fuga: fugaRequirement,
       bribery: sideRequirement,
       luxury: sideRequirement,
     },
