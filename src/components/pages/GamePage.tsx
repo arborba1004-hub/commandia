@@ -397,7 +397,7 @@ export default function GamePage() {
 
   const waitForAzideiaScene = useCallback(async () => {
     let scene = sceneRef.current;
-    for (let attempt = 0; !scene && attempt < 24; attempt += 1) {
+    for (let attempt = 0; !scene && attempt < 80; attempt += 1) {
       await sleep(50);
       scene = sceneRef.current;
     }
@@ -405,11 +405,12 @@ export default function GamePage() {
   }, []);
 
   const runAzideiaMissionCycle = useCallback(
-    async (mission: AzideiaMission) => {
+    async (
+      mission: AzideiaMission,
+      options: { forceForwardAnimation?: boolean } = {},
+    ) => {
       const missionId = String(mission?.missionId || "");
       if (!missionId || activeAzideiaVisualsRef.current.has(missionId)) return;
-
-      activeAzideiaVisualsRef.current.add(missionId);
 
       let forward: ReturnType<typeof mountAttackConvoy3D> | null = null;
       let returning: ReturnType<typeof mountAttackConvoy3D> | null = null;
@@ -417,6 +418,12 @@ export default function GamePage() {
       try {
         let current: AzideiaMission = mission;
         const scene = await waitForAzideiaScene();
+        if (!scene) {
+          console.warn("[GamePage] Cena 3D indisponível; comboio Azidéia será tentado novamente no próximo sync.", missionId);
+          return;
+        }
+
+        activeAzideiaVisualsRef.current.add(missionId);
         const currentPlayer = usePlayerStore.getState().player as any;
         const ownerId = String(current.playerId || "");
         const currentPlayerId = String(currentPlayer?._id || player?._id || "");
@@ -433,25 +440,31 @@ export default function GamePage() {
             : [];
           const arriveAtMs = parseIsoMs(current.arriveAtIso);
 
-          if (
-            scene &&
+          const shouldForceForwardAnimation = Boolean(options.forceForwardAnimation);
+          const forwardRemainingMs = arriveAtMs ? Math.max(0, arriveAtMs - Date.now()) : 0;
+          const shouldAnimateForward =
             route.length > 1 &&
-            (!arriveAtMs || Date.now() < arriveAtMs)
-          ) {
+            (shouldForceForwardAnimation || !arriveAtMs || forwardRemainingMs > 250);
+
+          if (shouldAnimateForward) {
+            const baseDurationMs = Number(current.travelDurationMs || 2500);
+            const visibleDurationMs = shouldForceForwardAnimation
+              ? Math.max(1800, Math.min(6500, forwardRemainingMs || baseDurationMs || 2500))
+              : Math.max(1200, baseDurationMs);
+
             forward = mountAttackConvoy3D({
               scene,
               route,
               gridWidth: GRID_WIDTH,
               gridHeight: GRID_HEIGHT,
               skin,
-              durationMs: Math.max(
-                1200,
-                Number(current.travelDurationMs || 2500),
-              ),
-              initialProgress: progressBetween(
-                getRouteStartMsForMission(current),
-                arriveAtMs,
-              ),
+              durationMs: visibleDurationMs,
+              initialProgress: shouldForceForwardAnimation
+                ? 0
+                : progressBetween(
+                    getRouteStartMsForMission(current),
+                    arriveAtMs,
+                  ),
               coordinateMode: "tile-center",
               memberCount: 1,
               label: getAzideiaConvoyLabel(current.targetType),
@@ -614,7 +627,7 @@ export default function GamePage() {
 
       setAzideiaTarget(null);
       void azideiaLayerRef.current?.refresh();
-      void runAzideiaMissionCycle(result);
+      void runAzideiaMissionCycle(result, { forceForwardAnimation: true });
 
       return result;
     },
@@ -1058,7 +1071,9 @@ export default function GamePage() {
       // usuário autenticado. Então processamos o payload direto e o ciclo roda
       // em modo visual-only quando playerId !== jogador atual.
       if (payloadMission?.missionId) {
-        void runAzideiaMissionCycle(payloadMission);
+        void runAzideiaMissionCycle(payloadMission, {
+          forceForwardAnimation: reason === "mission_started" || reason === "convoy_started",
+        });
         return;
       }
 
@@ -1103,6 +1118,7 @@ export default function GamePage() {
       socket.on("azideia:targetChanged", handleAzideiaMapChanged);
       socket.on("azideia:x9Changed", handleAzideiaMapChanged);
       socket.on("azideia:missionChanged", handleAzideiaMapChanged);
+      socket.on("azideia:convoyStarted", handleAzideiaMapChanged);
       socket.on("qg:eventUpdated", handleQgEventUpdated);
 
       if (socket.connected) {
@@ -1430,6 +1446,7 @@ export default function GamePage() {
         socket.off("azideia:targetChanged", handleAzideiaMapChanged);
         socket.off("azideia:x9Changed", handleAzideiaMapChanged);
         socket.off("azideia:missionChanged", handleAzideiaMapChanged);
+        socket.off("azideia:convoyStarted", handleAzideiaMapChanged);
         socket.off("qg:eventUpdated", handleQgEventUpdated);
       }
 
