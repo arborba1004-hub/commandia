@@ -190,6 +190,61 @@ function syncBalances(playerBalances?: {
   }));
 }
 
+
+/**
+ * Sincroniza o playerStore depois de ações da gangue/treino.
+ * Azidéia, ataque e mapa leem Player.gang pelo playerStore em vários pontos;
+ * se o treino atualiza só o gangStore, o frontend fica com membros antigos e
+ * pode mostrar/comportar como se não houvesse membro ativo.
+ */
+function syncPlayerStoreFromGangEnvelope(data: any) {
+  if (!data) return;
+  const playerStore = usePlayerStore.getState();
+
+  if (data.player && typeof data.player === 'object') {
+    playerStore.hydratePlayerFromServer(data.player as any);
+    return;
+  }
+
+  const incomingGang = data.gang && typeof data.gang === 'object' ? data.gang : null;
+  const incomingBalances = data.balances || data.playerBalances || null;
+
+  if (!incomingGang && !incomingBalances) return;
+
+  playerStore.applyLocalPlayerUpdate((current) => {
+    const nextGang = incomingGang
+      ? {
+          ...(current.gang || {}),
+          ...incomingGang,
+          members: Array.isArray(incomingGang.members)
+            ? incomingGang.members
+            : (current.gang?.members || current.gangMembers || []),
+          trainingSlots: Array.isArray(incomingGang.trainingSlots)
+            ? incomingGang.trainingSlots
+            : (Array.isArray(data.trainingSlots) ? data.trainingSlots : current.gang?.trainingSlots || []),
+        }
+      : {
+          ...(current.gang || {}),
+          trainingSlots: Array.isArray(data.trainingSlots) ? data.trainingSlots : current.gang?.trainingSlots || [],
+        };
+
+    return {
+      ...current,
+      balances: incomingBalances
+        ? {
+            ...current.balances,
+            dirtyMoney: Number(incomingBalances.dirtyMoney ?? current.balances.dirtyMoney ?? 0),
+            cleanMoney: Number(incomingBalances.cleanMoney ?? current.balances.cleanMoney ?? 0),
+            corre: Number(incomingBalances.corre ?? current.balances.corre ?? 0),
+          }
+        : current.balances,
+      gang: nextGang,
+      gangMembers: Array.isArray(nextGang.members) ? nextGang.members : current.gangMembers,
+      gangStats: nextGang.stats || current.gangStats,
+    };
+  });
+}
+
 /**
  * Após mudar a formação, atualiza as estatísticas de combate no gangEstatisticasStore.
  * Este é o ponto de integração entre gangStore ↔ gangEstatisticasStore.
@@ -222,6 +277,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await fetchMyGang();
       syncBalances(data.playerBalances);
+      syncPlayerStoreFromGangEnvelope(data);
 
       const apiGang = data.gang ?? null;
 
@@ -273,6 +329,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await fetchTrainingStatus();
       syncBalances(data.balances);
+      syncPlayerStoreFromGangEnvelope(data);
 
       set((state) => ({
         trainingSlots: data.trainingSlots,
@@ -336,6 +393,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
       const data = await recruitGangMember(type);
 
       syncBalances(data.playerBalances);
+      syncPlayerStoreFromGangEnvelope(data);
 
       set({
         gang: data.gang,
@@ -359,6 +417,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await startTraining(ctKey, troopType, troopLevel);
       syncBalances(data.balances);
+      syncPlayerStoreFromGangEnvelope(data);
 
       set((state) => ({
         trainingSlots: data.trainingSlots,
@@ -422,6 +481,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
       const data = await collectTrainingApi(slotId);
       syncBalances(data.balances);
+      syncPlayerStoreFromGangEnvelope(data);
 
       set((state) => ({
         trainingSlots: data.trainingSlots,
@@ -452,6 +512,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
       const data = await upgradeGangCT();
 
       syncBalances(data.playerBalances);
+      syncPlayerStoreFromGangEnvelope(data);
 
       set({
         gang: data.gang,
@@ -476,6 +537,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
       const data = await payGangMaintenance();
 
       syncBalances(data.playerBalances);
+      syncPlayerStoreFromGangEnvelope(data);
 
       set({
         gang: data.gang,
@@ -500,6 +562,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
       const data = await setGangFormation(formation);
 
       syncBalances(data.playerBalances);
+      syncPlayerStoreFromGangEnvelope(data);
 
       set({
         gang: data.gang,

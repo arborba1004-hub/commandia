@@ -749,7 +749,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   // ── Setters ───────────────────────────────────────────────────────────────
-  setBalances: (b) => get().applyPlayerUpdate((p) => ({ ...p, balances: { ...p.balances, ...b } })),
+  setBalances: (b) => get().applyLocalPlayerUpdate((p) => ({ ...p, balances: { ...p.balances, ...b } })),
   addDirtyMoney: (a) => { if (!isDirtyMoneyBlocked(get().player)) get().applyPlayerUpdate((p) => ({ ...p, balances: { ...p.balances, dirtyMoney: p.balances.dirtyMoney + a } })); },
   removeDirtyMoney: (v) => { if (!isDirtyMoneyBlocked(get().player)) get().applyPlayerUpdate((p) => ({ ...p, balances: { ...p.balances, dirtyMoney: Math.max(0, p.balances.dirtyMoney - v) } })); },
   removeDirtyMoneyPercent: (pct) => { if (!isDirtyMoneyBlocked(get().player)) get().applyPlayerUpdate((p) => ({ ...p, balances: { ...p.balances, dirtyMoney: Math.max(0, p.balances.dirtyMoney - p.balances.dirtyMoney * (pct / 100)) } })); },
@@ -777,12 +777,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   purchaseAccessory: (id, type) => get().applyPlayerUpdate((p) => { const a = p.purchasedAccessories || []; if (a.some((x) => x.accessoryId === id)) return p; return { ...p, purchasedAccessories: [...a, { accessoryId: id, skillType: type, purchasedAt: new Date().toISOString() }] }; }),
   getAccessoryBonusPercent: () => ((get().player.niveis.playerLevel || 1) <= 50 ? 1 : 2),
   addAccessory: (type, itemId, name) => get().applyPlayerUpdate((p) => { const ex = p.accessories?.[type]?.[itemId] || []; if (ex.includes(name)) return p; return { ...p, accessories: { ...p.accessories, [type]: { ...p.accessories?.[type], [itemId]: [...ex, name] } } }; }),
-  setNotifications: (n) => get().applyPlayerUpdate((p) => ({ ...p, notifications: n })),
-  addNotification: (n) => get().applyPlayerUpdate((p) => ({ ...p, notifications: [...(p.notifications || []), n] })),
-  markNotificationAsRead: (id) => get().applyPlayerUpdate((p) => ({ ...p, notifications: (p.notifications || []).map((n) => n.id === id ? { ...n, read: true } : n) })),
-  setAttackHistory: (h) => get().applyPlayerUpdate((p) => ({ ...p, attackHistory: h })),
-  addAttackHistoryItem: (i) => get().applyPlayerUpdate((p) => ({ ...p, attackHistory: [...(p.attackHistory || []), i] })),
-  applyRemoteAttackResult: (payload) => get().applyPlayerUpdate((p) => {
+  setNotifications: (n) => get().applyLocalPlayerUpdate((p) => ({ ...p, notifications: n })),
+  addNotification: (n) => get().applyLocalPlayerUpdate((p) => ({ ...p, notifications: [...(p.notifications || []), n] })),
+  markNotificationAsRead: (id) => get().applyLocalPlayerUpdate((p) => ({ ...p, notifications: (p.notifications || []).map((n) => n.id === id ? { ...n, read: true } : n) })),
+  setAttackHistory: (h) => get().applyLocalPlayerUpdate((p) => ({ ...p, attackHistory: h })),
+  addAttackHistoryItem: (i) => get().applyLocalPlayerUpdate((p) => ({ ...p, attackHistory: [...(p.attackHistory || []), i] })),
+  applyRemoteAttackResult: (payload) => get().applyLocalPlayerUpdate((p) => {
     const u: PlayerState = { ...p, balances: { ...p.balances, dirtyMoney: Math.max(0, p.balances.dirtyMoney + payload.dirtyMoneyDelta) } };
     if (payload.notification) u.notifications = [...(u.notifications || []), payload.notification];
     if (payload.historyItem)  u.attackHistory  = [...(u.attackHistory  || []), payload.historyItem];
@@ -890,17 +890,37 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     return { ok: true };
   },
 
-  setFactionId: (factionId) => get().applyPlayerUpdate((p) => ({ ...p, factionId })),
+  setFactionId: (factionId) => get().applyLocalPlayerUpdate((p) => ({ ...p, factionId })),
 
   // ── Gang ──────────────────────────────────────────────────────────────────
-  setGangMembers: (members) => set((s) => ({ player: { ...s.player, gangMembers: members } })),
-  addGangMember: (member) => set((s) => ({ player: { ...s.player, gangMembers: [...(s.player.gangMembers || []), member] } })),
-  updateGangMember: (id, updates) => set((s) => ({ player: { ...s.player, gangMembers: (s.player.gangMembers || []).map((m) => m.id === id ? { ...m, ...updates } : m) } })),
-  removeGangMember: (id) => set((s) => ({ player: { ...s.player, gangMembers: (s.player.gangMembers || []).filter((m) => m.id !== id) } })),
-  setGangStats: (stats) => set((s) => ({ player: { ...s.player, gangStats: stats } })),
-  updateGangStats: (updates) => set((s) => ({ player: { ...s.player, gangStats: { ...s.player.gangStats!, ...updates } } })),
-  setLastAttackAt: (t) => get().applyPlayerUpdate((p) => ({ ...p, lastAttackAt: t })),
-  setPvpProtectionUntil: (t) => get().applyPlayerUpdate((p) => ({ ...p, pvpProtectionUntil: t, punishments: { ...p.punishments, pvpProtectionUntil: t } })),
+  setGangMembers: (members) => get().applyLocalPlayerUpdate((p) => ({
+    ...p,
+    gangMembers: members,
+    gang: { ...(p.gang || {}), members },
+  })),
+  addGangMember: (member) => get().applyLocalPlayerUpdate((p) => {
+    const members = [...(p.gang?.members || p.gangMembers || []), member];
+    return { ...p, gangMembers: members, gang: { ...(p.gang || {}), members } };
+  }),
+  updateGangMember: (id, updates) => get().applyLocalPlayerUpdate((p) => {
+    const members = (p.gang?.members || p.gangMembers || []).map((m) => String(m.id) === String(id) ? { ...m, ...updates } : m);
+    return { ...p, gangMembers: members, gang: { ...(p.gang || {}), members } };
+  }),
+  removeGangMember: (id) => get().applyLocalPlayerUpdate((p) => {
+    const members = (p.gang?.members || p.gangMembers || []).filter((m) => String(m.id) !== String(id));
+    return { ...p, gangMembers: members, gang: { ...(p.gang || {}), members } };
+  }),
+  setGangStats: (stats) => get().applyLocalPlayerUpdate((p) => ({
+    ...p,
+    gangStats: stats,
+    gang: { ...(p.gang || {}), stats },
+  })),
+  updateGangStats: (updates) => get().applyLocalPlayerUpdate((p) => {
+    const stats = { ...(p.gangStats || p.gang?.stats || {}), ...updates };
+    return { ...p, gangStats: stats, gang: { ...(p.gang || {}), stats } };
+  }),
+  setLastAttackAt: (t) => get().applyLocalPlayerUpdate((p) => ({ ...p, lastAttackAt: t })),
+  setPvpProtectionUntil: (t) => get().applyLocalPlayerUpdate((p) => ({ ...p, pvpProtectionUntil: t, punishments: { ...p.punishments, pvpProtectionUntil: t } })),
   getGangMemberById: (id) => (get().player.gangMembers || []).find((m) => m.id === id),
   getActiveGangMembers: () => (get().player.gangMembers || []).filter((m) => m.status === 'ativo'),
   getInjuredGangMembers: () => (get().player.gangMembers || []).filter((m) => m.status === 'ferido'),
