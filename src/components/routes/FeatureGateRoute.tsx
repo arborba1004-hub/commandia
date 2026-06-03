@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerStore } from '@/store/playerStore';
 import {
@@ -23,8 +23,11 @@ export default function FeatureGateRoute({
   const isLoaded = usePlayerStore((state) => state.isLoaded);
   const loadPlayer = usePlayerStore((state) => state.loadPlayer);
 
+  useEffect(() => {
+    if (!isLoaded) void loadPlayer();
+  }, [isLoaded, loadPlayer]);
+
   if (!isLoaded) {
-    void loadPlayer();
 
     return (
       <>
