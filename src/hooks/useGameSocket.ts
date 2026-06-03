@@ -19,7 +19,8 @@ import { useFactionStore }   from '@/store/factionStore';
 import { useGangStore }      from '@/store/gangStore';
 import { reconnectSocket, disconnectSocket } from '@/socket';
 
-export function useGameSocket() {
+export function useGameSocket(options: { enabled?: boolean } = {}) {
+  const enabled = options.enabled ?? true;
   const hydratePlayerFromServer = usePlayerStore((s) => s.hydratePlayerFromServer);
   const setFaction              = useFactionStore((s) => s.setFaction);
   const socketInitializedRef    = useRef(false);
@@ -228,18 +229,6 @@ export function useGameSocket() {
     return socket;
   };
 
-  // ── Listener para authTokenChanged ──────────────────────────────────────────
-  const handleAuthTokenChanged = () => {
-    console.log('🔵 useGameSocket: authTokenChanged detectado, reconectando socket...');
-    try {
-      connectAndRegister();
-      console.log('🟢 useGameSocket: Socket reconectado e listeners registrados');
-    } catch (error) {
-      console.error('🔴 useGameSocket: Erro ao reconectar socket:', error);
-      socketInitializedRef.current = false;
-    }
-  };
-
   useEffect(() => {
     if (typeof window === 'undefined') {
       console.log('⚠️ useGameSocket skipped during SSR/build');
@@ -247,19 +236,30 @@ export function useGameSocket() {
     }
 
     mountedRef.current = true;
+    let socket: any = null;
 
-    // O listener precisa existir mesmo na Home sem token. Antes, se o app
-    // abria deslogado, este hook retornava antes de registrar authTokenChanged;
-    // depois do login o socket não subia, o Header não hidratava e o mapa ficava
-    // sem HUD/ícones até recarregar.
+    const handleAuthTokenChanged = () => {
+      if (!enabled) return;
+      try {
+        socket = connectAndRegister();
+      } catch (error) {
+        console.error('🔴 useGameSocket: Erro ao conectar socket:', error);
+        socketInitializedRef.current = false;
+      }
+    };
+
     window.addEventListener('authTokenChanged', handleAuthTokenChanged);
 
-    let socket: any = null;
-    try {
-      socket = connectAndRegister();
-    } catch (error) {
-      console.error('Erro ao conectar socket:', error);
+    if (!enabled) {
       socketInitializedRef.current = false;
+      disconnectSocket();
+    } else {
+      try {
+        socket = connectAndRegister();
+      } catch (error) {
+        console.error('Erro ao conectar socket:', error);
+        socketInitializedRef.current = false;
+      }
     }
 
     return () => {
@@ -268,7 +268,7 @@ export function useGameSocket() {
       removeRegisteredListeners(socket);
       socketInitializedRef.current = false;
     };
-  }, []); // Apenas na montagem — o socket é singleton
+  }, [enabled]);
 }
 
 /**
