@@ -571,6 +571,9 @@ export default function GamePage() {
       try {
         const response = await getActiveAzideiaMissions();
         if (cancelled) return;
+        if ((response as any).player) {
+          usePlayerStore.getState().hydratePlayerFromServer((response as any).player);
+        }
 
         for (const mission of response.missions || []) {
           void runAzideiaMissionCycle(mission);
@@ -1062,6 +1065,9 @@ export default function GamePage() {
       void getActiveAzideiaMissions()
         .then((response) => {
           if (!isMounted) return;
+          if ((response as any).player) {
+            usePlayerStore.getState().hydratePlayerFromServer((response as any).player);
+          }
           for (const mission of response.missions || []) {
             void runAzideiaMissionCycle(mission);
           }
