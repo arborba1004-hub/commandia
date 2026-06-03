@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 
-import { mountFixedMapBuildings } from "@/components/game/fixedMapBuildings";
+import { mountFixedMapBuildings, type FixedBuildingStatusLabel } from "@/components/game/fixedMapBuildings";
 import {
   mountPlayerMapSpace,
   isPlayerSpaceAvailable,
@@ -54,7 +54,8 @@ import {
 import type { AzideiaMission, AzideiaX9Target } from "@/types/azideia";
 import { mountAttackConvoy3D } from "@/components/game/convoy/convoy3DAnimator";
 import { getConvoySkin } from "@/data/convoyCatalog";
-import { getQgEventState } from "@/api/qgEventApi";
+import { getQgEventState, type QgEventState, type QgLocationKey } from "@/api/qgEventApi";
+import QgMapOccupationModal from "@/components/qg/QgMapOccupationModal";
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
@@ -147,6 +148,53 @@ function getReturnStartMsForMission(mission: AzideiaMission) {
   );
 }
 
+
+const QG_MAP_LOCATION_KEYS: QgLocationKey[] = ["qg", "ct_nw", "ct_ne", "ct_sw", "ct_se"];
+
+function isQgEventInteractionOpen(status?: string | null) {
+  return status === "preparation" || status === "active";
+}
+
+function buildQgBuildingStatusLabels(state?: QgEventState | null): Record<string, FixedBuildingStatusLabel | null> {
+  const event = state?.event;
+  const labels: Record<string, FixedBuildingStatusLabel | null> = {
+    qg: null,
+    ct_nw: null,
+    ct_ne: null,
+    ct_sw: null,
+    ct_se: null,
+  };
+
+  if (!event) return labels;
+
+  const status = String(event.status || "");
+  const shouldShowFree = ["preparation", "active", "appointment", "mandate"].includes(status);
+
+  for (const location of event.locations || []) {
+    if (!QG_MAP_LOCATION_KEYS.includes(location.key as QgLocationKey)) continue;
+
+    const occupantTag = String(location.occupantFactionTag || "").trim();
+    const occupantName = String(location.occupantFactionName || "").trim();
+
+    if (occupantTag || occupantName) {
+      labels[location.key] = {
+        title: "Dominado por",
+        subtitle: occupantTag ? `[${occupantTag}]` : occupantName,
+        accent: location.hostileToQG ? "#ef4444" : "#22c55e",
+        danger: Boolean(location.hostileToQG),
+      };
+    } else if (shouldShowFree) {
+      labels[location.key] = {
+        title: location.key === "qg" ? "QG livre" : "CT livre",
+        subtitle: "ocupar",
+        accent: "#38bdf8",
+      };
+    }
+  }
+
+  return labels;
+}
+
 export default function GamePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -202,6 +250,17 @@ export default function GamePage() {
   const [trainingModalOpen, setTrainingModalOpen] = useState(false);
   const [selectedCT, setSelectedCT] = useState<string | null>(null);
   const [isSubmittingTraining, setIsSubmittingTraining] = useState(false);
+
+  // ── Modal: Tomada do QG direto pelo mapa (QG + CTs reais)
+  const [qgMapState, setQgMapState] = useState<QgEventState | null>(null);
+  const [qgMapModalOpen, setQgMapModalOpen] = useState(false);
+  const [selectedQgLocationKey, setSelectedQgLocationKey] = useState<QgLocationKey | null>(null);
+
+  const openQgMapModal = useCallback((locationKey: QgLocationKey, state?: QgEventState | null) => {
+    if (state) setQgMapState(state);
+    setSelectedQgLocationKey(locationKey);
+    setQgMapModalOpen(true);
+  }, []);
 
   // ── Automatic training completion check
   useEffect(() => {
@@ -647,16 +706,32 @@ export default function GamePage() {
       camera,
       container: mountEl,
       onNavigate: (path: string) => {
-        // CTs continuam sendo CTs de treino fora da Tomada.
-        // Durante preparação/guerra do QG, o treino fica bloqueado e o clique leva
-        // direto para a disputa daquele CT real do mapa.
-        if (path.startsWith("ct:")) {
-          const ctKey = path.replace("ct:", "");
+        if (path === "/tomada-qg") {
           getQgEventState()
             .then((payload) => {
-              const status = String(payload?.event?.status || '');
-              if (status === 'preparation' || status === 'active') {
-                navigate(`/tomada-qg?location=${encodeURIComponent(ctKey)}`);
+              setQgMapState(payload);
+              const status = String(payload?.event?.status || "");
+              if (isQgEventInteractionOpen(status)) {
+                openQgMapModal("qg", payload);
+                return;
+              }
+              navigate("/tomada-qg");
+            })
+            .catch(() => navigate("/tomada-qg"));
+          return;
+        }
+
+        // CTs continuam sendo CTs de treino fora da Tomada.
+        // Durante preparação/guerra do QG, o treino fica bloqueado e abre só
+        // o modal daquele CT para tomar/reforçar/enviar gangue.
+        if (path.startsWith("ct:")) {
+          const ctKey = path.replace("ct:", "") as QgLocationKey;
+          getQgEventState()
+            .then((payload) => {
+              setQgMapState(payload);
+              const status = String(payload?.event?.status || "");
+              if (isQgEventInteractionOpen(status)) {
+                openQgMapModal(ctKey, payload);
                 return;
               }
               setSelectedCT(ctKey);
@@ -666,12 +741,33 @@ export default function GamePage() {
               setSelectedCT(ctKey);
               setTrainingModalOpen(true);
             });
-        } else {
-          navigate(path);
+          return;
         }
+
+        navigate(path);
       },
       onMessage: () => {},
     });
+
+    const syncQgBuildingStatus = (payload?: QgEventState | null) => {
+      const apply = (next: QgEventState | null) => {
+        if (!isMounted || !next) return;
+        setQgMapState(next);
+        fixedBuildingsLayer.updateStatusLabels(buildQgBuildingStatusLabels(next));
+      };
+
+      if (payload) {
+        apply(payload);
+        return;
+      }
+
+      getQgEventState()
+        .then(apply)
+        .catch((error) => console.warn("[GamePage] Falha ao sincronizar status QG/CT:", error));
+    };
+
+    void syncQgBuildingStatus();
+    const qgStatusInterval = window.setInterval(() => syncQgBuildingStatus(), 15000);
 
     // Cache de posições dos outros jogadores
     const localPlayers = new Map<string, { tileX: number; tileY: number }>();
@@ -977,6 +1073,19 @@ export default function GamePage() {
         );
     }
 
+    function handleQgEventUpdated(payload: any) {
+      if (!isMounted) return;
+      const next = {
+        ...(qgMapState || payload),
+        config: payload?.config || qgMapState?.config,
+        event: payload?.event || qgMapState?.event,
+        eligibility: payload?.eligibility || qgMapState?.eligibility,
+        serverTime: payload?.serverTime || qgMapState?.serverTime || new Date().toISOString(),
+        ok: true,
+      } as QgEventState;
+      syncQgBuildingStatus(next);
+    }
+
     if (socket) {
       socket.on("mapSnapshot", handleMapSnapshot);
       socket.on("playerJoined", handlePlayerJoined);
@@ -987,6 +1096,7 @@ export default function GamePage() {
       socket.on("azideia:targetChanged", handleAzideiaMapChanged);
       socket.on("azideia:x9Changed", handleAzideiaMapChanged);
       socket.on("azideia:missionChanged", handleAzideiaMapChanged);
+      socket.on("qg:eventUpdated", handleQgEventUpdated);
 
       if (socket.connected) {
         socket.emit("requestMapSnapshot");
@@ -1292,6 +1402,7 @@ export default function GamePage() {
       setThreeReady(false);
       window.cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
+      window.clearInterval(qgStatusInterval);
       renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
       renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       renderer.domElement.removeEventListener(
@@ -1312,6 +1423,7 @@ export default function GamePage() {
         socket.off("azideia:targetChanged", handleAzideiaMapChanged);
         socket.off("azideia:x9Changed", handleAzideiaMapChanged);
         socket.off("azideia:missionChanged", handleAzideiaMapChanged);
+        socket.off("qg:eventUpdated", handleQgEventUpdated);
       }
 
       controls.dispose();
@@ -1464,6 +1576,17 @@ export default function GamePage() {
         onClose={() => {
           setDmModalOpen(false);
           setDmTarget(null);
+        }}
+      />
+
+      <QgMapOccupationModal
+        isOpen={qgMapModalOpen}
+        locationKey={selectedQgLocationKey}
+        initialState={qgMapState}
+        onStateChange={setQgMapState}
+        onClose={() => {
+          setQgMapModalOpen(false);
+          setSelectedQgLocationKey(null);
         }}
       />
 
