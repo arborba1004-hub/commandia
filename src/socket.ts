@@ -95,7 +95,7 @@ class RealSocket implements Socket {
         this.isReconnecting = false;
         this.clearSlowRetry(); // [PATCH 2]
         this.flushMessageQueue();
-        this.emit('connect');
+        this.dispatchLocal('connect');
         startKeepAlive();
       };
 
@@ -121,7 +121,7 @@ class RealSocket implements Socket {
 
       this.ws.onerror = (error) => {
         console.error('🔴 Erro no socket:', error);
-        this.emit('connect_error', new Error('WebSocket error'));
+        this.dispatchLocal('connect_error', new Error('WebSocket error'));
       };
 
       this.ws.onclose = () => {
@@ -178,6 +178,16 @@ class RealSocket implements Socket {
       clearInterval(this.slowRetryTimeout);
       this.slowRetryTimeout = null;
     }
+  }
+
+  private dispatchLocal(event: string, ...args: any[]): void {
+    const callbacks = this.listeners.get(event);
+    if (!callbacks) return;
+    callbacks.forEach((callback) => {
+      try { callback(...args); } catch (err) {
+        console.error(`Erro ao executar listener local para ${event}:`, err);
+      }
+    });
   }
 
   private flushMessageQueue(): void {
