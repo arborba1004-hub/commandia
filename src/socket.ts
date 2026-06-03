@@ -65,6 +65,7 @@ class RealSocket implements Socket {
   private messageQueue: Array<{ event: string; args: any[] }> = []
   private isReconnecting = false;
   private slowRetryTimeout: ReturnType<typeof setTimeout> | null = null; // [PATCH 2]
+  private manualDisconnect = false;
 
   constructor(token: string) {
     this.token = token;
@@ -74,6 +75,7 @@ class RealSocket implements Socket {
   private connect(): void {
     if (typeof window === 'undefined') return;
     if (this.ws?.readyState === WebSocket.OPEN) return;
+    this.manualDisconnect = false;
 
     const protocol = BACKEND_URL.startsWith('https') ? 'wss' : 'ws';
     const wsUrl = BACKEND_URL.replace(/^https?/, protocol).replace(/\/$/, '');
@@ -125,7 +127,7 @@ class RealSocket implements Socket {
       this.ws.onclose = () => {
         console.log('🟡 Socket desconectado');
         this.ws = null;
-        this.attemptReconnect();
+        if (!this.manualDisconnect) this.attemptReconnect();
       };
     } catch (err) {
       console.error('Erro ao criar WebSocket:', err);
@@ -225,6 +227,7 @@ class RealSocket implements Socket {
   }
 
   disconnect(): void {
+    this.manualDisconnect = true;
     if (this.reconnectTimeout) { clearTimeout(this.reconnectTimeout); this.reconnectTimeout = null; }
     this.clearSlowRetry(); // [PATCH 2]
     if (this.ws) { this.ws.close(); this.ws = null; }
@@ -241,6 +244,7 @@ class RealSocket implements Socket {
 
 // ─── Singleton Socket ──────────────────────────────────────────────────────
 let _socket: Socket | null = null;
+let _socketToken: string | null = null;
 
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -251,9 +255,19 @@ export function getSocket(): Socket {
   const token = getAuthToken();
   if (!token) {
     if (_socket) { _socket.disconnect(); _socket = null; }
+    _socketToken = null;
     throw new Error('No authentication token available');
   }
-  if (!_socket) _socket = new RealSocket(token);
+  if (_socket && _socketToken !== token) {
+    _socket.disconnect();
+    _socket = null;
+    _socketToken = null;
+  }
+
+  if (!_socket) {
+    _socket = new RealSocket(token);
+    _socketToken = token;
+  }
   return _socket;
 }
 
@@ -262,16 +276,33 @@ export function reconnectSocket(): Socket {
     return { on: () => {}, once: () => {}, off: () => {}, emit: () => {},
       disconnect: () => {}, removeAllListeners: () => {}, isConnected: () => false, connected: false };
   }
-  if (_socket) { _socket.removeAllListeners(); _socket.disconnect(); _socket = null; }
+
   const token = getAuthToken();
   if (!token) throw new Error('No authentication token available');
+
+  // Se o token é o mesmo, reaproveita o socket singleton. Isso evita o ciclo:
+  // restoreSession → authTokenChanged → disconnect → reconnect → playerInit/mapSnapshot duplicados.
+  if (_socket && _socketToken === token) return _socket;
+
+  if (_socket) {
+    _socket.removeAllListeners();
+    _socket.disconnect();
+    _socket = null;
+  }
+
   _socket = new RealSocket(token);
+  _socketToken = token;
   return _socket;
 }
 
 export function disconnectSocket(): void {
   stopKeepAlive();
-  if (_socket) { _socket.removeAllListeners(); _socket.disconnect(); _socket = null; }
+  if (_socket) {
+    _socket.removeAllListeners();
+    _socket.disconnect();
+    _socket = null;
+  }
+  _socketToken = null;
 }
 
 export default getSocket;
