@@ -71,9 +71,37 @@ function stripServerControlledState<T extends Partial<PlayerState>>(playerData: 
   delete clone.barracoUpgrade;
   delete clone.barracoAccelerators;
 
+  delete clone.inventory;
+  delete clone.skills;
+  delete clone.vip;
+  delete clone.lastSkillTrainAt;
+  delete clone.lastAttackAt;
+  delete clone.hierarchyBadge;
+  delete clone.barracoPosition;
+  delete clone.mapPosition;
+  delete clone.laundryProgress;
+  delete clone.punishments;
+  delete clone.skillBoostMultiplier;
+  delete clone.ownedVehicles;
+  delete clone.purchasedAccessories;
+  delete clone.accessories;
+  delete clone.notifications;
+  delete clone.attackHistory;
+  delete clone.factionId;
+  delete clone.gangId;
   delete clone.gang;
   delete clone.gangMembers;
   delete clone.gangStats;
+  delete clone.power;
+  delete clone.battlePrestige;
+  delete clone.dailyCorre;
+  delete clone.prisonHistory;
+  delete clone.spinRateLimit;
+  delete clone.cardCollection;
+  delete clone.pvpProtectionUntil;
+  delete clone.currentRank;
+  delete clone.unlockedRanks;
+
   return clone as T;
 }
 
@@ -553,7 +581,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     if (isMoneyLaunderingBlocked(current)) return false;
     if (current.balances.dirtyMoney < operation.grossAmount) return false;
     try {
-      const response = await laundryStartWithFaction({ businessId: operation.businessId, businessName: operation.businessName, grossAmount: operation.grossAmount, feePercentage: operation.feePercentage, feeAmount: operation.feeAmount, netAmount: operation.netAmount });
+      const response = await laundryStartWithFaction({
+        businessId: operation.businessId,
+        businessName: operation.businessName,
+      });
       const merged = clearExpiredPunishments(mergePlayer(response.player));
       set({ player: merged, lastSyncAt: Date.now(), pendingLocalChanges: false, lastServerHydrationAt: Date.now() });
       await syncFactionStoreFromEnvelope(response.faction);
