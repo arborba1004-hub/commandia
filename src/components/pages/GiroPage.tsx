@@ -56,6 +56,7 @@ const DISPLAY_ASSETS: Record<DisplaySymbol, string> = {
 
 const MULTIPLIERS = [1, 2, 5, 10, 25, 50];
 const REEL_STOP_MS = [1100, 1560, 2020];
+const JACKPOT_BASE_REWARD = 6000;
 const DEFAULT_REELS: DisplaySymbol[] = ['dice', 'gun', 'diamond'];
 const ANIMATION_SYMBOLS: DisplaySymbol[] = ['money', 'gun', 'diamond', 'police', 'dice'];
 
@@ -183,10 +184,14 @@ export default function GiroPage() {
   const [toasts, setToasts] = useState<SpinToast[]>([]);
   const [claimingDaily, setClaimingDaily] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [cooldownTotalMs, setCooldownTotalMs] = useState(0);
 
   const reelTimers = useRef<number[]>([]);
   const reelIntervals = useRef<number[]>([]);
   const toastTimers = useRef<number[]>([]);
+  const mountedRef = useRef(true);
+  const activeSpinIdRef = useRef(0);
+  const spinResultRef = useRef<SpinResult | null>(null);
 
   const corre = Math.max(0, Number(player?.balances?.corre || 0));
   const dirtyMoney = Math.max(0, Number(player?.balances?.dirtyMoney || 0));
@@ -200,7 +205,9 @@ export default function GiroPage() {
   const canSpin = !spinning && cooldownRemaining <= 0 && corre >= multiplier;
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       reelTimers.current.forEach((timer) => window.clearTimeout(timer));
       reelIntervals.current.forEach((timer) => window.clearInterval(timer));
       toastTimers.current.forEach((timer) => window.clearTimeout(timer));
@@ -221,6 +228,14 @@ export default function GiroPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [activeCooldownUntil]);
 
+  useEffect(() => {
+    if (cooldownRemaining <= 0) {
+      setCooldownTotalMs(0);
+      return;
+    }
+    setCooldownTotalMs((current) => Math.max(current, cooldownRemaining));
+  }, [activeCooldownUntil, cooldownRemaining]);
+
   const addToast = (toast: Omit<SpinToast, 'id'>) => {
     const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
     setToasts((prev) => [{ ...toast, id }, ...prev].slice(0, 4));
@@ -234,6 +249,16 @@ export default function GiroPage() {
     setHistory((prev) => [entry, ...prev].slice(0, 8));
   };
 
+  const trackReelTimeout = (callback: () => void, delayMs: number) => {
+    const timer = window.setTimeout(() => {
+      reelTimers.current = reelTimers.current.filter((item) => item !== timer);
+      if (!mountedRef.current) return;
+      callback();
+    }, delayMs);
+    reelTimers.current.push(timer);
+    return timer;
+  };
+
   const clearAnimations = () => {
     reelTimers.current.forEach((timer) => window.clearTimeout(timer));
     reelIntervals.current.forEach((timer) => window.clearInterval(timer));
@@ -243,7 +268,7 @@ export default function GiroPage() {
 
   const flashPolice = () => {
     setPoliceFlash(true);
-    window.setTimeout(() => setPoliceFlash(false), 900);
+    trackReelTimeout(() => setPoliceFlash(false), 900);
   };
 
   const finalizeSpin = (result: SpinResult) => {
@@ -253,7 +278,9 @@ export default function GiroPage() {
       const lossPct = Math.round((result.prisonPenalty?.lossPct || 0) * 100);
       setMessage(result.label);
       addHistory(`🚔 ${result.label} | -${formatNumber(loss)} Sujo${cooldownMs ? ` | ${Math.round(cooldownMs / 1000)}s` : ''}`);
-      setCooldownUntil(result.prisonPenalty?.cooldownUntil || result.cooldownUntil || 0);
+      const nextCooldownUntil = result.prisonPenalty?.cooldownUntil || result.cooldownUntil || 0;
+      setCooldownUntil(nextCooldownUntil);
+      setCooldownTotalMs(Math.max(0, nextCooldownUntil - Date.now(), result.prisonPenalty?.cooldownMs || 0));
       flashPolice();
       vibrate([160, 80, 160]);
       playTone(110, 0.28, 'sawtooth');
@@ -268,7 +295,7 @@ export default function GiroPage() {
 
     if (result.outcome === 'jackpot' || result.reels.every((symbol) => symbol === 'diamond')) {
       vibrate([80, 40, 80, 40, 160]);
-      [440, 550, 660, 880].forEach((freq, idx) => window.setTimeout(() => playTone(freq, 0.12, 'sine'), idx * 90));
+      [440, 550, 660, 880].forEach((freq, idx) => trackReelTimeout(() => playTone(freq, 0.12, 'sine'), idx * 90));
       addToast({
         type: 'jackpot',
         title: 'Jackpot do Asfalto',
@@ -305,6 +332,10 @@ export default function GiroPage() {
       return;
     }
 
+    const spinId = activeSpinIdRef.current + 1;
+    activeSpinIdRef.current = spinId;
+    spinResultRef.current = null;
+
     vibrate(30);
     playTone(330, 0.05);
     setSpinError('');
@@ -313,75 +344,96 @@ export default function GiroPage() {
     setLockedReels([false, false, false]);
     setLandingReels([false, false, false]);
     setSpinning(true);
-    setMessage(`Colocando ${multiplier} Corre(s) na rua... sem gastar Commands Sujo. Risco ${risk.label}.`);
+    setMessage(`Girando ${multiplier} Corre(s) na rua... sem gastar Commands Sujo. Risco ${risk.label}.`);
+
+    const stopReelWhenResultArrives = (reelIndex: number, interval: number) => {
+      const result = spinResultRef.current;
+      if (!mountedRef.current || activeSpinIdRef.current !== spinId) return;
+
+      if (!result) {
+        trackReelTimeout(() => stopReelWhenResultArrives(reelIndex, interval), 120);
+        return;
+      }
+
+      window.clearInterval(interval);
+      reelIntervals.current = reelIntervals.current.filter((item) => item !== interval);
+      playTone(220 + reelIndex * 125, 0.07);
+      vibrate(35);
+
+      setDisplayedReels((prev) => {
+        const clone = [...prev];
+        clone[reelIndex] = result.reels[reelIndex] as DisplaySymbol;
+        return clone as DisplaySymbol[];
+      });
+
+      setLandingReels((prev) => {
+        const clone = [...prev];
+        clone[reelIndex] = true;
+        return clone;
+      });
+
+      trackReelTimeout(() => {
+        setLandingReels((prev) => {
+          const clone = [...prev];
+          clone[reelIndex] = false;
+          return clone;
+        });
+      }, 420);
+
+      setLockedReels((prev) => {
+        const clone = [...prev];
+        clone[reelIndex] = true;
+        return clone;
+      });
+
+      if (reelIndex === 2) {
+        trackReelTimeout(() => {
+          if (activeSpinIdRef.current === spinId && spinResultRef.current) {
+            finalizeSpin(spinResultRef.current);
+          }
+        }, 180);
+      }
+    };
+
+    for (let i = 0; i < 3; i += 1) {
+      const interval = window.setInterval(() => {
+        if (!mountedRef.current || activeSpinIdRef.current !== spinId) return;
+        setDisplayedReels((prev) => {
+          const clone = [...prev];
+          clone[i] = randomAnimationSymbol();
+          return clone as DisplaySymbol[];
+        });
+      }, 72 + i * 28);
+
+      reelIntervals.current.push(interval);
+      trackReelTimeout(() => stopReelWhenResultArrives(i, interval), REEL_STOP_MS[i]);
+    }
 
     try {
       const response = await spinSlot(multiplier);
+      if (!mountedRef.current || activeSpinIdRef.current !== spinId) return;
+
       const result: SpinResult = response.result;
+      spinResultRef.current = result;
 
       if (response.player) {
         hydratePlayerFromServer(response.player);
       }
-
-      for (let i = 0; i < 3; i += 1) {
-        const interval = window.setInterval(() => {
-          setDisplayedReels((prev) => {
-            const clone = [...prev];
-            clone[i] = randomAnimationSymbol();
-            return clone as DisplaySymbol[];
-          });
-        }, 72 + i * 28);
-
-        reelIntervals.current.push(interval);
-
-        const timer = window.setTimeout(() => {
-          window.clearInterval(interval);
-          playTone(220 + i * 125, 0.07);
-          vibrate(35);
-
-          setDisplayedReels((prev) => {
-            const clone = [...prev];
-            clone[i] = result.reels[i] as DisplaySymbol;
-            return clone as DisplaySymbol[];
-          });
-
-          setLandingReels((prev) => {
-            const clone = [...prev];
-            clone[i] = true;
-            return clone;
-          });
-
-          window.setTimeout(() => {
-            setLandingReels((prev) => {
-              const clone = [...prev];
-              clone[i] = false;
-              return clone;
-            });
-          }, 420);
-
-          setLockedReels((prev) => {
-            const clone = [...prev];
-            clone[i] = true;
-            return clone;
-          });
-
-          if (i === 2) {
-            window.setTimeout(() => finalizeSpin(result), 180);
-          }
-        }, REEL_STOP_MS[i]);
-
-        reelTimers.current.push(timer);
-      }
     } catch (error: any) {
+      if (!mountedRef.current || activeSpinIdRef.current !== spinId) return;
       console.error('Erro ao girar slot:', error);
       const retryAfter = Number(error?.retryAfter || 0);
       if (retryAfter > 0) {
-        setCooldownUntil(Date.now() + retryAfter);
+        const until = Date.now() + retryAfter;
+        setCooldownUntil(until);
+        setCooldownTotalMs(retryAfter);
       }
       const text = error instanceof Error ? error.message : 'Erro ao rodar o corre';
       setSpinError(text);
       setMessage('Falha ao rodar. Tenta de novo.');
       addToast({ type: 'error', title: 'Corre negado', body: text });
+      clearAnimations();
+      spinResultRef.current = null;
       setDisplayedReels(DEFAULT_REELS);
       setLockedReels([true, true, true]);
       setLandingReels([false, false, false]);
@@ -464,7 +516,7 @@ export default function GiroPage() {
                     <div className="absolute inset-x-[9%] top-[20%] flex h-[56%] flex-col items-center justify-center text-center">
                       <span className="text-[clamp(0.8rem,1.5vw,1.2rem)] font-black uppercase tracking-[0.28em] text-[#f7cf75]">Prêmio</span>
                       <span className="mt-1 text-[clamp(2rem,6vw,4.8rem)] font-black leading-none tracking-wide text-[#ffc43b] drop-shadow-[0_0_18px_rgba(255,196,59,0.35)]">
-                        {formatNumber(Math.max(1000, multiplier * 1000))}
+                        {formatNumber(JACKPOT_BASE_REWARD * multiplier)}
                       </span>
                     </div>
                   </div>
@@ -530,7 +582,7 @@ export default function GiroPage() {
                         disabled={!canSpin}
                         className="h-[86px] w-full rounded-[26px] border border-[#8a6120] bg-[linear-gradient(180deg,#4d3a24_0%,#23180f_100%)] px-4 text-[clamp(1.6rem,3vw,3rem)] font-black uppercase tracking-[0.08em] text-[#efe7d2] shadow-[inset_0_2px_0_rgba(255,214,131,0.35),0_18px_35px_rgba(0,0,0,0.45)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
                       >
-                        {spinning ? 'Parar' : 'Girar'}
+                        {spinning ? 'Girando...' : 'Girar'}
                       </button>
                     </div>
 
@@ -568,7 +620,7 @@ export default function GiroPage() {
                       <span>{Math.ceil(cooldownRemaining / 1000)}s</span>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-zinc-900">
-                      <motion.div className="h-full rounded-full bg-red-500" animate={{ width: `${Math.max(8, Math.min(100, (cooldownRemaining / 60000) * 100))}%` }} />
+                      <motion.div className="h-full rounded-full bg-red-500" animate={{ width: `${Math.max(8, Math.min(100, (cooldownRemaining / Math.max(1000, cooldownTotalMs || cooldownRemaining)) * 100))}%` }} />
                     </div>
                   </div>
                 )}
