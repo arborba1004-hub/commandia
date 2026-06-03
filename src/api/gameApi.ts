@@ -1,4 +1,5 @@
 const BACKEND_URL = 'https://comando-backend.onrender.com';
+const GAME_ACTION_TIMEOUT_MS = 35_000;
 
 export type SlotSymbol = 'money' | 'diamond' | 'gun' | 'police';
 
@@ -75,14 +76,31 @@ async function gameAction<T>(action: string, data: Record<string, unknown> = {})
     throw new Error('Usuário não autenticado');
   }
 
-  const response = await fetch(`${BACKEND_URL}/game/action`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ action, data }),
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), GAME_ACTION_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${BACKEND_URL}/game/action`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ action, data }),
+      signal: controller.signal,
+    });
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw Object.assign(new Error('O Giro demorou demais para responder. Tenta novamente em alguns segundos.'), {
+        status: 408,
+        timeout: true,
+      });
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   let payload: any = null;
 
