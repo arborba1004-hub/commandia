@@ -138,7 +138,7 @@ function FactionPageContent({ player }: { player: any }) {
   const acceptJoinRequest = useFactionStore((state) => state.acceptJoinRequest);
   const rejectJoinRequest = useFactionStore((state) => state.rejectJoinRequest);
 
-  const isInitialLoading = isLoadingMyFaction || isLoadingFactionList;
+  const isInitialLoading = isLoadingMyFaction && !myFaction && factionList.length === 0;
 
   const [activeTab, setActiveTab] = useState<FactionTab>('overview');
   const [localError, setLocalError] = useState('');
@@ -174,11 +174,10 @@ function FactionPageContent({ player }: { player: any }) {
 
     async function boot() {
       try {
-        await Promise.all([
-          loadMyFaction(),
-          loadFactionList(),
-          loadPlayersWithoutFaction(),
-        ]);
+        // Carrega a facção do jogador primeiro para a aba Membros aparecer rápido.
+        // A lista pública de facções não deve bloquear a página inteira.
+        await loadMyFaction();
+        if (!cancelled) void loadFactionList();
       } catch (error) {
         if (!cancelled) {
           console.error(error);
@@ -191,7 +190,7 @@ function FactionPageContent({ player }: { player: any }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadMyFaction, loadFactionList]);
 
   useEffect(() => {
     if (!myFaction) return;
@@ -225,6 +224,19 @@ function FactionPageContent({ player }: { player: any }) {
     currentMember?.permissions?.canManageInvestments
   );
   const canInvite = Boolean(currentMember?.permissions?.canInvite) || isLeader;
+
+  useEffect(() => {
+    if (activeTab !== 'members') return;
+    if (!canInvite) return;
+    if (playersWithoutFaction.length > 0 || isLoadingPlayersWithoutFaction) return;
+    void loadPlayersWithoutFaction();
+  }, [
+    activeTab,
+    canInvite,
+    playersWithoutFaction.length,
+    isLoadingPlayersWithoutFaction,
+    loadPlayersWithoutFaction,
+  ]);
 
   const safeMembers = Array.isArray(myFaction?.members) ? myFaction.members : [];
   const memberCount = safeMembers.length;
