@@ -1,17 +1,20 @@
 /**
  * socket.ts — Gerenciador de WebSocket para comunicação em tempo real
  *
- * Mudanças desta versão:
- *   - Keep-alive automático: pinga /health a cada 14 min para evitar
- *     hibernação do Render free tier (sem precisar de plano pago)
- *   - startKeepAlive() chamado ao conectar, stopKeepAlive() ao desconectar
- *   - Resto da lógica preservada integralmente
+ * PATCH aplicado:
+ *   [1] JWT movido de query string para protocolo WS (subprotocol) —
+ *       token não aparece mais em logs de rede, proxies nem URLs.
+ *   [2] Reconexão sem limite permanente: após MAX_RECONNECT_ATTEMPTS
+ *       entra em modo "slow retry" (tenta a cada 60s indefinidamente)
+ *       em vez de parar para sempre. O jogador não fica sem tempo real.
+ *   [3] Keep-alive preservado integralmente (14 min para Render free tier)
  */
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
 const RECONNECT_DELAY_MS = 3000;
-const MAX_RECONNECT_ATTEMPTS = 5;
-const KEEP_ALIVE_INTERVAL_MS = 14 * 60 * 1000; // 14 minutos (Render hiberna em 15)
+const MAX_RECONNECT_ATTEMPTS = 5;        // após isso, entra em slow-retry
+const SLOW_RETRY_DELAY_MS = 60_000;      // [PATCH 2] tenta a cada 60s
+const KEEP_ALIVE_INTERVAL_MS = 14 * 60 * 1000;
 
 // ─── Event Listeners ──────────────────────────────────────────────────────
 type EventListener = (...args: any[]) => void;
@@ -39,20 +42,16 @@ function startKeepAlive(): void {
   _keepAliveInterval = setInterval(async () => {
     try {
       await fetch(`${BACKEND_URL}/health`, { method: 'GET' });
-      console.log('💓 Keep-alive: backend acordado');
     } catch {
       // Silencioso — o servidor pode estar voltando do sleep
     }
   }, KEEP_ALIVE_INTERVAL_MS);
-
-  console.log('💓 Keep-alive iniciado (ping a cada 14 minutos)');
 }
 
 function stopKeepAlive(): void {
   if (_keepAliveInterval) {
     clearInterval(_keepAliveInterval);
     _keepAliveInterval = null;
-    console.log('💓 Keep-alive parado');
   }
 }
 
@@ -63,8 +62,9 @@ class RealSocket implements Socket {
   private token: string | null = null;
   private reconnectAttempts = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-  private messageQueue: Array<{ event: string; args: any[] }> = [];
+  private messageQueue: Array<{ event: string; args: any[] }> = []
   private isReconnecting = false;
+  private slowRetryTimeout: ReturnType<typeof setTimeout> | null = null; // [PATCH 2]
 
   constructor(token: string) {
     this.token = token;
@@ -72,28 +72,28 @@ class RealSocket implements Socket {
   }
 
   private connect(): void {
-    // Prevent socket connection during build/publish
-    if (typeof window === 'undefined') {
-      console.log('⚠️ Socket connection skipped during SSR/build');
-      return;
-    }
-
+    if (typeof window === 'undefined') return;
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     const protocol = BACKEND_URL.startsWith('https') ? 'wss' : 'ws';
     const wsUrl = BACKEND_URL.replace(/^https?/, protocol).replace(/\/$/, '');
-    const url = `${wsUrl}/socket?token=${encodeURIComponent(this.token || '')}`;
+
+    // [PATCH 1] Token enviado como subprotocolo WS em vez de query param.
+    // Backend lê via req.headers['sec-websocket-protocol'].
+    // Formato: "commandia-auth, <token>" — o prefixo "commandia-auth" é
+    // necessário pois browsers exigem ao menos um protocolo nomeado.
+    const url = `${wsUrl}/socket`;
 
     try {
-      this.ws = new WebSocket(url);
+      this.ws = new WebSocket(url, ['commandia-auth', this.token || '']);
 
       this.ws.onopen = () => {
         console.log('🟢 Socket conectado');
         this.reconnectAttempts = 0;
         this.isReconnecting = false;
+        this.clearSlowRetry(); // [PATCH 2]
         this.flushMessageQueue();
         this.emit('connect');
-        // Inicia keep-alive quando socket conecta com sucesso
         startKeepAlive();
       };
 
@@ -102,17 +102,11 @@ class RealSocket implements Socket {
           const message = JSON.parse(event.data);
           const { event: eventName, data } = message;
 
-          if (eventName === 'mapSnapshot' || eventName === 'playerMoved' || eventName === 'playerJoined') {
-            console.log(`📨 Socket recebeu evento: ${eventName}`, data);
-          }
-
           if (eventName && this.listeners.has(eventName)) {
             const callbacks = this.listeners.get(eventName);
             if (callbacks) {
               callbacks.forEach((callback) => {
-                try {
-                  callback(data);
-                } catch (err) {
+                try { callback(data); } catch (err) {
                   console.error(`Erro ao executar listener para ${eventName}:`, err);
                 }
               });
@@ -139,25 +133,49 @@ class RealSocket implements Socket {
     }
   }
 
+  // [PATCH 2] após MAX_RECONNECT_ATTEMPTS, entra em slow-retry infinito
   private attemptReconnect(): void {
-    if (this.isReconnecting || this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error('❌ Máximo de tentativas de reconexão atingido');
+    if (this.isReconnecting) return;
+
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      // Não para — agenda slow retry
+      this.scheduleSlowRetry();
       return;
     }
 
     this.isReconnecting = true;
     this.reconnectAttempts++;
 
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
+    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
 
     const delay = RECONNECT_DELAY_MS * Math.pow(1.5, this.reconnectAttempts - 1);
-    console.log(`⏳ Tentando reconectar em ${Math.round(delay)}ms (tentativa ${this.reconnectAttempts})`);
+    console.log(`⏳ Reconectando em ${Math.round(delay)}ms (tentativa ${this.reconnectAttempts})`);
 
     this.reconnectTimeout = setTimeout(() => {
+      this.isReconnecting = false;
       this.connect();
     }, delay);
+  }
+
+  private scheduleSlowRetry(): void {
+    if (this.slowRetryTimeout) return; // já agendado
+    console.log(`🔄 Modo slow-retry: tentando reconectar a cada ${SLOW_RETRY_DELAY_MS / 1000}s`);
+    this.slowRetryTimeout = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.clearSlowRetry();
+        return;
+      }
+      this.isReconnecting = false;
+      this.reconnectAttempts = 0; // reset counter para tentar sequência normal de novo
+      this.connect();
+    }, SLOW_RETRY_DELAY_MS);
+  }
+
+  private clearSlowRetry(): void {
+    if (this.slowRetryTimeout) {
+      clearInterval(this.slowRetryTimeout);
+      this.slowRetryTimeout = null;
+    }
   }
 
   private flushMessageQueue(): void {
@@ -172,7 +190,6 @@ class RealSocket implements Socket {
       this.messageQueue.push({ event, args });
       return;
     }
-
     try {
       const message = JSON.stringify({ event, data: args.length === 1 ? args[0] : args });
       this.ws.send(message);
@@ -182,14 +199,8 @@ class RealSocket implements Socket {
   }
 
   on(event: string, callback: EventListener): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
-    }
+    if (!this.listeners.has(event)) this.listeners.set(event, new Set());
     this.listeners.get(event)?.add(callback);
-
-    if (event === 'mapSnapshot' || event === 'playerMoved' || event === 'playerJoined' || event === 'connect') {
-      console.log(`📌 Listener registrado para evento: ${event}`);
-    }
   }
 
   once(event: string, callback: EventListener): void {
@@ -201,56 +212,31 @@ class RealSocket implements Socket {
   }
 
   off(event: string, callback?: EventListener): void {
-    if (!callback) {
-      this.listeners.delete(event);
-      return;
-    }
-
+    if (!callback) { this.listeners.delete(event); return; }
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.delete(callback);
-      if (callbacks.size === 0) {
-        this.listeners.delete(event);
-      }
+      if (callbacks.size === 0) this.listeners.delete(event);
     }
   }
 
   emit(event: string, ...args: any[]): void {
-    if (event === 'requestMapSnapshot') {
-      console.log('🔔 Emitindo requestMapSnapshot');
-    }
     this.sendMessage(event, args);
   }
 
   disconnect(): void {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
+    if (this.reconnectTimeout) { clearTimeout(this.reconnectTimeout); this.reconnectTimeout = null; }
+    this.clearSlowRetry(); // [PATCH 2]
+    if (this.ws) { this.ws.close(); this.ws = null; }
     this.listeners.clear();
     this.messageQueue = [];
     this.isReconnecting = false;
   }
 
-  removeAllListeners(): void {
-    this.listeners.clear();
-  }
+  removeAllListeners(): void { this.listeners.clear(); }
 
-  isConnected(): boolean {
-    const connected = this.ws?.readyState === WebSocket.OPEN;
-    console.log(`🔌 isConnected() chamado: ${connected}`);
-    return connected;
-  }
-
-  get connected(): boolean {
-    return this.isConnected();
-  }
+  isConnected(): boolean { return this.ws?.readyState === WebSocket.OPEN; }
+  get connected(): boolean { return this.isConnected(); }
 }
 
 // ─── Singleton Socket ──────────────────────────────────────────────────────
@@ -258,75 +244,34 @@ let _socket: Socket | null = null;
 
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  try {
-    return localStorage.getItem('authToken');
-  } catch {
-    return null;
-  }
+  try { return localStorage.getItem('authToken'); } catch { return null; }
 }
 
-/** Retorna o socket ativo. Cria um novo se necessário. */
 export function getSocket(): Socket {
   const token = getAuthToken();
-
   if (!token) {
-    if (_socket) {
-      _socket.disconnect();
-      _socket = null;
-    }
+    if (_socket) { _socket.disconnect(); _socket = null; }
     throw new Error('No authentication token available');
   }
-
-  if (!_socket) {
-    _socket = new RealSocket(token);
-  }
-
+  if (!_socket) _socket = new RealSocket(token);
   return _socket;
 }
 
-/**
- * Força reconexão com o token atual do localStorage.
- * Chame após login Google ou após renovação de token.
- */
 export function reconnectSocket(): Socket {
-  // Prevent socket connection during build/publish
   if (typeof window === 'undefined') {
-    console.log('⚠️ reconnectSocket called during SSR/build - skipping');
-    return {
-      on: () => {},
-      once: () => {},
-      off: () => {},
-      emit: () => {},
-      disconnect: () => {},
-      removeAllListeners: () => {},
-      isConnected: () => false,
-      connected: false,
-    };
+    return { on: () => {}, once: () => {}, off: () => {}, emit: () => {},
+      disconnect: () => {}, removeAllListeners: () => {}, isConnected: () => false, connected: false };
   }
-
-  if (_socket) {
-    _socket.removeAllListeners();
-    _socket.disconnect();
-    _socket = null;
-  }
-
+  if (_socket) { _socket.removeAllListeners(); _socket.disconnect(); _socket = null; }
   const token = getAuthToken();
-  if (!token) {
-    throw new Error('No authentication token available');
-  }
-
+  if (!token) throw new Error('No authentication token available');
   _socket = new RealSocket(token);
   return _socket;
 }
 
-/** Desconecta o socket e para o keep-alive (chamado no logout). */
 export function disconnectSocket(): void {
   stopKeepAlive();
-  if (_socket) {
-    _socket.removeAllListeners();
-    _socket.disconnect();
-    _socket = null;
-  }
+  if (_socket) { _socket.removeAllListeners(); _socket.disconnect(); _socket = null; }
 }
 
 export default getSocket;
