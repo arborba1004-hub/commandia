@@ -1,3 +1,4 @@
+import { getBarracoName as getBarracoVisualName } from '@/config/barracoVisualConfig';
 import type { PlayerState } from '@/store/playerStore';
 
 export const MAX_BARRACO_LEVEL = 100;
@@ -73,21 +74,26 @@ export function isBarracoUpgradeReady(upgrade?: PlayerState['barracoUpgrade'] | 
 export function getBarracoUpgradeRequirements(player: PlayerState) {
   const barracoLevel = player?.niveis?.barracoLevel ?? 1;
   const cleanMoney = player?.balances?.cleanMoney ?? 0;
-  const lavagemLevel = player?.pageLevels?.lavagem ?? 1;
-  const luxuryLevel = player?.pageLevels?.luxury ?? 1;
-  const hierarchyLevel = player?.niveis?.hierarchyLevel ?? 1;
+  const arsenalLevel = Math.max(
+    1,
+    toLevel(player?.pageLevels?.arsenal ?? (player?.niveis as any)?.arsenalLevel, 1)
+  );
+  const fugaLevel = Math.max(1, toLevel(player?.pageLevels?.fuga, 1));
+  const briberyLevel = Math.max(
+    1,
+    toLevel(player?.pageLevels?.bribery ?? (player?.niveis as any)?.briberyLevel, 1)
+  );
+  const luxuryLevel = Math.max(
+    1,
+    toLevel(player?.pageLevels?.luxury ?? (player?.niveis as any)?.luxuryLevel, 1)
+  );
   const activeUpgrade = player?.barracoUpgrade?.active === true;
   const activeRemainingMs = getBarracoUpgradeRemainingMs(player?.barracoUpgrade);
   const activeReady = isBarracoUpgradeReady(player?.barracoUpgrade);
 
   const cost = getBarracoUpgradeCost(barracoLevel);
   const durationMs = getBarracoUpgradeDurationMs(barracoLevel);
-
-  // Power continua existindo como estatística do jogador, mas não bloqueia o barraco.
-  // A evolução é limitada por tempo, dinheiro limpo, punições e progressão lateral.
-  const lavagemRequirement = Math.max(1, Math.floor(barracoLevel / 10));
-  const luxuryRequirement = Math.max(1, Math.floor(barracoLevel / 12));
-  const hierarchyRequirement = Math.max(1, Math.floor(barracoLevel / 15));
+  const sideRequirement = Math.max(1, Math.floor(Number(barracoLevel) || 1));
 
   const rules = [
     {
@@ -108,24 +114,34 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
       reason: 'A evolução de nível está bloqueada por uma punição ativa.',
     },
     {
+      key: 'cleanMoneyBlocked',
+      ok: player?.punishments?.cleanMoneyBlocked !== true,
+      reason: 'Seu dinheiro limpo está bloqueado por uma punição ativa.',
+    },
+    {
       key: 'cleanMoney',
       ok: cleanMoney >= cost,
       reason: `Você precisa de ${cost.toLocaleString('pt-BR')} de dinheiro limpo.`,
     },
     {
-      key: 'lavagem',
-      ok: lavagemLevel >= lavagemRequirement,
-      reason: `Sua lavagem está abaixo do necessário (${lavagemRequirement}). Atual: ${lavagemLevel}.`,
+      key: 'arsenal',
+      ok: arsenalLevel >= sideRequirement,
+      reason: `Seu Arsenal precisa estar no nível ${sideRequirement}. Atual: ${arsenalLevel}.`,
+    },
+    {
+      key: 'fuga',
+      ok: fugaLevel >= sideRequirement,
+      reason: `Sua Fuga precisa estar no nível ${sideRequirement}. Atual: ${fugaLevel}.`,
+    },
+    {
+      key: 'bribery',
+      ok: briberyLevel >= sideRequirement,
+      reason: `Seu Suborno precisa estar no nível ${sideRequirement}. Atual: ${briberyLevel}.`,
     },
     {
       key: 'luxury',
-      ok: luxuryLevel >= luxuryRequirement,
-      reason: `Seu nível de luxo está abaixo do necessário (${luxuryRequirement}). Atual: ${luxuryLevel}.`,
-    },
-    {
-      key: 'hierarchy',
-      ok: hierarchyLevel >= hierarchyRequirement,
-      reason: `Sua hierarquia está abaixo do necessário (${hierarchyRequirement}). Atual: ${hierarchyLevel}.`,
+      ok: luxuryLevel >= sideRequirement,
+      reason: `Seus Artigos de Luxo precisam estar no nível ${sideRequirement}. Atual: ${luxuryLevel}.`,
     },
   ];
 
@@ -141,19 +157,28 @@ export function getBarracoUpgradeRequirements(player: PlayerState) {
     activeUpgrade,
     activeReady,
     activeRemainingMs,
+    sideRequirement,
+    systemLevels: {
+      arsenal: arsenalLevel,
+      fuga: fugaLevel,
+      bribery: briberyLevel,
+      luxury: luxuryLevel,
+    },
+    requiredSystemLevels: {
+      arsenal: sideRequirement,
+      fuga: sideRequirement,
+      bribery: sideRequirement,
+      luxury: sideRequirement,
+    },
+    requirements: {
+      arsenal: sideRequirement,
+      fuga: sideRequirement,
+      bribery: sideRequirement,
+      luxury: sideRequirement,
+    },
   };
 }
 
 export function getBarracoName(level: number) {
-  if (level >= 100) return 'Castelo do Comando';
-  if (level >= 90) return 'Mansão com Heliporto';
-  if (level >= 80) return 'Mansão Blindada';
-  if (level >= 70) return 'Mansão do Complexo';
-  if (level >= 60) return 'Triplex com Piscina';
-  if (level >= 50) return 'Triplex Alto Padrão';
-  if (level >= 40) return 'Sobrado de Luxo';
-  if (level >= 30) return 'Sobrado com Piscina';
-  if (level >= 20) return 'Sobrado';
-  if (level >= 10) return 'Casa de Alvenaria';
-  return 'Barraco Inicial';
+  return getBarracoVisualName(level);
 }
