@@ -25,9 +25,15 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     Boolean(localStorage.getItem('authToken'));
 
   useEffect(() => {
-    if (hasToken && !isLoaded) {
-      void loadPlayer();
-    }
+    if (!hasToken || isLoaded) return;
+
+    // Dá uma pequena janela para o socket enviar playerInit primeiro.
+    // Se ele atrasar/falhar, /player/me entra como fallback sem duplicar carga no Mongo.
+    const timeoutId = window.setTimeout(() => {
+      if (!usePlayerStore.getState().isLoaded) void loadPlayer();
+    }, 1200);
+
+    return () => window.clearTimeout(timeoutId);
   }, [hasToken, isLoaded, loadPlayer]);
 
   // Sem token → redireciona imediatamente
