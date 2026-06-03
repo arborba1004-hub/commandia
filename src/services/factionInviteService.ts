@@ -1,4 +1,5 @@
 const BACKEND_URL = 'https://comando-backend.onrender.com';
+const REQUEST_TIMEOUT_MS = 15000;
 
 function getAuthToken(): string | null {
   return localStorage.getItem('authToken');
@@ -14,14 +15,31 @@ async function factionInviteRequest<T>(
     throw new Error('Usuário não autenticado');
   }
 
-  const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${BACKEND_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Tempo limite excedido no sistema de convites da facção');
+    }
+    throw new Error('Falha de conexão com o sistema de convites da facção');
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   let data: any = null;
 

@@ -19,6 +19,7 @@ import {
 } from '@/types/faction';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
+const REQUEST_TIMEOUT_MS = 15000;
 
 function getAuthToken(): string | null {
   return localStorage.getItem('authToken');
@@ -31,14 +32,33 @@ async function factionRequest<T>(endpoint: string, options: RequestInit = {}): P
     throw new Error('Usuário não autenticado');
   }
 
-  const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${BACKEND_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      const timeoutError = new Error('Tempo limite excedido no sistema de facção');
+      (timeoutError as any).status = 408;
+      throw timeoutError;
+    }
+    throw new Error('Falha de conexão com o sistema de facção');
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   let data: any = null;
 
@@ -350,6 +370,9 @@ export function normalizeFactionListItem(input: any): FactionListItem {
 export async function fetchMyFaction(): Promise<Faction | null> {
   try {
     const response = await factionRequest<{ faction: any }>('/faction/my', { method: 'GET' });
+    if (!response?.faction || typeof response.faction !== 'object' || !response.faction.id) {
+      return null;
+    }
     return normalizeFaction(response.faction);
   } catch (error: any) {
     if (error?.status === 404) {
