@@ -1,12 +1,5 @@
 import { create } from 'zustand';
-
-function getSocket() {
-  if (typeof window === 'undefined') {
-    throw new Error('Socket cannot be used during SSR/build');
-  }
-  const { getSocket: realGetSocket } = require('@/socket');
-  return realGetSocket();
-}
+import { getSocket } from '@/socket';
 
 export type ChatChannelType = 'complexo' | 'faccao' | 'mail';
 
@@ -51,12 +44,14 @@ export type FactionHelpRequest = {
 };
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
-const POLLING_INTERVAL = 5000;
+const POLLING_INTERVAL = 30000;
 
 let chatPollingInterval: ReturnType<typeof setInterval> | null = null;
+let socketHandler: ((message: ChatMessage) => void) | null = null;
 
 function getAuthToken(): string | null {
-  return localStorage.getItem('authToken');
+  if (typeof window === 'undefined') return null;
+  try { return localStorage.getItem('authToken'); } catch { return null; }
 }
 
 async function chatRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -77,6 +72,22 @@ async function chatRequest<T>(endpoint: string, options: RequestInit = {}): Prom
 
   if (!response.ok) throw new Error(data?.error || 'Erro ao comunicar com o chat');
   return data as T;
+}
+
+function messageTime(message: ChatMessage) {
+  const time = new Date(message.createdAt || '').getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function upsertMessage(list: ChatMessage[], message: ChatMessage) {
+  if (!message?.id || !message?.channel) return list;
+  const index = list.findIndex((item) => item.id === message.id);
+  if (index >= 0) {
+    const next = [...list];
+    next[index] = { ...next[index], ...message };
+    return next.sort((a, b) => messageTime(a) - messageTime(b));
+  }
+  return [...list, message].sort((a, b) => messageTime(a) - messageTime(b));
 }
 
 function areMessagesEqual(a: ChatMessage[], b: ChatMessage[]) {
@@ -117,6 +128,7 @@ type ChatStore = {
   syncError: string | null;
 
   setActiveChannel: (channel: ChatChannelType) => void;
+  receiveRealtimeMessage: (message: ChatMessage) => void;
   fetchMessages: (channel?: ChatChannelType, silent?: boolean) => Promise<void>;
   fetchFactionHelpRequests: (silent?: boolean) => Promise<void>;
   loadChat: () => Promise<void>;
@@ -142,6 +154,29 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   syncError: null,
 
   setActiveChannel: (channel) => set({ activeChannel: channel }),
+
+  receiveRealtimeMessage: (message) => {
+    if (!message?.id || !message?.channel) return;
+    set((state) => {
+      if (message.channel === 'complexo') {
+        return { complexoMessages: upsertMessage(state.complexoMessages, message) };
+      }
+      if (message.channel === 'faccao') {
+        return { faccaoMessages: upsertMessage(state.faccaoMessages, message) };
+      }
+      if (message.channel === 'mail') {
+        return { mailMessages: upsertMessage(state.mailMessages, message) };
+      }
+      return {};
+    });
+
+    if (
+      message.channel === 'faccao' &&
+      (message.messageType === 'faction_help_request' || message.messageType === 'faction_help_update')
+    ) {
+      void get().fetchFactionHelpRequests(true);
+    }
+  },
 
   fetchMessages: async (channel, silent = false) => {
     const currentChannel = channel || get().activeChannel;
@@ -208,28 +243,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   startChatPolling: () => {
     if (chatPollingInterval) clearInterval(chatPollingInterval);
 
-    // Polling REST como fallback
+    // REST agora é apenas fallback/reconciliação. O realtime vem pelo socket.
     chatPollingInterval = setInterval(() => {
-      get().fetchMessages('complexo', true);
-      get().fetchMessages('faccao', true);
-      get().fetchMessages('mail', true);
-      get().fetchFactionHelpRequests(true);
+      const active = get().activeChannel;
+      get().fetchMessages(active, true);
+      if (active !== 'mail') get().fetchMessages('mail', true);
+      if (active === 'faccao') get().fetchFactionHelpRequests(true);
     }, POLLING_INTERVAL);
 
-    // Socket em tempo real — recebe novas mensagens instantaneamente
     try {
-      if (typeof window === 'undefined') return; // Prevent during SSR
+      if (typeof window === 'undefined') return;
       const socket = getSocket();
-      socket.off('newChatMessage');
-      socket.on('newChatMessage', (msg: ChatMessage) => {
-        if (!msg?.channel) return;
-        // Força refresh do canal que recebeu a mensagem
-        get().fetchMessages(msg.channel as ChatChannelType, true);
-        // Se for facção, atualiza pedidos de corre também
-        if (msg.channel === 'faccao') get().fetchFactionHelpRequests(true);
-      });
+      if (socketHandler) socket.off('newChatMessage', socketHandler);
+      socketHandler = (msg: ChatMessage) => get().receiveRealtimeMessage(msg);
+      socket.on('newChatMessage', socketHandler);
     } catch {
-      // Socket indisponível — polling cobre
+      // Socket indisponível — o fallback REST cobre.
     }
   },
 
@@ -238,11 +267,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       clearInterval(chatPollingInterval);
       chatPollingInterval = null;
     }
-    // Remove listener do socket
     try {
-      if (typeof window === 'undefined') return; // Prevent during SSR
+      if (typeof window === 'undefined') return;
       const socket = getSocket();
-      socket.off('newChatMessage');
+      if (socketHandler) socket.off('newChatMessage', socketHandler);
+      socketHandler = null;
     } catch { /* sem socket */ }
   },
 
@@ -251,11 +280,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!messageBody) return false;
     try {
       set({ isSending: true, syncError: null });
-      await chatRequest<{ message: ChatMessage }>('/chat/send', {
+      const response = await chatRequest<{ message: ChatMessage }>('/chat/send', {
         method: 'POST',
         body: JSON.stringify({ channel: 'complexo', body: messageBody, system }),
       });
-      await get().fetchMessages('complexo', true);
+      if (response?.message) get().receiveRealtimeMessage(response.message);
       set({ isSending: false });
       return true;
     } catch (error) {
@@ -269,11 +298,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!messageBody) return false;
     try {
       set({ isSending: true, syncError: null });
-      await chatRequest<{ message: ChatMessage }>('/chat/send', {
+      const response = await chatRequest<{ message: ChatMessage }>('/chat/send', {
         method: 'POST',
         body: JSON.stringify({ channel: 'faccao', body: messageBody, factionId, system }),
       });
-      await get().fetchMessages('faccao', true);
+      if (response?.message) get().receiveRealtimeMessage(response.message);
       set({ isSending: false });
       return true;
     } catch (error) {
@@ -289,7 +318,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!messageBody || !safeRecipientId || !safeRecipientName) return false;
     try {
       set({ isSending: true, syncError: null });
-      await chatRequest<{ message: ChatMessage }>('/chat/send', {
+      const response = await chatRequest<{ message: ChatMessage }>('/chat/send', {
         method: 'POST',
         body: JSON.stringify({
           channel: 'mail',
@@ -300,7 +329,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           system,
         }),
       });
-      await get().fetchMessages('mail', true);
+      if (response?.message) get().receiveRealtimeMessage(response.message);
       set({ isSending: false });
       return true;
     } catch (error) {
@@ -326,7 +355,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  createFactionHelpRequest: async (payload = {}) => {
+  createFactionHelpRequest: async (payload: { message?: string } = {}) => {
     try {
       set({ isHelpingRequest: true, syncError: null });
       await chatRequest<{ success: boolean; request: FactionHelpRequest }>(
