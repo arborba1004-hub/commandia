@@ -220,6 +220,14 @@ export default function GamePage() {
   const playerMapSpaceRef = useRef<any>(null);
   const azideiaLayerRef = useRef<MountedAzideiaX9Layer | null>(null);
   const activeAzideiaVisualsRef = useRef<Set<string>>(new Set());
+  const runAzideiaMissionCycleRef = useRef<
+    | ((
+        mission: AzideiaMission,
+        options?: { forceForwardAnimation?: boolean },
+      ) => Promise<void>)
+    | null
+  >(null);
+  const sceneEpochRef = useRef(0);
   const [azideiaTarget, setAzideiaTarget] = useState<AzideiaX9Target | null>(
     null,
   );
@@ -253,8 +261,13 @@ export default function GamePage() {
 
   // ── Modal: Tomada do QG direto pelo mapa (QG + CTs reais)
   const [qgMapState, setQgMapState] = useState<QgEventState | null>(null);
+  const qgMapStateRef = useRef<QgEventState | null>(null);
   const [qgMapModalOpen, setQgMapModalOpen] = useState(false);
   const [selectedQgLocationKey, setSelectedQgLocationKey] = useState<QgLocationKey | null>(null);
+
+  useEffect(() => {
+    qgMapStateRef.current = qgMapState;
+  }, [qgMapState]);
 
   const openQgMapModal = useCallback((locationKey: QgLocationKey, state?: QgEventState | null) => {
     if (state) setQgMapState(state);
@@ -395,12 +408,15 @@ export default function GamePage() {
     );
   }, [mapAttack]);
 
-  const waitForAzideiaScene = useCallback(async () => {
+  const waitForAzideiaScene = useCallback(async (expectedSceneEpoch = sceneEpochRef.current) => {
     let scene = sceneRef.current;
     for (let attempt = 0; !scene && attempt < 80; attempt += 1) {
+      if (sceneEpochRef.current !== expectedSceneEpoch) return null;
       await sleep(50);
       scene = sceneRef.current;
     }
+
+    if (sceneEpochRef.current !== expectedSceneEpoch) return null;
     return scene;
   }, []);
 
@@ -417,9 +433,10 @@ export default function GamePage() {
 
       try {
         let current: AzideiaMission = mission;
-        const scene = await waitForAzideiaScene();
-        if (!scene) {
-          console.warn("[GamePage] Cena 3D indisponível; comboio Azidéia será tentado novamente no próximo sync.", missionId);
+        const expectedSceneEpoch = sceneEpochRef.current;
+        const scene = await waitForAzideiaScene(expectedSceneEpoch);
+        if (!scene || sceneRef.current !== scene || sceneEpochRef.current !== expectedSceneEpoch) {
+          console.warn("[GamePage] Cena 3D indisponível ou remontada; comboio Azidéia será tentado novamente no próximo sync.", missionId);
           return;
         }
 
@@ -445,6 +462,10 @@ export default function GamePage() {
           const shouldAnimateForward =
             route.length > 1 &&
             (shouldForceForwardAnimation || !arriveAtMs || forwardRemainingMs > 250);
+
+          if (route.length <= 1) {
+            console.warn("[GamePage] Missão Azidéia sem rota de ida suficiente; animação de ida ignorada.", missionId);
+          }
 
           if (shouldAnimateForward) {
             const baseDurationMs = Number(current.travelDurationMs || 2500);
@@ -520,6 +541,10 @@ export default function GamePage() {
                 : [];
           const returnAtMs = parseIsoMs(current.returnAtIso);
 
+          if (returnRoute.length <= 1) {
+            console.warn("[GamePage] Missão Azidéia sem rota de retorno suficiente; animação de retorno ignorada.", missionId);
+          }
+
           if (
             scene &&
             returnRoute.length > 1 &&
@@ -576,20 +601,25 @@ export default function GamePage() {
   );
 
   useEffect(() => {
+    runAzideiaMissionCycleRef.current = runAzideiaMissionCycle;
+  }, [runAzideiaMissionCycle]);
+
+  useEffect(() => {
     if (!threeReady || !player?._id) return;
 
     let cancelled = false;
+    const syncPlayerId = String(player?._id || "");
 
     const syncActiveAzideiaMissions = async () => {
       try {
         const response = await getActiveAzideiaMissions();
-        if (cancelled) return;
+        if (cancelled || String(usePlayerStore.getState().player?._id || "") !== syncPlayerId) return;
         if ((response as any).player) {
           usePlayerStore.getState().hydratePlayerFromServer((response as any).player);
         }
 
         for (const mission of response.missions || []) {
-          void runAzideiaMissionCycle(mission);
+          void (runAzideiaMissionCycleRef.current || runAzideiaMissionCycle)(mission);
         }
       } catch (error) {
         console.error("[GamePage] Falha ao recuperar Azidéias ativas:", error);
@@ -627,7 +657,13 @@ export default function GamePage() {
 
       setAzideiaTarget(null);
       void azideiaLayerRef.current?.refresh();
-      void runAzideiaMissionCycle(result, { forceForwardAnimation: true });
+
+      const mission = result?.missionId ? (result as AzideiaMission) : null;
+      if (mission) {
+        void (runAzideiaMissionCycleRef.current || runAzideiaMissionCycle)(mission, { forceForwardAnimation: true });
+      } else {
+        console.warn("[GamePage] Resposta Azidéia sem missionId; animação será recuperada pelo próximo sync.", result);
+      }
 
       return result;
     },
@@ -648,6 +684,8 @@ export default function GamePage() {
     let isMounted = true;
 
     const scene = new THREE.Scene();
+    const sceneEpoch = sceneEpochRef.current + 1;
+    sceneEpochRef.current = sceneEpoch;
     scene.background = new THREE.Color("#050505");
     sceneRef.current = scene; // exposto para o sistema de ataque (animação 3D)
 
@@ -1071,7 +1109,7 @@ export default function GamePage() {
       // usuário autenticado. Então processamos o payload direto e o ciclo roda
       // em modo visual-only quando playerId !== jogador atual.
       if (payloadMission?.missionId) {
-        void runAzideiaMissionCycle(payloadMission, {
+        void (runAzideiaMissionCycleRef.current || runAzideiaMissionCycle)(payloadMission, {
           forceForwardAnimation: reason === "mission_started" || reason === "convoy_started",
         });
         return;
@@ -1084,7 +1122,7 @@ export default function GamePage() {
             usePlayerStore.getState().hydratePlayerFromServer((response as any).player);
           }
           for (const mission of response.missions || []) {
-            void runAzideiaMissionCycle(mission);
+            void (runAzideiaMissionCycleRef.current || runAzideiaMissionCycle)(mission);
           }
         })
         .catch((error) =>
@@ -1097,14 +1135,16 @@ export default function GamePage() {
 
     function handleQgEventUpdated(payload: any) {
       if (!isMounted) return;
+      const previousQgMapState = qgMapStateRef.current;
       const next = {
-        ...(qgMapState || payload),
-        config: payload?.config || qgMapState?.config,
-        event: payload?.event || qgMapState?.event,
-        eligibility: payload?.eligibility || qgMapState?.eligibility,
-        serverTime: payload?.serverTime || qgMapState?.serverTime || new Date().toISOString(),
+        ...(previousQgMapState || payload),
+        config: payload?.config || previousQgMapState?.config,
+        event: payload?.event || previousQgMapState?.event,
+        eligibility: payload?.eligibility || previousQgMapState?.eligibility,
+        serverTime: payload?.serverTime || previousQgMapState?.serverTime || new Date().toISOString(),
         ok: true,
       } as QgEventState;
+      qgMapStateRef.current = next;
       syncQgBuildingStatus(next);
     }
 
@@ -1456,6 +1496,7 @@ export default function GamePage() {
       azideiaLayer.cleanup();
       if (azideiaLayerRef.current === azideiaLayer)
         azideiaLayerRef.current = null;
+      if (sceneEpochRef.current === sceneEpoch) sceneEpochRef.current += 1;
       playerMapSpaceRef.current?.cleanup();
 
       platformGeometry.dispose();
