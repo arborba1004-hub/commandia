@@ -216,6 +216,20 @@ function extractEnvelope(payload: unknown): PlayerApiEnvelope {
   };
 }
 
+const PLAYER_UPDATE_ALLOWED_FIELDS = new Set(['headerCustomization']);
+
+function stripUnsafePlayerUpdatePayload<T extends Record<string, any>>(payload: T): Partial<T> {
+  const clean: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(payload || {})) {
+    if (PLAYER_UPDATE_ALLOWED_FIELDS.has(key)) {
+      clean[key] = value;
+    }
+  }
+
+  return clean as Partial<T>;
+}
+
 function extractArrayPayload<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) return payload;
 
@@ -404,7 +418,7 @@ export async function accelerateBarracoUpgradeWithFaction(seconds: number): Prom
 export async function syncPlayerUpdate(
   player: Partial<PlayerState>
 ): Promise<{ player: PlayerState }> {
-  const cleanPayload = deepStripUndefined(player);
+  const cleanPayload = deepStripUndefined(stripUnsafePlayerUpdatePayload(player as Record<string, any>));
 
   const data = await makeRequest<ApiEnvelope<PlayerState>>('/player/update', {
     method: 'PATCH',
@@ -423,7 +437,7 @@ export async function syncPlayerUpdate(
 export async function syncPlayerUpdateWithFaction(
   player: Partial<PlayerState>
 ): Promise<PlayerApiEnvelope> {
-  const cleanPayload = deepStripUndefined(player);
+  const cleanPayload = deepStripUndefined(stripUnsafePlayerUpdatePayload(player as Record<string, any>));
 
   const data = await makeRequest<ApiEnvelope<PlayerState>>('/player/update', {
     method: 'PATCH',
@@ -503,11 +517,7 @@ export async function fetchAllPlayers(): Promise<
 
 export async function laundryStart(payload: {
   businessId: number;
-  businessName: string;
-  grossAmount: number;
-  feePercentage: number;
-  feeAmount: number;
-  netAmount: number;
+  businessName?: string;
 }): Promise<{ operationId: string; endsAt: string; player: PlayerState }> {
   const data = await makeRequest<any>('/laundry/start', {
     method: 'POST',
@@ -529,11 +539,7 @@ export async function laundryStart(payload: {
 
 export async function laundryStartWithFaction(payload: {
   businessId: number;
-  businessName: string;
-  grossAmount: number;
-  feePercentage: number;
-  feeAmount: number;
-  netAmount: number;
+  businessName?: string;
 }): Promise<{
   operationId: string;
   endsAt: string;
