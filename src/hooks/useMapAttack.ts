@@ -105,7 +105,7 @@ function formatBlockedMessage(reason?: string): string {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export function useMapAttack(): UseMapAttackReturn {
-  const { player } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
   const store      = useMapAttackStore();
 
   // Estados de preview

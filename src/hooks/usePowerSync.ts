@@ -49,7 +49,7 @@ export function usePowerBreakdown() {
  */
 export function usePowerSync() {
   const player   = usePlayerStore((s) => s.player);
-  const setPower = usePlayerStore((s) => s.setPower);
+  const applyLocalPlayerUpdate = usePlayerStore((s) => s.applyLocalPlayerUpdate);
   const gang     = useGangStore((s) => s.gang);
 
   const skillsKey      = JSON.stringify(player.skills);
@@ -63,8 +63,8 @@ export function usePowerSync() {
     const newPower = calculatePlayerPower(player);
     if (newPower !== prevPowerRef.current) {
       prevPowerRef.current = newPower;
-      setPower(newPower);
+      applyLocalPlayerUpdate((current) => ({ ...current, power: newPower }));
       // NÃO chama scheduleSync() — o servidor envia power correto via socket
     }
-  }, [skillsKey, inventoryKey, accessoriesKey, gangKey]);
+  }, [skillsKey, inventoryKey, accessoriesKey, gangKey, applyLocalPlayerUpdate]);
 }
