@@ -536,8 +536,27 @@ clearFaction: () => {
   },
 
   setFaction: (faction) => {
+    const current = get().myFaction;
+    const incomingHasMembers = Boolean(faction && Array.isArray((faction as any).members));
+    const shouldPreserveFullMembers = Boolean(
+      faction &&
+      current &&
+      String(current.id) === String((faction as any).id || '') &&
+      !incomingHasMembers
+    );
+
     set({
-      myFaction: faction,
+      myFaction: shouldPreserveFullMembers
+        ? ({
+            ...current,
+            ...(faction as any),
+            members: current.members,
+            joinRequests: current.joinRequests,
+            invites: current.invites,
+            activityLog: current.activityLog,
+            investmentLog: current.investmentLog,
+          } as Faction)
+        : faction,
       error: null,
       isLoadingMyFaction: false,
       isLoadingFactionList: false,

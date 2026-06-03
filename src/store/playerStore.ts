@@ -54,6 +54,8 @@ const GRID_WIDTH  = 120;
 const GRID_HEIGHT = 120;
 
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+let loadPlayerPromise: Promise<void> | null = null;
+let lastLoadPlayerToken: string | null = null;
 
 function getStoredAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -416,11 +418,40 @@ function mergePlayer(incoming?: Partial<PlayerState> | null): PlayerState {
   };
 }
 
+function hasFullFactionPayload(faction: any): boolean {
+  return Boolean(faction && typeof faction === 'object' && Array.isArray(faction.members));
+}
+
 async function syncFactionStoreFromEnvelope(faction: any, options?: { allowClear?: boolean }) {
   try {
     const { useFactionStore } = await import('@/store/factionStore');
-    if (faction) { useFactionStore.getState().setFaction(faction); return; }
-    if (options?.allowClear) { useFactionStore.getState().setFaction(null); }
+    const factionStore = useFactionStore.getState();
+
+    if (faction && typeof faction === 'object') {
+      // /player/me devolve apenas um resumo da facção para buff/contexto. Esse
+      // resumo NÃO possui members e não pode sobrescrever a facção completa da
+      // FactionPage, senão a aba "Membros" fica vazia até /faction/my responder.
+      if (!hasFullFactionPayload(faction)) {
+        const current = factionStore.myFaction;
+        if (current?.id && String(current.id) === String(faction.id || '')) {
+          factionStore.setFaction({
+            ...current,
+            ...faction,
+            members: current.members,
+            joinRequests: current.joinRequests,
+            invites: current.invites,
+            activityLog: current.activityLog,
+            investmentLog: current.investmentLog,
+          } as any);
+        }
+        return;
+      }
+
+      factionStore.setFaction(faction);
+      return;
+    }
+
+    if (options?.allowClear) { factionStore.setFaction(null); }
   } catch (error) {
     console.warn('Não foi possível sincronizar factionStore:', error);
   }
@@ -448,39 +479,54 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   // Header e GamePage não fiquem pretos se o playerInit atrasar ou for perdido.
   loadPlayer: async () => {
     if (get().isLoaded) return;
-    if (!getStoredAuthToken()) return;
 
-    try {
-      set({ isSyncing: true, syncError: null });
-      const envelope = await fetchCurrentPlayerWithFaction();
-      const merged = clearExpiredPunishments(mergePlayer(envelope.player));
-      const normalized = {
-        ...merged,
-        _id: String((envelope.player as any)?._id || (envelope.player as any)?.id || (envelope.player as any)?.googleId || merged._id || ''),
-      };
+    const token = getStoredAuthToken();
+    if (!token) return;
 
-      set({
-        player: normalized,
-        isLoaded: true,
-        isSyncing: false,
-        syncError: null,
-        lastSyncAt: Date.now(),
-        lastServerHydrationAt: Date.now(),
-        pendingLocalChanges: false,
-      });
-
-      await syncFactionStoreFromEnvelope(envelope.faction ?? null, {
-        allowClear: (envelope.player as any)?.factionId == null,
-      });
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : 'Erro ao carregar jogador';
-      set({ isSyncing: false, syncError: message });
-
-      if (error?.status === 401 || error?.status === 403) {
-        try { localStorage.removeItem('authToken'); } catch { /* noop */ }
-        get().clearPlayer();
-      }
+    // Várias páginas protegidas podem montar ao mesmo tempo no Wix/mobile. Sem
+    // dedupe, todas disparam /player/me e deixam o playerStore parecendo lento.
+    if (loadPlayerPromise && lastLoadPlayerToken === token) {
+      return loadPlayerPromise;
     }
+
+    lastLoadPlayerToken = token;
+    loadPlayerPromise = (async () => {
+      try {
+        set({ isSyncing: true, syncError: null });
+        const envelope = await fetchCurrentPlayerWithFaction();
+        const merged = clearExpiredPunishments(mergePlayer(envelope.player));
+        const normalized = {
+          ...merged,
+          _id: String((envelope.player as any)?._id || (envelope.player as any)?.id || (envelope.player as any)?.googleId || merged._id || ''),
+        };
+
+        set({
+          player: normalized,
+          isLoaded: true,
+          isSyncing: false,
+          syncError: null,
+          lastSyncAt: Date.now(),
+          lastServerHydrationAt: Date.now(),
+          pendingLocalChanges: false,
+        });
+
+        await syncFactionStoreFromEnvelope(envelope.faction ?? null, {
+          allowClear: (envelope.player as any)?.factionId == null,
+        });
+      } catch (error: any) {
+        const message = error instanceof Error ? error.message : 'Erro ao carregar jogador';
+        set({ isSyncing: false, syncError: message });
+
+        if (error?.status === 401 || error?.status === 403) {
+          try { localStorage.removeItem('authToken'); } catch { /* noop */ }
+          get().clearPlayer();
+        }
+      } finally {
+        loadPlayerPromise = null;
+      }
+    })();
+
+    return loadPlayerPromise;
   },
 
   // ── no-ops: polling eliminado ────────────────────────────────────────────
