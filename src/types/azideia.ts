@@ -45,6 +45,7 @@ export type AzideiaMission = {
   costDirtyMoney: number;
   rewardType: AzideiaRewardType;
   rewardQuantity: number;
+  convoySkinId?: string | null;
 };
 
 export type AzideiaTargetsResponse = {
