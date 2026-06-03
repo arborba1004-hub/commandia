@@ -57,6 +57,7 @@ export type TrainingApiResponse = {
     cleanMoney: number;
     corre: number;
   };
+  player?: any;
   config?: {
     barracoLevel: number;
     maxTroopLevel: number;

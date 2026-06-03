@@ -62,11 +62,13 @@ export type StartBattleResponse = {
   routeTiles?: Array<{ tileX: number; tileY: number }>;
   memberCount?: number;
   attackerConvoySkinId?: string;
+  player?: unknown;
 };
 
 export type BattleReportResponse = {
   battleId: string;
   resolution: BattleResolution;
+  player?: unknown;
   attacker: {
     playerId: string;
     playerName: string;
@@ -182,6 +184,7 @@ function normalizeReportResponse(raw: any, battleId: string): BattleReportRespon
       factionName: String(raw?.attacker?.factionName ?? ''),
       factionTag:  String(raw?.attacker?.factionTag ?? ''),
     },
+    player: raw?.player ?? undefined,
     defender: {
       playerId:    String(raw?.defender?.playerId ?? ''),
       playerName:  String(raw?.defender?.playerName ?? ''),
