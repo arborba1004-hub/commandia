@@ -47,7 +47,9 @@ function ResourcePill({
 
 export default function Header() {
   const navigate = useNavigate();
-  const { player, clearPlayer, isLoaded } = usePlayerStore();
+  const player = usePlayerStore((state) => state.player);
+  const clearPlayer = usePlayerStore((state) => state.clearPlayer);
+  const isLoaded = usePlayerStore((state) => state.isLoaded);
   const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
 
   const isReady = Boolean(isLoaded && ((player as any)?._id || player?.googleId));

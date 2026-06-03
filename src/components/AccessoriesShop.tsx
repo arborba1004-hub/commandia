@@ -38,8 +38,10 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
   const [purchaseMessage, setPurchaseMessage] = useState('');
   const [selectedAccessory, setSelectedAccessory] = useState<Accessory | null>(null);
 
-  const playerStore = usePlayerStore();
-  const player = playerStore.player;
+  const player = usePlayerStore((state) => state.player);
+  const removeCleanMoney = usePlayerStore((state) => state.removeCleanMoney);
+  const purchaseAccessory = usePlayerStore((state) => state.purchaseAccessory);
+  const addSkillBonus = usePlayerStore((state) => state.addSkillBonus);
   const cleanMoney = player.balances.cleanMoney || 0;
   const playerLevel = player.niveis.playerLevel || 1;
   const purchasedAccessories = player.purchasedAccessories || [];
@@ -78,12 +80,12 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
     }
 
     // Atualizar playerStore
-    playerStore.removeCleanMoney(price);
-    playerStore.purchaseAccessory(accessory._id, skillType);
+    removeCleanMoney(price);
+    purchaseAccessory(accessory._id, skillType);
     
     // Apply bonus based on player level
     const bonus = getAccessoryBonus(player.niveis.playerLevel);
-    playerStore.addSkillBonus(skillType, bonus);
+    addSkillBonus(skillType, bonus);
 
     setPurchaseMessage(`${accessory.itemName} adquirido com sucesso! +${bonus}% em ${skillType}`);
     setTimeout(() => setPurchaseMessage(''), 3000);
