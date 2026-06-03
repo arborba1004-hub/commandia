@@ -15,6 +15,13 @@ export type FixedBuildingConfig = {
   frontOffsetY?: number;
 };
 
+export type FixedBuildingStatusLabel = {
+  title: string;
+  subtitle?: string;
+  accent?: string;
+  danger?: boolean;
+};
+
 export const FIXED_BUILDINGS: FixedBuildingConfig[] = [
   {
     key: 'qg',
@@ -141,6 +148,7 @@ type MountFixedMapBuildingsParams = {
 
 export type FixedMapBuildingsLayer = {
   tryHandleBuildingClick: (clientX: number, clientY: number) => boolean;
+  updateStatusLabels: (labelsByKey: Record<string, FixedBuildingStatusLabel | null | undefined>) => void;
   cleanup: () => void;
 };
 
@@ -186,6 +194,83 @@ function createTextLabel(
   sprite.scale.set(scaleX, scaleY, 1);
 
   return sprite;
+}
+
+
+function createStatusLabel(
+  status: FixedBuildingStatusLabel,
+  scaleX = 5.9,
+  scaleY = 1.32,
+): THREE.Sprite | THREE.Group {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+
+  if (!context) return new THREE.Group();
+
+  canvas.width = 760;
+  canvas.height = 190;
+
+  const accent = status.accent || (status.danger ? '#ef4444' : '#22c55e');
+  const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, 'rgba(0,0,0,0.90)');
+  gradient.addColorStop(0.55, 'rgba(8,10,14,0.88)');
+  gradient.addColorStop(1, 'rgba(0,0,0,0.78)');
+
+  context.fillStyle = gradient;
+  context.beginPath();
+  if (typeof context.roundRect === 'function') {
+    context.roundRect(0, 0, canvas.width, canvas.height, 36);
+  } else {
+    context.rect(0, 0, canvas.width, canvas.height);
+  }
+  context.fill();
+
+  context.lineWidth = 6;
+  context.strokeStyle = accent;
+  context.stroke();
+
+  context.shadowColor = accent;
+  context.shadowBlur = 22;
+  context.fillStyle = accent;
+  context.beginPath();
+  context.arc(52, 56, 14, 0, Math.PI * 2);
+  context.fill();
+  context.shadowBlur = 0;
+
+  context.font = '900 38px Oswald, Impact, Arial';
+  context.textAlign = 'left';
+  context.textBaseline = 'middle';
+  context.fillStyle = '#ffffff';
+  context.fillText(String(status.title || '').toUpperCase(), 82, 58, canvas.width - 120);
+
+  if (status.subtitle) {
+    context.font = '900 44px Oswald, Impact, Arial';
+    context.fillStyle = accent;
+    context.fillText(String(status.subtitle || '').toUpperCase(), 52, 128, canvas.width - 104);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+
+  const spriteMaterial = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthWrite: false,
+  });
+
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.scale.set(scaleX, scaleY, 1);
+
+  return sprite;
+}
+
+function disposeSpriteObject(label?: THREE.Object3D | null) {
+  if (!label) return;
+  label.traverse((child: any) => {
+    const material = child.material;
+    if (material?.map) material.map.dispose?.();
+    if (material) material.dispose?.();
+  });
 }
 
 function setMeshQuality(child: any) {
@@ -250,6 +335,7 @@ export function mountFixedMapBuildings({
   onMessage,
 }: MountFixedMapBuildingsParams): FixedMapBuildingsLayer {
   const buildings: THREE.Object3D[] = [];
+  const buildingByKey = new Map<string, THREE.Object3D>();
   const labels: Array<THREE.Sprite | THREE.Group> = [];
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -283,6 +369,7 @@ export function mountFixedMapBuildings({
         scene.add(label);
 
         buildings.push(wrapper);
+        buildingByKey.set(building.key, wrapper);
         labels.push(label);
       },
       undefined,
@@ -326,20 +413,52 @@ export function mountFixedMapBuildings({
     return false;
   };
 
+
+  const updateStatusLabels = (labelsByKey: Record<string, FixedBuildingStatusLabel | null | undefined>) => {
+    for (const [buildingKey, status] of Object.entries(labelsByKey || {})) {
+      const building = buildingByKey.get(buildingKey);
+      if (!building) continue;
+
+      const oldLabel = building.userData?.statusLabel as THREE.Object3D | undefined;
+      if (oldLabel) {
+        scene.remove(oldLabel);
+        disposeSpriteObject(oldLabel);
+        building.userData.statusLabel = null;
+      }
+
+      if (!status?.title) continue;
+
+      const nameLabel = building.userData?.nameLabel as THREE.Object3D | undefined;
+      const y = Number(nameLabel?.position?.y || 4.5) + 1.55;
+      const statusLabel = createStatusLabel(status);
+      statusLabel.position.set(building.position.x, y, building.position.z);
+      scene.add(statusLabel);
+      labels.push(statusLabel as any);
+      building.userData.statusLabel = statusLabel;
+    }
+  };
+
   const cleanup = () => {
     buildings.forEach((building) => {
       scene.remove(building);
       if (building.userData?.nameLabel) {
         scene.remove(building.userData.nameLabel);
+        disposeSpriteObject(building.userData.nameLabel);
+      }
+      if (building.userData?.statusLabel) {
+        scene.remove(building.userData.statusLabel);
+        disposeSpriteObject(building.userData.statusLabel);
       }
     });
 
     labels.length = 0;
     buildings.length = 0;
+    buildingByKey.clear();
   };
 
   return {
     tryHandleBuildingClick,
+    updateStatusLabels,
     cleanup,
   };
 }
