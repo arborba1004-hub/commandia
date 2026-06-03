@@ -113,6 +113,7 @@ export type AzideiaAttackResult = AzideiaMission & {
 
 export type AzideiaActiveMissionsResponse = {
   missions: AzideiaMission[];
+  player?: unknown;
 };
 
 export type AzideiaRewardStatus = {
