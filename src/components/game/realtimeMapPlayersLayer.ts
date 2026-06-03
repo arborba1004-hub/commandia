@@ -4,7 +4,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { tileToWorldCenter } from '@/components/game/playerMapSpace';
 
 const BACKEND_URL = 'https://comando-backend.onrender.com';
-const DEFAULT_POLLING_MS = 3000;
+const DEFAULT_POLLING_MS = 60000;
 const DEFAULT_LIMIT = 1000;
 
 const dracoLoader = new DRACOLoader();

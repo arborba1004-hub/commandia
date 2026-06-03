@@ -549,7 +549,7 @@ export function mountAzideiaX9Layer({
     if (disposed || refreshIntervalId) return;
     refreshIntervalId = window.setInterval(() => {
       void refresh();
-    }, 5000);
+    }, 20000);
   }
 
   function handleTargetById(targetId: string, dying = false) {
