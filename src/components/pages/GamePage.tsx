@@ -587,7 +587,7 @@ export default function GamePage() {
     const intervalId = window.setInterval(() => {
       void syncActiveAzideiaMissions();
       void azideiaLayerRef.current?.refresh();
-    }, 5000);
+    }, 20000);
 
     return () => {
       cancelled = true;
@@ -767,7 +767,7 @@ export default function GamePage() {
     };
 
     void syncQgBuildingStatus();
-    const qgStatusInterval = window.setInterval(() => syncQgBuildingStatus(), 15000);
+    const qgStatusInterval = window.setInterval(() => syncQgBuildingStatus(), 30000);
 
     // Cache de posições dos outros jogadores
     const localPlayers = new Map<string, { tileX: number; tileY: number }>();
@@ -781,7 +781,7 @@ export default function GamePage() {
       gridWidth: GRID_WIDTH,
       gridHeight: GRID_HEIGHT,
       tileSize: TILE_SIZE,
-      pollingMs: 10000,
+      pollingMs: 60000,
       showSpaces: true,
       getMyId: () => myId, // closure lê myId em tempo real
     });

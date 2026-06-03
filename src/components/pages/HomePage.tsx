@@ -120,6 +120,7 @@ function HomePage() {
         src={VIDEO_URL}
         autoPlay
         muted
+        preload="metadata"
         loop
         playsInline
         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
