@@ -172,8 +172,8 @@ export default function CorrePackagePaymentModal({ pack, open, onClose }: Props)
   const hasQr = Boolean(result?.qrCode || result?.qrCodeBase64);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-yellow-400/30 bg-zinc-950 text-white shadow-[0_0_40px_rgba(250,204,21,0.18)]">
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[2rem] sm:rounded-3xl border border-yellow-400/30 bg-zinc-950 text-white shadow-[0_0_40px_rgba(250,204,21,0.18)]">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-zinc-950/95 p-4">
           <div>
             <div className="text-xs font-black uppercase tracking-[0.28em] text-[#d9b764]">Pagamento sem redirecionar</div>
