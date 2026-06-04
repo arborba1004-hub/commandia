@@ -1,11 +1,9 @@
 /**
  * store/gangStore.ts
- * Store Zustand unificado da gangue.
- * Refatorado para usar os tipos canônicos de @/types/gang.
- * Integrado com gangEstatisticasStore para atualizar estatísticas ao mudar formação.
- *
- * REFACTORING ETAPA 4: O store mantém APENAS gang.members[]
- * Sem troopSummary, sem contadores separados.
+ * Store oficial da gangue.
+ * Fonte única: Player.gang vindo de /api/gang e /api/training.
+ * Não usa /gang-war: GangWar é legado e não deve alimentar modal de ataque,
+ * treino, mapa ou Azidéia.
  */
 
 import { create } from 'zustand';
@@ -41,12 +39,25 @@ import {
   type TrainingSlot,
 } from '@/api/training';
 
-// ═════════════════════════════════════════════════════════════════════════════
-// TIPOS DO STORE
-// ═════════════════════════════════════════════════════════════════════════════
+type OfficialGang = Gang & {
+  formation?: GangFormationType;
+  trainingSlots?: TrainingSlot[];
+  trainingJobs?: TrainingSlot[];
+  trainingConfig?: {
+    quantityPerOrder: number;
+    durationSeconds: number;
+    slots: number;
+  };
+  troopSummary?: any;
+  stats?: any;
+  ct?: any;
+  maxMembers?: number;
+  gangLevel?: number;
+  dailyUpkeep?: any;
+};
 
 type GangStore = {
-  gang: Gang | null;
+  gang: OfficialGang | null;
   player: any;
   trainingSlots: TrainingSlot[];
   statSources: GangStatSource[];
@@ -55,19 +66,12 @@ type GangStore = {
   isSubmitting: boolean;
   error: string | null;
 
-  // ── Carregamento ──────────────────────────────────────────────────────────
   loadGang: () => Promise<boolean>;
   loadTrainingState: () => Promise<boolean>;
   loadGangStats: () => Promise<boolean>;
 
-
-  // ── Mutações ──────────────────────────────────────────────────────────────
   recruitMember: (type: GangMemberType) => Promise<boolean>;
-  queueTraining: (
-    ctKey: string,
-    troopType: GangMemberType,
-    troopLevel: number
-  ) => Promise<boolean>;
+  queueTraining: (ctKey: string, troopType: GangMemberType, troopLevel: number) => Promise<boolean>;
   completeFinishedTrainings: () => Promise<boolean>;
   collectTraining: (slotId: string) => Promise<boolean>;
   upgradeCT: () => Promise<boolean>;
@@ -76,24 +80,12 @@ type GangStore = {
   upsertStatSource: (source: Partial<GangStatSource> & Pick<GangStatSource, 'source' | 'label' | 'targetScope'>) => Promise<boolean>;
   removeStatSource: (sourceId: string) => Promise<boolean>;
 
-
-  // ── Consultas derivadas ───────────────────────────────────────────────────
   getBattleStats: () => GangBattleStats;
   getAvailableByType: () => Record<GangMemberType, number>;
   getActiveMemberCount: (type: GangMemberType) => number;
-  getTrainingConfig: () => {
-    quantityPerOrder: number;
-    durationSeconds: number;
-    slots: number;
-  };
-
-  // ── Utilitários ───────────────────────────────────────────────────────────
+  getTrainingConfig: () => { quantityPerOrder: number; durationSeconds: number; slots: number };
   clearGang: () => void;
 };
-
-// ═════════════════════════════════════════════════════════════════════════════
-// HELPERS
-// ═════════════════════════════════════════════════════════════════════════════
 
 const EMPTY_BATTLE_STATS: GangBattleStats = {
   totalMembers: 0,
@@ -121,10 +113,14 @@ const EMPTY_BY_TYPE: Record<GangMemberType, number> = {
   nitro: 0,
 };
 
-/**
- * Calcula contadores de membros por tipo e status a partir do array members.
- * Retorna { byType, activeByType, totalMembers, activeMembers, injuredMembers, deadMembers }
- */
+function asArray<T = any>(value: unknown): T[] {
+  return Array.isArray(value) ? value as T[] : [];
+}
+
+function isObject(value: unknown): value is Record<string, any> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
 function calculateTroopSummary(members: GangMember[]) {
   const byType: Record<GangMemberType, number> = { ...EMPTY_BY_TYPE };
   const activeByType: Record<GangMemberType, number> = { ...EMPTY_BY_TYPE };
@@ -133,70 +129,89 @@ function calculateTroopSummary(members: GangMember[]) {
   let injuredMembers = 0;
   let deadMembers = 0;
 
-  for (const member of members) {
-    byType[member.type] = (byType[member.type] ?? 0) + 1;
-    totalMembers++;
-
+  for (const member of members || []) {
+    const t = member.type as GangMemberType;
+    byType[t] = (byType[t] ?? 0) + 1;
+    totalMembers += 1;
     if (member.status === 'ativo') {
-      activeByType[member.type] = (activeByType[member.type] ?? 0) + 1;
-      activeMembers++;
+      activeMembers += 1;
+      activeByType[t] = (activeByType[t] ?? 0) + 1;
     } else if (member.status === 'ferido') {
-      injuredMembers++;
+      injuredMembers += 1;
     } else if (member.status === 'morto') {
-      deadMembers++;
+      deadMembers += 1;
     }
   }
 
-  return {
-    byType,
-    activeByType,
-    totalMembers,
-    activeMembers,
-    injuredMembers,
-    deadMembers,
-  };
+  return { byType, activeByType, totalMembers, activeMembers, injuredMembers, deadMembers };
 }
 
-
-function mergeMemberStatSnapshots(
-  members: GangMember[],
-  statSnapshot?: GangStatSnapshot | null
-): GangMember[] {
-  if (!statSnapshot?.members?.length) return members;
-  const byId = new Map(statSnapshot.members.map((item) => [String(item.id), item]));
+function mergeMemberStatSnapshots(members: GangMember[] = [], snapshot: GangStatSnapshot | null | undefined): GangMember[] {
+  const snapshotById = new Map(
+    asArray<any>(snapshot?.members).map((item) => [String(item.id), item])
+  );
 
   return members.map((member) => {
-    const snapshot = byId.get(String(member.id));
-    return snapshot ? { ...member, ...snapshot } : member;
+    const stat = snapshotById.get(String(member.id));
+    return stat ? { ...member, ...stat } : member;
   });
 }
 
-/** Sincroniza os saldos do player retornados pela API da gangue. */
-function syncBalances(playerBalances?: {
-  dirtyMoney: number;
-  cleanMoney: number;
-  corre: number;
-}) {
-  if (!playerBalances) return;
+function getIncomingGang(data: any, previousGang?: OfficialGang | null): OfficialGang | null {
+  const playerStore = usePlayerStore.getState();
+  const player = playerStore.player as any;
 
+  const apiGang = isObject(data?.gang) ? data.gang : null;
+  const playerGang = isObject(data?.player?.gang) ? data.player.gang : isObject(player?.gang) ? player.gang : null;
+  const source = apiGang || playerGang || previousGang || null;
+
+  const members =
+    asArray<GangMember>(apiGang?.members).length ? asArray<GangMember>(apiGang?.members) :
+    asArray<GangMember>(playerGang?.members).length ? asArray<GangMember>(playerGang?.members) :
+    asArray<GangMember>(player?.gangMembers).length ? asArray<GangMember>(player?.gangMembers) :
+    asArray<GangMember>(previousGang?.members);
+
+  const trainingSlots =
+    asArray<TrainingSlot>(data?.trainingSlots).length ? asArray<TrainingSlot>(data?.trainingSlots) :
+    asArray<TrainingSlot>(apiGang?.trainingSlots).length ? asArray<TrainingSlot>(apiGang?.trainingSlots) :
+    asArray<TrainingSlot>(apiGang?.trainingJobs).length ? asArray<TrainingSlot>(apiGang?.trainingJobs) :
+    asArray<TrainingSlot>(playerGang?.trainingSlots).length ? asArray<TrainingSlot>(playerGang?.trainingSlots) :
+    asArray<TrainingSlot>(previousGang?.trainingSlots);
+
+  if (!source && !members.length && !trainingSlots.length) return previousGang || null;
+
+  const statSources = asArray<GangStatSource>(apiGang?.statSources).length
+    ? asArray<GangStatSource>(apiGang?.statSources)
+    : asArray<GangStatSource>(playerGang?.statSources).length
+      ? asArray<GangStatSource>(playerGang?.statSources)
+      : asArray<GangStatSource>(previousGang?.statSources);
+  const statSnapshot = (apiGang?.statSnapshot || playerGang?.statSnapshot || previousGang?.statSnapshot || null) as GangStatSnapshot | null;
+
+  return {
+    ...(previousGang || {}),
+    ...(source || {}),
+    members: mergeMemberStatSnapshots(members, statSnapshot),
+    trainingSlots,
+    trainingJobs: trainingSlots,
+    formation: (source?.formation || previousGang?.formation || 'pressao_total') as GangFormationType,
+    statSources,
+    statSnapshot,
+  } as OfficialGang;
+}
+
+function syncBalances(playerBalances?: { dirtyMoney?: number; cleanMoney?: number; corre?: number }) {
+  if (!playerBalances) return;
   usePlayerStore.getState().applyLocalPlayerUpdate((p) => ({
     ...p,
     balances: {
       ...p.balances,
-      dirtyMoney: Number(playerBalances.dirtyMoney ?? 0),
-      cleanMoney: Number(playerBalances.cleanMoney ?? 0),
-      corre: Number(playerBalances.corre ?? 0),
+      dirtyMoney: Number(playerBalances.dirtyMoney ?? p.balances.dirtyMoney ?? 0),
+      cleanMoney: Number(playerBalances.cleanMoney ?? p.balances.cleanMoney ?? 0),
+      corre: Number(playerBalances.corre ?? p.balances.corre ?? 0),
     },
   }));
 }
 
-
-/**
- * Sincroniza o playerStore depois de ações da gangue/treino.
- * Azidéia, ataque e mapa leem Player.gang pelo playerStore em vários pontos;
- * se o treino atualiza só o gangStore, o frontend fica com membros antigos e
- * pode mostrar/comportar como se não houvesse membro ativo.
- */
 function syncPlayerStoreFromGangEnvelope(data: any) {
   if (!data) return;
   const playerStore = usePlayerStore.getState();
@@ -206,9 +221,8 @@ function syncPlayerStoreFromGangEnvelope(data: any) {
     return;
   }
 
-  const incomingGang = data.gang && typeof data.gang === 'object' ? data.gang : null;
+  const incomingGang = isObject(data.gang) ? data.gang : null;
   const incomingBalances = data.balances || data.playerBalances || null;
-
   if (!incomingGang && !incomingBalances) return;
 
   playerStore.applyLocalPlayerUpdate((current) => {
@@ -216,16 +230,18 @@ function syncPlayerStoreFromGangEnvelope(data: any) {
       ? {
           ...(current.gang || {}),
           ...incomingGang,
-          members: Array.isArray(incomingGang.members)
+          members: asArray(incomingGang.members).length
             ? incomingGang.members
             : (current.gang?.members || current.gangMembers || []),
-          trainingSlots: Array.isArray(incomingGang.trainingSlots)
-            ? incomingGang.trainingSlots
-            : (Array.isArray(data.trainingSlots) ? data.trainingSlots : current.gang?.trainingSlots || []),
+          trainingSlots: asArray(data.trainingSlots).length
+            ? data.trainingSlots
+            : asArray(incomingGang.trainingSlots).length
+              ? incomingGang.trainingSlots
+              : (current.gang?.trainingSlots || []),
         }
       : {
           ...(current.gang || {}),
-          trainingSlots: Array.isArray(data.trainingSlots) ? data.trainingSlots : current.gang?.trainingSlots || [],
+          trainingSlots: asArray(data.trainingSlots).length ? data.trainingSlots : current.gang?.trainingSlots || [],
         };
 
     return {
@@ -239,25 +255,39 @@ function syncPlayerStoreFromGangEnvelope(data: any) {
           }
         : current.balances,
       gang: nextGang,
-      gangMembers: Array.isArray(nextGang.members) ? nextGang.members : current.gangMembers,
+      gangMembers: asArray(nextGang.members).length ? nextGang.members : current.gangMembers,
       gangStats: nextGang.stats || current.gangStats,
     };
   });
 }
 
-/**
- * Após mudar a formação, atualiza as estatísticas de combate no gangEstatisticasStore.
- * Este é o ponto de integração entre gangStore ↔ gangEstatisticasStore.
- */
 function syncFormacaoToEstatisticas(formation: GangFormationType) {
-  useGangEstatisticasStore
-    .getState()
-    .applyBonus('formacao', getFormacaoBonusPayload(formation));
+  useGangEstatisticasStore.getState().applyBonus('formacao', getFormacaoBonusPayload(formation));
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// STORE
-// ═════════════════════════════════════════════════════════════════════════════
+function applyEnvelopeToStore(set: any, data: any, flags: Record<string, any> = {}) {
+  syncBalances(data?.balances || data?.playerBalances);
+  syncPlayerStoreFromGangEnvelope(data);
+
+  set((state: GangStore) => {
+    const nextGang = getIncomingGang(data, state.gang);
+    const statSources = asArray<GangStatSource>(data?.statSources).length
+      ? asArray<GangStatSource>(data?.statSources)
+      : asArray<GangStatSource>(nextGang?.statSources);
+    const statSnapshot = (data?.statSnapshot || nextGang?.statSnapshot || null) as GangStatSnapshot | null;
+    const trainingSlots = asArray<TrainingSlot>(data?.trainingSlots).length
+      ? asArray<TrainingSlot>(data?.trainingSlots)
+      : asArray<TrainingSlot>(nextGang?.trainingSlots);
+
+    return {
+      ...flags,
+      gang: nextGang,
+      trainingSlots,
+      statSources,
+      statSnapshot,
+    };
+  });
+}
 
 export const useGangStore = create<GangStore>((set, get) => ({
   gang: null,
@@ -269,56 +299,17 @@ export const useGangStore = create<GangStore>((set, get) => ({
   isSubmitting: false,
   error: null,
 
-  // ── Carregamento ──────────────────────────────────────────────────────────
-
   loadGang: async () => {
     try {
       set({ isLoading: true, error: null });
-
       const data = await fetchMyGang();
-      syncBalances(data.playerBalances);
-      syncPlayerStoreFromGangEnvelope(data);
+      applyEnvelopeToStore(set, data, { isLoading: false });
 
-      const apiGang = data.gang ?? null;
-
-      // Source of truth para `members` é Player.gang.members (Sistema A).
-      // GangWar.members é legado e fica desatualizado em relação aos
-      // treinamentos feitos pelos CTs do mapa.
-      const playerStore = usePlayerStore.getState();
-      const playerGangMembers =
-        (playerStore.player as any)?.gang?.members ??
-        playerStore.player?.gangMembers ??
-        [];
-
-      const statSnapshot = apiGang?.statSnapshot ?? null;
-      const statSources = apiGang?.statSources ?? [];
-      const baseMembers = playerGangMembers.length ? playerGangMembers : (apiGang?.members ?? []);
-      const unifiedGang = apiGang
-        ? {
-            ...apiGang,
-            members: mergeMemberStatSnapshots(baseMembers, statSnapshot),
-            statSources,
-            statSnapshot,
-          }
-        : null;
-
-      set({
-        gang: unifiedGang,
-        statSources,
-        statSnapshot,
-        isLoading: false,
-      });
-
-      if (apiGang?.formation) {
-        syncFormacaoToEstatisticas(apiGang.formation);
-      }
-
+      const formation = (data as any)?.gang?.formation;
+      if (formation) syncFormacaoToEstatisticas(formation);
       return true;
     } catch (err) {
-      set({
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Erro ao carregar gangue',
-      });
+      set({ isLoading: false, error: err instanceof Error ? err.message : 'Erro ao carregar gangue' });
       return false;
     }
   },
@@ -326,87 +317,35 @@ export const useGangStore = create<GangStore>((set, get) => ({
   loadTrainingState: async () => {
     try {
       set({ isLoading: true, error: null });
-
       const data = await fetchTrainingStatus();
-      syncBalances(data.balances);
-      syncPlayerStoreFromGangEnvelope(data);
-
-      set((state) => ({
-        trainingSlots: data.trainingSlots,
-        gang:
-          state.gang && (data as any).gang?.members
-            ? { ...state.gang, members: (data as any).gang.members }
-            : state.gang,
-        isLoading: false,
-      }));
-
+      applyEnvelopeToStore(set, data, { isLoading: false });
       return true;
     } catch (err) {
-      set({
-        isLoading: false,
-        error:
-          err instanceof Error
-            ? err.message
-            : 'Erro ao carregar treinamentos',
-      });
+      set({ isLoading: false, error: err instanceof Error ? err.message : 'Erro ao carregar treinamentos' });
       return false;
     }
   },
-
-
 
   loadGangStats: async () => {
     try {
       set({ isLoading: true, error: null });
       const data = await fetchGangStats();
-
-      set((state) => ({
-        statSources: data.statSources ?? [],
-        statSnapshot: data.statSnapshot ?? null,
-        gang: state.gang
-          ? {
-              ...state.gang,
-              statSources: data.statSources ?? [],
-              statSnapshot: data.statSnapshot ?? null,
-              members: mergeMemberStatSnapshots(state.gang.members, data.statSnapshot),
-            }
-          : state.gang,
-        isLoading: false,
-      }));
-
+      applyEnvelopeToStore(set, data, { isLoading: false });
       return true;
     } catch (err) {
-      set({
-        isLoading: false,
-        error: err instanceof Error ? err.message : 'Erro ao carregar estatísticas da gangue',
-      });
+      set({ isLoading: false, error: err instanceof Error ? err.message : 'Erro ao carregar estatísticas da gangue' });
       return false;
     }
   },
 
-  // ── Mutações ──────────────────────────────────────────────────────────────
-
   recruitMember: async (type) => {
     try {
       set({ isSubmitting: true, error: null });
-
       const data = await recruitGangMember(type);
-
-      syncBalances(data.playerBalances);
-      syncPlayerStoreFromGangEnvelope(data);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-      });
-
+      applyEnvelopeToStore(set, data, { isSubmitting: false });
       return true;
     } catch (err) {
-      set({
-        isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao recrutar',
-      });
-
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao recrutar' });
       return false;
     }
   },
@@ -414,63 +353,28 @@ export const useGangStore = create<GangStore>((set, get) => ({
   queueTraining: async (ctKey, troopType, troopLevel) => {
     try {
       set({ isSubmitting: true, error: null });
-
       const data = await startTraining(ctKey, troopType, troopLevel);
-      syncBalances(data.balances);
-      syncPlayerStoreFromGangEnvelope(data);
-
-      set((state) => ({
-        trainingSlots: data.trainingSlots,
-        gang:
-          state.gang && (data as any).gang?.members
-            ? { ...state.gang, members: (data as any).gang.members }
-            : state.gang,
-        isSubmitting: false,
-      }));
-
+      applyEnvelopeToStore(set, data, { isSubmitting: false });
       return true;
     } catch (err) {
-      set({
-        isSubmitting: false,
-        error:
-          err instanceof Error
-            ? err.message
-            : 'Erro ao iniciar treinamento',
-      });
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao iniciar treinamento' });
       return false;
     }
   },
 
   completeFinishedTrainings: async () => {
     try {
-      const state = get();
-
       const now = Date.now();
-
-      const updatedSlots = state.trainingSlots.map((slot) => {
-        if (slot.status === 'training' && now >= slot.endsAt) {
-          return {
-            ...slot,
-            status: 'completed' as const,
-          };
-        }
-
-        return slot;
-      });
-
-      set({
-        trainingSlots: updatedSlots,
-      });
-
+      set((state) => ({
+        trainingSlots: state.trainingSlots.map((slot) => (
+          slot.status === 'training' && now >= Number(slot.endsAt)
+            ? { ...slot, status: 'completed' as const }
+            : slot
+        )),
+      }));
       return true;
     } catch (err) {
-      set({
-        error:
-          err instanceof Error
-            ? err.message
-            : 'Erro ao atualizar treinamentos',
-      });
-
+      set({ error: err instanceof Error ? err.message : 'Erro ao atualizar treinamentos' });
       return false;
     }
   },
@@ -478,29 +382,11 @@ export const useGangStore = create<GangStore>((set, get) => ({
   collectTraining: async (slotId) => {
     try {
       set({ isSubmitting: true, error: null });
-
       const data = await collectTrainingApi(slotId);
-      syncBalances(data.balances);
-      syncPlayerStoreFromGangEnvelope(data);
-
-      set((state) => ({
-        trainingSlots: data.trainingSlots,
-        gang:
-          state.gang && (data as any).gang?.members
-            ? { ...state.gang, members: (data as any).gang.members }
-            : state.gang,
-        isSubmitting: false,
-      }));
-
+      applyEnvelopeToStore(set, data, { isSubmitting: false });
       return true;
     } catch (err) {
-      set({
-        isSubmitting: false,
-        error:
-          err instanceof Error
-            ? err.message
-            : 'Erro ao coletar treinamento',
-      });
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao coletar treinamento' });
       return false;
     }
   },
@@ -508,24 +394,11 @@ export const useGangStore = create<GangStore>((set, get) => ({
   upgradeCT: async () => {
     try {
       set({ isSubmitting: true, error: null });
-
       const data = await upgradeGangCT();
-
-      syncBalances(data.playerBalances);
-      syncPlayerStoreFromGangEnvelope(data);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-      });
-
+      applyEnvelopeToStore(set, data, { isSubmitting: false });
       return true;
     } catch (err) {
-      set({
-        isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao evoluir CT',
-      });
-
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao evoluir CT' });
       return false;
     }
   },
@@ -533,24 +406,11 @@ export const useGangStore = create<GangStore>((set, get) => ({
   payMaintenance: async () => {
     try {
       set({ isSubmitting: true, error: null });
-
       const data = await payGangMaintenance();
-
-      syncBalances(data.playerBalances);
-      syncPlayerStoreFromGangEnvelope(data);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-      });
-
+      applyEnvelopeToStore(set, data, { isSubmitting: false });
       return true;
     } catch (err) {
-      set({
-        isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao pagar manutenção',
-      });
-
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao pagar manutenção' });
       return false;
     }
   },
@@ -558,58 +418,24 @@ export const useGangStore = create<GangStore>((set, get) => ({
   setFormation: async (formation) => {
     try {
       set({ isSubmitting: true, error: null });
-
       const data = await setGangFormation(formation);
-
-      syncBalances(data.playerBalances);
-      syncPlayerStoreFromGangEnvelope(data);
-
-      set({
-        gang: data.gang,
-        isSubmitting: false,
-      });
-
-      // ← Ponto de integração: atualiza estatísticas de combate
+      applyEnvelopeToStore(set, data, { isSubmitting: false });
       syncFormacaoToEstatisticas(formation);
-
       return true;
     } catch (err) {
-      set({
-        isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao trocar formação',
-      });
-
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao trocar formação' });
       return false;
     }
   },
-
-
 
   upsertStatSource: async (source) => {
     try {
       set({ isSubmitting: true, error: null });
       const data = await upsertGangStatSourceApi(source);
-
-      set((state) => ({
-        statSources: data.statSources ?? [],
-        statSnapshot: data.statSnapshot ?? null,
-        gang: state.gang
-          ? {
-              ...state.gang,
-              statSources: data.statSources ?? [],
-              statSnapshot: data.statSnapshot ?? null,
-              members: mergeMemberStatSnapshots(state.gang.members, data.statSnapshot),
-            }
-          : state.gang,
-        isSubmitting: false,
-      }));
-
+      applyEnvelopeToStore(set, data, { isSubmitting: false });
       return true;
     } catch (err) {
-      set({
-        isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao salvar estatística da gangue',
-      });
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao salvar estatística da gangue' });
       return false;
     }
   },
@@ -618,46 +444,24 @@ export const useGangStore = create<GangStore>((set, get) => ({
     try {
       set({ isSubmitting: true, error: null });
       const data = await removeGangStatSourceApi(sourceId);
-
-      set((state) => ({
-        statSources: data.statSources ?? [],
-        statSnapshot: data.statSnapshot ?? null,
-        gang: state.gang
-          ? {
-              ...state.gang,
-              statSources: data.statSources ?? [],
-              statSnapshot: data.statSnapshot ?? null,
-              members: mergeMemberStatSnapshots(state.gang.members, data.statSnapshot),
-            }
-          : state.gang,
-        isSubmitting: false,
-      }));
-
+      applyEnvelopeToStore(set, data, { isSubmitting: false });
       return true;
     } catch (err) {
-      set({
-        isSubmitting: false,
-        error: err instanceof Error ? err.message : 'Erro ao remover estatística da gangue',
-      });
+      set({ isSubmitting: false, error: err instanceof Error ? err.message : 'Erro ao remover estatística da gangue' });
       return false;
     }
   },
-
-  // ── Consultas derivadas ───────────────────────────────────────────────────
 
   getBattleStats: () => {
     const { gang, statSnapshot } = get();
     if (!gang) return EMPTY_BATTLE_STATS;
 
     if (statSnapshot?.summary) {
-      return {
-        ...EMPTY_BATTLE_STATS,
-        ...statSnapshot.summary,
-      };
+      return { ...EMPTY_BATTLE_STATS, ...statSnapshot.summary };
     }
 
-    const summary = calculateTroopSummary(gang.members);
-    const totals = gang.members
+    const summary = calculateTroopSummary(gang.members || []);
+    const totals = (gang.members || [])
       .filter((member) => member.status === 'ativo')
       .reduce(
         (acc, member) => {
@@ -675,10 +479,7 @@ export const useGangStore = create<GangStore>((set, get) => ({
       );
 
     const totalPower = Math.round(
-      totals.rajada * 1.35 +
-      totals.blindagem * 1.10 +
-      totals.folego * 1.05 +
-      totals.quebra * 1.20
+      totals.rajada * 1.35 + totals.blindagem * 1.10 + totals.folego * 1.05 + totals.quebra * 1.20
     );
 
     return {
@@ -699,32 +500,18 @@ export const useGangStore = create<GangStore>((set, get) => ({
 
   getAvailableByType: () => {
     const { gang } = get();
-
     if (!gang) return { ...EMPTY_BY_TYPE };
-
-    const summary = calculateTroopSummary(gang.members);
-
-    return summary.activeByType;
+    return calculateTroopSummary(gang.members || []).activeByType;
   },
 
   getActiveMemberCount: (type) => {
     const { gang } = get();
-
     if (!gang) return 0;
-
-    const summary = calculateTroopSummary(gang.members);
-
-    return summary.activeByType[type] ?? 0;
+    return calculateTroopSummary(gang.members || []).activeByType[type] ?? 0;
   },
 
   getTrainingConfig: () => {
-    return (
-      get().gang?.trainingConfig ?? {
-        quantityPerOrder: 10,
-        durationSeconds: 10,
-        slots: 7,
-      }
-    );
+    return get().gang?.trainingConfig ?? { quantityPerOrder: 10, durationSeconds: 10, slots: 4 };
   },
 
   clearGang: () => {
@@ -737,7 +524,6 @@ export const useGangStore = create<GangStore>((set, get) => ({
       isSubmitting: false,
       error: null,
     });
-
     useGangEstatisticasStore.getState().resetAll();
   },
 }));
