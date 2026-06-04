@@ -359,7 +359,7 @@ const newItem = {
               initial={{ opacity: 0, x: 80, scale: 0.94, filter: 'blur(8px)' }}
               animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
               transition={{ duration: 0.8, ease: 'easeOut', delay: 0.12 }}
-              className="rounded-[30px] border border-white/12 bg-black/62 p-6 md:p-8 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,.45)]"
+              className="rounded-[24px] border border-white/12 bg-black/62 p-4 backdrop-blur-xl md:p-8 shadow-[0_18px_60px_rgba(0,0,0,.45)]"
             >
               <p className="text-[10px] uppercase tracking-[0.30em] text-white/42">Apresentação do item</p>
 
@@ -431,28 +431,28 @@ const newItem = {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/84 px-4 backdrop-blur-sm"
+              className="fixed inset-0 z-[10020] flex items-end justify-center bg-black/84 p-0 backdrop-blur-sm sm:items-center sm:p-4"
             >
-              <div className="w-full max-w-[950px] grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 items-center">
+              <div className="max-h-[92dvh] w-full max-w-[950px] grid-cols-1 gap-4 overflow-y-auto rounded-t-[2rem] bg-black/30 p-4 sm:grid sm:items-center sm:rounded-[2rem] lg:grid-cols-[1fr_420px] lg:gap-8">
                 <motion.div
                   initial={{ opacity: 0, x: -60, filter: 'blur(8px)' }}
                   animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
                   transition={{ duration: 0.55 }}
-                  className="rounded-[30px] border border-white/12 bg-black/62 p-6 md:p-8 backdrop-blur-xl"
+                  className="rounded-[24px] border border-white/12 bg-black/62 p-4 backdrop-blur-xl md:p-8"
                 >
                   <p className="text-[10px] uppercase tracking-[0.32em] text-white/42">Transação privada</p>
-                  <h2 className="mt-3 text-3xl md:text-4xl font-black text-white">
+                  <h2 className="mt-3 text-2xl font-black text-white md:text-4xl">
                     Máquina de cartão
                   </h2>
                   <p className="mt-4 text-base text-white/74 leading-relaxed">
                     Confirme a compra de <span style={{ color: visual.accent }}>{currentItem.name}</span>.
                   </p>
 
-                  <div className="mt-6 rounded-[28px] border border-white/12 bg-white/5 p-6">
+                  <div className="mt-5 rounded-[24px] border border-white/12 bg-white/5 p-4 sm:p-6">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.28em] text-white/45">Portador do cartão</p>
-                        <p className="mt-2 text-2xl font-black uppercase tracking-[0.16em] text-white">
+                        <p className="mt-2 text-lg font-black uppercase tracking-[0.12em] text-white sm:text-2xl sm:tracking-[0.16em]">
                           {playerName}
                         </p>
                       </div>
@@ -539,7 +539,7 @@ const newItem = {
                   initial={{ opacity: 0, x: 60, scale: 0.92, filter: 'blur(8px)' }}
                   animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
                   transition={{ duration: 0.55 }}
-                  className="relative mx-auto w-full max-w-[420px]"
+                  className="relative mx-auto hidden w-full max-w-[420px] sm:block"
                 >
                   <div className="rounded-[34px] border border-white/14 bg-[linear-gradient(180deg,#101010_0%,#181818_35%,#0a0a0a_100%)] p-6 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
                     <div className="rounded-[22px] border border-white/10 bg-black/45 p-4">

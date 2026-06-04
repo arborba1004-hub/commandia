@@ -416,9 +416,9 @@ export default function ArsenalPage() {
       </main>
 
       <Dialog open={showWeaponModal} onOpenChange={setShowWeaponModal}>
-        <DialogContent className="bg-zinc-900 border-2 border-primary max-w-2xl">
+        <DialogContent className="max-h-[92dvh] max-w-2xl overflow-y-auto border-2 border-primary bg-zinc-900 p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="font-heading text-3xl text-primary">
+            <DialogTitle className="font-heading text-2xl text-primary sm:text-3xl">
               {selectedWeapon?.weaponName}
             </DialogTitle>
           </DialogHeader>
@@ -465,7 +465,7 @@ export default function ArsenalPage() {
               </div>
             )}
 
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <Button
                 onClick={() => setShowWeaponModal(false)}
                 className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-heading py-6 rounded-lg"
@@ -486,9 +486,9 @@ export default function ArsenalPage() {
       </Dialog>
 
       <Dialog open={showCasesModal} onOpenChange={setShowCasesModal}>
-        <DialogContent className="bg-zinc-900 border-2 border-primary max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-h-[92dvh] max-w-4xl overflow-y-auto border-2 border-primary bg-zinc-900 p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="font-heading text-3xl text-primary">
+            <DialogTitle className="font-heading text-2xl text-primary sm:text-3xl">
               Cases de {selectedWeapon?.weaponName}
             </DialogTitle>
           </DialogHeader>
@@ -536,9 +536,9 @@ export default function ArsenalPage() {
       </Dialog>
 
       <Dialog open={showVaultModal} onOpenChange={setShowVaultModal}>
-        <DialogContent className="bg-zinc-900 border-2 border-primary max-w-md">
+        <DialogContent className="max-h-[92dvh] max-w-md overflow-y-auto border-2 border-primary bg-zinc-900 p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="font-heading text-3xl text-center text-primary">
+            <DialogTitle className="text-center font-heading text-2xl text-primary sm:text-3xl">
               Confirmar Compra
             </DialogTitle>
           </DialogHeader>
@@ -553,7 +553,7 @@ export default function ArsenalPage() {
             </p>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Button
               onClick={() => setShowVaultModal(false)}
               className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-heading py-6 rounded-lg"
@@ -575,9 +575,9 @@ export default function ArsenalPage() {
       </Dialog>
 
       <Dialog open={showResult} onOpenChange={setShowResult}>
-        <DialogContent className="bg-zinc-900 border-2 border-primary max-w-md">
+        <DialogContent className="max-h-[92dvh] max-w-md overflow-y-auto border-2 border-primary bg-zinc-900 p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="font-heading text-3xl text-center text-primary">
+            <DialogTitle className="text-center font-heading text-2xl text-primary sm:text-3xl">
               Resultado
             </DialogTitle>
           </DialogHeader>

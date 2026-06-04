@@ -541,15 +541,15 @@ export default function LavagemDeDinheiroPage() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setSelectedBusiness(null)}
-                className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50"
+                className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4"
               >
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   onClick={(e) => e.stopPropagation()}
-className="bg-gray-900 border border-primary/30 rounded-lg max-w-2xl w-full overflow-hidden"
+className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[2rem] border border-primary/30 bg-gray-900 sm:rounded-lg"
                 >
-                  <div className="relative w-full h-64 overflow-hidden">
+                  <div className="relative h-44 w-full overflow-hidden sm:h-64">
                     <Image
                       src={selectedBusiness.image}
                       alt={selectedBusiness.name}
@@ -559,10 +559,10 @@ className="bg-gray-900 border border-primary/30 rounded-lg max-w-2xl w-full over
                     />
                   </div>
 
-                  <div className="p-8">
-                    <div className="flex justify-between items-start mb-4">
+                  <div className="p-4 sm:p-8">
+                    <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
-                        <h2 className="font-heading text-4xl font-bold text-primary mb-2">
+                        <h2 className="mb-2 font-heading text-2xl font-bold text-primary sm:text-4xl">
                           {selectedBusiness.name}
                         </h2>
                         <p className="text-primary text-lg">{selectedBusiness.city}</p>
@@ -579,7 +579,7 @@ className="bg-gray-900 border border-primary/30 rounded-lg max-w-2xl w-full over
                       {selectedBusiness.description}
                     </p>
 
-                    <div className="grid grid-cols-2 gap-4 mb-8 p-6 bg-primary/10 border border-primary/30 rounded">
+                    <div className="mb-6 grid grid-cols-1 gap-3 p-4 sm:mb-8 sm:grid-cols-2 sm:gap-4 sm:p-6 bg-primary/10 border border-primary/30 rounded">
                       <div>
                         <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
                           Valor Inicial Escalado
@@ -619,7 +619,7 @@ className="bg-gray-900 border border-primary/30 rounded-lg max-w-2xl w-full over
                         <p className="text-sm text-yellow-400 mb-4 font-bold">
                           OPERAÇÃO EM ANDAMENTO
                         </p>
-                        <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
                           <div>
                             <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
                               Tempo Restante
@@ -662,7 +662,7 @@ className="bg-gray-900 border border-primary/30 rounded-lg max-w-2xl w-full over
                       </div>
                     )}
 
-                    <div className="flex gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <Button
                         ref={(el) => {
                           if (el) buttonRefs.current[selectedBusiness.id] = el;

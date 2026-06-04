@@ -420,15 +420,15 @@ export default function SubornoIlustradoPage() {
       />
 
       <Dialog open={showResult} onOpenChange={setShowResult}>
-        <DialogContent className="bg-gray-900 border-emerald-800 max-w-md">
+        <DialogContent className="max-h-[92dvh] max-w-md overflow-y-auto border-emerald-800 bg-gray-900 p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="font-heading text-3xl text-center">
+            <DialogTitle className="text-center font-heading text-2xl sm:text-3xl">
               Resultado da Operação
             </DialogTitle>
           </DialogHeader>
 
-          <div className="text-center py-8">
-            <p className="font-paragraph text-xl whitespace-pre-line text-gray-200 leading-relaxed">
+          <div className="py-5 text-center sm:py-8">
+            <p className="whitespace-pre-line font-paragraph text-base sm:text-xl text-gray-200 leading-relaxed">
               {resultMessage}
             </p>
           </div>

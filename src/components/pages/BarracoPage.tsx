@@ -374,12 +374,12 @@ export default function BarracoPage() {
 
       {showSuccessModal && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
           <motion.div
-            className="w-full max-w-md rounded-[2rem] border border-emerald-400/30 bg-zinc-950 p-6 text-center shadow-2xl"
+            className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[2rem] border border-emerald-400/30 bg-zinc-950 p-5 text-center shadow-2xl sm:rounded-[2rem] sm:p-6"
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
           >
