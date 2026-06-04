@@ -387,7 +387,7 @@ export default function FugaIlustradaPage() {
                   Garagem<br />da Fuga
                 </h1>
                 <p className="mt-6 max-w-2xl text-sm leading-7 text-white/70 md:text-base">
-                  Contratos táticos de frota comprados com Commands Limpo. Cada veículo entra no inventário e aplica +1% permanente em estatística real da gangue usada na batalha.
+                  Contratos táticos de frota comprados com Commands Limpo. Cada veículo aplica +1% permanente em uma combinação específica de membro/estatística usada na batalha.
                 </p>
               </div>
 
@@ -395,7 +395,7 @@ export default function FugaIlustradaPage() {
                 <CompactStat label="Limpo" value={formatFugaMoney(cleanMoney)} accent={selectedVehicle.accent} />
                 <CompactStat label="Frota" value={`${ownedVehicles.length}/${FUGA_MAX_VEHICLES}`} />
                 <CompactStat label="Barraco" value={`Nv. ${barracoLevel}`} />
-                <CompactStat label="Bônus" value={`+${ownedVehicles.length}%`} accent={selectedVehicle.accent2} />
+                <CompactStat label="Bônus táticos" value={`${ownedVehicles.length} contratos`} accent={selectedVehicle.accent2} />
               </div>
 
               <div className="mt-4 rounded-[24px] border border-white/10 bg-black/42 p-4">
