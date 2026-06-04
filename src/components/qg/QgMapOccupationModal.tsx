@@ -227,7 +227,7 @@ export default function QgMapOccupationModal({ isOpen, locationKey, initialState
             initial={{ y: 40, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 40, opacity: 0, scale: 0.98 }}
-            className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#050507]/95 p-4 text-white shadow-2xl sm:rounded-[2rem] sm:p-6"
+            className="max-h-[92dvh] w-full max-w-5xl overflow-y-auto overscroll-contain rounded-t-[2rem] border border-white/10 bg-[#050507]/95 p-4 text-white shadow-2xl sm:rounded-[2rem] sm:p-6"
             style={{ boxShadow: `0 0 90px ${tone.accent}35` }}
           >
             <div className="flex items-start justify-between gap-4">
