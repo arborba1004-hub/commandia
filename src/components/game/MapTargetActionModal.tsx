@@ -117,9 +117,22 @@ export default function MapTargetActionModal({
 
   // CUIDADO: Não use useGangStore((s) => s.getAvailableByType()) — essa chamada
   // retorna objeto novo a cada render e causa loop infinito (React error #185).
-  // Lemos gang.members direto e calculamos com useMemo.
-  const gangMembers = useGangStore((state) => state.gang?.members);
-  const loadGang    = useGangStore((state) => state.loadGang);
+  // Fonte oficial da gangue: Player.gang.members. O gangStore é cache de tela.
+  const storeGangMembers = useGangStore((state) => state.gang?.members);
+  const loadGang         = useGangStore((state) => state.loadGang);
+  const player           = usePlayerStore((state) => state.player);
+
+  const gangMembers = useMemo(() => {
+    const fromStore = Array.isArray(storeGangMembers) ? storeGangMembers : [];
+    const fromPlayerGang = Array.isArray((player as any)?.gang?.members) ? (player as any).gang.members : [];
+    const fromPlayerLegacyMirror = Array.isArray((player as any)?.gangMembers) ? (player as any).gangMembers : [];
+
+    // O modal não pode depender de GangWar. Se o gangStore ainda não hidratou,
+    // usa imediatamente o Player.gang que veio de /player/me, socket ou treino.
+    if (fromStore.length) return fromStore;
+    if (fromPlayerGang.length) return fromPlayerGang;
+    return fromPlayerLegacyMirror;
+  }, [storeGangMembers, (player as any)?.gang?.members, (player as any)?.gangMembers]);
 
   const availableByType = useMemo(() => {
     const counts: Partial<Record<GangMemberType, number>> = {};
@@ -132,8 +145,6 @@ export default function MapTargetActionModal({
     }
     return counts;
   }, [gangMembers]);
-
-  const player = usePlayerStore((state) => state.player);
 
   const {
     previewTarget,
