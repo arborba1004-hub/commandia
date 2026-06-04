@@ -61,7 +61,7 @@ export default function CardTransactionModal({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -72,7 +72,7 @@ export default function CardTransactionModal({
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ duration: 0.35 }}
-            className="relative w-[320px] h-[420px] bg-[#111] rounded-3xl border border-white/10 shadow-2xl flex flex-col items-center justify-start pt-6"
+            className="relative h-[min(78dvh,420px)] w-[min(92vw,320px)] rounded-3xl bg-[#111] border border-white/10 shadow-2xl flex flex-col items-center justify-start pt-6"
           >
             {/* TELA */}
             <div className="w-[85%] h-[140px] bg-black rounded-xl border border-white/10 flex items-center justify-center text-center px-4">

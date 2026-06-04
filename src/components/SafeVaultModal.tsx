@@ -55,7 +55,7 @@ export default function DirtyMoneyVaultModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-transparent border-none shadow-none max-w-3xl h-[600px] p-0 overflow-hidden">
+      <DialogContent className="h-[min(86dvh,600px)] max-w-3xl overflow-hidden border-none bg-transparent p-0 shadow-none">
         <div className="w-full h-full flex flex-col items-center justify-center relative [perspective:1500px]">
           <div className="relative w-full h-full bg-gradient-to-b from-gray-800 to-gray-950 overflow-hidden rounded-3xl border-8 border-green-900 shadow-[0_0_80px_rgba(0,0,0,0.7)]">
             {/* FUNDO INTERNO DO COFRE */}

@@ -247,27 +247,27 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={() => setSelectedAccessory(null)}
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4"
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-custom4 rounded-lg max-w-2xl w-full border-2 border-primary p-8"
+            className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[2rem] border-2 border-primary bg-custom4 p-4 sm:rounded-lg sm:p-8"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-8">
               {/* Image */}
               <div className="flex flex-col items-center">
                 {selectedAccessory.itemImage ? (
                   <Image
                     src={selectedAccessory.itemImage}
                     alt={selectedAccessory.itemName || 'Acessório'}
-                    className="w-full h-64 object-cover rounded-lg mb-4"
+                    className="h-44 w-full rounded-lg object-cover sm:h-64"
                     width={400}
                   />
                 ) : (
-                  <div className="w-full h-64 bg-gradient-to-br from-primary to-custom4 rounded-lg flex items-center justify-center mb-4">
+                  <div className="h-44 w-full bg-gradient-to-br sm:h-64 from-primary to-custom4 rounded-lg flex items-center justify-center mb-4">
                     <span className="text-secondary">Sem imagem</span>
                   </div>
                 )}
@@ -275,7 +275,7 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
 
               {/* Details */}
               <div>
-                <h2 className="font-heading text-4xl font-bold text-primary mb-4">
+                <h2 className="mb-4 font-heading text-2xl font-bold text-primary sm:text-4xl">
                   {selectedAccessory.itemName}
                 </h2>
 
@@ -331,7 +331,7 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
                     cleanMoney < (selectedAccessory.itemPrice || 1.99) ||
                     ownedVehicles.length === 0
                   }
-                  className={`w-full py-3 rounded font-heading font-bold text-lg transition-all ${
+                  className={`min-h-12 w-full rounded py-3 font-heading text-base font-bold sm:text-lg transition-all ${
                     purchasedAccessories.some((acc) => acc.accessoryId === selectedAccessory._id)
                       ? 'bg-custom4 text-secondary cursor-not-allowed'
                       : ownedVehicles.length === 0
@@ -352,7 +352,7 @@ export default function AccessoriesShop({ ownedVehicles, vehicles }: Accessories
 
                 <button
                   onClick={() => setSelectedAccessory(null)}
-                  className="w-full mt-3 py-3 rounded font-heading font-bold text-lg border-2 border-secondary text-secondary hover:bg-secondary hover:text-black transition-all"
+                  className="mt-3 min-h-12 w-full rounded py-3 font-heading text-base font-bold sm:text-lg border-2 border-secondary text-secondary hover:bg-secondary hover:text-black transition-all"
                 >
                   Fechar
                 </button>

@@ -28,14 +28,14 @@ export default function BackendHealthCheckModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
         >
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="bg-custom4 border border-secondary/20 rounded-lg p-8 max-w-md w-full space-y-6"
+            className="max-h-[92dvh] w-full max-w-md space-y-5 overflow-y-auto rounded-t-[2rem] border border-secondary/20 bg-custom4 p-5 sm:rounded-lg sm:p-8"
           >
             <div className="flex flex-col items-center gap-4">
               {isChecking ? (

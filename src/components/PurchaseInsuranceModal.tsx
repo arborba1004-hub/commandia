@@ -64,9 +64,9 @@ export default function PurchaseInsuranceModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
           <motion.div
-            className="relative w-full max-w-2xl mx-4 bg-gradient-to-br from-white/10 to-white/5 border border-primary/30 rounded-lg p-8 shadow-2xl"
+            className="relative max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[2rem] border border-primary/30 bg-gradient-to-br from-white/10 to-white/5 p-5 shadow-2xl sm:mx-4 sm:rounded-lg sm:p-8"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}

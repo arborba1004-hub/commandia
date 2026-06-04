@@ -62,9 +62,9 @@ export default function TalentUpgradeModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
           >
-            <Card className="bg-gray-900 border-primary w-full max-w-md relative overflow-hidden">
+            <Card className="relative max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[2rem] border-primary bg-gray-900 sm:rounded-xl">
               {/* Close Button */}
               <button
                 onClick={onClose}

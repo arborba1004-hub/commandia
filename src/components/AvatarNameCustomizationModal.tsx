@@ -145,8 +145,8 @@ export default function AvatarNameCustomizationModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-[#d7a84a]/30 bg-[#0a0a0a] shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[2rem] border sm:rounded-3xl border-[#d7a84a]/30 bg-[#0a0a0a] shadow-2xl">
         <div className="flex items-center justify-between border-b border-[#d7a84a]/20 px-6 py-4">
           <h2 className="text-2xl font-black uppercase tracking-wide text-[#f6d27b]">
             Personalizar Perfil
@@ -183,7 +183,7 @@ export default function AvatarNameCustomizationModal({
           </button>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-6">
+        <div className="max-h-none overflow-visible p-4 sm:max-h-[60vh] sm:overflow-y-auto sm:p-6">
           {activeTab === 'avatar' && (
             <div className="space-y-6">
               <div className="text-center">
