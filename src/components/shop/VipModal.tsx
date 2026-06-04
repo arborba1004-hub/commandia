@@ -76,7 +76,7 @@ export default function VipModal({ open, onOpenChange }: VipModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[92dvh] max-w-4xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Crown className="w-6 h-6 text-primary" />
