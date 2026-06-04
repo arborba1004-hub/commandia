@@ -100,7 +100,7 @@ export default function DirectMessageModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md border-white/10 bg-[#090909] p-0 text-white">
+      <DialogContent className="max-h-[92dvh] max-w-md overflow-hidden border-white/10 bg-[#090909] p-0 text-white">
         <div className="flex flex-col" style={{ maxHeight: '80vh' }}>
 
           {/* Header */}
@@ -123,7 +123,7 @@ export default function DirectMessageModal({
           </div>
 
           {/* Histórico da conversa */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 min-h-[120px] max-h-[320px]">
+          <div className="min-h-[120px] flex-1 space-y-2 overflow-y-auto px-4 py-3 max-h-[42dvh] sm:max-h-[320px]">
             {conversation.length === 0 ? (
               <div className="flex items-center justify-center py-6 text-sm text-zinc-600">
                 Nenhuma mensagem ainda. Seja o primeiro a escrever.

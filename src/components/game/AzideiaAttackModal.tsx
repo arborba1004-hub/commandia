@@ -76,9 +76,9 @@ export default function AzideiaAttackModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div
-        className={`w-full max-w-md rounded-3xl border ${borderClass} bg-zinc-950 p-5 shadow-2xl`}
+        className={`max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[2rem] border ${borderClass} bg-zinc-950 p-4 shadow-2xl sm:rounded-3xl sm:p-5`}
       >
         <div className="flex items-center gap-3">
           {isMestreObras ? (

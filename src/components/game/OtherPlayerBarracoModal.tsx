@@ -160,7 +160,7 @@ export default function OtherPlayerBarracoModal({
 
   return (
     <Dialog open={state.isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
-      <DialogContent className="max-w-md border-white/10 bg-[#090909] p-0 text-white">
+      <DialogContent className="max-h-[92dvh] max-w-md overflow-hidden border-white/10 bg-[#090909] p-0 text-white">
         {!target ? null : (
           <div className="overflow-hidden rounded-3xl">
             <div
