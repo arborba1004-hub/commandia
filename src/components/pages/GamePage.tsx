@@ -33,6 +33,7 @@ import MapTargetActionModal from "@/components/game/MapTargetActionModal";
 import AttackResultOverlay from "@/components/game/AttackResultOverlay";
 import ConvoyAttackAnimation from "@/components/game/ConvoyAttackAnimation";
 import AttackIncomingToast from "@/components/game/AttackIncomingToast";
+import ActiveConvoyMarchesHud from "@/components/game/ActiveConvoyMarchesHud";
 import { useMapAttack } from "@/hooks/useMapAttack";
 import { useMapAttackStore } from "@/store/mapAttackStore";
 import { useActiveMapBattles } from "@/hooks/useActiveMapBattles";
@@ -406,6 +407,13 @@ export default function GamePage() {
       GRID_WIDTH,
       GRID_HEIGHT,
     );
+  }, [mapAttack]);
+
+  const handleAccelerateConvoyFromHud = useCallback(async (battleId: string) => {
+    const scene = sceneRef.current;
+    const camera = cameraRef.current;
+    if (!battleId || !scene || !camera) return;
+    await mapAttack.accelerateActiveAttack(scene, camera, GRID_WIDTH, GRID_HEIGHT);
   }, [mapAttack]);
 
   const waitForAzideiaScene = useCallback(async (expectedSceneEpoch = sceneEpochRef.current) => {
@@ -1627,6 +1635,10 @@ export default function GamePage() {
       )}
       <AttackResultOverlay />
       <ConvoyAttackAnimation />
+      <ActiveConvoyMarchesHud
+        localActiveBattleId={mapAttack.activeBattleId}
+        onAccelerateLocalBattle={handleAccelerateConvoyFromHud}
+      />
       <AttackIncomingToast />
 
       <AzideiaAttackModal
