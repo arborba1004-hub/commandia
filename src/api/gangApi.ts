@@ -3,7 +3,8 @@
  * API unificada da gangue.
  * Substitui: gangWarApi.ts, training.ts
  *
- * Todos os endpoints do backend /gang-war/* estão aqui.
+ * Todos os endpoints oficiais do backend /api/gang/* estão aqui.
+ * Não usa /gang-war: GangWar é legado e não é fonte da gangue real.
  * Um único request() com timeout, token e tratamento de erro.
  */
 
@@ -77,7 +78,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 /** Carrega o estado completo da gangue do jogador autenticado. */
 export async function fetchMyGang(): Promise<GangApiEnvelope> {
-  return request('/gang-war/me', { method: 'GET' });
+  return request('/api/gang/me', { method: 'GET' });
 }
 
 /**
@@ -85,7 +86,7 @@ export async function fetchMyGang(): Promise<GangApiEnvelope> {
  * Custo em dinheiro sujo debitado pelo backend.
  */
 export async function recruitGangMember(type: GangMemberType): Promise<GangApiEnvelope> {
-  return request('/gang-war/recruit', {
+  return request('/api/gang/recruit', {
     method: 'POST',
     body: JSON.stringify({ type }),
   });
@@ -99,10 +100,7 @@ export async function queueGangTraining(
   type: GangMemberType,
   quantity: number
 ): Promise<GangApiEnvelope> {
-  return request('/gang-war/train/queue', {
-    method: 'POST',
-    body: JSON.stringify({ type, quantity }),
-  });
+  throw new Error('queueGangTraining legado removido. Use startTraining(ctKey, troopType, troopLevel) de @/api/training.');
 }
 
 /**
@@ -110,17 +108,17 @@ export async function queueGangTraining(
  * Backend verifica endsAt e move membros de 'treinando' → 'ativo'.
  */
 export async function completeGangTrainings(): Promise<GangApiEnvelope> {
-  return request('/gang-war/train/complete', { method: 'POST' });
+  throw new Error('completeGangTrainings legado removido. Use collectTraining(slotId) de @/api/training.');
 }
 
 /** Eleva o nível do CT do jogador (custo escalonado). */
 export async function upgradeGangCT(): Promise<GangApiEnvelope> {
-  return request('/gang-war/ct/upgrade', { method: 'POST' });
+  return request('/api/gang/ct/upgrade', { method: 'POST' });
 }
 
 /** Paga a manutenção diária da gangue. */
 export async function payGangMaintenance(): Promise<GangApiEnvelope> {
-  return request('/gang-war/maintenance/pay', { method: 'POST' });
+  return request('/api/gang/maintenance/pay', { method: 'POST' });
 }
 
 /**
@@ -130,7 +128,7 @@ export async function payGangMaintenance(): Promise<GangApiEnvelope> {
 export async function setGangFormation(
   formation: GangFormationType
 ): Promise<GangApiEnvelope> {
-  return request('/gang-war/formation/set', {
+  return request('/api/gang/formation/set', {
     method: 'POST',
     body: JSON.stringify({ formation }),
   });
@@ -147,7 +145,7 @@ export async function applyGangBattleLosses(payload: {
     feridos: Record<string, number>;
   };
 }): Promise<GangApiEnvelope> {
-  return request('/gang-war/apply-battle-losses', {
+  return request('/api/gang/apply-battle-losses', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -170,14 +168,14 @@ export type GangStatsEnvelope = {
 
 /** Carrega as fontes salvas e o snapshot efetivo das estatísticas da gangue. */
 export async function fetchGangStats(): Promise<GangStatsEnvelope> {
-  return request('/gang-war/stats', { method: 'GET' });
+  return request('/api/gang/stats', { method: 'GET' });
 }
 
 /** Cria ou atualiza uma fonte de estatística da gangue. */
 export async function upsertGangStatSource(
   source: Partial<GangStatSource> & Pick<GangStatSource, 'source' | 'label' | 'targetScope'>
 ): Promise<GangStatsEnvelope & { source: GangStatSource }> {
-  return request('/gang-war/stats/source', {
+  return request('/api/gang/stats/source', {
     method: 'POST',
     body: JSON.stringify(source),
   });
@@ -187,7 +185,7 @@ export async function upsertGangStatSource(
 export async function removeGangStatSource(
   sourceId: string
 ): Promise<GangStatsEnvelope & { removed: boolean }> {
-  return request(`/gang-war/stats/source/${encodeURIComponent(sourceId)}`, {
+  return request(`/api/gang/stats/source/${encodeURIComponent(sourceId)}`, {
     method: 'DELETE',
   });
 }
