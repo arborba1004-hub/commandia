@@ -57,11 +57,27 @@ import { mountAttackConvoy3D } from "@/components/game/convoy/convoy3DAnimator";
 import { getConvoySkin } from "@/data/convoyCatalog";
 import { getQgEventState, type QgEventState, type QgLocationKey } from "@/api/qgEventApi";
 import QgMapOccupationModal from "@/components/qg/QgMapOccupationModal";
+import {
+  disposeThreeObject,
+  releaseOrphanedCommandiaCanvases,
+  releaseWebGLRenderer,
+} from "@/utils/threeCleanup";
 
 const GRID_WIDTH = 120;
 const GRID_HEIGHT = 120;
 const TILE_SIZE = 1;
 const PLATFORM_HEIGHT = 1.2;
+
+function isMobileLikeDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+function getSafeDevicePixelRatio() {
+  if (typeof window === "undefined") return 1;
+  const ratio = window.devicePixelRatio || 1;
+  return Math.min(ratio, isMobileLikeDevice() ? 1.25 : 1.75);
+}
 
 const FLOOR_TEXTURE =
   "https://static.wixstatic.com/media/50f4bf_df004e568945465ba2231dc36addfe09~mv2.jpeg";
@@ -238,7 +254,9 @@ export default function GamePage() {
   // do squad marchando até o alvo durante o ataque.
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.Camera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const [threeReady, setThreeReady] = useState(false);
+  const [webglError, setWebglError] = useState<string | null>(null);
 
   // ── Modal: barraco de outro jogador
   const [modalState, setModalState] = useState(
@@ -690,6 +708,15 @@ export default function GamePage() {
     }
 
     let isMounted = true;
+    setWebglError(null);
+    setThreeReady(false);
+
+    // Em Android/WebView o browser limita a quantidade de contextos WebGL.
+    // Se um hot reload, StrictMode ou navegação anterior deixou canvas preso,
+    // libera antes de criar outro renderer.
+    releaseWebGLRenderer(rendererRef.current, mountEl);
+    rendererRef.current = null;
+    releaseOrphanedCommandiaCanvases(mountEl);
 
     const scene = new THREE.Scene();
     const sceneEpoch = sceneEpochRef.current + 1;
@@ -705,10 +732,32 @@ export default function GamePage() {
     );
     cameraRef.current = camera; // exposto para o sistema de ataque
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(mountEl.clientWidth, mountEl.clientHeight);
-    renderer.shadowMap.enabled = true;
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: !isMobileLikeDevice(),
+        alpha: false,
+        powerPreference: "high-performance",
+      });
+    } catch (error) {
+      console.error("[GamePage] Error creating WebGL context:", error);
+      setWebglError(
+        "Não foi possível abrir o mapa 3D neste momento. Feche outras abas/app, recarregue e tente novamente.",
+      );
+      disposeThreeObject(scene);
+      sceneRef.current = null;
+      cameraRef.current = null;
+      return () => {
+        isMounted = false;
+        setThreeReady(false);
+      };
+    }
+
+    rendererRef.current = renderer;
+    renderer.domElement.dataset.commandiaGameCanvas = "true";
+    renderer.setPixelRatio(getSafeDevicePixelRatio());
+    renderer.setSize(mountEl.clientWidth, mountEl.clientHeight, false);
+    renderer.shadowMap.enabled = !isMobileLikeDevice();
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mountEl.appendChild(renderer.domElement);
 
@@ -725,9 +774,9 @@ export default function GamePage() {
     scene.add(new THREE.AmbientLight(0xffffff, 1.25));
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.35);
     dirLight.position.set(40, 90, 30);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
+    dirLight.castShadow = !isMobileLikeDevice();
+    dirLight.shadow.mapSize.width = isMobileLikeDevice() ? 1024 : 2048;
+    dirLight.shadow.mapSize.height = isMobileLikeDevice() ? 1024 : 2048;
     dirLight.shadow.camera.near = 1;
     dirLight.shadow.camera.far = 300;
     dirLight.shadow.camera.left = -90;
@@ -741,7 +790,7 @@ export default function GamePage() {
     floorTexture.wrapS = THREE.ClampToEdgeWrapping;
     floorTexture.wrapT = THREE.ClampToEdgeWrapping;
     floorTexture.repeat.set(1, 1);
-    floorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    floorTexture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), isMobileLikeDevice() ? 2 : 8);
     floorTexture.magFilter = THREE.LinearFilter;
     floorTexture.minFilter = THREE.LinearMipmapLinearFilter;
 
@@ -1455,13 +1504,14 @@ export default function GamePage() {
       const h = Math.max(mountEl.clientHeight, 1);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
+      renderer.setSize(w, h, false);
     }
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(mountEl);
 
     let animationFrameId = 0;
     function animate() {
+      if (!isMounted) return;
       animationFrameId = window.requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
@@ -1518,13 +1568,15 @@ export default function GamePage() {
       scene.remove(platform);
       scene.remove(clickPlane);
       scene.remove(selectionMesh);
+      disposeThreeObject(scene);
+      scene.clear();
 
-      renderer.dispose();
-      if (mountEl && renderer.domElement?.parentNode === mountEl) {
-        mountEl.removeChild(renderer.domElement);
+      if (rendererRef.current === renderer) {
+        rendererRef.current = null;
       }
-      sceneRef.current = null;
-      cameraRef.current = null;
+      releaseWebGLRenderer(renderer, mountEl);
+      if (sceneRef.current === scene) sceneRef.current = null;
+      if (cameraRef.current === camera) cameraRef.current = null;
     };
   }, [navigate, isPlayerLoaded, player?._id]);
 
@@ -1547,6 +1599,22 @@ export default function GamePage() {
     <div className="fixed inset-x-0 bottom-0 top-[68px] z-40 overflow-hidden bg-black sm:top-[76px]">
       {/* MAPA — tela cheia */}
       <div ref={mountRef} className="absolute inset-0 touch-none select-none" />
+
+      {webglError && (
+        <div className="absolute inset-0 z-[120] flex items-center justify-center bg-black/85 px-6 text-center text-white">
+          <div className="max-w-sm rounded-3xl border border-red-500/40 bg-zinc-950/95 p-5 shadow-2xl">
+            <div className="mb-2 text-lg font-black text-red-300">Mapa 3D indisponível</div>
+            <p className="text-sm leading-relaxed text-zinc-200">{webglError}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-4 rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white active:scale-95"
+            >
+              Recarregar mapa
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── HUD INFERIOR DIREITO — atalhos fixos e responsivos ───────────── */}
       <div
