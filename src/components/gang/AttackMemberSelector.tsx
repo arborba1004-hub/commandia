@@ -116,7 +116,7 @@ export default function AttackMemberSelector({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl bg-gradient-to-b from-slate-900 to-slate-950 border-slate-700">
+      <DialogContent className="max-h-[92dvh] max-w-2xl overflow-y-auto border-slate-700 bg-gradient-to-b from-slate-900 to-slate-950 p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-heading">
             <Users className="w-5 h-5 text-primary" />
@@ -126,7 +126,7 @@ export default function AttackMemberSelector({
 
         <div className="space-y-4">
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
               <div className="text-xs text-slate-400 mb-1">Selecionados</div>
               <div className="text-2xl font-bold text-primary">{selectedCount}</div>
@@ -166,7 +166,7 @@ export default function AttackMemberSelector({
           )}
 
           {/* Members List */}
-          <ScrollArea className="h-96 border border-slate-700 rounded-lg bg-slate-800/20">
+          <ScrollArea className="h-[46dvh] rounded-lg border border-slate-700 bg-slate-800/20 sm:h-96">
             <div className="p-4 space-y-2">
               {members.length === 0 ? (
                 <div className="text-center py-8 text-slate-400">

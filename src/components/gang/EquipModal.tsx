@@ -62,7 +62,7 @@ export default function EquipModal({ isOpen, member, onClose }: Props) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="border border-white/10 bg-zinc-900 text-white">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto border border-white/10 bg-zinc-900 text-white">
         <DialogHeader>
           <DialogTitle>
             Equipamentos de {getMemberLabel(member.type)}
@@ -100,7 +100,7 @@ export default function EquipModal({ isOpen, member, onClose }: Props) {
                 Nenhum item encontrado no inventário do jogador.
               </div>
             ) : (
-              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              <div className="max-h-[42dvh] space-y-2 overflow-y-auto pr-1 sm:max-h-64">
                 {inventoryItems.map((item: any) => (
                   <div
                     key={item.id || item._id || item.itemId}

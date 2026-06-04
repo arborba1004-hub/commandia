@@ -38,8 +38,8 @@ export default function RecruitModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-5xl rounded-3xl border border-white/10 bg-[#090909] p-6 text-white shadow-2xl">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="max-h-[92dvh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#090909] p-4 text-white shadow-2xl sm:rounded-3xl sm:p-6">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-black uppercase tracking-[0.08em]">

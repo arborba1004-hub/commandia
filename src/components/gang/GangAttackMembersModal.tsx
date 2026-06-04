@@ -192,7 +192,7 @@ export default function GangAttackMembersModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
-      <DialogContent className="max-w-4xl border-white/10 bg-[#090909] text-white">
+      <DialogContent className="max-h-[92dvh] max-w-4xl overflow-y-auto border-white/10 bg-[#090909] p-4 text-white sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black uppercase tracking-[0.08em]">
             Selecionar membros para o ataque

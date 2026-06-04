@@ -154,7 +154,7 @@ export default function GangTrainingModal({
     <AnimatePresence>
       {isOpen && (
         <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
-          <DialogContent className="overflow-hidden border-white/10 bg-[#050505] p-0 text-white sm:max-w-5xl">
+          <DialogContent className="max-h-[92dvh] overflow-y-auto border-white/10 bg-[#050505] p-0 text-white sm:max-w-5xl">
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -163,11 +163,11 @@ export default function GangTrainingModal({
               className="relative"
             >
               {/* Header */}
-              <div className="relative border-b border-white/10 px-8 py-6">
+              <div className="relative border-b border-white/10 px-4 py-4 sm:px-8 sm:py-6">
                 <DialogHeader>
-                  <div className="flex items-center justify-between gap-6">
+                  <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
                     <div>
-                      <DialogTitle className="flex items-center gap-3 text-3xl font-black uppercase tracking-[0.12em]">
+                      <DialogTitle className="flex items-center gap-3 text-xl font-black uppercase tracking-[0.08em] sm:text-3xl sm:tracking-[0.12em]">
                         <Sparkles className="h-7 w-7 text-red-400" />
                         Centro de Recrutamento
                       </DialogTitle>
@@ -175,7 +175,7 @@ export default function GangTrainingModal({
                         {slotKey.toUpperCase()} • Barraco lvl {barracoLevel} • Liberado até tropa nível {maxLevel}
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-3">
+                    <div className="w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 sm:w-auto sm:px-5">
                       <div className="text-xs uppercase text-emerald-300">Dinheiro sujo</div>
                       <div className="mt-1 text-2xl font-black">
                         {dirtyMoney.toLocaleString('pt-BR')}
@@ -185,7 +185,7 @@ export default function GangTrainingModal({
                 </DialogHeader>
               </div>
 
-              <div className="relative p-8">
+              <div className="relative p-4 sm:p-8">
                 {/* Slot ativo */}
                 {slotForThisCt && (
                   <ActiveTrainingCard
@@ -202,7 +202,7 @@ export default function GangTrainingModal({
                     <div className="mb-4 text-sm font-black uppercase tracking-[0.22em] text-zinc-500">
                       1 — Escolha o tipo
                     </div>
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
                       {TRAINABLE_MEMBER_TYPES.map((memberType) => {
                         const Icon = ICONS[memberType];
                         const isSelected = selectedType === memberType;
@@ -211,7 +211,7 @@ export default function GangTrainingModal({
                           <button
                             key={memberType}
                             onClick={() => setSelectedType(memberType)}
-                            className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition-all ${
+                            className={`group relative min-h-[72px] overflow-hidden rounded-2xl border p-3 text-left transition-all sm:p-4 ${
                               isSelected
                                 ? 'border-red-500 bg-red-500/10'
                                 : 'border-white/10 bg-white/[0.02] hover:border-white/20'
@@ -287,11 +287,11 @@ export default function GangTrainingModal({
                         </div>
 
                         {/* Botão de iniciar */}
-                        <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-6">
+                        <div className="sticky bottom-0 -mx-4 mt-6 flex flex-col gap-3 border-t border-white/10 bg-[#050505]/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:flex-row sm:justify-end sm:bg-transparent sm:p-0 sm:pt-6">
                           <Button
                             variant="outline"
                             onClick={onClose}
-                            className="h-12 rounded-2xl border-white/10 bg-white/5 px-6 text-sm font-black uppercase"
+                            className="h-12 w-full rounded-2xl border-white/10 bg-white/5 px-6 text-sm font-black uppercase sm:w-auto"
                           >
                             Fechar
                           </Button>
@@ -302,7 +302,7 @@ export default function GangTrainingModal({
                               }
                             }}
                             disabled={!canStart}
-                            className="h-12 rounded-2xl bg-gradient-to-r from-red-500 to-red-600 px-8 text-sm font-black uppercase tracking-[0.12em] text-white disabled:opacity-40"
+                            className="h-12 w-full rounded-2xl bg-gradient-to-r from-red-500 to-red-600 px-8 text-sm font-black uppercase tracking-[0.12em] text-white disabled:opacity-40 sm:w-auto"
                           >
                             {!canAfford && preview?.unlocked
                               ? 'Dinheiro insuficiente'
@@ -363,19 +363,19 @@ function ActiveTrainingCard({
 
       <div className={`relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${COLORS[slot.troopType]} p-5`}>
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-        <div className="relative flex items-center justify-between gap-6">
-          <div className="flex items-center gap-5">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-black/30">
+        <div className="relative flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl border border-white/10 bg-black/30">
               <Icon className="h-10 w-10 text-white" />
             </div>
             <div>
-              <div className="text-2xl font-black uppercase">
+              <div className="text-xl font-black uppercase sm:text-2xl">
                 {getMemberName(slot.troopType)} <span className="text-zinc-400">nível {slot.troopLevel}</span>
               </div>
               <div className="mt-1 text-sm text-zinc-300">
                 {slot.quantity} soldados em treino
               </div>
-              <div className="mt-4 h-2 w-72 overflow-hidden rounded-full bg-black/40">
+              <div className="mt-4 h-2 w-full overflow-hidden sm:w-72 rounded-full bg-black/40">
                 <motion.div
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 0.5 }}
@@ -385,7 +385,7 @@ function ActiveTrainingCard({
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-3">
+          <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:items-end">
             <div className="rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-center">
               <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                 {isDone ? 'Status' : 'Tempo restante'}
