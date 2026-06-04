@@ -61,7 +61,7 @@ function buildImageToken(id: string, src: string, alt: string) {
 
 export default function EmojiPicker({ onSelectEmoji }: EmojiPickerProps) {
   return (
-    <div className="w-[320px] rounded-2xl border border-border bg-card p-3 shadow-2xl">
+    <div className="w-[min(92vw,320px)] rounded-2xl border border-border bg-card p-3 shadow-2xl">
       <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
         Emojis e stickers
       </div>
