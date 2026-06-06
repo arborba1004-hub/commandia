@@ -833,25 +833,24 @@ export default function GamePage() {
           return;
         }
 
-        // CTs continuam sendo CTs de treino fora da Tomada.
-        // Durante preparação/guerra do QG, o treino fica bloqueado e abre só
-        // o modal daquele CT para tomar/reforçar/enviar gangue.
+        // CTs são prioritariamente treino. Abre imediatamente para não deixar
+        // o toque preso em uma request HTTP; a checagem da Tomada do QG roda em paralelo.
         if (path.startsWith("ct:")) {
           const ctKey = path.replace("ct:", "") as QgLocationKey;
+          setSelectedCT(ctKey);
+          setTrainingModalOpen(true);
+
           getQgEventState()
             .then((payload) => {
               setQgMapState(payload);
               const status = String(payload?.event?.status || "");
               if (isQgEventInteractionOpen(status)) {
+                setTrainingModalOpen(false);
                 openQgMapModal(ctKey, payload);
-                return;
               }
-              setSelectedCT(ctKey);
-              setTrainingModalOpen(true);
             })
-            .catch(() => {
-              setSelectedCT(ctKey);
-              setTrainingModalOpen(true);
+            .catch((error) => {
+              console.warn("[GamePage] Falha ao checar Tomada do QG para CT; mantendo treino aberto:", error);
             });
           return;
         }
