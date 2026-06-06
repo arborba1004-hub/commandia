@@ -302,7 +302,11 @@ export function mountAttackConvoy3D({
 
   // Carrega GLB sem travar a animação. Se falhar, mantém o veículo procedural.
   void tryLoadGLB(skin).then((model) => {
-    if (!model || cancelled || cleaned) return;
+    if (!model) return;
+    if (cancelled || cleaned || root.parent !== scene) {
+      disposeObject(model);
+      return;
+    }
     const old = vehicleRoot.children.find((child) => child.name.startsWith('procedural-'));
     if (old) {
       vehicleRoot.remove(old);
@@ -313,6 +317,7 @@ export function mountAttackConvoy3D({
 
   function cleanup() {
     if (cleaned) return;
+    cancelled = true;
     cleaned = true;
     if (frameId) cancelAnimationFrame(frameId);
     scene.remove(root);
