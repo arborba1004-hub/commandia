@@ -80,7 +80,7 @@ export default function ConvoyShop() {
         </div>
         <button
           type="button"
-          onClick={() => { void loadMyConvoys(); }}
+          onClick={() => { void loadMyConvoys(true); }}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-bold text-white hover:bg-white/10"
         >
           <RefreshCcw className="h-4 w-4" />
@@ -187,7 +187,7 @@ export default function ConvoyShop() {
         open={Boolean(paymentSkin)}
         onClose={() => {
           setPaymentSkin(null);
-          void loadMyConvoys();
+          void loadMyConvoys(true);
         }}
       />
     </div>
