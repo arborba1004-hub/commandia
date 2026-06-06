@@ -10,6 +10,10 @@ function hydratePlayerIfPresent(player: unknown) {
   }
 }
 
+const CONVOY_INVENTORY_CACHE_MS = 60_000;
+let loadMyConvoysPromise: Promise<void> | null = null;
+let lastConvoyInventoryLoadAt = 0;
+
 type PlayerConvoyStore = {
   ownedSkinIds: ConvoySkinId[];
   selectedSkinId: ConvoySkinId;
@@ -18,7 +22,7 @@ type PlayerConvoyStore = {
   error: string | null;
   backendSynced: boolean;
 
-  loadMyConvoys: () => Promise<void>;
+  loadMyConvoys: (force?: boolean) => Promise<void>;
   buyConvoy: (skinId: ConvoySkinId) => Promise<void>;
   selectConvoy: (skinId: ConvoySkinId) => Promise<void>;
   forceLocalSelection: (skinId: ConvoySkinId) => void;
@@ -33,28 +37,51 @@ export const usePlayerConvoyStore = create<PlayerConvoyStore>((set, get) => ({
   error: null,
   backendSynced: false,
 
-  loadMyConvoys: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const inventory = await getMyConvoys();
-      hydratePlayerIfPresent(inventory.player);
-      set({
-        ownedSkinIds: ensureDefaultOwned(inventory.ownedSkinIds),
-        selectedSkinId: inventory.equippedSkinId,
-        backendSynced: true,
-      });
-    } catch (err: any) {
-      // Não derruba o jogo se o backend ainda não tiver as rotas novas.
-      // Mantém apenas o comboio padrão liberado.
-      set({
-        ownedSkinIds: [DEFAULT_CONVOY_SKIN_ID],
-        selectedSkinId: DEFAULT_CONVOY_SKIN_ID,
-        backendSynced: false,
-        error: err?.message ?? 'Backend de comboio indisponível',
-      });
-    } finally {
-      set({ isLoading: false });
+  loadMyConvoys: async (force = false) => {
+    const now = Date.now();
+    const current = get();
+
+    // O modal de ataque pode montar/desmontar várias vezes. Não bata no banco
+    // a cada abertura se o inventário já foi carregado há pouco.
+    if (
+      !force &&
+      current.backendSynced &&
+      current.ownedSkinIds.length > 0 &&
+      now - lastConvoyInventoryLoadAt < CONVOY_INVENTORY_CACHE_MS
+    ) {
+      return;
     }
+
+    if (loadMyConvoysPromise) return loadMyConvoysPromise;
+
+    loadMyConvoysPromise = (async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const inventory = await getMyConvoys();
+        hydratePlayerIfPresent(inventory.player);
+        set({
+          ownedSkinIds: ensureDefaultOwned(inventory.ownedSkinIds),
+          selectedSkinId: inventory.equippedSkinId,
+          backendSynced: true,
+        });
+        lastConvoyInventoryLoadAt = Date.now();
+      } catch (err: any) {
+        // Não derruba o jogo se Render estiver acordando ou /convoy/me falhar.
+        // O comboio padrão precisa continuar disponível visualmente no ataque.
+        set({
+          ownedSkinIds: ensureDefaultOwned([DEFAULT_CONVOY_SKIN_ID]),
+          selectedSkinId: DEFAULT_CONVOY_SKIN_ID,
+          backendSynced: true,
+          error: err?.message ?? 'Backend de comboio indisponível; usando Comboio Padrão',
+        });
+        lastConvoyInventoryLoadAt = Date.now();
+      } finally {
+        set({ isLoading: false });
+        loadMyConvoysPromise = null;
+      }
+    })();
+
+    return loadMyConvoysPromise;
   },
 
   buyConvoy: async (skinId) => {
@@ -74,7 +101,7 @@ export const usePlayerConvoyStore = create<PlayerConvoyStore>((set, get) => ({
         hydratePlayerIfPresent(checkout.player);
 
         if (checkout.alreadyOwned || checkout.owned) {
-          await get().loadMyConvoys();
+          await get().loadMyConvoys(true);
           return;
         }
 
