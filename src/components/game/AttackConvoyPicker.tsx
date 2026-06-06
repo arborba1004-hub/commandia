@@ -13,8 +13,9 @@ export default function AttackConvoyPicker() {
   const selectConvoy = usePlayerConvoyStore((s) => s.selectConvoy);
 
   useEffect(() => {
+    if (backendSynced || isLoading) return;
     void loadMyConvoys();
-  }, [loadMyConvoys]);
+  }, [backendSynced, isLoading, loadMyConvoys]);
 
   const ownedConvoys = useMemo(
     () => CONVOY_CATALOG.filter((item) => ownedSkinIds.includes(item.id)),
