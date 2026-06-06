@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 import type { GangMemberType } from '@/components/gang/GangMembros';
-import GANG_MEMBROS from '@/components/gang/GangMembros';
+import { GANG_MEMBROS } from '@/components/gang/GangMembros';
 import { fetchTrainingPreview, type TrainingPreview } from '@/api/training';
 
 type TrainingSlot = {

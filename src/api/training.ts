@@ -1,4 +1,5 @@
 import type { GangMemberType } from '@/components/gang/GangMembros';
+import { GANG_MEMBROS } from '@/components/gang/GangMembros';
 
 const API_BASE =
   import.meta.env.VITE_API_URL ||
