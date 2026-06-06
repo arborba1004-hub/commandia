@@ -22,6 +22,7 @@ import { reconnectSocket, disconnectSocket } from '@/socket';
 export function useGameSocket(options: { enabled?: boolean } = {}) {
   const enabled = options.enabled ?? true;
   const hydratePlayerFromServer = usePlayerStore((s) => s.hydratePlayerFromServer);
+  const loadPlayer              = usePlayerStore((s) => s.loadPlayer);
   const setFaction              = useFactionStore((s) => s.setFaction);
   const socketInitializedRef    = useRef(false);
   const mountedRef              = useRef(true);
@@ -237,11 +238,34 @@ export function useGameSocket(options: { enabled?: boolean } = {}) {
 
     mountedRef.current = true;
     let socket: any = null;
+    let playerInitFallbackTimeoutId: ReturnType<typeof window.setTimeout> | null = null;
+
+    const clearPlayerInitFallback = () => {
+      if (playerInitFallbackTimeoutId !== null) {
+        window.clearTimeout(playerInitFallbackTimeoutId);
+        playerInitFallbackTimeoutId = null;
+      }
+    };
+
+    const schedulePlayerInitFallback = () => {
+      clearPlayerInitFallback();
+      if (!enabled) return;
+
+      playerInitFallbackTimeoutId = window.setTimeout(() => {
+        if (!mountedRef.current) return;
+        if (usePlayerStore.getState().isLoaded) return;
+
+        // Render free tier pode demorar a acordar e o playerInit via WS pode atrasar.
+        // /player/me desbloqueia a UI; o socket continua ativo para realtime.
+        void loadPlayer();
+      }, 5000);
+    };
 
     const handleAuthTokenChanged = () => {
       if (!enabled) return;
       try {
         socket = connectAndRegister();
+        schedulePlayerInitFallback();
       } catch (error) {
         console.error('🔴 useGameSocket: Erro ao conectar socket:', error);
         socketInitializedRef.current = false;
@@ -256,6 +280,7 @@ export function useGameSocket(options: { enabled?: boolean } = {}) {
     } else {
       try {
         socket = connectAndRegister();
+        schedulePlayerInitFallback();
       } catch (error) {
         console.error('Erro ao conectar socket:', error);
         socketInitializedRef.current = false;
@@ -265,10 +290,11 @@ export function useGameSocket(options: { enabled?: boolean } = {}) {
     return () => {
       mountedRef.current = false;
       window.removeEventListener('authTokenChanged', handleAuthTokenChanged);
+      clearPlayerInitFallback();
       removeRegisteredListeners(socket);
       socketInitializedRef.current = false;
     };
-  }, [enabled]);
+  }, [enabled, loadPlayer]);
 }
 
 /**
