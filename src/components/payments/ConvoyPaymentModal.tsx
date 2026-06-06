@@ -120,7 +120,7 @@ export default function ConvoyPaymentModal({ skin, open, onClose }: Props) {
                   setResult(response);
 
                   if (response.status === 'approved' || response.status === 'paid') {
-                    await loadMyConvoys();
+                    await loadMyConvoys(true);
                     setState('approved');
                   } else {
                     setState('pending');
